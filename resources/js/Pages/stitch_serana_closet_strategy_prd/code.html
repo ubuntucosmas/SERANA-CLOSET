@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@300;400;700&amp;family=Manrope:wght@300;400;500;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#CCFF00",
+              "on-primary": "#000000",
+              "surface": "#000000",
+              "on-surface": "#ffffff",
+              "surface-container": "#111111",
+              "surface-container-low": "#0a0a0a",
+              "surface-container-lowest": "#000000",
+              "surface-container-high": "#1a1a1a",
+              "outline": "#333333",
+              "outline-variant": "#222222",
+              "secondary": "#a1a1aa",
+              "error": "#ff4444"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0rem", "lg": "0rem", "xl": "0rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-white/5">
+<nav class="flex justify-between items-center px-8 py-6 w-full mx-auto">
+<div class="flex gap-8 items-center">
+<a class="font-headline uppercase tracking-widest text-[10px] text-secondary hover:text-primary transition-colors duration-300" href="#">Shop</a>
+<a class="font-headline uppercase tracking-widest text-[10px] text-secondary hover:text-primary transition-colors duration-300" href="#">Collections</a>
+<a class="font-headline uppercase tracking-widest text-[10px] text-secondary hover:text-primary transition-colors duration-300" href="#">Atelier</a>
+</div>
+<div class="font-headline text-2xl font-light tracking-[0.2em] text-white">
+                SERANA CLOSET
+            </div>
+<div class="flex items-center gap-6">
+<div class="hidden md:block">
+<span class="material-symbols-outlined text-white cursor-pointer hover:text-primary transition-colors duration-300">search</span>
+</div>
+<div class="relative cursor-pointer group">
+<span class="material-symbols-outlined text-primary font-semibold">shopping_bag</span>
+<span class="absolute -top-2 -right-2 bg-primary text-black text-[10px] w-4 h-4 flex items-center justify-center font-bold">2</span>
+</div>
+<span class="material-symbols-outlined text-white cursor-pointer hover:text-primary transition-colors duration-300">person</span>
+</div>
+</nav>
+</header>
+<!-- Overlay & Mini Cart -->
+<main class="relative min-h-screen pt-32 pb-24 px-8 md:px-24 bg-surface flex flex-col items-center justify-center">
+<!-- Background Imagery for Context -->
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
+<img class="w-full h-full object-cover grayscale" data-alt="Soft focused detail of ivory silk fabric folding elegantly with warm ambient lighting and luxurious textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATYh1loPnywkAD-H5XZR6SpH0qlTLobeM9Vq8I_p9IQKyPl6229o4azAGBKnjrdM8sPLAp277f_MXabRnxdglJD7Uh3XN0cG_uMnGtQY09WVXfm6bjcCYGRAR5svf4l9oFacRdkwV-XG9wt1QLYGnGgCihbFlIJq0Uf7JYw_nNI9z5AZNf53fZi_NZJQMiH5IwK3LdoCSwV3YGlOtD1VlSam9v8hfeOvMCutkhnLLD9lW7LKkFoFdO1Mq4BNWALGhxXEtjdnpdf2A"/>
+</div>
+<!-- Semantic Shell: Mini Cart Slide-out Component -->
+<div class="z-10 w-full max-w-lg bg-black border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col h-[870px]">
+<!-- Header -->
+<div class="px-8 py-10 flex justify-between items-center border-b border-white/5">
+<div>
+<h2 class="font-headline text-2xl tracking-widest text-white">YOUR SELECTION</h2>
+<p class="font-label text-[10px] uppercase tracking-[0.2em] text-secondary mt-1">2 Items in Bag</p>
+</div>
+<button class="text-white hover:text-primary transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Scrollable Items -->
+<div class="flex-grow overflow-y-auto px-8 no-scrollbar">
+<!-- Item 1: Bespoke -->
+<div class="flex gap-6 py-8 border-b border-white/5">
+<div class="w-24 h-32 flex-shrink-0 bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" data-alt="Close up of a premium white bespoke poplin shirt showing fine stitching and luxury mother of pearl buttons" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_-A2hay1HlFAGr50qULfUtI_nsiqlPIYOVnuS0AbpoQUNgxKHZF66tI6Qe3TnPqQhkFSvSsm8dWfWYsUeQmwXdqzvdtwpsf1t7faohMeso3YKtXkFCPAJjU_qL8wONA31_nE3au1qMigaJv_V9lt4_h_A4RhYZYNoJS18TpiO616GSkfiIof4To1NaJ-Tzlsw87rfRqfEX876OVcIO6JcEOpde2mPAWMc0wYzh7l4chhx3WGR4aTnHAajy_TLSIcJdrhcv6tCVQk"/>
+</div>
+<div class="flex flex-grow flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="font-headline text-lg text-white">Bespoke Poplin Shirt</h3>
+<span class="font-body text-sm font-medium text-primary">$420.00</span>
+</div>
+<p class="font-label text-[10px] text-primary uppercase tracking-widest mt-1">CUSTOM TAILORING</p>
+<p class="font-body text-xs text-secondary mt-2 leading-relaxed">Size: 15.5 | Slim Fit | French Cuff<br/>Initials: S.C.</p>
+</div>
+<div class="flex justify-between items-end mt-4">
+<div class="flex items-center gap-4 text-xs font-label">
+<span class="text-secondary uppercase">Qty</span>
+<div class="flex items-center gap-3 border border-white/10 px-3 py-1">
+<button class="hover:text-primary text-white">-</button>
+<span class="text-white">1</span>
+<button class="hover:text-primary text-white">+</button>
+</div>
+</div>
+<button class="text-[10px] font-label uppercase tracking-widest text-secondary hover:text-error transition-colors">Remove</button>
+</div>
+</div>
+</div>
+<!-- Item 2: Ready to Wear -->
+<div class="flex gap-6 py-8">
+<div class="w-24 h-32 flex-shrink-0 bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" data-alt="Deep emerald green silk evening gown draped on a minimalist mannequin with dramatic side lighting and high sheen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl9LOsW_55akyuAYrG3myz1O5Jp6bngV8gV_EFzSC9s3NDb_S09KoYuj2iPdvgbMRjwUY-MbtYHcC2LcaSyOHXUy0oJFh8-JMX-6O44e-OoQDaMFl-r5ZAYY2ccuY_6t7rWdqgkrefK1E7HF6GXlWleuwpvTjmHdxzyPP5xV16Q8g9PhJSjeJK-cq8WWnt3Qy3N6UspxA-bl-_PcapI7c0ykxLR5AnTZ5oKUXXcS0URlu06LUJ3XAYOd3Pf8THTC84xqnkXEQ1L4k"/>
+</div>
+<div class="flex flex-grow flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="font-headline text-lg text-white">Emerald Silk Evening Gown</h3>
+<span class="font-body text-sm font-medium text-primary">$2,850.00</span>
+</div>
+<p class="font-label text-[10px] text-secondary uppercase tracking-widest mt-1">READY-TO-WEAR</p>
+<p class="font-body text-xs text-secondary mt-2 leading-relaxed">Size: FR 38 | Color: Emerald</p>
+</div>
+<div class="flex justify-between items-end mt-4">
+<div class="flex items-center gap-4 text-xs font-label">
+<span class="text-secondary uppercase">Qty</span>
+<div class="flex items-center gap-3 border border-white/10 px-3 py-1">
+<button class="hover:text-primary text-white">-</button>
+<span class="text-white">1</span>
+<button class="hover:text-primary text-white">+</button>
+</div>
+</div>
+<button class="text-[10px] font-label uppercase tracking-widest text-secondary hover:text-error transition-colors">Remove</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Checkout Footer Section -->
+<div class="px-8 py-10 bg-[#050505] border-t border-white/5">
+<div class="space-y-3 mb-8">
+<div class="flex justify-between font-body text-sm text-secondary">
+<span>Subtotal</span>
+<span class="text-white">$3,270.00</span>
+</div>
+<div class="flex justify-between font-body text-sm text-secondary">
+<span>Shipping</span>
+<span class="text-primary uppercase text-[10px] tracking-widest">Complimentary</span>
+</div>
+<div class="pt-4 border-t border-white/5 flex justify-between items-end">
+<span class="font-headline text-lg text-white">Total</span>
+<span class="font-headline text-2xl text-primary">$3,270.00</span>
+</div>
+</div>
+<!-- Logistics Info -->
+<div class="mb-8 flex gap-3 p-4 bg-white/5 border border-white/5">
+<span class="material-symbols-outlined text-primary text-xl">auto_awesome</span>
+<div class="font-body text-xs leading-relaxed">
+<p class="font-semibold text-white">Estimated Delivery for Custom Pieces</p>
+<p class="text-secondary mt-1">Due to the bespoke nature of your Poplin Shirt, please allow 14–21 business days for master tailoring and delivery.</p>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-4">
+<button class="w-full bg-primary text-black py-4 font-label text-xs uppercase tracking-[0.2em] font-bold hover:brightness-110 transition-all">
+                        Proceed to Secure Checkout
+                    </button>
+<button class="w-full flex items-center justify-center gap-2 border border-white/10 py-4 font-label text-xs uppercase tracking-[0.2em] text-white hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-lg">chat</span>
+                        Quick Order via WhatsApp
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-black border-t border-white/5 w-full py-20 flex flex-col items-center gap-8 px-12">
+<div class="text-white font-headline tracking-widest text-lg">SERANA CLOSET</div>
+<div class="flex flex-wrap justify-center gap-10">
+<a class="font-label text-[10px] uppercase tracking-[0.1rem] text-secondary hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="font-label text-[10px] uppercase tracking-[0.1rem] text-secondary hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="font-label text-[10px] uppercase tracking-[0.1rem] text-secondary hover:text-primary transition-colors" href="#">Sustainability</a>
+<a class="font-label text-[10px] uppercase tracking-[0.1rem] text-secondary hover:text-primary transition-colors" href="#">Shipping</a>
+</div>
+<div class="font-label text-[10px] uppercase tracking-[0.1rem] text-primary">
+            © 2024 SERANA CLOSET. THE DIGITAL ATELIER.
+        </div>
+</footer>
+</body></html>

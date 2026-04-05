@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&amp;family=Manrope:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-container": "#9dadd5",
+              "on-background": "#1a1c1c",
+              "surface-bright": "#f9f9f9",
+              "tertiary-fixed": "#d8e2ff",
+              "on-secondary-fixed": "#1b1b1b",
+              "surface-container-high": "#e8e8e8",
+              "on-error": "#ffffff",
+              "on-primary": "#ffffff",
+              "on-error-container": "#93000a",
+              "surface-container-low": "#f3f3f4",
+              "secondary-fixed-dim": "#c6c6c6",
+              "on-tertiary-fixed-variant": "#374669",
+              "inverse-primary": "#e4c285",
+              "on-secondary-fixed-variant": "#474747",
+              "tertiary": "#4e5e82",
+              "secondary-fixed": "#e2e2e2",
+              "error-container": "#ffdad6",
+              "background": "#f9f9f9",
+              "on-surface-variant": "#4d463a",
+              "on-secondary": "#ffffff",
+              "on-primary-fixed-variant": "#5a4312",
+              "secondary-container": "#e2e2e2",
+              "surface-container": "#eeeeee",
+              "on-tertiary-container": "#314163",
+              "on-primary-container": "#543d0c",
+              "secondary": "#5e5e5e",
+              "inverse-on-surface": "#f0f1f1",
+              "error": "#ba1a1a",
+              "inverse-surface": "#2f3131",
+              "primary-fixed": "#ffdea4",
+              "on-tertiary-fixed": "#081b3b",
+              "on-primary-fixed": "#261900",
+              "surface-tint": "#745a27",
+              "outline": "#7f7668",
+              "primary-container": "#c9a96e",
+              "on-tertiary": "#ffffff",
+              "surface-container-highest": "#e2e2e2",
+              "surface-variant": "#e2e2e2",
+              "tertiary-fixed-dim": "#b6c6ef",
+              "primary-fixed-dim": "#e4c285",
+              "on-secondary-container": "#646464",
+              "surface": "#f9f9f9",
+              "outline-variant": "#d0c5b5",
+              "on-surface": "#1a1c1c",
+              "primary": "#745a27",
+              "surface-dim": "#dadada",
+              "surface-container-lowest": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .noto-serif { font-family: 'Noto Serif', serif; }
+        .manrope { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- TopNavBar (Shared Component) -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-sm flex justify-between items-center px-12 py-6 w-full max-w-full">
+<div class="text-2xl font-bold tracking-[0.2em] text-stone-900 font-serif noto-serif">SERANA CLOSET</div>
+<div class="hidden md:flex gap-10">
+<a class="text-stone-600 hover:text-stone-900 transition-colors duration-300 font-serif noto-serif tracking-tight" href="#">Shop</a>
+<a class="text-stone-600 hover:text-stone-900 transition-colors duration-300 font-serif noto-serif tracking-tight" href="#">Custom Designs</a>
+<a class="text-yellow-700 border-b border-yellow-700 pb-1 font-serif noto-serif tracking-tight" href="#">Admin</a>
+</div>
+<div class="flex items-center gap-6 text-yellow-700">
+<button class="hover:opacity-80 transition-opacity duration-300">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+</button>
+<button class="hover:opacity-80 transition-opacity duration-300">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</button>
+</div>
+</nav>
+<div class="flex pt-[88px]">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-[88px] flex flex-col h-[calc(100vh-88px)] py-8 h-screen w-64 border-r border-stone-200/20 bg-stone-50">
+<div class="px-6 mb-8">
+<h2 class="font-serif text-xl text-stone-900">Admin Suite</h2>
+<p class="font-sans manrope uppercase tracking-widest text-[10px] text-stone-500">Management Portal</p>
+</div>
+<nav class="flex-grow space-y-1">
+<a class="flex items-center gap-3 text-stone-500 px-6 py-3 hover:bg-stone-100 transition-all font-sans manrope uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                    Inventory
+                </a>
+<a class="flex items-center gap-3 text-stone-500 px-6 py-3 hover:bg-stone-100 transition-all font-sans manrope uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined" data-icon="add_box">add_box</span>
+                    New Upload
+                </a>
+<a class="flex items-center gap-3 bg-stone-200/50 text-yellow-700 font-bold px-6 py-3 rounded-sm font-sans manrope uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+                    Order Tracking
+                </a>
+<a class="flex items-center gap-3 text-stone-500 px-6 py-3 hover:bg-stone-100 transition-all font-sans manrope uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+                    Custom Requests
+                </a>
+<a class="flex items-center gap-3 text-stone-500 px-6 py-3 hover:bg-stone-100 transition-all font-sans manrope uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                    Contact Support
+                </a>
+</nav>
+<div class="mt-auto px-6">
+<button class="w-full py-3 bg-primary text-on-primary text-[10px] manrope uppercase tracking-widest font-bold rounded-sm shadow-sm hover:opacity-90 transition-opacity">
+                    WhatsApp Support
+                </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex-1 p-12 max-w-7xl">
+<header class="mb-16">
+<h1 class="text-4xl font-headline italic tracking-tight text-on-background mb-2">Order Journey</h1>
+<p class="text-secondary font-body tracking-wide">Tracking the evolution of your bespoke pieces.</p>
+</header>
+<!-- Active Order Section -->
+<section class="space-y-12 mb-24">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+<!-- Product Visual -->
+<div class="lg:col-span-5 relative aspect-[3/4] bg-surface-container-low overflow-hidden">
+<img alt="Bespoke Silk Gown" class="w-full h-full object-cover" data-alt="Close up detail of a luxurious cream silk gown hanging in a high-end fashion atelier with warm soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARHTj5zJdYsHyRMulmGKI1V1QM-5pYYhgPzfanc26ID8FGuqihKYz-IAIntArdM0ui9k7zgAmkDN1BN2n_XlMgOHx6BKvJbcH2EowsHaakrbdimvkwCYtjS5e-C3xc1FX4ChWQgdFPh97XCwgq3urZddy4zDVnGmCznP640-Ce7m4DEow-kLhQ0LCztUNXt3c63ILq7OE44jSagulP5fFzkI8p0ejPH1taqpE82e5SkSC7zoj4eMPp1WFNe_e0x0TZFsBaFrV6Bss"/>
+<div class="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/40 to-transparent">
+<span class="bg-primary-container/90 text-on-primary-container px-3 py-1 text-[10px] manrope uppercase tracking-[0.2em] font-bold">In Progress</span>
+</div>
+</div>
+<!-- Order Details & Timeline -->
+<div class="lg:col-span-7 space-y-10">
+<div>
+<div class="flex justify-between items-end mb-4">
+<h3 class="text-2xl font-headline tracking-tight">Hand-Stitched Silk Evening Gown</h3>
+<span class="text-xl font-headline text-primary">$3,450.00</span>
+</div>
+<div class="flex gap-8 text-xs manrope uppercase tracking-widest text-secondary border-b border-outline-variant/20 pb-6">
+<span>Order ID: #SRN-8829-24</span>
+<span>Date: Oct 24, 2024</span>
+</div>
+</div>
+<!-- Status Timeline -->
+<div class="relative py-4">
+<div class="absolute left-4 top-0 bottom-0 w-[1px] bg-outline-variant/30 md:left-auto md:right-0 md:top-4 md:bottom-auto md:w-full md:h-[1px]"></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+<!-- Status 1 -->
+<div class="relative flex md:flex-col items-center gap-4 text-center">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm" data-icon="draw" style="font-variation-settings: 'FILL' 1;">draw</span>
+</div>
+<div class="text-left md:text-center">
+<p class="text-[10px] manrope uppercase font-bold tracking-widest text-on-surface">Designing</p>
+<p class="text-[9px] manrope text-secondary">Completed Oct 25</p>
+</div>
+</div>
+<!-- Status 2 -->
+<div class="relative flex md:flex-col items-center gap-4 text-center">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm" data-icon="straighten" style="font-variation-settings: 'FILL' 1;">straighten</span>
+</div>
+<div class="text-left md:text-center">
+<p class="text-[10px] manrope uppercase font-bold tracking-widest text-on-surface">Tailoring</p>
+<p class="text-[9px] manrope text-primary font-bold">In Progress</p>
+</div>
+</div>
+<!-- Status 3 -->
+<div class="relative flex md:flex-col items-center gap-4 text-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-secondary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm" data-icon="inventory">inventory</span>
+</div>
+<div class="text-left md:text-center">
+<p class="text-[10px] manrope uppercase font-bold tracking-widest text-secondary">Ready</p>
+<p class="text-[9px] manrope text-secondary opacity-0">-</p>
+</div>
+</div>
+<!-- Status 4 -->
+<div class="relative flex md:flex-col items-center gap-4 text-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-secondary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
+</div>
+<div class="text-left md:text-center">
+<p class="text-[10px] manrope uppercase font-bold tracking-widest text-secondary">Delivered</p>
+<p class="text-[9px] manrope text-secondary opacity-0">-</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Measurements Bento Box -->
+<div class="bg-surface-container-low p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+<div class="col-span-full mb-2">
+<h4 class="text-[10px] manrope uppercase tracking-[0.2em] font-bold text-on-surface-variant">Confirmed Measurements</h4>
+</div>
+<div>
+<p class="text-[9px] manrope uppercase tracking-widest text-secondary">Bust</p>
+<p class="text-lg font-headline">34.5"</p>
+</div>
+<div>
+<p class="text-[9px] manrope uppercase tracking-widest text-secondary">Waist</p>
+<p class="text-lg font-headline">26.0"</p>
+</div>
+<div>
+<p class="text-[9px] manrope uppercase tracking-widest text-secondary">Hips</p>
+<p class="text-lg font-headline">37.5"</p>
+</div>
+<div>
+<p class="text-[9px] manrope uppercase tracking-widest text-secondary">Height</p>
+<p class="text-lg font-headline">5'8"</p>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="flex-1 py-4 bg-on-background text-surface text-[10px] manrope uppercase tracking-widest font-bold hover:opacity-90 transition-all">
+                                Chat with Tailor
+                            </button>
+<button class="px-8 py-4 border border-outline-variant/30 text-on-background text-[10px] manrope uppercase tracking-widest font-bold hover:bg-surface-container-low transition-all">
+                                Full Order Specs
+                            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Past Orders -->
+<section>
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/20 pb-4">
+<h2 class="text-xl font-headline tracking-tight italic">Order Archive</h2>
+<span class="text-[10px] manrope uppercase tracking-widest text-secondary">3 Completed Masterpieces</span>
+</div>
+<div class="space-y-6">
+<!-- Order Item 1 -->
+<div class="group flex items-center gap-8 p-4 bg-surface-container-lowest hover:bg-surface-container-low transition-colors duration-500">
+<div class="w-20 h-24 bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Cashmere Coat" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" data-alt="Editorial shot of a minimal black cashmere coat on a professional dress form in a bright white studio space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1oQu_bvFRkFT2YdE2e08c6uDv9zR8elnRoho_reEh91yMrbR-fUtY-EhjpDPCB47SONueDXT5PGi0rtsoFga4C9e4HDnl2KoLhq9X00e_UXCbyd3BDRQEBDBsSw_cGDcqKHYIMWbMj8fSqFCtUmR71zlJOI1OXU2Wr1buwanZ4O1r7Z462RMK6KP1BKmirsBi-8KRDNlnk-J6p1BdD8eKL_BZ1CgP8N_fCxucYJzuXcMF0tnoeDgN_18YqtgIydUA3ZOw6bQueNc"/>
+</div>
+<div class="flex-1">
+<h4 class="font-headline tracking-tight text-lg mb-1">Architectural Cashmere Overcoat</h4>
+<div class="flex gap-4 text-[9px] manrope uppercase tracking-[0.1em] text-secondary">
+<span>ID: #SRN-7741-23</span>
+<span>Delivered: Sept 12, 2023</span>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline text-primary mb-2">$2,100.00</p>
+<button class="text-[9px] manrope uppercase tracking-widest font-bold border-b border-primary-container pb-1 text-on-surface hover:text-primary transition-colors">
+                                Reorder or Alter
+                            </button>
+</div>
+</div>
+<!-- Order Item 2 -->
+<div class="group flex items-center gap-8 p-4 bg-surface-container-lowest hover:bg-surface-container-low transition-colors duration-500">
+<div class="w-20 h-24 bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Linen Blouse" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" data-alt="Detailed view of high quality white linen fabric with elegant pleating under natural morning sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLpXwhKlJ5Qis10jwEv59OdL1U3EgPS13OxHFXEe-bjDzWfp0s4bl1Fe7sdHpqb_MmLqLctqk04GSIyq2gZQk2Yz5vzvwkUfDNY1sxePNA9rzNr6Hf9hle9in-Jvanj4Ugxyd_7Fm4_d5b9bw6vYsrdi03OTWk5wXAi0zuGxm-9z8eEe2_6TnIcsPxQ6-PIjiOfJd9OqmC8hUouidI068llk9zT-Zdz0pSUQujo88CkqNh8hs8ulHqwm-mP7dgXj76i8ub9s3AAts"/>
+</div>
+<div class="flex-1">
+<h4 class="font-headline tracking-tight text-lg mb-1">Pleated Heirloom Linen Blouse</h4>
+<div class="flex gap-4 text-[9px] manrope uppercase tracking-[0.1em] text-secondary">
+<span>ID: #SRN-6520-23</span>
+<span>Delivered: June 05, 2023</span>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline text-primary mb-2">$850.00</p>
+<button class="text-[9px] manrope uppercase tracking-widest font-bold border-b border-primary-container pb-1 text-on-surface hover:text-primary transition-colors">
+                                Reorder or Alter
+                            </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Footer (Shared Component) -->
+<footer class="w-full mt-24 bg-stone-900 flex flex-col items-center justify-center py-16 gap-6 w-full">
+<div class="text-white font-serif italic text-xl">SERANA CLOSET</div>
+<div class="flex gap-12">
+<a class="text-stone-500 hover:text-yellow-500 transition-colors duration-500 font-sans manrope text-[10px] tracking-[0.15em] uppercase" href="#">Terms of Service</a>
+<a class="text-stone-500 hover:text-yellow-500 transition-colors duration-500 font-sans manrope text-[10px] tracking-[0.15em] uppercase" href="#">Privacy Policy</a>
+<a class="text-stone-500 hover:text-yellow-500 transition-colors duration-500 font-sans manrope text-[10px] tracking-[0.15em] uppercase" href="#">Contact WhatsApp</a>
+</div>
+<p class="text-yellow-500 font-sans manrope text-[10px] tracking-[0.15em] uppercase">© 2024 SERANA CLOSET. BEYOND THE WARDROBE.</p>
+</footer>
+</body></html>

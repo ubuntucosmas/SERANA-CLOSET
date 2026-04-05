@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .neon-glow {
+        text-shadow: 0 0 15px rgba(153, 255, 51, 0.4);
+    }
+
+    .neon-glow:hover {
+        box-shadow: 0 0 20px rgba(153, 255, 51, 0.2);
+    }
+
+    .glass-card,
+    .glass-panel {
+        background: rgba(35, 35, 63, 0.6);
+        backdrop-filter: blur(20px);
+    }
+
+    /* === Scroll Reveal Animations === */
+    .reveal {
+        opacity: 0;
+        transform: translateY(60px);
+        transition: opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+            transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .reveal.reveal-left {
+        transform: translateX(-60px);
+    }
+
+    .reveal.reveal-right {
+        transform: translateX(60px);
+    }
+
+    .reveal.reveal-scale {
+        transform: scale(0.93) translateY(30px);
+    }
+
+    .reveal.visible {
+        opacity: 1;
+        transform: translateY(0) translateX(0) scale(1);
+    }
+
+    .reveal-delay-100 {
+        transition-delay: 0.1s;
+    }
+
+    .reveal-delay-200 {
+        transition-delay: 0.2s;
+    }
+
+    .reveal-delay-300 {
+        transition-delay: 0.3s;
+    }
+
+    .reveal-delay-400 {
+        transition-delay: 0.4s;
+    }
+
+    .reveal-delay-500 {
+        transition-delay: 0.5s;
+    }
+
+    .reveal-delay-600 {
+        transition-delay: 0.6s;
+    }
+
+    /* Smooth scroll for the whole page */
+    html {
+        scroll-behavior: smooth;
+    }
+}

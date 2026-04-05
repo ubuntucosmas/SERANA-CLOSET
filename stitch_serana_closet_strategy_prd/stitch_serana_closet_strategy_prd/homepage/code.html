@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SERANA CLOSET | The Digital Atelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed-variant": "#374669",
+              "outline-variant": "#d0c5b5",
+              "secondary-fixed": "#e2e2e2",
+              "inverse-primary": "#e4c285",
+              "secondary-container": "#e2e2e2",
+              "error-container": "#ffdad6",
+              "surface-container-low": "#f3f3f4",
+              "on-background": "#1a1c1c",
+              "surface-container-highest": "#e2e2e2",
+              "tertiary": "#4e5e82",
+              "on-tertiary-fixed": "#081b3b",
+              "on-tertiary": "#ffffff",
+              "outline": "#7f7668",
+              "surface-container-high": "#e8e8e8",
+              "surface-tint": "#745a27",
+              "tertiary-container": "#9dadd5",
+              "tertiary-fixed": "#d8e2ff",
+              "on-primary-fixed-variant": "#5a4312",
+              "on-secondary-fixed-variant": "#474747",
+              "surface-dim": "#dadada",
+              "on-tertiary-container": "#314163",
+              "primary": "#745a27",
+              "on-secondary": "#ffffff",
+              "on-secondary-fixed": "#1b1b1b",
+              "surface-container-lowest": "#ffffff",
+              "on-error": "#ffffff",
+              "surface-container": "#eeeeee",
+              "on-surface": "#1a1c1c",
+              "surface-bright": "#f9f9f9",
+              "error": "#ba1a1a",
+              "primary-container": "#c9a96e",
+              "on-surface-variant": "#4d463a",
+              "secondary-fixed-dim": "#c6c6c6",
+              "tertiary-fixed-dim": "#b6c6ef",
+              "inverse-on-surface": "#f0f1f1",
+              "on-primary-fixed": "#261900",
+              "on-primary-container": "#543d0c",
+              "on-error-container": "#93000a",
+              "on-primary": "#ffffff",
+              "background": "#f9f9f9",
+              "surface-variant": "#e2e2e2",
+              "on-secondary-container": "#646464",
+              "secondary": "#5e5e5e",
+              "primary-fixed": "#ffdea4",
+              "surface": "#f9f9f9",
+              "inverse-surface": "#2f3131",
+              "primary-fixed-dim": "#e4c285"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .text-shadow-sm { text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-[0_10px_40px_rgba(26,28,28,0.06)]">
+<div class="flex justify-between items-center px-8 py-6 w-full max-w-screen-2xl mx-auto">
+<div class="text-2xl font-serif italic text-zinc-900 dark:text-zinc-50 font-['Noto_Serif'] tracking-tight">SERANA CLOSET</div>
+<div class="hidden md:flex items-center space-x-10">
+<a class="text-zinc-600 dark:text-zinc-400 font-medium uppercase text-xs tracking-widest hover:text-[#c9a96e] transition-colors duration-300" href="#">Shop</a>
+<a class="text-zinc-600 dark:text-zinc-400 font-medium uppercase text-xs tracking-widest hover:text-[#c9a96e] transition-colors duration-300" href="#">Custom Designs</a>
+<a class="text-zinc-600 dark:text-zinc-400 font-medium uppercase text-xs tracking-widest hover:text-[#c9a96e] transition-colors duration-300" href="#">Men's Collection</a>
+</div>
+<div class="flex items-center space-x-6 text-[#745a27] dark:text-[#c9a96e]">
+<button class="hover:text-on-surface transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+</button>
+<button class="hover:text-on-surface transition-colors duration-300">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+</button>
+<button class="md:hidden">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="relative h-[1024px] flex items-center overflow-hidden">
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover" data-alt="elegant woman in a flowing custom champagne silk dress posing in a minimalist sunlit architectural space with soft shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFrd7VgfsW1iURScF3JBml6F8CD-UT6GWcDWqBshSt9ik0k91SPfbeq4jI2XMuex2BSksATiq7rXeKibrebiMwlOeYyPfEVBlcqkCHWgN1kec--PLq4GEShNj6k4Hkin8aDg2DPmoKTzHC2ZsaVfNgc9OMpTmZ8TxQcPcVv6wG9KhQe6I9jtIanTsxvJS04I11FEgq7HsOh4hsahoJCw57qy4o04BHSQE93W3-M-4bmgFRLbLe6FxfYHa5Uy1YDzp8WwsQA267W-A"/>
+<div class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent"></div>
+</div>
+<div class="relative z-10 px-8 md:px-24 max-w-4xl text-white">
+<h1 class="font-headline text-5xl md:text-7xl mb-8 leading-[1.1] tracking-tight">Custom Fashion Designed for You</h1>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-[#1a1c1c] text-white px-10 py-4 uppercase tracking-[0.1em] text-xs font-semibold hover:bg-zinc-800 transition-all duration-300">
+                        Order Custom
+                    </button>
+<button class="border border-[#c9a96e] text-white px-10 py-4 uppercase tracking-[0.1em] text-xs font-semibold backdrop-blur-sm hover:bg-[#c9a96e]/20 transition-all duration-300">
+                        Shop Now
+                    </button>
+</div>
+</div>
+</section>
+<!-- Categories Section - Minimalist Grid -->
+<section class="py-24 px-8 max-w-screen-2xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="group relative aspect-[3/4] overflow-hidden cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="editorial shot of sophisticated ladies wear in beige tones draped over a minimalist mannequin in a bright studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcEn3yBvXLZjFFXOv1WLbESDJOZGX3eWSEaSJfV11YbVJfINVqX-yETHe6xJasNZWMCsem_u8jQ2r0tTUKW3SJvX1aXm9TC9ywf84cfOcuO6K2ubOFXjY9bgRTUJkdVCt8SRTlM4C4XmVmCnAgZvrBgnZ-acYs7v3l75zjH6aVKKU_DguK3G7Ezn-ir1GBU8EnYhoOUkmREh14-ZeZyMfqO2NM1PrYzagBkwaHc43s2s55fbTQBXYK6Fchhl8xIuEYCrdVqlPNnmU"/>
+<div class="absolute inset-0 bg-black/20 flex items-end p-8">
+<span class="text-white font-headline text-xl tracking-wide">Ladies Wear</span>
+</div>
+</div>
+<div class="group relative aspect-[3/4] overflow-hidden cursor-pointer md:mt-12">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="close up of premium fabric textures and needles on a wooden table representing bespoke custom designs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDj48_FuI5fZEqSnihaqHp1hMmHx3t4gm4IonQGYWzaUmdKvBimrU2mhnqC8MKWg5fYpuiKuF0iqZ6v0JrrktpL2pHCAdAOxc_5FbY1SNGoP9xF4LR1dbN6Kn5dMLcore57IsLOPpeNJU80enqqHcxeCfFjPzEfl2rIsFfbEceBihSuElS1X8BBNhUHBPyrkJdgmRmM5r7RKBzN6GlKE1bzrTP0eBCvdIM2vYZ1FehiJupOfl1jga9UHpCUP3cOfHONt2KykvUWPPQ"/>
+<div class="absolute inset-0 bg-black/20 flex items-end p-8">
+<span class="text-white font-headline text-xl tracking-wide">Custom Designs</span>
+</div>
+</div>
+<div class="group relative aspect-[3/4] overflow-hidden cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="racks of ready to wear high end garments in a minimalist high-end fashion boutique with soft gallery lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBail_WyC3siVu9qyc_PrncEamUhzcF7cVaaJuCdZs-RNmEojFsUog8Rv_VpFJhDLPwbsCkYG_eW7fq0gYo4dYLaus2EBCxC_22pEm3ZoV2G9L7_1m7IWq2PW__9jcChxeEMR5fJWq_pNG64zq5PIXxLPe_qcNoaquYpSnkFmqWonSXLwT4Z6HQYZbqBRlpZ5B5hQdHLt1OmxquAZUJsm1HiRfIxEsKFMN-Z3Mtm1Pgfd-mDa9bHXtU6QZyl0d7iYStn-uDE3FPTT0"/>
+<div class="absolute inset-0 bg-black/20 flex items-end p-8">
+<span class="text-white font-headline text-xl tracking-wide">Ready-to-Wear</span>
+</div>
+</div>
+<div class="group relative aspect-[3/4] overflow-hidden cursor-pointer md:mt-12">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="sharp tailored mens navy blazer on a sleek hanger against a dark minimalist background for mens collection" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEF20YDvBsL0_ckip0MbhNCCpWqrCDJ7sE6FkIZJm-5vsCtwn3v2rPC95wHH2sMytab9JuzKNp-Cfbu95ZypoT5kFj0L_iv50EkjuZ6rD33X530S7fy6e95DGY9HXDg-7tqHWpkssmgp8FvvjI-k4KwtyffO0ERgaBGUEsw2rWKejZB4L0c5yHsIkcWCLAjPGZtv12RvHLwTtcV8hWczwt1elSnIxKCxoVdnxHB0yRbl9Y56oWAQ2MwDvXNfYWXsJ-sZLU1O2gwtg"/>
+<div class="absolute inset-0 bg-black/20 flex items-end p-8">
+<span class="text-white font-headline text-xl tracking-wide">Men's Collection</span>
+</div>
+</div>
+</div>
+</section>
+<!-- How It Works Section - Tonal Layering -->
+<section class="bg-surface-container-low py-24 px-8">
+<div class="max-w-screen-xl mx-auto">
+<div class="text-center mb-20">
+<span class="text-[#745a27] font-label text-xs uppercase tracking-[0.2em] block mb-4">The Atelier Process</span>
+<h2 class="font-headline text-4xl text-on-surface">Crafted to Perfection</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-16 relative">
+<!-- Step 1 -->
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 rounded-full bg-surface-container-lowest flex items-center justify-center mb-8 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="brush">brush</span>
+</div>
+<h3 class="font-headline text-xl mb-4">1. Choose Design</h3>
+<p class="text-zinc-500 font-light max-w-xs leading-relaxed">Browse our curated collections or share your unique vision for a custom creation.</p>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 rounded-full bg-surface-container-lowest flex items-center justify-center mb-8 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="straighten">straighten</span>
+</div>
+<h3 class="font-headline text-xl mb-4">2. Submit Measurements</h3>
+<p class="text-zinc-500 font-light max-w-xs leading-relaxed">Provide your details via our secure portal or visit us for a professional fitting session.</p>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 rounded-full bg-surface-container-lowest flex items-center justify-center mb-8 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<h3 class="font-headline text-xl mb-4">3. Tailor &amp; Deliver</h3>
+<p class="text-zinc-500 font-light max-w-xs leading-relaxed">Our master tailors craft your garment with precision, followed by doorstep delivery.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Featured Products -->
+<section class="py-24 px-8 max-w-screen-2xl mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-baseline mb-16 gap-6">
+<div>
+<h2 class="font-headline text-4xl mb-2">Featured Pieces</h2>
+<p class="text-zinc-500">Exquisite designs from our latest seasonal collection.</p>
+</div>
+<a class="text-[#745a27] font-label text-xs uppercase tracking-widest border-b border-[#c9a96e] pb-1 hover:text-on-surface transition-colors" href="#">View All Products</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+<!-- Product 1 -->
+<div class="group">
+<div class="aspect-[3/4] overflow-hidden mb-6 bg-surface-container relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="studio shot of a luxurious emerald green evening gown with intricate detailing and silk finish" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPPxBXTUOPKYiux2rPlNOclqaPPBMVEQ-PNj86dPCpIadGDokJNJhtxx_HZKDS1lX0jRoUUkeWsjOTWeoW3OCoQX_O5DdiDZ5Bl_rg-0JWLwSb2U_pks7Szyz8-_icPAkXbhwySMVT8Zu6OefnyXbvyfbqpXBd4gXqukhSkylOTwf2KNTxaV_Jqm3FervW-9QY1Mib2wpl7A1BeXFrbKyjays1oXisuvCjr0Ho4j1IWSEzlK1upM5TN5oGANA7xjb39P2rs9-DXwI"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+<button class="bg-zinc-900 text-white flex items-center gap-2 px-4 py-3 text-[10px] uppercase tracking-widest font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="chat">chat</span>
+                                Order via WhatsApp
+                            </button>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg mb-1">Emerald Silk Evening Gown</h3>
+<p class="text-zinc-400 text-xs uppercase tracking-wider">Custom Tailored</p>
+</div>
+<span class="text-primary font-medium">$1,250</span>
+</div>
+</div>
+<!-- Product 2 -->
+<div class="group">
+<div class="aspect-[3/4] overflow-hidden mb-6 bg-surface-container relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="lifestyle shot of a premium cashmere coat in camel color styled elegantly for fall season" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBU3bv9gvK_2IuCHYto97aRQqmNvQU0Pt7kxGjOFxX9qsfoWLYmhzNsDncMEnuRqWlkTVwBjPnMPpjNqS-HA-_0sagBVRLuC0mAu8kvpF0Cq7d5ig2EEdNPdwbyI931JYtxKhFkefRPsO1YP3obyYJZRmvkEk85BjXg3LGaRI9Rdmkfsl_1aHULj2p3UzcE9RJpoqLlhPh8e5XfEee3P_SoXVfTYt1Hk9M1SujuCsBOE_lq9p5QRyJ56bsywdaCR7lU_dLRxGK-8Z0"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+<button class="bg-zinc-900 text-white flex items-center gap-2 px-4 py-3 text-[10px] uppercase tracking-widest font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="chat">chat</span>
+                                Order via WhatsApp
+                            </button>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg mb-1">Cashmere Signature Coat</h3>
+<p class="text-zinc-400 text-xs uppercase tracking-wider">Ready-to-Wear</p>
+</div>
+<span class="text-primary font-medium">$890</span>
+</div>
+</div>
+<!-- Product 3 -->
+<div class="group">
+<div class="aspect-[3/4] overflow-hidden mb-6 bg-surface-container relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="studio editorial of a classic mens white formal shirt with bespoke tailoring and pearl buttons" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMTsYU-HL0IkNLfMjU4fmSE9GbDPTlfRUy05vSOXDiULGoAvN0IuHaFYPNgvdSkvF3DbKZycDKGnUf7gRYwcnVRtWrsc7EHb7hE2KIjCCmkJRoQLrbJB7GMJz_wJBsKAzIWpEuSIc8LwvhOfVicZa_nzrnXOXxbp8IBNLXbYiT76Gd221TLrF3n2h9sdXWtfT_wJMuF02_Iry4U0qqVqLVUPiqIA1H4rSg4z42cK0pdt1A-87a7QEtGZ1z7hh6hJPMYcqsT87gme4"/>
+<div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+<button class="bg-zinc-900 text-white flex items-center gap-2 px-4 py-3 text-[10px] uppercase tracking-widest font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="chat">chat</span>
+                                Order via WhatsApp
+                            </button>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg mb-1">Bespoke Poplin Shirt</h3>
+<p class="text-zinc-400 text-xs uppercase tracking-wider">Men's Collection</p>
+</div>
+<span class="text-primary font-medium">$220</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Newsletter / Footer CTA -->
+<section class="bg-[#1a1c1c] text-white py-24 px-8 overflow-hidden relative">
+<div class="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-16 relative z-10">
+<div>
+<h2 class="font-headline text-5xl mb-6">Join the Atelier Circle</h2>
+<p class="text-zinc-400 font-light text-lg mb-10 max-w-md">Receive exclusive early access to our seasonal collections and bespoke styling invitations.</p>
+<form class="flex border-b border-zinc-700 pb-2">
+<input class="bg-transparent border-none focus:ring-0 text-white placeholder:text-zinc-600 w-full py-2" placeholder="Email Address" type="email"/>
+<button class="text-primary-container font-label text-xs uppercase tracking-widest px-4 hover:text-white transition-colors">Join</button>
+</form>
+</div>
+<div class="hidden md:block relative h-full min-h-[300px]">
+<img class="absolute inset-0 w-full h-full object-cover opacity-50 grayscale" data-alt="artistic atmospheric image of luxury fabric bolts and fashion sketches in a dimly lit high end design studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMi6ypY9M3B9a9DlbjbFo5khc_7laoXHZsw1vk4srjqyDlG7bbbMAOhLvv8GL_osJT1_asA-_D7y32QbKbzOA0JAjNf9bz0f1qxkRb2x7Znld6Sh9PI7LPTk4hyXv-vOx34s3teYYBNFSXrBLdx1HFR6T7dN63TIryEABOV16FK8UIvnCUZLOtG4z-yaKzyiPW_5_jMqY2MiQxreQLm54YUAriobuQBJdZemIwxcuD-8Kn7WeVdqvR22BYnFrG5Ej0Y5XVa5iUFSc"/>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-zinc-50 dark:bg-zinc-900 w-full pt-24 pb-12 font-['Manrope'] text-sm tracking-wide">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12 px-8 max-w-screen-2xl mx-auto">
+<div>
+<div class="font-serif text-lg text-zinc-900 dark:text-zinc-50 mb-6">SERANA CLOSET</div>
+<p class="text-zinc-500 dark:text-zinc-400 max-w-xs leading-relaxed">
+                    Celebrating the art of bespoke tailoring and modern luxury for those who appreciate the finer things in life.
+                </p>
+</div>
+<div>
+<h4 class="text-[#745a27] dark:text-[#c9a96e] font-semibold uppercase text-xs tracking-widest mb-6">Explore</h4>
+<ul class="space-y-4">
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">Instagram</a></li>
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">Contact</a></li>
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">About</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-[#745a27] dark:text-[#c9a96e] font-semibold uppercase text-xs tracking-widest mb-6">Legal</h4>
+<ul class="space-y-4">
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">Privacy Policy</a></li>
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">Terms of Service</a></li>
+<li><a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4 decoration-[#c9a96e]/30 transition-all" href="#">Shipping &amp; Returns</a></li>
+</ul>
+</div>
+</div>
+<div class="px-8 max-w-screen-2xl mx-auto mt-24 flex flex-col md:flex-row justify-between items-center border-t border-zinc-200 dark:border-zinc-800 pt-8 gap-4">
+<span class="text-zinc-500 dark:text-zinc-400">© 2024 SERANA CLOSET. The Digital Atelier.</span>
+<div class="flex gap-8">
+<span class="material-symbols-outlined text-zinc-400" data-icon="language">language</span>
+<span class="material-symbols-outlined text-zinc-400" data-icon="lock">lock</span>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class GalleryImage extends Model
+{
+    protected $fillable = [
+        'image_path',
+        'client_name',
+        'garment_name',
+        'testimonial',
+        'is_featured'
+    ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        if (!$this->image_path) return null;
+        if (str_starts_with($this->image_path, 'http')) return $this->image_path;
+        $path = str_replace('/storage/', '', $this->image_path);
+        return asset('storage/' . $path);
+    }
+}
