@@ -52,7 +52,7 @@ function getGridClass(index) {
                     >
                         <!-- Image -->
                         <img 
-                            :src="item.image_path" 
+                            :src="item.image_url" 
                             :alt="item.client_name" 
                             class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-100"
                         />
