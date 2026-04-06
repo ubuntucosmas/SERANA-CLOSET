@@ -125,27 +125,27 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         </div>
 
         <!-- Product Info (Grid only) -->
-        <div v-if="layout === 'grid'" class="mt-4 px-1">
-            <div class="flex justify-between items-start mb-3">
-                <div class="flex-1 min-w-0">
-                    <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate pr-4 group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
-                    <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium">{{ product.category?.name || 'Collection' }}</p>
+        <div v-if="layout === 'grid'" class="mt-8 px-1">
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-3">
+                    <p class="text-[9px] font-bold tracking-[0.3em] text-primary uppercase">{{ product.category?.name || 'Archive' }}</p>
+                    <div class="w-1 h-1 rounded-full bg-white/10"></div>
+                    <p class="text-[9px] font-bold tracking-[0.3em] dark:text-white/40 text-black/40 uppercase">Edition #{{ product.id }}</p>
                 </div>
-                <span class="text-primary font-headline font-medium text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
+                <div class="flex justify-between items-end">
+                    <h3 class="serif-text text-2xl font-light dark:text-white text-on-surface">{{ product.name }}</h3>
+                    <p class="text-sm font-bold tracking-widest text-[#B9C3FF]">KSh {{ Number(product.price).toLocaleString() }}</p>
+                </div>
             </div>
 
-            <!-- Mobile persistent CTA (touch devices can't hover) -->
+            <!-- Mobile persistent CTA -->
             <button
                 v-if="!isSoldOut"
                 @click="cart.addItem(product)"
-                class="md:hidden w-full mt-2 bg-primary/10 border border-primary/20 text-primary py-2.5 text-xs font-medium tracking-widest rounded-sm hover:bg-primary hover:text-black transition-all flex items-center justify-center gap-2"
+                class="md:hidden w-full mt-6 bg-primary/5 border border-primary/20 text-primary py-4 text-[10px] font-black tracking-[0.2em] uppercase rounded-sm active:bg-primary active:text-black transition-all"
             >
-                <span class="material-symbols-outlined text-[16px]">shopping_bag</span>
                 Add to Bag
             </button>
-            <div v-else class="md:hidden w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
-                Sold Out
-            </div>
         </div>
     </div>
 </template>

@@ -15,7 +15,7 @@ const props = defineProps({
 
 const cart = useCartStore();
 const currentLayout = ref('grid'); // 'grid' or 'editorial'
-
+const showFilters = ref(false);
 // ── Cinematic Background System ──────────────────────────────────────────────
 const bgImages = [
     '/images/White hoodie with silver zipper details.png',
@@ -120,137 +120,146 @@ const activeCategory = computed(() => {
                 <div class="absolute inset-0 scan-lines opacity-[0.05]"></div>
             </div>
             <!-- ─────────────────────────────────────────────────────────── -->
-
-            <main class="relative z-10 pt-32 pb-24 max-w-screen-2xl mx-auto px-4 sm:px-8 font-body">
-            <!-- Page Header -->
-            <header class="mb-16 reveal">
-                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div>
-                        <span class="text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-4 block drop-shadow-md">The digital studio</span>
-                        <h1 class="serif-text text-6xl md:text-8xl dark:text-white text-on-surface font-light tracking-tighter">
-                            <span class="text-primary luminous-glow">Our</span> Collection
-                        </h1>
-                    </div>
-                    <div class="flex items-center gap-8">
-                        <!-- Layout Toggle -->
-                        <div class="flex items-center bg-white/5 border dark:border-white/10 border-black/10 p-1 rounded-sm">
-                            <button @click="currentLayout = 'grid'" 
-                                    class="p-2 flex items-center justify-center transition-all rounded-md"
-                                    :class="currentLayout === 'grid' ? 'bg-primary text-black' : 'dark:text-white/40 text-black/40 hover:dark:text-white text-on-surface'">
-                                <span class="material-symbols-outlined text-[18px]">grid_view</span>
-                            </button>
-                            <button @click="currentLayout = 'editorial'" 
-                                    class="p-2 flex items-center justify-center transition-all rounded-md"
-                                    :class="currentLayout === 'editorial' ? 'bg-primary text-black' : 'dark:text-white/40 text-black/40 hover:dark:text-white text-on-surface'">
-                                <span class="material-symbols-outlined text-[18px]">view_agenda</span>
-                            </button>
+            <!-- Filter Drawer (Slide-over) -->
+            <transition name="slide-right">
+                <aside v-if="showFilters" class="fixed inset-y-0 left-0 w-80 md:w-96 glass-panel z-[100] shadow-[30px_0_60px_rgba(0,0,0,0.5)] p-10 overflow-y-auto no-scrollbar">
+                    <div class="flex justify-between items-start mb-12">
+                        <div>
+                            <span class="text-[10px] text-primary tracking-[0.4em] uppercase font-bold mb-2 block">Studio Refinement</span>
+                            <h2 class="serif-text text-3xl font-light dark:text-white text-on-surface">Filters</h2>
                         </div>
-
-                        <!-- Sort Dropdown -->
-                        <div class="relative">
-                            <button @click="showSortMenu = !showSortMenu" class="flex items-center gap-2 text-xs font-semibold tracking-widest dark:text-white/40 text-black/40 hover:text-primary transition-colors group">
-                                <span class="dark:text-white text-on-surface/50">Sort:</span>
-                                <span class="dark:text-white text-on-surface font-medium">{{ currentSortLabel }}</span>
-                                <span class="material-symbols-outlined text-[16px] transition-transform duration-300" :class="showSortMenu ? 'rotate-180' : ''">keyboard_arrow_down</span>
-                            </button>
-                            <!-- Dropdown -->
-                            <transition name="fade">
-                                <div v-if="showSortMenu" class="glass-panel absolute right-0 top-8 z-50 w-48 rounded-sm shadow-2xl overflow-hidden">
-                                    <button
-                                        v-for="opt in sortOptions" :key="opt.value"
-                                        @click="filterBySort(opt.value)"
-                                        class="w-full text-left px-4 py-3 text-xs font-semibold tracking-widest transition-colors"
-                                        :class="currentSort === opt.value ? 'text-primary bg-primary/5' : 'text-white/60 hover:text-white hover:bg-white/5'"
-                                    >{{ opt.label }}</button>
-                                </div>
-                            </transition>
-                        </div>
+                        <button @click="showFilters = false" class="material-symbols-outlined dark:text-white/40 text-black/40 hover:text-primary transition-colors">close</button>
                     </div>
-                </div>
-            </header>
 
-            <!-- Active Filter Chip + Result Count -->
-            <div class="flex items-center gap-4 mb-8 flex-wrap">
-                <!-- Result count -->
-                <span class="text-xs dark:text-white/40 text-black/40 font-semibold tracking-widest">
-                    {{ products.length }} {{ products.length === 1 ? 'piece' : 'pieces' }} found
-                </span>
-                <!-- Active category chip -->
-                <transition name="fade">
-                    <button
-                        v-if="activeCategory"
-                        @click="filterByCategory('all')"
-                        class="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/30 rounded-full text-xs font-semibold text-primary hover:bg-primary/20 transition-all"
-                    >
-                        <span>{{ activeCategory.name }}</span>
-                        <span class="material-symbols-outlined text-[14px]">close</span>
-                    </button>
-                </transition>
-            </div>
-
-            <div class="flex flex-col md:flex-row gap-12">
-                <!-- Sidebar Filters -->
-                <aside class="w-full md:w-64 flex-shrink-0 relative reveal reveal-delay-200">
-                    <!-- Subtle glass background for the sidebar in Luminous Dark theme -->
-                    <div class="sticky top-40 space-y-12 glass-panel p-6 rounded-sm shadow-2xl">
-                        
+                    <div class="space-y-16">
                         <!-- Category -->
                         <section>
-                            <h3 class="text-xs font-headline tracking-[0.15em] mb-6 dark:text-white text-on-surface font-medium border-b dark:border-white/10 border-black/10 pb-2">Category</h3>
-                            <ul class="space-y-4 text-sm font-body tracking-wide dark:text-white/40 text-black/40">
-                                <!-- All Categories option -->
+                            <h3 class="text-[10px] font-headline tracking-[0.3em] mb-8 dark:text-white text-on-surface font-bold uppercase opacity-40">Classification</h3>
+                            <ul class="space-y-6 text-[13px] font-body tracking-widest dark:text-white/60 text-black/60">
                                 <li class="flex items-center justify-between group cursor-pointer transition-colors"
-                                    :class="!filters.category || filters.category === 'all' ? 'text-primary luminous-glow' : 'hover:text-primary'"
+                                    :class="!filters.category || filters.category === 'all' ? 'text-primary' : 'hover:dark:text-white text-on-surface'"
                                     @click="filterByCategory('all')">
-                                    <span :class="!filters.category || filters.category === 'all' ? 'font-medium' : ''">All Pieces</span>
+                                    <span :class="!filters.category || filters.category === 'all' ? 'font-black' : ''">All Collections</span>
+                                    <span v-if="!filters.category || filters.category === 'all'" class="w-1 h-1 rounded-full bg-primary luminous-glow"></span>
                                 </li>
                                 
                                 <li v-for="category in categories" :key="category.id"
                                     @click="filterByCategory(category.slug)"
                                     class="flex items-center justify-between group cursor-pointer transition-colors"
-                                    :class="filters.category === category.slug ? 'text-primary' : 'hover:text-primary'">
-                                    
-                                    <span :class="filters.category === category.slug ? 'font-medium underline underline-offset-8 decoration-primary-container' : ''">
-                                        {{ category.name }}
-                                    </span>
-                                    <span class="text-[10px] opacity-50 group-hover:opacity-100 transition-opacity">
-                                        <span class="material-symbols-outlined text-xs">chevron_right</span>
-                                    </span>
+                                    :class="filters.category === category.slug ? 'text-primary' : 'hover:dark:text-white text-on-surface'">
+                                    <span :class="filters.category === category.slug ? 'font-black' : ''">{{ category.name }}</span>
+                                    <span v-if="filters.category === category.slug" class="w-1 h-1 rounded-full bg-primary luminous-glow"></span>
                                 </li>
                             </ul>
                         </section>
 
-                        <!-- Price Range (Visual Polish only for mapping Carve Arts) -->
+                        <!-- Price Range -->
                         <section>
-                            <h3 class="text-xs font-headline tracking-[0.15em] mb-6 dark:text-white text-on-surface font-medium border-b dark:border-white/10 border-black/10 pb-2">Price range</h3>
-                            <div class="space-y-6">
-                                <div class="relative h-px bg-outline-variant/30 w-full mb-3">
-                                    <div class="absolute h-px bg-primary w-1/2 left-1/4 shadow-[0_0_10px_rgba(57, 255, 20,0.5)]"></div>
-                                    <div class="absolute -top-1.5 left-1/4 w-3 h-3 rounded-full bg-surface border-2 border-primary cursor-pointer hover:scale-125 transition-transform"></div>
-                                    <div class="absolute -top-1.5 left-3/4 w-3 h-3 rounded-full bg-surface border-2 border-primary cursor-pointer hover:scale-125 transition-transform"></div>
+                            <h3 class="text-[10px] font-headline tracking-[0.3em] mb-8 dark:text-white text-on-surface font-bold uppercase opacity-40">Value Range</h3>
+                            <div class="space-y-8">
+                                <div class="relative h-px bg-white/10 w-full">
+                                    <div class="absolute h-px bg-primary w-1/2 left-1/4 shadow-[0_0_15px_#B9C3FF]"></div>
+                                    <div class="absolute -top-1.5 left-1/4 w-3 h-3 bg-black border border-primary cursor-pointer hover:scale-125 transition-transform"></div>
+                                    <div class="absolute -top-1.5 left-3/4 w-3 h-3 bg-black border border-primary cursor-pointer hover:scale-125 transition-transform"></div>
                                 </div>
-                                <div class="flex justify-between text-[11.5px] font-headline font-medium tracking-[0.1em] dark:text-white text-on-surface">
-                                    <span>$100</span>
-                                    <span class="text-primary">$2,500+</span>
+                                <div class="flex justify-between text-[10px] font-headline font-bold tracking-widest dark:text-white text-on-surface opacity-60 uppercase">
+                                    <span>KSh 500</span>
+                                    <span>KSh 20,000+</span>
                                 </div>
                             </div>
                         </section>
 
-                        <!-- Style (Visual Polish) -->
+                        <!-- Style Tags -->
                         <section>
-                            <h3 class="text-xs font-headline tracking-[0.15em] mb-6 dark:text-white text-on-surface font-medium border-b dark:border-white/10 border-black/10 pb-2">Style</h3>
-                            <div class="flex flex-wrap gap-2">
-                                <button class="px-3 py-1.5 border border-outline-variant/40 rounded text-[11px] font-headline font-medium tracking-widest hover:border-primary hover:text-primary transition-colors bg-transparent-high/50">Minimalist</button>
-                                <button class="px-3 py-1.5 border border-primary rounded text-[11px] font-headline font-medium tracking-widest text-primary shadow-[0_0_15px_rgba(57, 255, 20,0.1)]">Avant-Garde</button>
-                                <button class="px-3 py-1.5 border border-outline-variant/40 rounded text-[11px] font-headline font-medium tracking-widest hover:border-primary hover:text-primary transition-colors bg-transparent-high/50">Heritage</button>
-                                <button class="px-3 py-1.5 border border-outline-variant/40 rounded text-[11px] font-headline font-medium tracking-widest hover:border-primary hover:text-primary transition-colors bg-transparent-high/50">Custom</button>
+                            <h3 class="text-[10px] font-headline tracking-[0.3em] mb-8 dark:text-white text-on-surface font-bold uppercase opacity-40">Atmosphere</h3>
+                            <div class="flex flex-wrap gap-3">
+                                <button v-for="tag in ['Minimalist', 'Avant-Garde', 'Heritage', 'Custom']" :key="tag"
+                                    class="px-4 py-2 border dark:border-white/10 border-black/10 text-[9px] font-bold tracking-[0.2em] uppercase hover:border-primary hover:text-primary transition-all bg-white/5 active:scale-95">
+                                    {{ tag }}
+                                </button>
                             </div>
                         </section>
                     </div>
                 </aside>
+            </transition>
 
-                <!-- Product Grid -->
-                <div class="flex-1">
+            <!-- Backdrop -->
+            <transition name="fade">
+                <div v-if="showFilters" @click="showFilters = false" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90]"></div>
+            </transition>
+
+            <main class="relative z-10 pt-32 pb-24 max-w-screen-2xl mx-auto px-4 sm:px-8 font-body">
+                <!-- Page Header -->
+                <header class="mb-12 reveal">
+                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-10">
+                        <div>
+                            <div class="flex items-center gap-4 text-primary font-headline tracking-[0.3em] text-[10px] font-bold mb-6 uppercase">
+                                <span class="w-12 h-px bg-primary/40"></span>
+                                Serana Archive
+                            </div>
+                            <h1 class="serif-text text-7xl md:text-[10rem] dark:text-white text-on-surface font-light tracking-tighter leading-[0.8] mb-6">
+                                The<br/>Collection
+                            </h1>
+                            
+                            <!-- Active Filter Overview & Action -->
+                            <div class="flex items-center gap-8 mt-12">
+                                <button @click="showFilters = true" class="flex items-center gap-4 group p-1">
+                                    <div class="w-12 h-12 bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary transition-all duration-500">
+                                        <span class="material-symbols-outlined text-primary group-hover:text-black">tune</span>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="text-[10px] text-primary tracking-[0.3em] font-bold uppercase">Classification</p>
+                                        <p class="text-[13px] dark:text-white text-on-surface font-medium tracking-widest">{{ activeCategory?.name || 'All Collections' }}</p>
+                                    </div>
+                                </button>
+
+                                <div class="w-px h-12 bg-white/5"></div>
+
+                                <div class="hidden lg:block text-left">
+                                    <p class="text-[10px] dark:text-white text-on-surface/40 tracking-[0.3em] font-bold uppercase mb-1">Archive Size</p>
+                                    <p class="text-[13px] dark:text-white text-on-surface font-medium tracking-widest">{{ products.length }} Pieces</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-8">
+                            <!-- Layout Toggle -->
+                            <div class="flex items-center glass-panel p-1 rounded-sm">
+                                <button @click="currentLayout = 'grid'" 
+                                        class="p-2.5 flex items-center justify-center transition-all"
+                                        :class="currentLayout === 'grid' ? 'bg-primary text-black shadow-[0_0_15px_#B9C3FF]' : 'dark:text-white/40 text-black/40 hover:dark:text-white text-on-surface'">
+                                    <span class="material-symbols-outlined text-[20px]">grid_view</span>
+                                </button>
+                                <button @click="currentLayout = 'editorial'" 
+                                        class="p-2.5 flex items-center justify-center transition-all"
+                                        :class="currentLayout === 'editorial' ? 'bg-primary text-black shadow-[0_0_15px_#B9C3FF]' : 'dark:text-white/40 text-black/40 hover:dark:text-white text-on-surface'">
+                                    <span class="material-symbols-outlined text-[20px]">view_agenda</span>
+                                </button>
+                            </div>
+
+                            <!-- Sort Dropdown -->
+                            <div class="relative">
+                                <button @click="showSortMenu = !showSortMenu" class="flex items-center gap-3 text-[10px] font-bold tracking-[0.3em] dark:text-white/40 text-black/40 hover:text-primary transition-colors group uppercase">
+                                    <span class="dark:text-white text-on-surface/20">Sort</span>
+                                    <span class="dark:text-white text-on-surface">{{ currentSortLabel }}</span>
+                                    <span class="material-symbols-outlined text-[18px] transition-transform duration-500" :class="showSortMenu ? 'rotate-180' : ''">expand_more</span>
+                                </button>
+                                <transition name="fade">
+                                    <div v-if="showSortMenu" class="glass-panel absolute right-0 top-10 z-50 w-56 rounded-sm shadow-2xl overflow-hidden py-2 animate-in slide-in-from-top-2 duration-500">
+                                        <button
+                                            v-for="opt in sortOptions" :key="opt.value"
+                                            @click="filterBySort(opt.value)"
+                                            class="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors"
+                                            :class="currentSort === opt.value ? 'text-primary bg-primary/5' : 'text-white/60 hover:text-white hover:bg-white/5'"
+                                        >{{ opt.label }}</button>
+                                    </div>
+                                </transition>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="w-full">
                     
                     <div v-if="products.length === 0" class="flex flex-col items-center justify-center py-48 text-center reveal">
                         <div class="relative mb-12">
@@ -294,8 +303,7 @@ const activeCategory = computed(() => {
                         </button>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
         </div>
     </StorefrontLayout>
 </template>
@@ -310,5 +318,16 @@ const activeCategory = computed(() => {
         rgba(255, 255, 255, 0.04) 2px,
         rgba(255, 255, 255, 0.04) 3px
     );
+}
+
+.slide-right-enter-active,
+.slide-right-leave-active {
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+    transform: translateX(-100%);
+    opacity: 0;
 }
 </style>

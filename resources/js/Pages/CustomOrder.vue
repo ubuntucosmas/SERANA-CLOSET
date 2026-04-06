@@ -21,15 +21,14 @@
             <main class="relative z-10 pt-24 sm:pt-32 pb-24 px-4 sm:px-6 md:px-12 xl:px-24 2xl:px-32 w-full space-y-12">
             
             <!-- Artisan Terminal System Header -->
-            <header class="mb-16 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-4 reveal">
-                <div class="flex items-center gap-4">
-                    <span class="font-headline text-[10px] tracking-[0.2em] text-primary font-medium uppercase">[ ARTISAN_ID: SRN ]</span>
-                    <div class="w-1 h-1 rounded-full bg-primary animate-pulse "></div>
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white/40 text-black/40 font-medium uppercase">ATELIER: ACTIVE</span>
+            <header class="mb-20 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-8 reveal">
+                <div class="flex items-center gap-6">
+                    <span class="font-headline text-[10px] tracking-[0.4em] text-primary font-bold uppercase">Studio Command</span>
+                    <div class="w-1.5 h-1.5 rounded-full bg-primary luminous-glow"></div>
+                    <span class="serif-text text-lg dark:text-white text-on-surface opacity-60">Curating Perfection</span>
                 </div>
-                <div class="hidden md:flex items-center gap-6 opacity-20">
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white text-on-surface font-medium uppercase">CONNECTION: SECURE</span>
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white text-on-surface font-medium uppercase">LATENCY: 24MS</span>
+                <div class="hidden md:flex items-center gap-6 opacity-40">
+                    <span class="font-headline text-[9px] tracking-[0.3em] dark:text-white text-on-surface uppercase">{{ new Date().toLocaleTimeString() }} — UTC+3</span>
                 </div>
             </header>
 
@@ -561,48 +560,28 @@ main {
     text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
 }
 
-/* Sharp Borders & Crisp Inputs */
-input, textarea {
-    font-family: 'Inter', sans-serif !important;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-}
-
-.border-white\/10 {
-    border-color: rgba(255, 255, 255, 0.12) !important;
+/* Form section glassmorphic cards */
+.form-section {
+    @apply glass-panel;
+    padding: 2.5rem;
+    border-radius: 1px;
+    animation: sectionReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 input, textarea {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.2) !important;
-    transition: all 0.5s ease;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 0 !important;
+    padding: 0.75rem 0 !important;
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 input:focus, textarea:focus {
-    border-bottom: 2px solid #39FF14 !important;
-    box-shadow: 0 4px 20px -10px rgba(57, 255, 20, 0.4);
+    border-bottom: 1px solid var(--primary) !important;
+    background: rgba(var(--primary-rgb), 0.02) !important;
 }
 
-/* Luminous highlight for empty required fields */
-input:placeholder-shown:not(:focus), 
-textarea:placeholder-shown:not(:focus) {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.4) !important;
-}
-
-input:not(:placeholder-shown), 
-textarea:not(:placeholder-shown) {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.8) !important;
-}
-
-/* Form section glassmorphic cards */
-.form-section {
-    background: rgba(255, 255, 255, 0.025);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(57, 255, 20, 0.08);
-    border-radius: 1.5rem;
-    padding: 2rem;
-    animation: sectionReveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
 @media (min-width: 640px) {
     .form-section { padding: 2.5rem; }
 }
