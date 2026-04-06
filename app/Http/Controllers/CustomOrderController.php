@@ -56,6 +56,8 @@ class CustomOrderController extends Controller
             }
         }
 
+        $userId = optional(auth()->user())->id;
+
         $orderData = [
             'full_name' => $validated['full_name'],
             'whatsapp_number' => $validated['whatsapp_number'],
@@ -65,7 +67,7 @@ class CustomOrderController extends Controller
             'hips_cm' => $validated['hips_cm'] ?? null,
             'length_cm' => $validated['length_cm'] ?? null,
             'inspiration_image_paths' => $imagePaths,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'type' => $validated['outfit_type'] ?? 'custom',
             'priority_pass' => $priorityPass,
             'items_json' => [

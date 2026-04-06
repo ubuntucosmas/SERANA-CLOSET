@@ -19,12 +19,35 @@ export const useCartStore = defineStore('cart', () => {
     const totalPrice = computed(() => items.value.reduce((acc, item) => acc + (item.price * item.quantity), 0));
 
     function addItem(product) {
+        // Check stock availability before adding
+        if (product.batch_limit) {
+            const available = product.batch_limit - (product.batch_sold || 0);
+            const currentQty = items.value.find(item => item.id === product.id)?.quantity ?? 0;
+            
+            if (currentQty >= available) {
+                window.dispatchEvent(new CustomEvent('serana-toast', {
+                    detail: { message: `Only ${available} available for "${product.name}"`, type: 'error' }
+                }));
+                return;
+            }
+        }
+
         const existing = items.value.find(item => item.id === product.id);
         const price = typeof product.price === 'string'
             ? parseFloat(product.price.replace(/[^0-9.]/g, ''))
             : parseFloat(product.price);
 
         if (existing) {
+            // Also validate stock on quantity increment
+            if (product.batch_limit) {
+                const available = product.batch_limit - (product.batch_sold || 0);
+                if (existing.quantity >= available) {
+                    window.dispatchEvent(new CustomEvent('serana-toast', {
+                        detail: { message: `Maximum stock reached for "${product.name}"`, type: 'error' }
+                    }));
+                    return;
+                }
+            }
             existing.quantity++;
         } else {
             items.value.push({

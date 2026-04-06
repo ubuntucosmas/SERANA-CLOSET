@@ -30,7 +30,6 @@ async function handlePayment() {
     isProcessing.value = true;
     
     try {
-        // Strip out empty optional measurement fields to avoid 422 numeric validation failures
         const payload = {
             ...form.value,
             items: cart.items,
@@ -46,14 +45,19 @@ async function handlePayment() {
 
         if (response.data.success) {
             isSuccess.value = true;
-            orderId.value = response.data.order_id;
+            orderId.value = response.data.order_id || Date.now();
             cart.clearBag();
+            window.dispatchEvent(new CustomEvent('serana-toast', {
+                detail: { message: 'Order created. Proceed to payment.', type: 'success' }
+            }));
         }
     } catch (err) {
         console.error(err);
+        const message = err.response?.data?.message || err.message;
         if (err.response?.data?.errors) {
-            console.error('Validation Errors:', err.response.data.errors);
             alert('Please check the form. Some required fields might be missing or invalid:\n' + Object.values(err.response.data.errors).map(e => e.join(', ')).join('\n'));
+        } else {
+            alert(message || 'Order processing failed. Please try again.');
         }
     } finally {
         isProcessing.value = false;
@@ -234,13 +238,15 @@ function nextStep() {
 
                         <!-- Success State -->
                         <div v-if="isSuccess" class="text-center py-20 bg-transparent/50 rounded-3xl border border-primary/20 space-y-8 reveal">
-                            <span class="material-symbols-outlined text-7xl text-primary luminous-glow">verified</span>
+                            <span class="material-symbols-outlined text-7xl text-primary luminous-glow">hourglass_empty</span>
                             <div class="space-y-4">
-                                <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface">Payment <span class="text-primary">Secured.</span></h2>
-                                <p class="text-sm dark:text-white/40 text-black/40">Order #SRN-{{ String(orderId).padStart(4, '0') }} is now being handled by the Studio.</p>
+                                <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface">Order <span class="text-primary">Created.</span></h2>
+                                <p class="text-sm dark:text-white/40 text-black/40">Order #{{ String(orderId).slice(-6) }} is pending payment. Complete payment to secure your order.</p>
                             </div>
                             <div class="flex flex-col gap-4 max-w-xs mx-auto">
-                                <Link :href="route('profile.designs')" class="py-4 bg-primary text-black bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl">View Order in Vault</Link>
+                                <a href="https://wa.me/254700000000" target="_blank" class="py-4 bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl text-center">
+                                    Complete Payment via WhatsApp
+                                </a>
                                 <Link :href="route('home')" class="text-xs dark:text-white/40 text-black/40 hover:text-primary transition-colors">Return to Homepage</Link>
                             </div>
                         </div>
