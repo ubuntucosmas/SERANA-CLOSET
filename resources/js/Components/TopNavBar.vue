@@ -1,9 +1,9 @@
 <template>
     <nav
         class="fixed top-0 w-full z-50 transition-all duration-300"
-        :class="scrolled ? 'bg-surface/60 backdrop-blur-xl shadow-2xl border-b dark:border-white/5 border-black/5' : 'bg-transparent pt-6'"
+        :class="scrolled ? 'bg-surface/60 backdrop-blur-3xl shadow-2xl border-b border-white/5' : 'bg-transparent pt-4'"
     >
-        <div class="flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 lg:px-10 lg:py-8 w-full max-w-[1920px] mx-auto relative h-full">
+        <div class="flex items-center justify-between px-6 py-4 lg:px-12 w-full max-w-[1920px] mx-auto relative h-full">
 
             <!-- 1. Left Vector: Brand & Pulse -->
             <div class="flex items-center gap-10 relative z-20">
@@ -131,18 +131,35 @@
             </div>
         </div>
 
-        <!-- Mobile Menu -->
-        <transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-200 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-            <div v-if="menuOpen" class="md:hidden border-t dark:border-white/10 border-black/10 bg-surface/60 backdrop-blur-xl px-6 pb-6 pt-4 space-y-3">
-                <Link @click="menuOpen = false" :href="route('home')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('home') }">Home</Link>
-                <Link @click="menuOpen = false" :href="route('shop')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('shop*') }">Shop</Link>
-                <Link @click="menuOpen = false" :href="route('shop', {category: 'teens-archive'})" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('shop', {category: 'teens-archive'}) }">Teens</Link>
-                <Link @click="menuOpen = false" :href="route('shop', {category: 'kids-collection'})" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('shop', {category: 'kids-collection'}) }">Kids</Link>
-                <Link @click="menuOpen = false" :href="route('custom-order')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('custom-order*') }">Custom Order</Link>
-                <Link @click="menuOpen = false" :href="route('about')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('about') }">About</Link>
-                <Link @click="menuOpen = false" :href="route('circle')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('circle') }">Community</Link>
-                <Link @click="menuOpen = false" :href="route('profile.designs')" class="mobile-link" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('profile.designs*') }">My Orders</Link>
-                <button v-if="!$page.props.auth?.user" @click="showLogin = true; menuOpen = false" class="mobile-link text-left text-primary" :class="{ 'text-primary border-primary/20 bg-primary/5 px-2 -mx-2 rounded font-medium': isActive('login') }">Log In</button>
+        <!-- Mobile Menu (Full Screen Luxury Overlay) -->
+        <transition 
+            enter-active-class="transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]" 
+            enter-from-class="opacity-0 translateY(20px)" 
+            enter-to-class="opacity-100 translateY(0)" 
+            leave-active-class="transition-all duration-500 ease-in" 
+            leave-from-class="opacity-100" 
+            leave-to-class="opacity-0"
+        >
+            <div v-if="menuOpen" class="fixed inset-0 z-[60] bg-black/95 backdrop-blur-3xl p-12 flex flex-col justify-center">
+                <div class="space-y-12">
+                    <div v-for="(link, i) in [
+                        { route: 'home', label: 'THE START' },
+                        { route: 'shop', label: 'COLLECTIONS' },
+                        { route: 'circle', label: 'THE CIRCLE' },
+                        { route: 'about', label: 'OUR STORY' },
+                        { route: 'profile.edit', label: 'THE VAULT' }
+                    ]" :key="link.route"
+                    class="reveal-stagger" :style="{ transitionDelay: (i * 100) + 'ms' }">
+                        <Link @click="menuOpen = false" :href="route(link.route)" 
+                            class="serif-text text-5xl font-light tracking-tighter text-white hover:text-primary transition-all">
+                            {{ link.label }}
+                        </Link>
+                    </div>
+                </div>
+                
+                <button @click="menuOpen = false" class="absolute top-10 right-10 text-white/40 hover:text-primary">
+                    <span class="material-symbols-outlined text-4xl">close</span>
+                </button>
             </div>
         </transition>
 

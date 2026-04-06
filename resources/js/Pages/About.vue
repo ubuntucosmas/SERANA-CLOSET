@@ -145,9 +145,9 @@ onMounted(() => {
                         <span class="w-12 h-px bg-primary/40"></span>
                         Est. Nairobi · {{ new Date().getFullYear() - 2 }} archive
                     </div>
-                    <h1 class="font-headline text-6xl md:text-[9rem] font-medium leading-[0.9] mb-8 max-w-4xl reveal-item opacity-0">
+                    <h1 class="serif-text text-6xl md:text-[9rem] font-light leading-[0.9] mb-8 max-w-4xl reveal-item opacity-0">
                         Made<br/>
-                        <span class="font-light dark:text-white/40 text-black/40">with care.</span>
+                        <span class="text-white/40">with care.</span>
                     </h1>
                     <p class="text-lg md:text-xl dark:text-white/40 text-black/40 max-w-xl leading-relaxed font-light reveal-item opacity-0">
                         We started Serana Closet to solve one problem — finding clothes that actually fit, look sharp, and last. Everything we do comes back to that.
@@ -239,7 +239,7 @@ onMounted(() => {
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div v-for="value in values" :key="value.title"
-                        class="group relative bg-transparent border dark:border-white/10 border-black/10 hover:border-primary/30 rounded-sm p-8 transition-all duration-500 hover:bg-transparent/60 overflow-hidden grid-item opacity-0">
+                        class="glass-panel group relative rounded-sm p-8 transition-all duration-500 hover:bg-black/60 overflow-hidden grid-item opacity-0">
                         <!-- Background accent -->
                         <div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-all duration-700 blur-2xl"></div>
 

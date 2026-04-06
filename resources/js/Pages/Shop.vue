@@ -127,7 +127,7 @@ const activeCategory = computed(() => {
                 <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
                         <span class="text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-4 block drop-shadow-md">The digital studio</span>
-                        <h1 class="text-6xl md:text-8xl font-headline tracking-tighter dark:text-white text-on-surface font-medium">
+                        <h1 class="serif-text text-6xl md:text-8xl dark:text-white text-on-surface font-light tracking-tighter">
                             <span class="text-primary luminous-glow">Our</span> Collection
                         </h1>
                     </div>
@@ -155,12 +155,12 @@ const activeCategory = computed(() => {
                             </button>
                             <!-- Dropdown -->
                             <transition name="fade">
-                                <div v-if="showSortMenu" class="absolute right-0 top-8 z-50 w-48 dark:bg-black/60 bg-white/60 backdrop-blur-md border dark:border-white/10 border-black/10 rounded-sm shadow-2xl overflow-hidden">
+                                <div v-if="showSortMenu" class="glass-panel absolute right-0 top-8 z-50 w-48 rounded-sm shadow-2xl overflow-hidden">
                                     <button
                                         v-for="opt in sortOptions" :key="opt.value"
                                         @click="filterBySort(opt.value)"
                                         class="w-full text-left px-4 py-3 text-xs font-semibold tracking-widest transition-colors"
-                                        :class="currentSort === opt.value ? 'text-primary bg-primary/5' : 'dark:text-white/60 text-black/60 hover:dark:text-white text-on-surface hover:bg-white/5'"
+                                        :class="currentSort === opt.value ? 'text-primary bg-primary/5' : 'text-white/60 hover:text-white hover:bg-white/5'"
                                     >{{ opt.label }}</button>
                                 </div>
                             </transition>
@@ -192,7 +192,7 @@ const activeCategory = computed(() => {
                 <!-- Sidebar Filters -->
                 <aside class="w-full md:w-64 flex-shrink-0 relative reveal reveal-delay-200">
                     <!-- Subtle glass background for the sidebar in Luminous Dark theme -->
-                    <div class="sticky top-40 space-y-12 bg-transparent/50 backdrop-blur-md p-6 rounded-sm border dark:border-white/10 border-black/10 shadow-2xl">
+                    <div class="sticky top-40 space-y-12 glass-panel p-6 rounded-sm shadow-2xl">
                         
                         <!-- Category -->
                         <section>

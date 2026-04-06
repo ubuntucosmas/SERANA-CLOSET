@@ -378,11 +378,12 @@ function getAllOrderImages(order) {
             </div>
 
             <div v-if="currentTab === 'overview' || currentTab === 'orders'">
-
-                <div class="overflow-x-auto no-scrollbar border border-[#1C1B1B] bg-[#0E0E0E]">
+                
+                <!-- Desktop Tabular Registry -->
+                <div class="hidden lg:block overflow-x-auto no-scrollbar border border-white/5 bg-[#0E0E0E]">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-[#1C1B1B]">
+                            <tr class="border-b border-white/5">
                                 <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Registry</th>
                                 <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Identifier</th>
                                 <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Client / Partner</th>
@@ -396,11 +397,11 @@ function getAllOrderImages(order) {
                                 @click="selectOrder(order)"
                                 @mouseenter="hoveredOrder = order"
                                 @mouseleave="hoveredOrder = null"
-                                class="border-b border-[#1C1B1B] group cursor-pointer hover:bg-[#131313] transition-all duration-300"
+                                class="border-b border-white/5 group cursor-pointer hover:bg-[#131313] transition-all duration-300"
                                 :class="form.id === order.id ? 'bg-[#1C1B1B]/50' : ''">
                                 
                                 <td class="p-6">
-                                    <div class="w-12 h-16 bg-[#050505] border border-[#1C1B1B] overflow-hidden">
+                                    <div class="w-12 h-16 bg-[#050505] border border-white/5 overflow-hidden">
                                         <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" 
                                              class="w-full h-full object-cover grayscale opacity-50 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-700" />
                                     </div>
@@ -437,6 +438,36 @@ function getAllOrderImages(order) {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card Registry -->
+                <div class="lg:hidden space-y-6 pb-20">
+                    <div v-for="order in filteredOrders" :key="order.id" 
+                        @click="selectOrder(order)"
+                        class="bg-[#0E0E0E] p-6 border border-white/5 active:bg-[#131313] transition-all rounded-sm flex gap-6"
+                        :class="form.id === order.id ? 'border-[#B9C3FF]/40' : ''">
+                        
+                        <div class="w-16 h-20 bg-[#050505] border border-white/5 flex-shrink-0 overflow-hidden">
+                            <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover">
+                        </div>
+
+                        <div class="flex-grow flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-start">
+                                    <p class="text-[9px] text-[#B9C3FF] tracking-widest font-bold">#{{ String(order.id).padStart(4, '0') }}</p>
+                                    <span :class="`text-[7px] font-black tracking-widest uppercase px-2 py-1 bg-white/5 ${order.status === 'completed' ? 'text-primary' : 'text-white/40'}`">
+                                        {{ order.status }}
+                                    </span>
+                                </div>
+                                <p class="text-[13px] text-white mt-1 font-medium">{{ order.full_name }}</p>
+                                <p class="serif-text text-xs text-white/40 italic">{{ order.garment_name }}</p>
+                            </div>
+                            <div class="flex justify-between items-end mt-2">
+                                <p class="text-[10px] text-primary font-black">KES {{ Number(order.price_quoted || 0).toLocaleString() }}</p>
+                                <p class="text-[7px] text-white/20 tracking-tighter">{{ new Date(order.created_at).toLocaleDateString() }}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

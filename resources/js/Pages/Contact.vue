@@ -8,8 +8,8 @@
         <main class="pt-32 pb-24 px-6 max-w-screen-xl mx-auto font-body">
             <!-- Header Section -->
             <header class="mb-20 text-center reveal">
-                <h1 class="font-headline text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-black">The Studio <span class="text-primary luminous-glow">Connect</span></h1>
-                <p class="text-on-surface text-xl md:text-2xl max-w-2xl mx-auto font-medium leading-relaxed">
+                <h1 class="serif-text text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-light">The Studio <span class="text-primary luminous-glow">Connect</span></h1>
+                <p class="text-white/60 text-xl md:text-2xl max-w-2xl mx-auto font-light leading-relaxed">
                     Direct access to the Serana Studio. Priority response for custom orders and elite acquisitions.
                 </p>
             </header>
@@ -59,7 +59,7 @@
                     </div>
 
                     <!-- Studio Status -->
-                    <div class="p-8 bg-surface-container/50 border dark:border-white/5 border-black/5 rounded-2xl space-y-4 relative overflow-hidden">
+                    <div class="glass-panel p-8 rounded-sm space-y-4 relative overflow-hidden">
                         <div class="flex items-center gap-3">
                             <span class="relative flex h-2 w-2">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -67,14 +67,14 @@
                             </span>
                             <span class="text-[11px] font-headline font-black tracking-[0.2em] text-primary">Live studio pulse</span>
                         </div>
-                        <p class="text-sm dark:text-white text-on-surface leading-relaxed font-black">
+                        <p class="text-sm text-white leading-relaxed font-light">
                             Our artisans are currently focused on **Batch #04**. Capacity at **85%**. Response times: approx **4 hours**.
                         </p>
                     </div>
                 </div>
 
                 <!-- Contact Form / Lead Capture -->
-                <div class="bg-surface-container border dark:border-white/10 border-black/10 rounded-3xl p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
+                <div class="glass-panel rounded-sm p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
                     <form @submit.prevent="submitForm" class="space-y-8">
                         <div class="space-y-3">
                             <label class="text-[11px] font-headline tracking-[0.2em] text-primary font-black">Nature of inquiry</label>

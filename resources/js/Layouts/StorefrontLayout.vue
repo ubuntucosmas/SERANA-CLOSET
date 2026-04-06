@@ -4,6 +4,7 @@
         <SectionBackground class="fixed !z-[-1]" opacity="opacity-5" :showScan="false" />
 
         <TopNavBar />
+        <MobileBottomNav />
         <CartDrawer />
         <Notification />
 
@@ -23,6 +24,7 @@
 import { onMounted } from 'vue';
 import TopNavBar from '@/Components/TopNavBar.vue';
 import AppFooter from '@/Components/Footer.vue';
+import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
 import Notification from '@/Components/Notification.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
