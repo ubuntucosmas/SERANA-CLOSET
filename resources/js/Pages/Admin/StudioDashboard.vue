@@ -54,15 +54,25 @@ const themeForm = useForm({
 });
 
 function updateThemeAsset(key, val) {
-    // If it's a string from v-model/blur, use it directly. 
-    // If it's a file from @input, handle as file.
     themeForm.key = key;
     themeForm.value = val;
     themeForm.post(route('admin.theme.update'), {
         preserveScroll: true,
-        forceFormData: true,
+        forceFormData: true
+    });
+}
+
+const progressSnapForm = useForm({
+    image: null,
+    description: ''
+});
+
+function submitProgressSnap() {
+    if (!selectedOrder.value) return;
+    progressSnapForm.post(route('studio.progress_snap', selectedOrder.value.id), {
+        preserveScroll: true,
         onSuccess: () => {
-            // Updated
+            progressSnapForm.reset();
         }
     });
 }
@@ -94,10 +104,14 @@ function selectOrder(order) {
 }
 
 function updateOrder() {
+    console.log('[Serana] Documenting order update...');
 	form.put(route('studio.update', form.id), {
-	onSuccess: () => {
-	// Success handling
-	}
+        onSuccess: () => {
+            console.log('[Serana] Order updated successfully.');
+        },
+        onError: (err) => {
+            console.error('[Serana] Order update failed:', err);
+        }
 	});
 }
 
@@ -108,20 +122,37 @@ function deleteProduct(id) {
 }
 
 function submitProduct() {
+    console.log('[Serana] Initiating product commission sync...');
 	productForm.post(route('admin.catalog.store_product'), {
-	onSuccess: () => {
-	showAddProductModal.value = false;
-	productForm.reset();
-	}
+        onStart: () => console.log('[Serana] Product upload stream opened...'),
+        onSuccess: () => {
+            console.log('[Serana] Product commission recorded successfully.');
+            setTimeout(() => {
+                showAddProductModal.value = false;
+                productForm.reset();
+            }, 1500);
+        },
+        onError: (err) => {
+            console.error('[Serana] Product commission failed:', err);
+        },
+        onFinish: () => console.log('[Serana] Product commission finalized.')
 	});
 }
 
 function submitGallery() {
+    console.log('[Serana] Initiating gallery archival...');
 	galleryForm.post(route('admin.gallery.store'), {
-	onSuccess: () => {
-	showAddGalleryModal.value = false;
-	galleryForm.reset();
-	}
+        onStart: () => console.log('[Serana] Gallery upload stream opened...'),
+        onSuccess: () => {
+            console.log('[Serana] Gallery archival successful.');
+            setTimeout(() => {
+                showAddGalleryModal.value = false;
+                galleryForm.reset();
+            }, 1500);
+        },
+        onError: (err) => {
+            console.error('[Serana] Gallery archival failed:', err);
+        }
 	});
 }
 
@@ -130,6 +161,17 @@ function deleteGallery(id) {
 	router.delete(route('admin.gallery.destroy', id));
 	}
 }
+
+const getObjectURL = (file) => {
+    if (!file) return null;
+    if (typeof file === 'string') return file;
+    try {
+        return window.URL.createObjectURL(file);
+    } catch (e) {
+        console.error('[Serana] Failed to create object URL:', e);
+        return null;
+    }
+};
 
 function getOrderThumbnails(order) {
 	if (!order) return [];
@@ -682,21 +724,54 @@ function getAllOrderImages(order) {
                 </div>
             </div>
 
-            <footer class="mt-auto pt-10 border-t border-[#1C1B1B] flex flex-col gap-4">
-                <div class="space-y-6 mb-6">
-                    <div>
-                        <label class="curator-label">Internal Notes</label>
-                        <textarea v-model="form.internal_notes" rows="3" class="curator-textarea no-scrollbar" placeholder="Add private notes about this order..."></textarea>
+                <div class="mt-12 pt-10 border-t border-white/10 space-y-8">
+                    
+                    <!-- Core Order Controls (Restored) -->
+                    <div class="space-y-6">
+                        <div>
+                            <label class="curator-label">Internal Process Notes</label>
+                            <textarea v-model="form.internal_notes" rows="3" class="curator-textarea no-scrollbar text-sm" placeholder="Add private notes about this order..."></textarea>
+                        </div>
+                        <div>
+                            <label class="curator-label">Fulfillment Phase</label>
+                            <select v-model="form.status" class="w-full bg-[#050505] border border-white/5 p-4 text-[10px] tracking-widest uppercase font-black text-[#B9C3FF] focus:border-[#B9C3FF] outline-none">
+                                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label class="curator-label">Order Status</label>
-                        <select v-model="form.status" class="w-full bg-[#050505] border border-[#1C1B1B] p-4 text-[10px] tracking-widest uppercase font-bold text-[#e5e2e1] focus:border-[#B9C3FF] outline-none">
-                            <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-                        </select>
+
+                    <p class="text-[10px] text-[#B9C3FF] tracking-[0.6em] uppercase font-bold italic mb-4 pt-4">Artisan Logbook</p>
+                    
+                    <!-- Progress Photo Upload -->
+                    <div class="bg-[#1C1B1B]/40 p-6 border border-white/5 space-y-6">
+                        <div class="flex items-center justify-between">
+                             <p class="text-[9px] text-white/40 uppercase tracking-[0.3em] font-black">Upload Build Progress</p>
+                             <span v-if="progressSnapForm.processing" class="text-[8px] text-[#B9C3FF] animate-pulse">UPLOADING_STREAM_</span>
+                        </div>
+                        
+                        <input type="file" id="snap-up" @input="progressSnapForm.image = $event.target.files[0]" class="hidden" />
+                        <label for="snap-up" class="block w-full py-4 border border-dashed border-white/10 text-center cursor-pointer hover:border-[#B9C3FF] transition-all">
+                            <span v-if="!progressSnapForm.image" class="text-[9px] text-white/20 uppercase tracking-widest">Select Snapshot</span>
+                            <span v-else class="text-[9px] text-[#B9C3FF] uppercase tracking-widest font-black">{{ progressSnapForm.image.name }}</span>
+                        </label>
+                        
+                        <textarea v-model="progressSnapForm.description" rows="2" class="curator-textarea text-[11px] h-auto py-3" placeholder="Brief process note..."></textarea>
+                        
+                        <div v-if="progressSnapForm.progress" class="h-[1px] bg-white/5 w-full">
+                            <div class="h-full bg-[#B9C3FF] transition-all duration-300" :style="{ width: progressSnapForm.progress.percentage + '%' }"></div>
+                        </div>
+
+                        <button @click="submitProgressSnap" :disabled="progressSnapForm.processing || !progressSnapForm.image"
+                                class="w-full py-4 bg-white/5 text-white/40 hover:bg-[#B9C3FF] hover:text-[#092484] text-[9px] font-black tracking-[0.4em] uppercase transition-all disabled:opacity-30">
+                            {{ progressSnapForm.processing ? 'TRANSFERRING...' : 'Sync to Registry' }}
+                        </button>
                     </div>
+
+                    <button @click="updateOrder" :disabled="form.processing"
+                            class="w-full py-5 bg-[#B9C3FF] text-[#092484] text-[10px] font-black tracking-[0.3em] uppercase glow-indigo disabled:opacity-50">
+                        {{ form.processing ? 'DOCUMENTING...' : 'Update Order Status' }}
+                    </button>
                 </div>
-                <button @click="updateOrder" class="w-full py-5 bg-[#B9C3FF] text-[#092484] text-[10px] font-black tracking-[0.3em] uppercase glow-indigo">Update Order</button>
-            </footer>
         </aside>
 
         <!-- Product Modal -->
@@ -728,7 +803,12 @@ function getAllOrderImages(order) {
                             <textarea v-model="productForm.description" rows="4" placeholder="Detail the construction and materials..." class="curator-textarea no-scrollbar"></textarea>
                         </div>
                     </div>
-                    <button @click="submitProduct" class="w-full py-6 mt-16 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95">Add to Collection</button>
+                    <div v-if="productForm.wasSuccessful" class="mt-8 p-4 bg-[#B9C3FF]/10 border border-[#B9C3FF]/20 text-center">
+                         <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">COMMISSION_SYNC_COMPLETE</p>
+                    </div>
+                    <button @click="submitProduct" :disabled="productForm.processing || productForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
+                        {{ productForm.processing ? 'PROCESSING_COMMISSION...' : (productForm.wasSuccessful ? 'RECORDED' : 'Add to Collection') }}
+                    </button>
                 </div>
                 <div class="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center">
                     <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]" class="hidden" />
@@ -736,7 +816,7 @@ function getAllOrderImages(order) {
                         <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
                         <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">Upload Photo</p>
                     </label>
-                    <img v-if="productForm.image" :src="typeof productForm.image === 'string' ? productForm.image : URL.createObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                    <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
                 </div>
             </div>
         </div>
@@ -762,7 +842,12 @@ function getAllOrderImages(order) {
                             <textarea v-model="galleryForm.testimonial" rows="4" placeholder="Share the client's experience..." class="curator-textarea no-scrollbar"></textarea>
                         </div>
                     </div>
-                    <button @click="submitGallery" class="w-full py-6 mt-16 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95">Post to Gallery</button>
+                    <div v-if="galleryForm.wasSuccessful" class="mt-8 p-4 bg-[#B9C3FF]/10 border border-[#B9C3FF]/20 text-center">
+                         <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">SYNC_TO_ARCHIVE_SUCCESS</p>
+                    </div>
+                    <button @click="submitGallery" :disabled="galleryForm.processing || galleryForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
+                        {{ galleryForm.processing ? 'POSTING_SHOT...' : (galleryForm.wasSuccessful ? 'POSTED' : 'Post to Gallery') }}
+                    </button>
                 </div>
                 <div class="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center">
                     <input type="file" id="gallery-img" @input="galleryForm.image = $event.target.files[0]" class="hidden" />
@@ -770,7 +855,7 @@ function getAllOrderImages(order) {
                         <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
                         <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">Upload Photo</p>
                     </label>
-                    <img v-if="galleryForm.image" :src="typeof galleryForm.image === 'string' ? galleryForm.image : URL.createObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                    <img v-if="galleryForm.image" :src="getObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
                 </div>
             </div>
         </div>
