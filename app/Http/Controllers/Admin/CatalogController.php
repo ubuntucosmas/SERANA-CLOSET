@@ -38,7 +38,7 @@ class CatalogController extends Controller
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
-            $validated['image_path'] = '/storage/' . $path;
+            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via Storage::disk('public')->url()
         }
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -68,8 +68,9 @@ class CatalogController extends Controller
     public function destroyProduct(Product $product)
     {
         if ($product->image_path) {
-            $path = str_replace('/storage/', '', $product->image_path);
-            Storage::disk('public')->delete($path);
+            // Handle both old /storage/-prefixed paths and new raw paths
+            $rawPath = ltrim(str_replace('/storage/', '/', $product->image_path), '/');
+            Storage::disk('public')->delete($rawPath);
         }
 
         $product->delete();

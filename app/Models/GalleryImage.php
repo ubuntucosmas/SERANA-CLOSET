@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class GalleryImage extends Model
 {
@@ -20,7 +21,7 @@ class GalleryImage extends Model
     {
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-        $path = str_replace('/storage/', '', $this->image_path);
-        return asset('storage/' . $path);
+        $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
+        return Storage::disk('public')->url($rawPath);
     }
 }

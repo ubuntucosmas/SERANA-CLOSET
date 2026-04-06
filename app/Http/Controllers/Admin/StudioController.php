@@ -67,7 +67,7 @@ class StudioController extends Controller
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('progress_snaps', 'public');
-            $validated['image_path'] = '/storage/' . $path;
+            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via Storage::disk('public')->url()
             $validated['custom_order_id'] = $order->id;
         }
 

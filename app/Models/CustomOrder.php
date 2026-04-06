@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class CustomOrder extends Model
 {
@@ -21,8 +22,8 @@ class CustomOrder extends Model
         $paths = $this->inspiration_image_paths ?: [];
         return array_map(function ($path) {
             if (str_starts_with($path, 'http')) return $path;
-            $path = str_replace('/storage/', '', $path);
-            return asset('storage/' . $path);
+            $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+            return Storage::disk('public')->url($rawPath);
         }, $paths);
     }
 
@@ -39,8 +40,8 @@ class CustomOrder extends Model
             if (is_array($item)) {
                 $img = $item['image'] ?? $item['image_path'] ?? null;
                 if ($img && !str_starts_with($img, 'http')) {
-                    $cleaned = str_replace('/storage/', '', $img);
-                    $item['image_url'] = asset('storage/' . $cleaned);
+                    $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
+                    $item['image_url'] = Storage::disk('public')->url($rawPath);
                 } else if ($img) {
                     $item['image_url'] = $img;
                 }

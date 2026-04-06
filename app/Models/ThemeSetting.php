@@ -22,7 +22,7 @@ class ThemeSetting extends Model
 
         // If it looks like a file path (starts with themes/ or similar), return the full URL
         if (str_starts_with($setting->value, 'themes/')) {
-            return asset('storage/' . $setting->value);
+            return Storage::disk('public')->url($setting->value);
         }
 
         return $setting->value;

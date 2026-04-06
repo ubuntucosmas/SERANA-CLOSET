@@ -20,7 +20,7 @@ class GalleryController extends Controller
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('gallery', 'public');
-            $validated['image_path'] = '/storage/' . $path;
+            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via Storage::disk('public')->url()
         }
 
         GalleryImage::create($validated);
@@ -31,8 +31,9 @@ class GalleryController extends Controller
     public function destroy(GalleryImage $image)
     {
         // Delete physical file
-        $path = str_replace('/storage/', '', $image->image_path);
-        Storage::disk('public')->delete($path);
+        // Handle both old /storage/-prefixed paths and new raw paths
+        $rawPath = ltrim(str_replace('/storage/', '/', $image->image_path), '/');
+        Storage::disk('public')->delete($rawPath);
         
         $image->delete();
 

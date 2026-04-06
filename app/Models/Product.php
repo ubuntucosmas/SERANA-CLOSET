@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -37,8 +38,9 @@ class Product extends Model
     {
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-        $path = str_replace('/storage/', '', $this->image_path);
-        return asset('storage/' . $path);
+        // Normalize: strip any leading /storage/ prefix so the raw path works with Storage::url()
+        $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
+        return Storage::disk('public')->url($rawPath);
     }
 
     public function category()
