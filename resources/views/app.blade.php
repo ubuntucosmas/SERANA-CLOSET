@@ -10,7 +10,13 @@
         
         <!-- Dynamic Favicon -->
         @if(isset($page['props']['theme_settings']['site_favicon']))
-            <link rel="icon" type="image/png" href="/storage/{{ $page['props']['theme_settings']['site_favicon'] }}">
+            @php
+                $favicon = $page['props']['theme_settings']['site_favicon'];
+                // If it's already a full URL (resolved by ThemeSetting model), use it directly
+                // otherwise fall back to storage URL
+                $faviconUrl = str_starts_with($favicon, 'http') ? $favicon : \Illuminate\Support\Facades\Storage::disk('public')->url($favicon);
+            @endphp
+            <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
         @endif
         
         <!-- Serana Brand Fonts — Curator Edition -->
