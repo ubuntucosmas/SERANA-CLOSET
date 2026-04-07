@@ -244,7 +244,7 @@ function nextStep() {
                                 <p class="text-sm dark:text-white/40 text-black/40">Order #{{ String(orderId).slice(-6) }} is pending payment. Complete payment to secure your order.</p>
                             </div>
                             <div class="flex flex-col gap-4 max-w-xs mx-auto">
-                                <a href="https://wa.me/254700000000" target="_blank" class="py-4 bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl text-center">
+                                <a href="https://wa.me/$page.props.whatsapp_number" target="_blank" class="py-4 bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl text-center">
                                     Complete Payment via WhatsApp
                                 </a>
                                 <Link :href="route('home')" class="text-xs dark:text-white/40 text-black/40 hover:text-primary transition-colors">Return to Homepage</Link>

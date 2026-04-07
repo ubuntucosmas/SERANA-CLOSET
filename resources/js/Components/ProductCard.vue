@@ -8,15 +8,21 @@ import { animate } from 'animejs';
 const cart = useCartStore();
 const isHovered = ref(false);
 const cardElement = ref(null);
+const currentIndex = ref(0);
+let hoverInterval = null;
+
+const allImages = computed(() => {
+    const images = [props.product.image_url];
+    if (props.product.secondary_image_urls) {
+        images.push(...props.product.secondary_image_urls.filter(Boolean));
+    }
+    return images;
+});
 
 const props = defineProps({
     product: {
         type: Object,
         required: true,
-    },
-    phoneNumber: {
-        type: String,
-        default: '254700000000',
     },
     layout: {
         type: String,
@@ -27,6 +33,15 @@ const props = defineProps({
 const handleHover = (hovering) => {
     isHovered.value = hovering;
     
+    if (hovering && allImages.value.length > 1) {
+        hoverInterval = setInterval(() => {
+            currentIndex.value = (currentIndex.value + 1) % allImages.value.length;
+        }, 1500);
+    } else {
+        if (hoverInterval) clearInterval(hoverInterval);
+        currentIndex.value = 0;
+    }
+
     // Smooth Parallax Image Shift
     animate(cardElement.value?.querySelector('.product-img'), {
         scale: hovering ? 1.05 : 1,
@@ -44,9 +59,9 @@ const handleHover = (hovering) => {
     });
 };
 
-const whatsappUrl = `https://wa.me/${props.phoneNumber}?text=${encodeURIComponent(
+const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=${encodeURIComponent(
     `Hello! I'm interested in: ${props.product.name} (KSh ${Number(props.product.price).toLocaleString()}). Can you help me order?`
-)}`;
+)}`);
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
 const isLimitedDrop = computed(() => props.product.batch_limit !== null && props.product.batch_limit > 0 && props.product.batch_limit <= 30);
 </script>
@@ -67,10 +82,11 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             layout === 'editorial' ? 'h-full mb-0' : 'aspect-[3/4] mb-6'
         ]">
             <img
-                class="product-img w-full h-full object-cover transition-transform duration-1000"
-                :src="product.image_url || '/images/hero_editorial.png'"
+                class="product-img w-full h-full object-cover transition-all duration-700"
+                :src="allImages[currentIndex] || '/images/hero_editorial.png'"
                 :alt="product.name"
                 loading="lazy"
+                :class="{ 'opacity-80': isHovered }"
             />
             
             <!-- Technical X-Ray Overlay -->
@@ -78,11 +94,11 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
 
             <!-- Editorial/Grid Hover Overlay -->
             <div :class="[
-                'overlay-content absolute inset-0 flex flex-col justify-end p-8 gap-4 z-30 pointer-events-none',
+                'overlay-content absolute inset-0 flex flex-col justify-end p-8 gap-4 z-30 pointer-events-none opacity-0',
                 layout === 'editorial' 
                     ? 'bg-gradient-to-t from-black via-black/80 to-transparent' 
-                    : 'dark:bg-surface/80 bg-surface/80 backdrop-blur-sm'
-            ]" :style="layout === 'grid' ? 'opacity: 0' : ''">
+                    : 'bg-black/60 backdrop-blur-md'
+            ]">
                 
                 <div v-if="layout === 'editorial'" class="space-y-3 mb-6">
                     <p class="text-primary font-headline text-[11px] font-medium tracking-[0.3em]">{{ product.category?.name || 'Collection' }}</p>
@@ -108,6 +124,14 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 </div>
             </div>
 
+            <!-- Multi-Image Indicator -->
+            <div v-if="allImages.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                <div v-for="(_, i) in allImages" :key="i" 
+                     class="w-1 h-1 rounded-full transition-all duration-300"
+                     :class="currentIndex === i ? 'bg-primary shadow-[0_0_5px_#39FF14] scale-125' : 'bg-white/40'">
+                </div>
+            </div>
+
             <!-- Limited Drop Badge -->
             <div v-if="isLimitedDrop && !isSoldOut" class="absolute top-4 right-4 z-10">
                 <span class="bg-amber-500/90 backdrop-blur-sm text-black px-2.5 py-1 text-[10px] font-medium tracking-widest rounded-md shadow-lg">Limited Drop</span>
@@ -124,28 +148,40 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             </div>
         </div>
 
-        <!-- Product Info (Grid only) -->
-        <div v-if="layout === 'grid'" class="mt-8 px-1">
-            <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-3">
-                    <p class="text-[9px] font-bold tracking-[0.3em] text-primary uppercase">{{ product.category?.name || 'Archive' }}</p>
-                    <div class="w-1 h-1 rounded-full bg-white/10"></div>
-                    <p class="text-[9px] font-bold tracking-[0.3em] dark:text-white/40 text-black/40 uppercase">Edition #{{ product.id }}</p>
-                </div>
-                <div class="flex justify-between items-end">
-                    <h3 class="serif-text text-2xl font-light dark:text-white text-on-surface">{{ product.name }}</h3>
-                    <p class="text-sm font-bold tracking-widest text-[#B9C3FF]">KSh {{ Number(product.price).toLocaleString() }}</p>
+        <!-- Cinematic Grand Gallery Tooltip (Universal Pop) -->
+        <div v-if="isHovered && allImages.length >= 1" 
+             class="absolute -top-80 left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-2 animate-tooltip-pop min-w-[300px] flex justify-center">
+            <div class="bg-black/90 backdrop-blur-3xl border border-primary/30 p-6 shadow-[0_60px_120px_rgba(0,0,0,1)] flex gap-6 rounded-2xl items-center justify-center pointer-events-auto scale-110">
+                <div v-for="(img, i) in allImages" :key="i" 
+                     class="w-48 h-64 bg-surface overflow-hidden rounded-xl border border-white/20 reveal-stagger group/thumb cursor-crosshair shadow-2xl"
+                     :style="{ transitionDelay: (i * 100) + 'ms' }">
+                    <img :src="img" class="w-full h-full object-cover grayscale group-hover/thumb:grayscale-0 transition-all duration-1000 opacity-30 group-hover/thumb:opacity-100 group-hover/thumb:scale-110" />
                 </div>
             </div>
+        </div>
 
-            <!-- Mobile persistent CTA -->
+        <!-- Product Info (Grid only) -->
+        <div v-if="layout === 'grid'" class="mt-4 px-1">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate pr-4 group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
+                    <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium">{{ product.category?.name || 'Collection' }}</p>
+                </div>
+                <span class="text-primary font-headline font-medium text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
+            </div>
+
+            <!-- Mobile persistent CTA (touch devices can't hover) -->
             <button
                 v-if="!isSoldOut"
                 @click="cart.addItem(product)"
-                class="md:hidden w-full mt-6 bg-primary/5 border border-primary/20 text-primary py-4 text-[10px] font-black tracking-[0.2em] uppercase rounded-sm active:bg-primary active:text-black transition-all"
+                class="md:hidden w-full mt-2 bg-primary/10 border border-primary/20 text-primary py-2.5 text-xs font-medium tracking-widest rounded-sm hover:bg-primary hover:text-black transition-all flex items-center justify-center gap-2"
             >
+                <span class="material-symbols-outlined text-[16px]">shopping_bag</span>
                 Add to Bag
             </button>
+            <div v-else class="md:hidden w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
+                Sold Out
+            </div>
         </div>
     </div>
 </template>
@@ -156,5 +192,29 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
 }
 .group:hover .text-glow-after {
     text-shadow: 0 0 10px rgba(57, 255, 20,0.4);
+}
+.group:hover {
+    transform: scale(1.02);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    z-index: 40;
+}
+
+@keyframes tooltipPop {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-tooltip-pop {
+    animation: tooltipPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.reveal-stagger {
+    opacity: 0;
+    transform: translateY(5px);
+    animation: revealItem 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes revealItem {
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>

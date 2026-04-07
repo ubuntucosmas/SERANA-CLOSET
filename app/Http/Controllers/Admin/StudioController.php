@@ -31,8 +31,10 @@ class StudioController extends Controller
         return Inertia::render('Admin/StudioDashboard', [
             'orders' => CustomOrder::with(['user', 'progressSnaps'])->latest()->get(),
             'products' => Product::with('category')->latest()->get(),
+            'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
             'categories' => Category::all(),
             'gallery' => GalleryImage::latest()->get(),
+            'archived_gallery' => GalleryImage::onlyTrashed()->latest()->get(),
             'leads' => Lead::latest()->get(),
             'stats' => [
                 'total_revenue' => $total_revenue,

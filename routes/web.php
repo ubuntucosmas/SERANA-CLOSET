@@ -77,11 +77,16 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/catalog/product', [App\Http\Controllers\Admin\CatalogController::class, 'storeProduct'])->name('admin.catalog.store_product');
     Route::put('/catalog/product/{product}', [App\Http\Controllers\Admin\CatalogController::class, 'updateProduct'])->name('admin.catalog.update_product');
     Route::delete('/catalog/product/{product}', [App\Http\Controllers\Admin\CatalogController::class, 'destroyProduct'])->name('admin.catalog.destroy_product');
+    Route::post('/catalog/product/{product}/restore', [App\Http\Controllers\Admin\CatalogController::class, 'restoreProduct'])->name('admin.catalog.restore_product')->withTrashed();
+    Route::delete('/catalog/product/{product}/force', [App\Http\Controllers\Admin\CatalogController::class, 'forceDeleteProduct'])->name('admin.catalog.force_delete_product')->withTrashed();
     Route::post('/catalog/category', [App\Http\Controllers\Admin\CatalogController::class, 'storeCategory'])->name('admin.catalog.store_category');
 
     // Gallery Management
     Route::post('/gallery', [App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('admin.gallery.store');
+    Route::put('/gallery/{image}', [App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('admin.gallery.update');
     Route::delete('/gallery/{image}', [App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('admin.gallery.destroy');
+    Route::post('/gallery/{image}/restore', [App\Http\Controllers\Admin\GalleryController::class, 'restore'])->name('admin.gallery.restore')->withTrashed();
+    Route::delete('/gallery/{image}/force', [App\Http\Controllers\Admin\GalleryController::class, 'forceDelete'])->name('admin.gallery.force_delete')->withTrashed();
 
     // Theme & Asset Management
     Route::post('/theme/update', [App\Http\Controllers\Admin\ThemeController::class, 'update'])->name('admin.theme.update');

@@ -21,9 +21,10 @@ class Product extends Model
         'specifications',
         'batch_limit',
         'batch_sold',
+        'secondary_images',
     ];
 
-    protected $appends = ['image_url'];
+    protected $appends = ['image_url', 'secondary_image_urls'];
 
     protected $casts = [
         'price' => 'decimal:2',
@@ -32,15 +33,26 @@ class Product extends Model
         'specifications' => 'array',
         'batch_limit' => 'integer',
         'batch_sold' => 'integer',
+        'secondary_images' => 'array',
     ];
 
     public function getImageUrlAttribute()
     {
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-        // Normalize: strip any leading /storage/ prefix so the raw path works with Storage::url()
         $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
         return Storage::disk('public')->url($rawPath);
+    }
+
+    public function getSecondaryImageUrlsAttribute()
+    {
+        $images = $this->secondary_images ?? [];
+        return array_map(function($path) {
+            if (!$path) return null;
+            if (str_starts_with($path, 'http')) return $path;
+            $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+            return Storage::disk('public')->url($rawPath);
+        }, $images);
     }
 
     public function category()

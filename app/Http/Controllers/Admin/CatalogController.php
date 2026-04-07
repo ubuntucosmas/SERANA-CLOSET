@@ -38,7 +38,20 @@ class CatalogController extends Controller
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
-            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via Storage::disk('public')->url()
+            $validated['image_path'] = $path;
+        }
+
+        // Handle up to 2 secondary images
+        $secondaryPaths = [];
+        if ($request->hasFile('secondary_image_1')) {
+            $secondaryPaths[] = $request->file('secondary_image_1')->store('products', 'public');
+        }
+        if ($request->hasFile('secondary_image_2')) {
+            $secondaryPaths[] = $request->file('secondary_image_2')->store('products', 'public');
+        }
+        
+        if (!empty($secondaryPaths)) {
+            $validated['secondary_images'] = $secondaryPaths;
         }
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -58,23 +71,78 @@ class CatalogController extends Controller
             'in_stock' => 'boolean',
             'batch_limit' => 'nullable|integer',
             'batch_sold' => 'nullable|integer',
+            'is_customizable' => 'boolean',
         ]);
 
+        if ($request->hasFile('image')) {
+            // Delete old primary image if it exists
+            if ($product->image_path) {
+                $oldRaw = ltrim(str_replace('/storage/', '/', $product->image_path), '/');
+                Storage::disk('public')->delete($oldRaw);
+            }
+            $validated['image_path'] = $request->file('image')->store('products', 'public');
+        }
+
+        // Handle Secondary Image Replacements
+        $secondaryImages = $product->secondary_images ?? [];
+        
+        if ($request->hasFile('secondary_image_1')) {
+            // Delete old slot 1 if it exists
+            if (isset($secondaryImages[0])) {
+                $oldRaw = ltrim(str_replace('/storage/', '/', $secondaryImages[0]), '/');
+                Storage::disk('public')->delete($oldRaw);
+            }
+            $secondaryImages[0] = $request->file('secondary_image_1')->store('products', 'public');
+        }
+
+        if ($request->hasFile('secondary_image_2')) {
+            // Delete old slot 2 if it exists
+            if (isset($secondaryImages[1])) {
+                $oldRaw = ltrim(str_replace('/storage/', '/', $secondaryImages[1]), '/');
+                Storage::disk('public')->delete($oldRaw);
+            }
+            $secondaryImages[1] = $request->file('secondary_image_2')->store('products', 'public');
+        }
+
+        if (!empty($secondaryImages)) {
+            $validated['secondary_images'] = array_values($secondaryImages); // Ensure clean array keys
+        }
+
+        $validated['slug'] = Str::slug($validated['name']);
         $product->update($validated);
 
-        return back()->with('success', 'Product updated.');
+        return back()->with('success', 'Collection piece updated successfully.');
     }
 
     public function destroyProduct(Product $product)
     {
+        $product->delete();
+        return back()->with('success', 'Product moved to archive (Unpublished).');
+    }
+
+    public function restoreProduct(Product $product)
+    {
+        $product->restore();
+        return back()->with('success', 'Product restored to collection (Published).');
+    }
+
+    public function forceDeleteProduct(Product $product)
+    {
+        // Permanent asset removal on force delete
         if ($product->image_path) {
-            // Handle both old /storage/-prefixed paths and new raw paths
             $rawPath = ltrim(str_replace('/storage/', '/', $product->image_path), '/');
             Storage::disk('public')->delete($rawPath);
         }
 
-        $product->delete();
-        return back()->with('success', 'Product removed from collection.');
+        if ($product->secondary_images && is_array($product->secondary_images)) {
+            foreach ($product->secondary_images as $path) {
+                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+                Storage::disk('public')->delete($rawPath);
+            }
+        }
+
+        $product->forceDelete();
+        return back()->with('success', 'Product and all associated assets permanently purged.');
     }
 
     public function storeCategory(Request $request)

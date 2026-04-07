@@ -1,11 +1,12 @@
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 
 const year = new Date().getFullYear();
 
 // Social Links
 const instagramFallback = "https://instagram.com/seranacloset";
-const whatsapp = "https://wa.me/254700000000";
+const whatsapp = computed(() => `https://wa.me/${usePage().props.whatsapp_number}`);
 
 // Navigation Links
 const exploreLinks = [

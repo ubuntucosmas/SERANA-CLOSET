@@ -182,7 +182,7 @@ const showLogin = ref(false);
 const scrolled = ref(false);
 const page = usePage();
 
-const whatsappUrl = `https://wa.me/${page.props.whatsapp_number}`; // Standard Serana Studio Line
+const whatsappUrl = `https://wa.me/${page.props.whatsapp_number}`;
 
 function isActive(routeName) {
     try {

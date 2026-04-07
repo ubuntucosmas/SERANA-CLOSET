@@ -36,19 +36,29 @@ const cart = useCartStore();
                             </div>
                         </div>
 
-                        <!-- Secondary Split Details (Mock grid) -->
-                        <div class="grid grid-cols-2 gap-8 reveal">
+                        <!-- Secondary Split Details (Dynamic) -->
+                        <div v-if="product.secondary_image_urls && product.secondary_image_urls.length >= 1" class="grid grid-cols-2 gap-8 reveal">
                             <div class="aspect-[3/4] mt-12 overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" src="/images/detailed_texture.png"/>
+                                <img class="w-full h-full object-cover" :src="product.secondary_image_urls[0]"/>
                             </div>
-                            <div class="aspect-[3/4] -mt-12 overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" src="/images/ready_to_wear_rack.png"/>
+                            <div v-if="product.secondary_image_urls[1]" class="aspect-[3/4] -mt-12 overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
+                                <img class="w-full h-full object-cover" :src="product.secondary_image_urls[1]"/>
+                            </div>
+                            <!-- Fallback if only 1 secondary image exists -->
+                            <div v-else class="aspect-[3/4] -mt-12 overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl bg-surface-container/30 flex items-center justify-center italic text-[10px] opacity-20 tracking-widest">
+                                SERANA_DETAIL_SHARP
                             </div>
                         </div>
-                        
-                        <!-- Wide Cinematic Shot (Mock detail) -->
-                        <div class="w-full aspect-[16/9] overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl reveal">
-                            <img class="w-full h-full object-cover" src="/images/category_ladies.png"/>
+
+                        <!-- Wide Cinematic Shot (Fallback/Third slot if we had more, or just editorial) -->
+                        <div v-if="product.secondary_image_urls && product.secondary_image_urls[2]" class="w-full aspect-[16/9] overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl reveal">
+                            <img class="w-full h-full object-cover" :src="product.secondary_image_urls[2]"/>
+                        </div>
+                        <div v-else class="w-full aspect-[16/9] overflow-hidden rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl reveal relative">
+                            <img class="w-full h-full object-cover opacity-20 grayscale" :src="product.image_url"/>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-[10px] tracking-[0.5em] font-black opacity-10">THE_ATELIER_CONCEPT</span>
+                            </div>
                         </div>
                     </div>
 
@@ -143,7 +153,7 @@ const cart = useCartStore();
                                         <span class="material-symbols-outlined text-error text-3xl">lock_clock</span>
                                         <h4 class="font-headline text-sm font-bold dark:text-white text-on-surface tracking-widest">Batch #04 sold out</h4>
                                         <p class="text-[10px] text-on-surface-variant leading-relaxed">This edition has reached its artisan limit. Secure your priority invite for Batch #05.</p>
-                                        <a :href="`https://wa.me/254700000000?text=I'd%20like%20to%20join%20the%20Priority%20Waiting%20List%20for%20the%20next%20batch%20of%20${product.name}`" target="_blank" class="w-full py-4 bg-white/5 border dark:border-white/20 border-black/20 dark:text-white text-on-surface font-headline text-[10px] tracking-widest font-black rounded-lg hover:bg-primary hover:text-background transition-all">
+                                        <a :href="`https://wa.me/$page.props.whatsapp_number?text=I'd%20like%20to%20join%20the%20Priority%20Waiting%20List%20for%20the%20next%20batch%20of%20${product.name}`" target="_blank" class="w-full py-4 bg-white/5 border dark:border-white/20 border-black/20 dark:text-white text-on-surface font-headline text-[10px] tracking-widest font-black rounded-lg hover:bg-primary hover:text-background transition-all">
                                             Join priority waiting list
                                         </a>
                                     </div>
@@ -158,7 +168,7 @@ const cart = useCartStore();
                                         Add to bag
                                     </button>
                                     
-                                    <a :href="`https://wa.me/254700000000?text=Hello%2C%20I'm%20interested%20in%20acquiring%20the%20${product.name}`" target="_blank" class="w-full py-6 glass-card border-2 dark:border-white/10 border-black/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12.5px] tracking-[0.2em] font-black transition-all rounded-xl flex justify-center items-center gap-3 group">
+                                    <a :href="`https://wa.me/$page.props.whatsapp_number?text=Hello%2C%20I'm%20interested%20in%20acquiring%20the%20${product.name}`" target="_blank" class="w-full py-6 glass-card border-2 dark:border-white/10 border-black/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12.5px] tracking-[0.2em] font-black transition-all rounded-xl flex justify-center items-center gap-3 group">
                                         <span class="material-symbols-outlined text-stone-400 group-hover:text-primary transition-colors font-black">chat</span>
                                         Fast-track inquiry
                                     </a>

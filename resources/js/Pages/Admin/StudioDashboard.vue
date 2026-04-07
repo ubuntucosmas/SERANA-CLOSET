@@ -5,8 +5,10 @@ import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 const props = defineProps({
 	orders: Array,
 	products: { type: Array, default: () => [] },
+    archived_products: { type: Array, default: () => [] },
 	categories: { type: Array, default: () => [] },
 	gallery: { type: Array, default: () => [] },
+    archived_gallery: { type: Array, default: () => [] },
 	stats: { type: Object, default: () => ({}) },
 	leads: { type: Array, default: () => [] },
 	active_tab: { type: String, default: 'overview' }
@@ -14,24 +16,57 @@ const props = defineProps({
 
 const page = usePage();
 const currentTab = ref(props.active_tab);
+const showArchivedProducts = ref(false);
+const showArchivedGallery = ref(false);
 
 const filteredOrders = computed(() => {
 	return props.orders.filter(o => currentTab.value === 'overview' ? o.type === 'standard' : o.type !== 'standard');
 });
 
-const showAddProductModal = ref(false);
-const showAddGalleryModal = ref(false);
+const productPreview = ref(null);
+function editProduct(product) {
+    isEditingProduct.value = true;
+    productForm.id = product.id;
+    productForm.name = product.name;
+    productForm.description = product.description;
+    productForm.price = product.price;
+    productForm.category_id = product.category_id;
+    productForm.in_stock = product.in_stock;
+    productForm.is_customizable = product.is_customizable;
+    productForm.batch_limit = product.batch_limit;
+    productForm.image = null; // Only if replacing
+    productPreview.value = product.image_url;
+    showAddProductModal.value = true;
+}
+
+const galleryPreview = ref(null);
+function editGallery(item) {
+    isEditingGallery.value = true;
+    galleryForm.id = item.id;
+    galleryForm.client_name = item.client_name;
+    galleryForm.garment_name = item.garment_name;
+    galleryForm.testimonial = item.testimonial;
+    galleryForm.image = null;
+    galleryPreview.value = item.image_url;
+    showAddGalleryModal.value = true;
+}
 
 const productForm = useForm({
+    id: null,
 	name: '',
 	description: '',
 	price: 0,
 	category_id: props.categories[0]?.id || '',
 	image: null,
+	secondary_image_1: null,
+	secondary_image_2: null,
 	in_stock: true,
 	is_customizable: false,
 	batch_limit: null
 });
+
+const isEditingProduct = ref(false);
+const showAddProductModal = ref(false);
 
 const form = useForm({
 	id: null,
@@ -42,11 +77,15 @@ const form = useForm({
 });
 
 const galleryForm = useForm({
+    id: null,
 	image: null,
 	client_name: '',
 	garment_name: '',
 	testimonial: ''
 });
+
+const isEditingGallery = ref(false);
+const showAddGalleryModal = ref(false);
 
 const themeForm = useForm({
     key: '',
@@ -116,50 +155,99 @@ function updateOrder() {
 }
 
 function deleteProduct(id) {
-	if (confirm('Are you sure you want to remove this piece from the collection?')) {
-	router.delete(route('admin.catalog.destroy_product', id));
+	if (confirm('Move this piece to the archive (Unpublish)?')) {
+		router.delete(route('admin.catalog.destroy_product', id), {
+            preserveScroll: true
+        });
 	}
+}
+
+function restoreProduct(id) {
+    if (confirm('Restore this piece to the shop collection (Publish)?')) {
+        router.post(route('admin.catalog.restore_product', id), {}, {
+            preserveScroll: true
+        });
+    }
+}
+
+function forceDeleteProduct(id) {
+    if (confirm('PERMANENTLY PURGE this product and all its assets? This cannot be undone.')) {
+        router.delete(route('admin.catalog.force_delete_product', id), {
+            preserveScroll: true
+        });
+    }
 }
 
 function submitProduct() {
-    console.log('[Serana] Initiating product commission sync...');
-	productForm.post(route('admin.catalog.store_product'), {
-        onStart: () => console.log('[Serana] Product upload stream opened...'),
-        onSuccess: () => {
-            console.log('[Serana] Product commission recorded successfully.');
-            setTimeout(() => {
+    if (isEditingProduct.value) {
+        productForm.transform((data) => ({
+            ...data,
+            _method: 'PUT',
+        })).post(route('admin.catalog.update_product', productForm.id), {
+            onSuccess: () => {
+                showAddProductModal.value = false;
+                isEditingProduct.value = false;
+                productForm.id = null;
+                productPreview.value = null;
+                productForm.reset();
+            }
+        });
+    } else {
+        productForm.post(route('admin.catalog.store_product'), {
+            onSuccess: () => {
                 showAddProductModal.value = false;
                 productForm.reset();
-            }, 1500);
-        },
-        onError: (err) => {
-            console.error('[Serana] Product commission failed:', err);
-        },
-        onFinish: () => console.log('[Serana] Product commission finalized.')
-	});
+            }
+        });
+    }
 }
 
 function submitGallery() {
-    console.log('[Serana] Initiating gallery archival...');
-	galleryForm.post(route('admin.gallery.store'), {
-        onStart: () => console.log('[Serana] Gallery upload stream opened...'),
-        onSuccess: () => {
-            console.log('[Serana] Gallery archival successful.');
-            setTimeout(() => {
+    if (isEditingGallery.value) {
+        galleryForm.transform((data) => ({
+            ...data,
+            _method: 'PUT',
+        })).post(route('admin.gallery.update', galleryForm.id), {
+            onSuccess: () => {
+                showAddGalleryModal.value = false;
+                isEditingGallery.value = false;
+                galleryForm.id = null;
+                galleryPreview.value = null;
+                galleryForm.reset();
+            }
+        });
+    } else {
+        galleryForm.post(route('admin.gallery.store'), {
+            onSuccess: () => {
                 showAddGalleryModal.value = false;
                 galleryForm.reset();
-            }, 1500);
-        },
-        onError: (err) => {
-            console.error('[Serana] Gallery archival failed:', err);
-        }
-	});
+            }
+        });
+    }
 }
 
 function deleteGallery(id) {
-	if (confirm('Remove this showcase from the Circle?')) {
-	router.delete(route('admin.gallery.destroy', id));
+	if (confirm('Remove this showcase from the Circle (Unpublish)?')) {
+	    router.delete(route('admin.gallery.destroy', id), {
+            preserveScroll: true
+        });
 	}
+}
+
+function restoreGallery(id) {
+    if (confirm('Restore this showcase to the Circle (Publish)?')) {
+        router.post(route('admin.gallery.restore', id), {}, {
+            preserveScroll: true
+        });
+    }
+}
+
+function forceDeleteGallery(id) {
+    if (confirm('PERMANENTLY PURGE this showcase asset? This cannot be undone.')) {
+        router.delete(route('admin.gallery.force_delete', id), {
+            preserveScroll: true
+        });
+    }
 }
 
 const getObjectURL = (file) => {
@@ -472,41 +560,131 @@ function getAllOrderImages(order) {
             </div>
 
             <!-- Catalog -->
-            <div v-if="currentTab === 'catalog'" class="grid grid-cols-1 md:grid-cols-3 gap-10">
-                <div v-for="product in products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B] group">
-                    <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative">
-                        <img :src="product.image_url" class="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
-                        <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-[#0E0E0E] to-transparent">
-                            <span class="text-[9px] text-[#8A9DFF] tracking-widest uppercase font-bold">KES {{ Number(product.price).toLocaleString() }}</span>
+            <div v-if="currentTab === 'catalog'">
+                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
+                    <div class="flex gap-8">
+                        <button @click="showArchivedProducts = false" 
+                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
+                                :class="!showArchivedProducts ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
+                            Live Collection ({{ products.length }})
+                        </button>
+                        <button @click="showArchivedProducts = true" 
+                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
+                                :class="showArchivedProducts ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
+                            Archived Registry ({{ archived_products.length }})
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="!showArchivedProducts" class="grid grid-cols-1 md:grid-cols-3 gap-10 animate-in">
+                    <div v-for="product in products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B] group">
+                        <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative">
+                            <img :src="product.image_url" class="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
+                            <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-[#0E0E0E] to-transparent">
+                                <span class="text-[9px] text-[#8A9DFF] tracking-widest uppercase font-bold">KES {{ Number(product.price).toLocaleString() }}</span>
+                            </div>
+                        </div>
+                        <div class="px-2 pb-4 flex justify-between items-end">
+                            <div>
+                                <h3 class="serif-text text-xl text-[#e5e2e1] font-light">{{ product.name }}</h3>
+                                <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-2">Active Collection</p>
+                            </div>
+                            <div class="flex gap-4">
+                                <button @click.stop="editProduct(product)" class="text-[#454652] hover:text-[#B9C3FF] transition-colors" title="Edit Piece">
+                                    <span class="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                                <button @click.stop="deleteProduct(product.id)" class="text-[#454652] hover:text-red-500 transition-colors" title="Unpublish (Archive)">
+                                    <span class="material-symbols-outlined text-sm">archive</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="px-2 pb-4 flex justify-between items-end">
-                        <div>
-                            <h3 class="serif-text text-xl text-[#e5e2e1] font-light">{{ product.name }}</h3>
-                            <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-2">Active Collection</p>
+                </div>
+
+                <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-10 animate-in">
+                    <div v-for="product in archived_products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
+                        <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative grayscale">
+                            <img :src="product.image_url" class="w-full h-full object-cover opacity-30" />
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-[8px] tracking-[0.4em] uppercase font-bold text-white/20 bg-black/40 px-4 py-2 border border-white/5 backdrop-blur-sm italic">Archived</span>
+                            </div>
                         </div>
-                        <button @click.stop="deleteProduct(product.id)" class="text-[#454652] hover:text-red-500 transition-colors">
-                            <span class="material-symbols-outlined text-sm">delete</span>
-                        </button>
+                        <div class="px-2 pb-4 flex justify-between items-end">
+                            <div>
+                                <h3 class="serif-text text-xl text-[#B9C3FF]/50 font-light">{{ product.name }}</h3>
+                                <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-2">Offline Product</p>
+                            </div>
+                            <div class="flex gap-4">
+                                <button @click.stop="restoreProduct(product.id)" class="text-[#B9C3FF] hover:text-white transition-colors" title="Publish (Restore)">
+                                    <span class="material-symbols-outlined text-sm">unarchive</span>
+                                </button>
+                                <button @click.stop="forceDeleteProduct(product.id)" class="text-[#454652] hover:text-red-500 transition-colors" title="Permanent Purge">
+                                    <span class="material-symbols-outlined text-sm">delete_forever</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="archived_products.length === 0" class="col-span-full py-20 text-center border border-dashed border-[#1C1B1B]">
+                        <p class="text-[10px] text-[#454652] tracking-[0.5em] uppercase font-bold">No pieces in the archive</p>
                     </div>
                 </div>
             </div>
 
             <!-- Gallery -->
-            <div v-if="currentTab === 'gallery'" class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in">
-                <div v-for="item in gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B] group">
-                    <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B]">
-                        <img :src="item.image_url" class="w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000" />
-                        <div class="absolute bottom-6 left-6 px-4 py-2 bg-[#0E0E0E]/80 backdrop-blur-md border border-[#1C1B1B]">
-                            <span class="text-[9px] text-[#B9C3FF] tracking-widest uppercase font-bold">Piece: {{ item.garment_name }}</span>
+            <div v-if="currentTab === 'gallery'">
+                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
+                    <div class="flex gap-8">
+                        <button @click="showArchivedGallery = false" 
+                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
+                                :class="!showArchivedGallery ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
+                            Live Gallery ({{ gallery.length }})
+                        </button>
+                        <button @click="showArchivedGallery = true" 
+                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
+                                :class="showArchivedGallery ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
+                            Showcase Archive ({{ archived_gallery.length }})
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="!showArchivedGallery" class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in">
+                    <div v-for="item in gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B] group">
+                        <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B]">
+                            <img :src="item.image_url" class="w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000" />
+                            <div class="absolute bottom-6 left-6 px-4 py-2 bg-[#0E0E0E]/80 backdrop-blur-md border border-[#1C1B1B]">
+                                <span class="text-[9px] text-[#B9C3FF] tracking-widest uppercase font-bold">Piece: {{ item.garment_name }}</span>
+                            </div>
+                        </div>
+                        <div class="px-2">
+                            <h3 class="serif-text text-3xl text-[#e5e2e1] font-light mb-4">{{ item.client_name }}</h3>
+                            <p class="text-sm text-[#454652] leading-loose italic opacity-80">"{{ item.testimonial }}"</p>
+                        </div>
+                        <div class="mt-10 pt-8 border-t border-[#1C1B1B] flex justify-end gap-6">
+                            <button @click="editGallery(item)" class="text-[10px] text-[#454652] hover:text-[#B9C3FF] tracking-widest uppercase font-bold transition-colors">Edit Photo</button>
+                            <button @click="deleteGallery(item.id)" class="text-[10px] text-[#454652] hover:text-red-500 tracking-widest uppercase font-bold transition-colors">Unpublish Photo</button>
                         </div>
                     </div>
-                    <div class="px-2">
-                        <h3 class="serif-text text-3xl text-[#e5e2e1] font-light mb-4">{{ item.client_name }}</h3>
-                        <p class="text-sm text-[#454652] leading-loose italic opacity-80">"{{ item.testimonial }}"</p>
+                </div>
+
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in">
+                    <div v-for="item in archived_gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
+                        <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B] grayscale">
+                            <img :src="item.image_url" class="w-full h-full object-cover opacity-30" />
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-[8px] tracking-[0.4em] uppercase font-bold text-white/20 bg-black/40 px-4 py-2 border border-white/5 backdrop-blur-sm italic">Archived</span>
+                            </div>
+                        </div>
+                        <div class="px-2">
+                            <h3 class="serif-text text-3xl text-[#B9C3FF]/50 font-light mb-4">{{ item.client_name }}</h3>
+                            <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Offline Showcase</p>
+                        </div>
+                        <div class="mt-10 pt-8 border-t border-[#1C1B1B] flex justify-end gap-10">
+                            <button @click="restoreGallery(item.id)" class="text-[10px] text-[#B9C3FF] hover:text-white tracking-widest uppercase font-bold transition-colors">Publish Photo</button>
+                            <button @click="forceDeleteGallery(item.id)" class="text-[10px] text-[#454652] hover:text-red-500 tracking-widest uppercase font-bold transition-colors">Purge Permanently</button>
+                        </div>
                     </div>
-                    <div class="mt-10 pt-8 border-t border-[#1C1B1B] flex justify-end">
-                        <button @click="deleteGallery(item.id)" class="text-[10px] text-[#454652] hover:text-red-500 tracking-widest uppercase font-bold transition-colors">Remove Photo</button>
+                    <div v-if="archived_gallery.length === 0" class="col-span-full py-40 text-center border border-dashed border-[#1C1B1B]">
+                        <p class="text-[10px] text-[#454652] tracking-[0.5em] uppercase font-bold">No showcases in the archive</p>
                     </div>
                 </div>
             </div>
@@ -659,7 +837,7 @@ function getAllOrderImages(order) {
                     </div>
 
                     <div class="space-y-12">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
                             <div>
                                 <label class="curator-label">Site Headline</label>
                                 <input :value="$page.props.theme_settings.site_headline" @blur="updateThemeAsset('site_headline', $event.target.value)" class="curator-input text-base" placeholder="THE ATELIER">
@@ -667,6 +845,10 @@ function getAllOrderImages(order) {
                             <div>
                                 <label class="curator-label">Support Email</label>
                                 <input :value="$page.props.theme_settings.support_email" @blur="updateThemeAsset('support_email', $event.target.value)" class="curator-input text-base" placeholder="curator@serana.com">
+                            </div>
+                            <div>
+                                <label class="curator-label text-[#B9C3FF]">Platform WhatsApp (Ordering)</label>
+                                <input :value="$page.props.theme_settings.whatsapp_number || $page.props.whatsapp_number" @blur="updateThemeAsset('whatsapp_number', $event.target.value)" class="curator-input text-base border-b-[#B9C3FF]/30" placeholder="254700000000">
                             </div>
                         </div>
 
@@ -807,11 +989,11 @@ function getAllOrderImages(order) {
 
         <!-- Product Modal -->
         <div v-if="showAddProductModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
-            <div @click="showAddProductModal = false" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
+            <div @click="showAddProductModal = false; isEditingProduct = false; productPreview = null; productForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
             <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
                 <div class="w-full md:w-1/2 p-20 border-r border-[#1C1B1B]">
-                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">Product Entry</span>
-                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">Product Details</h2>
+                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingProduct ? 'Editorial Management' : 'Product Entry' }}</span>
+                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingProduct ? 'Edit Piece' : 'Product Details' }}</h2>
                     <div class="space-y-10">
                         <div>
                             <label class="curator-label">Product Name</label>
@@ -838,27 +1020,51 @@ function getAllOrderImages(order) {
                          <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">COMMISSION_SYNC_COMPLETE</p>
                     </div>
                     <button @click="submitProduct" :disabled="productForm.processing || productForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
-                        {{ productForm.processing ? 'PROCESSING_COMMISSION...' : (productForm.wasSuccessful ? 'RECORDED' : 'Add to Collection') }}
+                        {{ productForm.processing ? 'PROCESSING_COMMISSION...' : (productForm.wasSuccessful ? 'RECORDED' : (isEditingProduct ? 'Update Collection Piece' : 'Add to Collection')) }}
                     </button>
                 </div>
-                <div class="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center">
-                    <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]" class="hidden" />
-                    <label for="product-img" class="cursor-pointer group text-center p-20">
-                        <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
-                        <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">Upload Photo</p>
-                    </label>
-                    <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                <div class="w-full md:w-1/2 bg-[#050505] relative flex flex-col">
+                    <!-- Main Image Slot -->
+                    <div class="flex-grow relative flex items-center justify-center border-b border-[#1C1B1B]">
+                        <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]" class="hidden" />
+                        <label for="product-img" class="cursor-pointer group text-center p-10 z-10">
+                            <span class="material-symbols-outlined text-5xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
+                            <p class="text-[9px] text-[#454652] tracking-widest uppercase mt-4 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Replace Photo' : 'Primary Photo' }}</p>
+                        </label>
+                        <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                        <img v-else-if="productPreview" :src="productPreview" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                    </div>
+
+                    <!-- Secondary Image Slots -->
+                    <div class="h-1/3 grid grid-cols-2">
+                        <div class="relative flex items-center justify-center border-r border-[#1C1B1B]">
+                            <input type="file" id="sec-img-1" @input="productForm.secondary_image_1 = $event.target.files[0]" class="hidden" />
+                            <label for="sec-img-1" class="cursor-pointer group text-center p-4 z-10">
+                                <span class="material-symbols-outlined text-3xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_photo_alternate</span>
+                                <p class="text-[8px] text-[#454652] tracking-widest uppercase mt-2 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Update Angle 02' : 'Angle 02' }}</p>
+                            </label>
+                            <img v-if="productForm.secondary_image_1" :src="getObjectURL(productForm.secondary_image_1)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 pointer-events-none" />
+                        </div>
+                        <div class="relative flex items-center justify-center">
+                            <input type="file" id="sec-img-2" @input="productForm.secondary_image_2 = $event.target.files[0]" class="hidden" />
+                            <label for="sec-img-2" class="cursor-pointer group text-center p-4 z-10">
+                                <span class="material-symbols-outlined text-3xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_photo_alternate</span>
+                                <p class="text-[8px] text-[#454652] tracking-widest uppercase mt-2 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Update Angle 03' : 'Angle 03' }}</p>
+                            </label>
+                            <img v-if="productForm.secondary_image_2" :src="getObjectURL(productForm.secondary_image_2)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 pointer-events-none" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Gallery Modal -->
         <div v-if="showAddGalleryModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
-            <div @click="showAddGalleryModal = false" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
+            <div @click="showAddGalleryModal = false; isEditingGallery = false; galleryPreview = null; galleryForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
             <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
                 <div class="w-full md:w-1/2 p-20 border-r border-[#1C1B1B]">
-                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">New Photo</span>
-                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">Add to Gallery</h2>
+                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingGallery ? 'Showcase Refinement' : 'New Photo' }}</span>
+                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingGallery ? 'Edit Showcase' : 'Add to Gallery' }}</h2>
                     <div class="space-y-10">
                         <div>
                             <label class="curator-label">Client Name</label>
@@ -877,16 +1083,17 @@ function getAllOrderImages(order) {
                          <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">SYNC_TO_ARCHIVE_SUCCESS</p>
                     </div>
                     <button @click="submitGallery" :disabled="galleryForm.processing || galleryForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
-                        {{ galleryForm.processing ? 'POSTING_SHOT...' : (galleryForm.wasSuccessful ? 'POSTED' : 'Post to Gallery') }}
+                        {{ galleryForm.processing ? 'POSTING_SHOT...' : (galleryForm.wasSuccessful ? 'POSTED' : (isEditingGallery ? 'Update Showcase' : 'Post to Gallery')) }}
                     </button>
                 </div>
                 <div class="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center">
                     <input type="file" id="gallery-img" @input="galleryForm.image = $event.target.files[0]" class="hidden" />
                     <label for="gallery-img" class="cursor-pointer group text-center p-20">
                         <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
-                        <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">Upload Photo</p>
+                        <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">{{ isEditingGallery ? 'Replace Shot' : 'Upload Photo' }}</p>
                     </label>
                     <img v-if="galleryForm.image" :src="getObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                    <img v-else-if="galleryPreview" :src="galleryPreview" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
                 </div>
             </div>
         </div>

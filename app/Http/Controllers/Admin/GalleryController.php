@@ -9,6 +9,28 @@ use Illuminate\Support\Facades\Storage;
 
 class GalleryController extends Controller
 {
+    public function update(Request $request, GalleryImage $image)
+    {
+        $validated = $request->validate([
+            'client_name' => 'required|string',
+            'garment_name' => 'required|string',
+            'testimonial' => 'nullable|string',
+            'image' => 'nullable|image|max:10240',
+        ]);
+
+        if ($request->hasFile('image')) {
+            // Delete old image
+            $oldRaw = ltrim(str_replace('/storage/', '/', $image->image_path), '/');
+            Storage::disk('public')->delete($oldRaw);
+            
+            $validated['image_path'] = $request->file('image')->store('gallery', 'public');
+        }
+
+        $image->update($validated);
+
+        return back()->with('success', 'Circle showcase updated.');
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -30,13 +52,25 @@ class GalleryController extends Controller
 
     public function destroy(GalleryImage $image)
     {
-        // Delete physical file
-        // Handle both old /storage/-prefixed paths and new raw paths
+        $image->delete();
+
+        return back()->with('success', 'Circle showcase moved to archive (Unpublished).');
+    }
+
+    public function restore(GalleryImage $image)
+    {
+        $image->restore();
+        return back()->with('success', 'Circle showcase restored to gallery (Published).');
+    }
+
+    public function forceDelete(GalleryImage $image)
+    {
+        // Permanent asset removal
         $rawPath = ltrim(str_replace('/storage/', '/', $image->image_path), '/');
         Storage::disk('public')->delete($rawPath);
         
-        $image->delete();
+        $image->forceDelete();
 
-        return back()->with('success', 'Circle showcase removed.');
+        return back()->with('success', 'Showcase and asset permanently purged.');
     }
 }

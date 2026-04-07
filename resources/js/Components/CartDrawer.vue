@@ -168,7 +168,7 @@ const closeDrawer = () => {
                         Proceed to Secure Checkout
                     </Link>
                     <a 
-                        href="https://wa.me/254700000000" 
+                        href="https://wa.me/$page.props.whatsapp_number" 
                         target="_blank"
                         class="w-full flex items-center justify-center gap-2 border dark:border-white/10 border-black/10 py-4 font-label text-xs uppercase tracking-[0.2em] dark:text-white text-on-surface hover:bg-white/5 transition-colors"
                     >

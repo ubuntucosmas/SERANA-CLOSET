@@ -47,7 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
-            'whatsapp_number' => fn () => config('services.whatsapp.number'),
+            'whatsapp_number' => fn () => ThemeSetting::get('whatsapp_number', config('services.whatsapp.number')),
             'theme_settings' => fn () => ThemeSetting::all()->mapWithKeys(function ($item) {
                 return [$item->key => ThemeSetting::get($item->key)];
             })->all()
