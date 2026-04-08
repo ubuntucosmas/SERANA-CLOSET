@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed, watch, nextTick } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
 import { animate, stagger } from 'animejs';

@@ -1,8 +1,20 @@
 <script setup>
+import { ref, computed } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
 import { animate } from 'animejs';
+
+const props = defineProps({
+    product: {
+        type: Object,
+        required: true,
+    },
+    layout: {
+        type: String,
+        default: 'grid' // 'grid' or 'editorial'
+    }
+});
 
 const page = usePage();
 const cart = useCartStore();
@@ -17,17 +29,6 @@ const allImages = computed(() => {
         images.push(...props.product.secondary_image_urls.filter(Boolean));
     }
     return images;
-});
-
-const props = defineProps({
-    product: {
-        type: Object,
-        required: true,
-    },
-    layout: {
-        type: String,
-        default: 'grid' // 'grid' or 'editorial'
-    }
 });
 
 const handleHover = (hovering) => {

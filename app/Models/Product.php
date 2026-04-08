@@ -41,7 +41,7 @@ class Product extends Model
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
         $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
-        return Storage::disk('public')->url($rawPath);
+        return '/storage/' . $rawPath;
     }
 
     public function getSecondaryImageUrlsAttribute()
@@ -51,7 +51,7 @@ class Product extends Model
             if (!$path) return null;
             if (str_starts_with($path, 'http')) return $path;
             $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-            return Storage::disk('public')->url($rawPath);
+            return '/storage/' . $rawPath;
         }, $images);
     }
 
