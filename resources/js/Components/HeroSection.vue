@@ -90,10 +90,10 @@ onMounted(() => {
                 <!-- Text Context Content (Left) -->
                 <div class="lg:col-span-6 relative z-20 space-y-10 pb-12">
                     <!-- Badge -->
-                    <div class="reveal-hero-item opacity-0 flex items-center gap-3 text-[#B9C3FF] text-[9px] font-headline font-bold tracking-[0.5em] uppercase">
+                    <!-- <div class="reveal-hero-item opacity-0 flex items-center gap-3 text-[#B9C3FF] text-[9px] font-headline font-bold tracking-[0.5em] uppercase">
                         <span class="w-8 h-px bg-[#B9C3FF]/30"></span>
                         Est. Nairobi · {{ new Date().getFullYear() }} Collection_
-                    </div>
+                    </div> -->
 
                     <!-- Main Heading -->
                     <h1 class="reveal-hero-item opacity-0 font-headline text-4xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">

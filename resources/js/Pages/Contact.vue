@@ -25,7 +25,7 @@
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Priority WhatsApp</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">Direct line for instant fitting updates and new design inquiries.</p>
-                                <a href="https://wa.me/$page.props.whatsapp_number" target="_blank" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
+                                <a :href="whatsappUrl" target="_blank" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
                                     +254 700 000 000
                                 </a>
                             </div>
@@ -117,9 +117,12 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { reactive, ref, computed } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
+
+const page = usePage();
+const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
 
 const isSubmitting = ref(false);
 const form = reactive({

@@ -3,7 +3,11 @@ import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import SizingIntelligence from '@/Components/SizingIntelligence.vue';
 import { useCartStore } from '@/Stores/useCartStore';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+
+const page = usePage();
+const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=Hello%2C%20I've%20just%20placed%20order%20%23${orderId.value}%20and%20I'd%20like%20to%20complete%20payment.`);
 
 const cart = useCartStore();
 const step = ref(1);
@@ -244,7 +248,7 @@ function nextStep() {
                                 <p class="text-sm dark:text-white/40 text-black/40">Order #{{ String(orderId).slice(-6) }} is pending payment. Complete payment to secure your order.</p>
                             </div>
                             <div class="flex flex-col gap-4 max-w-xs mx-auto">
-                                <a href="https://wa.me/$page.props.whatsapp_number" target="_blank" class="py-4 bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl text-center">
+                                <a :href="whatsappUrl" target="_blank" class="py-4 bg-primary text-black rounded-sm font-headline text-[10px] tracking-widest font-bold uppercase shadow-2xl text-center">
                                     Complete Payment via WhatsApp
                                 </a>
                                 <Link :href="route('home')" class="text-xs dark:text-white/40 text-black/40 hover:text-primary transition-colors">Return to Homepage</Link>

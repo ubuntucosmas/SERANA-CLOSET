@@ -1,10 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
 import { animate } from 'animejs';
 
+const page = usePage();
 const cart = useCartStore();
 const isHovered = ref(false);
 const cardElement = ref(null);
@@ -59,9 +59,28 @@ const handleHover = (hovering) => {
     });
 };
 
-const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=${encodeURIComponent(
-    `Hello! I'm interested in: ${props.product.name} (KSh ${Number(props.product.price).toLocaleString()}). Can you help me order?`
-)}`);
+const whatsappUrl = computed(() => {
+    const baseUrl = window.location.origin;
+    const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
+    
+    const message = `🏁 *NEW ARTISAN BRIEF* 🏁\n\n` +
+                    `*[ 01: PIECE ]*\n` +
+                    `• Name: ${props.product.name}\n` +
+                    `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
+                    `• Price: KSh ${Number(props.product.price).toLocaleString()}\n\n` +
+                    `*[ 02: REFERENCE ]*\n` +
+                    `• URL: ${route('shop.show', props.product.slug)}\n` +
+                    `• Image: ${imageUrl}\n\n` +
+                    `--------------------------\n` +
+                    `Can you help me secure this piece?\n` +
+                    `Sent via Serana Digital Atelier.`;
+
+    return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
+});
+
+const rawurlencode = (str) => {
+    return encodeURIComponent(str).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+};
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
 const isLimitedDrop = computed(() => props.product.batch_limit !== null && props.product.batch_limit > 0 && props.product.batch_limit <= 30);
 </script>
@@ -174,11 +193,20 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             <button
                 v-if="!isSoldOut"
                 @click="cart.addItem(product)"
-                class="md:hidden w-full mt-3 bg-primary/95 text-black py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_20px_rgba(57,255,20,0.2)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                class="md:hidden w-full mt-3 bg-primary text-black py-4 text-[10.5px] font-headline font-black uppercase tracking-[0.25em] rounded-full shadow-[0_15px_30px_rgba(57,255,20,0.4)] border-2 border-primary active:scale-95 transition-all flex items-center justify-center gap-2"
             >
-                <span class="material-symbols-outlined text-[16px]">shopping_bag</span>
+                <span class="material-symbols-outlined text-[18px] font-black">shopping_bag</span>
                 Add to Bag
             </button>
+            <a
+                v-if="!isSoldOut"
+                :href="whatsappUrl"
+                target="_blank"
+                class="md:hidden w-full mt-2 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+                <span class="material-symbols-outlined text-[18px]">chat</span>
+                Quick Order
+            </a>
             <div v-else class="md:hidden w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
                 Sold Out
             </div>

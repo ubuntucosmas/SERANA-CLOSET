@@ -1,11 +1,35 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 
 const props = defineProps({
     product: Object
 });
+
+const whatsappUrl = computed(() => {
+    const baseUrl = window.location.origin;
+    const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
+    
+    const message = `🏁 *NEW ARTISAN BRIEF* 🏁\n\n` +
+                    `*[ 01: PIECE ]*\n` +
+                    `• Name: ${props.product.name}\n` +
+                    `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
+                    `• Price: KSh ${Number(props.product.price).toLocaleString()}\n\n` +
+                    `*[ 02: REFERENCE ]*\n` +
+                    `• URL: ${window.location.href}\n` +
+                    `• Image: ${imageUrl}\n\n` +
+                    `--------------------------\n` +
+                    `Can you help me secure this piece?\n` +
+                    `Sent via Serana Digital Atelier.`;
+
+    return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
+});
+
+const rawurlencode = (str) => {
+    return encodeURIComponent(str).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+};
 
 const cart = useCartStore();
 </script>
@@ -153,7 +177,7 @@ const cart = useCartStore();
                                         <span class="material-symbols-outlined text-error text-3xl">lock_clock</span>
                                         <h4 class="font-headline text-sm font-bold dark:text-white text-on-surface tracking-widest">Batch #04 sold out</h4>
                                         <p class="text-[10px] text-on-surface-variant leading-relaxed">This edition has reached its artisan limit. Secure your priority invite for Batch #05.</p>
-                                        <a :href="`https://wa.me/$page.props.whatsapp_number?text=I'd%20like%20to%20join%20the%20Priority%20Waiting%20List%20for%20the%20next%20batch%20of%20${product.name}`" target="_blank" class="w-full py-4 bg-white/5 border dark:border-white/20 border-black/20 dark:text-white text-on-surface font-headline text-[10px] tracking-widest font-black rounded-lg hover:bg-primary hover:text-background transition-all">
+                                        <a :href="whatsappUrl" target="_blank" class="w-full py-4 bg-white/5 border dark:border-white/20 border-black/20 dark:text-white text-on-surface font-headline text-[10px] tracking-widest font-black rounded-lg hover:bg-primary hover:text-background transition-all">
                                             Join priority waiting list
                                         </a>
                                     </div>
@@ -168,7 +192,7 @@ const cart = useCartStore();
                                         Add to bag
                                     </button>
                                     
-                                    <a :href="`https://wa.me/$page.props.whatsapp_number?text=Hello%2C%20I'm%20interested%20in%20acquiring%20the%20${product.name}`" target="_blank" class="w-full py-6 glass-card border-2 dark:border-white/10 border-black/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12.5px] tracking-[0.2em] font-black transition-all rounded-xl flex justify-center items-center gap-3 group">
+                                    <a :href="whatsappUrl" target="_blank" class="w-full py-6 glass-card border-2 dark:border-white/10 border-black/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12.5px] tracking-[0.2em] font-black transition-all rounded-xl flex justify-center items-center gap-3 group">
                                         <span class="material-symbols-outlined text-stone-400 group-hover:text-primary transition-colors font-black">chat</span>
                                         Fast-track inquiry
                                     </a>

@@ -170,23 +170,35 @@ const activeCategory = computed(() => {
             </header>
 
             <!-- Mobile Horizontal Category Pills -->
-            <div class="md:hidden sticky top-20 z-40 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-md mb-8 border-b dark:border-white/5 border-black/5">
-                <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                    <button 
-                        @click="filterByCategory('all')"
-                        class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
-                        :class="!filters.category || filters.category === 'all' ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
-                    >
-                        All
-                    </button>
-                    <button 
-                        v-for="category in categories" :key="category.id"
-                        @click="filterByCategory(category.slug)"
-                        class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
-                        :class="filters.category === category.slug ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
-                    >
-                        {{ category.name }}
-                    </button>
+            <div class="md:hidden sticky top-20 z-40 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-md mb-8 border-b dark:border-white/5 border-black/5 group/scroll">
+                <div class="relative items-center">
+                    <!-- Left Arrow Indicator -->
+                    <div class="absolute left-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/scroll:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-primary text-sm animate-pulse">chevron_left</span>
+                    </div>
+
+                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 scroll-smooth mask-horizontal">
+                        <button 
+                            @click="filterByCategory('all')"
+                            class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
+                            :class="!filters.category || filters.category === 'all' ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
+                        >
+                            All
+                        </button>
+                        <button 
+                            v-for="category in categories" :key="category.id"
+                            @click="filterByCategory(category.slug)"
+                            class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
+                            :class="filters.category === category.slug ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
+                        >
+                            {{ category.name }}
+                        </button>
+                    </div>
+
+                    <!-- Right Arrow Indicator -->
+                    <div class="absolute right-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/scroll:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-primary text-sm animate-pulse">chevron_right</span>
+                    </div>
                 </div>
             </div>
 
@@ -339,5 +351,10 @@ const activeCategory = computed(() => {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+.mask-horizontal {
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
 </style>

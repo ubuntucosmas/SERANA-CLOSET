@@ -1,10 +1,29 @@
 <script setup>
-import { ref, watch, computed, nextTick } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { animate, stagger } from 'animejs';
 
+const page = usePage();
 const cart = useCartStore();
+
+const whatsappUrl = computed(() => {
+    const itemsList = cart.items.map(item => `• ${item.name} (${item.quantity}) - KSh ${Number(item.price * item.quantity).toLocaleString()}`).join('\n');
+    const total = `Total: KSh ${Number(cart.totalPrice).toLocaleString()}`;
+    const message = `🏁 *NEW CART ORDER* 🏁\n\n` +
+                    `*[ 01: SELECTION ]*\n` +
+                    `${itemsList}\n\n` +
+                    `*[ 02: SUMMARY ]*\n` +
+                    `${total}\n\n` +
+                    `--------------------------\n` +
+                    `Can you help me process this selection?\n` +
+                    `Sent via Serana Digital Atelier.`;
+
+    return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
+});
+
+const rawurlencode = (str) => {
+    return encodeURIComponent(str).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+};
 const drawerRef = ref(null);
 const overlayRef = ref(null);
 const itemsRef = ref(null);
@@ -168,7 +187,7 @@ const closeDrawer = () => {
                         Proceed to Secure Checkout
                     </Link>
                     <a 
-                        href="https://wa.me/$page.props.whatsapp_number" 
+                        :href="whatsappUrl" 
                         target="_blank"
                         class="w-full flex items-center justify-center gap-2 border dark:border-white/10 border-black/10 py-4 font-label text-xs uppercase tracking-[0.2em] dark:text-white text-on-surface hover:bg-white/5 transition-colors"
                     >
