@@ -9,7 +9,7 @@ const dynamicBackgrounds = computed(() => {
     const list = [
         '/images/detailed_texture.png',
         '/images/black_cloth_texture.png',
-        '/images/Black zip-up hoodie on gray background.png'
+        '/images/black_zip_up_hoodie_gray_bg.png'
     ];
     if (page.props.theme_settings.home_hero_bg) {
         list.unshift(page.props.theme_settings.home_hero_bg);
@@ -20,7 +20,7 @@ const dynamicBackgrounds = computed(() => {
 const focalImages = computed(() => {
     const defaults = [
         { src: '/images/hero_editorial.png', label: 'Signature Collection • Midnight Silk' },
-        { src: '/images/Black and white hoodies showcase.png', label: 'Luminous Series • High-Contrast Hoodies' },
+        { src: '/images/black_white_hoodies_showcase.png', label: 'Luminous Series • High-Contrast Hoodies' },
         { src: '/images/ready_to_wear_rack.png', label: 'Ready-To-Wear • Nairobi HQ' }
     ];
 
@@ -45,7 +45,7 @@ onMounted(() => {
         opacity: [0, 1],
         translateY: [30, 0],
         duration: 1200,
-        delay: stagger(150),
+        delay: (el, i) => i * 100, // Faster stagger
         easing: 'easeOutExpo'
     });
 
@@ -96,7 +96,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Main Heading -->
-                    <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
+                    <h1 class="reveal-hero-item opacity-0 font-headline text-4xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
                         Crafting your<br/>
                         <span class=" font-light dark:text-white/40 text-black/40">perfect design_</span>
                     </h1>
@@ -122,7 +122,12 @@ onMounted(() => {
                     <!-- Alternating Primary Main Image -->
                     <div class="relative w-full max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_60px_150px_rgba(0,0,0,1)] border dark:border-white/5 border-black/5 z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-12 bg-transparent">
                         <transition name="fade-mid" mode="out-in">
-                            <img :key="focalImages[currentFocalIndex].src" :src="focalImages[currentFocalIndex].src" class="w-full h-full object-cover" />
+                            <img 
+                                :key="focalImages[currentFocalIndex].src" 
+                                :src="focalImages[currentFocalIndex].src" 
+                                class="w-full h-full object-cover"
+                                :fetchpriority="currentFocalIndex === 0 ? 'high' : 'auto'"
+                             />
                         </transition>
                         
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>

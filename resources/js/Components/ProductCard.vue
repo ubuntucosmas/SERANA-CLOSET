@@ -174,7 +174,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             <button
                 v-if="!isSoldOut"
                 @click="cart.addItem(product)"
-                class="md:hidden w-full mt-2 bg-primary/10 border border-primary/20 text-primary py-2.5 text-xs font-medium tracking-widest rounded-sm hover:bg-primary hover:text-black transition-all flex items-center justify-center gap-2"
+                class="md:hidden w-full mt-3 bg-primary/95 text-black py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_20px_rgba(57,255,20,0.2)] active:scale-95 transition-all flex items-center justify-center gap-2"
             >
                 <span class="material-symbols-outlined text-[16px]">shopping_bag</span>
                 Add to Bag

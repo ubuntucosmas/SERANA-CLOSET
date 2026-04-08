@@ -79,13 +79,13 @@ onMounted(() => {
         </div>
 
         <!-- 3. The Serana Standard -->
-        <section class="py-24 bg-background px-8 anime-reveal">
+        <section class="py-16 md:py-24 bg-background px-4 sm:px-8 anime-reveal">
             <div class="max-w-screen-xl mx-auto">
                 <CraftsmanshipBlock 
                     subtitle="Our Uncompromising Standard"
                     title="Built by Hand. <br/> <span class='text-primary font-medium luminous-glow'>Perfected by Code.</span>"
                     description="We reject the mediocrity of fast fashion. Every piece at Serana Closet is a fusion of traditional Kenyan tailoring excellence and futuristic digital precision. We source only the heaviest silks and most resilient canvases to ensure your garment isn't just an outfit—it's an armor of style."
-                    image="/images/White hoodie with silver zipper details.png"
+                    image="/images/white_hoodie_silver_zipper.png"
                 >
                     <template #action>
                         <Link :href="route('about')" class="inline-flex items-center gap-2 text-xs font-headline font-medium text-primary hover:underline underline-offset-4 mt-6">
@@ -103,7 +103,7 @@ onMounted(() => {
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
                         <p class="text-[9px] font-headline font-medium uppercase tracking-[0.5em] text-primary">Live Studio Pulse</p>
-                        <h1 class="text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] uppercase ">
+                        <h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] uppercase ">
                             The <span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent  font-medium">Studio</span> Archive_
                         </h1>
                         <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 uppercase tracking-[0.4em] font-medium leading-loose font-sans">
@@ -160,7 +160,7 @@ onMounted(() => {
 
         <!-- 6. Newsletter / Studio Circle CTA -->
         <section class="bg-background dark:text-white text-on-surface py-16 md:py-32 lg:py-48 px-8 overflow-hidden relative border-t dark:border-white/5 border-black/5 reveal">
-            <SectionBackground texture="/images/Black zip-up hoodie on gray background.png" opacity="opacity-30" />
+            <SectionBackground texture="/images/black_zip_up_hoodie_gray_bg.png" opacity="opacity-30" />
             
             <div class="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-24 relative z-10">
                 <div class="space-y-10">
@@ -169,7 +169,7 @@ onMounted(() => {
                         Ready to shop?
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
-                    <h2 class="font-headline text-5xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Inner <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
+                    <h2 class="font-headline text-4xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Inner <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
                     <p class="text-sm dark:text-white/40 text-black/40 leading-loose  max-w-md font-sans uppercase tracking-widest text-[10px] font-medium">
                         Our pieces are not just made; they are carefully built. We merge high-tech design with the soul of Kenyan makers to create something truly unique.
                     </p>
@@ -198,7 +198,7 @@ onMounted(() => {
                     <div class="relative z-10 w-full h-full aspect-square rounded-full border dark:border-white/10 border-black/10 overflow-hidden">
                         <img
                             class="w-full h-full object-cover grayscale opacity-40 hover:opacity-100 hover:grayscale-0 transition-all duration-1000"
-                            src="/images/Black zip-up hoodie on gray background.png"
+                            src="/images/black_zip_up_hoodie_gray_bg.png"
                         />
                     </div>
                 </div>
