@@ -109,8 +109,8 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 :class="{ 'opacity-80': isHovered }"
             />
             
-            <!-- Technical X-Ray Overlay -->
-            <XRayOverlay :specs="product.specifications" :active="isHovered" />
+            <!-- Technical X-Ray Overlay - Hidden on Mobile -->
+            <XRayOverlay :specs="product.specifications" :active="isHovered" class="hidden md:flex" />
 
             <!-- Editorial/Grid Hover Overlay -->
             <div :class="[
@@ -168,9 +168,9 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             </div>
         </div>
 
-        <!-- Cinematic Grand Gallery Tooltip (Universal Pop) -->
+        <!-- Cinematic Grand Gallery Tooltip (Universal Pop) - Hidden on Mobile -->
         <div v-if="isHovered && allImages.length >= 1" 
-             class="absolute -top-80 left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-2 animate-tooltip-pop min-w-[300px] flex justify-center">
+             class="hidden md:flex absolute -top-80 left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-2 animate-tooltip-pop min-w-[300px] justify-center">
             <div class="bg-black/90 backdrop-blur-3xl border border-primary/30 p-6 shadow-[0_60px_120px_rgba(0,0,0,1)] flex gap-6 rounded-2xl items-center justify-center pointer-events-auto scale-110">
                 <div v-for="(img, i) in allImages" :key="i" 
                      class="w-48 h-64 bg-surface overflow-hidden rounded-xl border border-white/20 reveal-stagger group/thumb cursor-crosshair shadow-2xl"

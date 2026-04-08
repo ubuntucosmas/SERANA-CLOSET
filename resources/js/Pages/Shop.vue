@@ -171,13 +171,15 @@ const activeCategory = computed(() => {
 
             <!-- Mobile Horizontal Category Pills -->
             <div class="md:hidden sticky top-20 z-40 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-md mb-8 border-b dark:border-white/5 border-black/5 group/scroll">
-                <div class="relative items-center">
-                    <!-- Left Arrow Indicator -->
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/scroll:opacity-100 transition-opacity">
-                        <span class="material-symbols-outlined text-primary text-sm animate-pulse">chevron_left</span>
+                <div class="relative flex items-center">
+                    <!-- Left Arrow Indicator (Always Visible) -->
+                    <div class="absolute left-0 top-1/2 -translate-y-1/2 z-20 pl-2 pointer-events-none">
+                        <div class="bg-primary/20 backdrop-blur-sm p-1 rounded-full border border-primary/30">
+                            <span class="material-symbols-outlined text-primary text-[14px] flex">chevron_left</span>
+                        </div>
                     </div>
 
-                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 scroll-smooth mask-horizontal">
+                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 scroll-smooth mask-horizontal w-full px-6">
                         <button 
                             @click="filterByCategory('all')"
                             class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
@@ -195,9 +197,11 @@ const activeCategory = computed(() => {
                         </button>
                     </div>
 
-                    <!-- Right Arrow Indicator -->
-                    <div class="absolute right-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/scroll:opacity-100 transition-opacity">
-                        <span class="material-symbols-outlined text-primary text-sm animate-pulse">chevron_right</span>
+                    <!-- Right Arrow Indicator (Always Visible) -->
+                    <div class="absolute right-0 top-1/2 -translate-y-1/2 z-20 pr-2 pointer-events-none text-right">
+                        <div class="bg-primary/20 backdrop-blur-sm p-1 rounded-full border border-primary/30">
+                            <span class="material-symbols-outlined text-primary text-[14px] flex">chevron_right</span>
+                        </div>
                     </div>
                 </div>
             </div>
