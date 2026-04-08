@@ -52,7 +52,9 @@ class CustomOrderController extends Controller
         $imagePaths = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $imagePaths[] = $image->store('inspiration_images', 'public');
+                $imagePaths[] = cloudinary()->upload($image->getRealPath(), [
+                    'folder' => 'inspiration'
+                ])->getSecurePath();
             }
         }
 

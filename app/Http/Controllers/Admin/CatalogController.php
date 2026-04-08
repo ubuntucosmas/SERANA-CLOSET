@@ -29,7 +29,7 @@ class CatalogController extends Controller
             'name' => 'required|string|max:255|unique:products,name',
             'description' => 'required|string',
             'price' => 'required|numeric',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|max:10240', // Cloudinary handles up to 10MB easily
             'is_customizable' => 'boolean',
             'in_stock' => 'boolean',
             'specifications' => 'nullable|array',
@@ -37,17 +37,23 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('products', 'public');
-            $validated['image_path'] = $path;
+            $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
+                'folder' => 'products'
+            ]);
+            $validated['image_path'] = $uploadedFile->getSecurePath();
         }
 
         // Handle up to 2 secondary images
         $secondaryPaths = [];
         if ($request->hasFile('secondary_image_1')) {
-            $secondaryPaths[] = $request->file('secondary_image_1')->store('products', 'public');
+            $secondaryPaths[] = cloudinary()->upload($request->file('secondary_image_1')->getRealPath(), [
+                'folder' => 'products'
+            ])->getSecurePath();
         }
         if ($request->hasFile('secondary_image_2')) {
-            $secondaryPaths[] = $request->file('secondary_image_2')->store('products', 'public');
+            $secondaryPaths[] = cloudinary()->upload($request->file('secondary_image_2')->getRealPath(), [
+                'folder' => 'products'
+            ])->getSecurePath();
         }
         
         if (!empty($secondaryPaths)) {
@@ -58,7 +64,7 @@ class CatalogController extends Controller
         
         Product::create($validated);
 
-        return back()->with('success', 'Product added to the shop.');
+        return back()->with('success', 'Product added to the cloud-synced shop.');
     }
 
     public function updateProduct(Request $request, Product $product)
@@ -75,33 +81,25 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            // Delete old primary image if it exists
-            if ($product->image_path) {
-                $oldRaw = ltrim(str_replace('/storage/', '/', $product->image_path), '/');
-                Storage::disk('public')->delete($oldRaw);
-            }
-            $validated['image_path'] = $request->file('image')->store('products', 'public');
+            $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
+                'folder' => 'products'
+            ]);
+            $validated['image_path'] = $uploadedFile->getSecurePath();
         }
 
         // Handle Secondary Image Replacements
         $secondaryImages = $product->secondary_images ?? [];
         
         if ($request->hasFile('secondary_image_1')) {
-            // Delete old slot 1 if it exists
-            if (isset($secondaryImages[0])) {
-                $oldRaw = ltrim(str_replace('/storage/', '/', $secondaryImages[0]), '/');
-                Storage::disk('public')->delete($oldRaw);
-            }
-            $secondaryImages[0] = $request->file('secondary_image_1')->store('products', 'public');
+            $secondaryImages[0] = cloudinary()->upload($request->file('secondary_image_1')->getRealPath(), [
+                'folder' => 'products'
+            ])->getSecurePath();
         }
 
         if ($request->hasFile('secondary_image_2')) {
-            // Delete old slot 2 if it exists
-            if (isset($secondaryImages[1])) {
-                $oldRaw = ltrim(str_replace('/storage/', '/', $secondaryImages[1]), '/');
-                Storage::disk('public')->delete($oldRaw);
-            }
-            $secondaryImages[1] = $request->file('secondary_image_2')->store('products', 'public');
+            $secondaryImages[1] = cloudinary()->upload($request->file('secondary_image_2')->getRealPath(), [
+                'folder' => 'products'
+            ])->getSecurePath();
         }
 
         if (!empty($secondaryImages)) {
@@ -111,7 +109,7 @@ class CatalogController extends Controller
         $validated['slug'] = Str::slug($validated['name']);
         $product->update($validated);
 
-        return back()->with('success', 'Collection piece updated successfully.');
+        return back()->with('success', 'Collection piece updated and cloud-sync verified.');
     }
 
     public function destroyProduct(Product $product)

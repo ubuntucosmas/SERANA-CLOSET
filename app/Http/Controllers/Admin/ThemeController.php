@@ -23,21 +23,17 @@ class ThemeController extends Controller
         $key = $request->key;
         $value = $request->value;
 
-        // Handle File Uploads
+        // Handle File Uploads to Cloudinary
         if ($request->hasFile('value')) {
-            // Delete old file if exists
-            $oldSetting = ThemeSetting::where('key', $key)->first();
-            if ($oldSetting && !empty($oldSetting->value) && str_starts_with($oldSetting->value, 'themes/')) {
-                Storage::disk('public')->delete($oldSetting->value);
-            }
-
-            $path = $request->file('value')->store('themes', 'public');
-            $value = $path;
+            $uploadedFile = cloudinary()->upload($request->file('value')->getRealPath(), [
+                'folder' => 'themes'
+            ]);
+            $value = $uploadedFile->getSecurePath();
         }
 
         ThemeSetting::set($key, $value);
 
-        return back()->with('success', "Theme asset [$key] updated successfully.");
+        return back()->with('success', "Theme asset [$key] updated and cloud-synced successfully.");
     }
 
     /**
