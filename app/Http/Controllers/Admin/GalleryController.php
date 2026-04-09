@@ -69,6 +69,6 @@ class GalleryController extends Controller
         
         $image->forceDelete();
 
-        return back()->with('success', 'Showcase and asset permanently purged.');
+        return back()->with('success', 'Showcase and asset permanently Deleted.');
     }
 }
