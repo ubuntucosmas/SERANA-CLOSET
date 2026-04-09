@@ -20,8 +20,7 @@ class GalleryController extends Controller
 
         if ($request->hasFile('image')) {
             // Delete old image
-            $oldRaw = ltrim(str_replace('/storage/', '/', $image->image_path), '/');
-            Storage::disk('public')->delete($oldRaw);
+            Storage::disk('public')->delete($image->image_path);
             
             $validated['image_path'] = $request->file('image')->store('gallery', 'public');
         }
@@ -66,8 +65,7 @@ class GalleryController extends Controller
     public function forceDelete(GalleryImage $image)
     {
         // Permanent asset removal
-        $rawPath = ltrim(str_replace('/storage/', '/', $image->image_path), '/');
-        Storage::disk('public')->delete($rawPath);
+        Storage::disk('public')->delete($image->image_path);
         
         $image->forceDelete();
 

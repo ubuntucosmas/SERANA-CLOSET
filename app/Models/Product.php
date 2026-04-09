@@ -40,18 +40,34 @@ class Product extends Model
     {
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-        $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
-        return '/storage/' . $rawPath;
+
+        // Use the driver to determine how to build the URL
+        $disk = Storage::disk('public');
+        $driver = config('filesystems.disks.public.driver', 'local');
+
+        if ($driver === 'local') {
+            $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
+            return '/storage/' . $rawPath;
+        }
+
+        return $disk->url($this->image_path);
     }
 
     public function getSecondaryImageUrlsAttribute()
     {
         $images = $this->secondary_images ?? [];
-        return array_map(function($path) {
+        $driver = config('filesystems.disks.public.driver', 'local');
+
+        return array_map(function($path) use ($driver) {
             if (!$path) return null;
             if (str_starts_with($path, 'http')) return $path;
-            $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-            return '/storage/' . $rawPath;
+
+            if ($driver === 'local') {
+                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+                return '/storage/' . $rawPath;
+            }
+
+            return Storage::disk('public')->url($path);
         }, $images);
     }
 

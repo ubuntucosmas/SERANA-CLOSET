@@ -20,10 +20,17 @@ class CustomOrder extends Model
     public function getInspirationUrlsAttribute()
     {
         $paths = $this->inspiration_image_paths ?: [];
-        return array_map(function ($path) {
+        $driver = config('filesystems.disks.public.driver', 'local');
+
+        return array_map(function ($path) use ($driver) {
             if (str_starts_with($path, 'http')) return $path;
-            $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-            return Storage::disk('public')->url($rawPath);
+            
+            if ($driver === 'local') {
+                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+                return '/storage/' . $rawPath;
+            }
+            
+            return Storage::disk('public')->url($path);
         }, $paths);
     }
 
@@ -32,18 +39,22 @@ class CustomOrder extends Model
         $items = $this->items_json ?: [];
         if (!is_array($items)) return [];
 
+        $driver = config('filesystems.disks.public.driver', 'local');
         $processed = [];
         foreach ($items as $key => $item) {
-            // Skip the precision_sizing metadata key to keep this a clean sequential array for Vue
             if ($key === 'precision_sizing') continue;
             
             if (is_array($item)) {
                 $img = $item['image'] ?? $item['image_path'] ?? null;
-                if ($img && !str_starts_with($img, 'http')) {
-                    $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
-                    $item['image_url'] = Storage::disk('public')->url($rawPath);
-                } else if ($img) {
-                    $item['image_url'] = $img;
+                if ($img) {
+                    if (str_starts_with($img, 'http')) {
+                        $item['image_url'] = $img;
+                    } elseif ($driver === 'local') {
+                        $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
+                        $item['image_url'] = '/storage/' . $rawPath;
+                    } else {
+                        $item['image_url'] = Storage::disk('public')->url($img);
+                    }
                 }
                 $processed[] = $item;
             }

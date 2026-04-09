@@ -22,7 +22,11 @@ class ThemeSetting extends Model
 
         // If it looks like a file path (starts with themes/ or similar), return the full URL
         if (str_starts_with($setting->value, 'themes/')) {
-            return '/storage/' . ltrim($setting->value, '/');
+            $driver = config('filesystems.disks.public.driver', 'local');
+            if ($driver === 'local') {
+                return '/storage/' . ltrim($setting->value, '/');
+            }
+            return Storage::disk('public')->url($setting->value);
         }
 
         return $setting->value;
