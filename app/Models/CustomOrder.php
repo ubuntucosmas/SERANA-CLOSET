@@ -20,9 +20,10 @@ class CustomOrder extends Model
     public function getInspirationUrlsAttribute()
     {
         $paths = $this->inspiration_image_paths ?: [];
-        $driver = config('filesystems.disks.public.driver', 'local');
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
-        return array_map(function ($path) use ($driver) {
+        return array_map(function ($path) use ($targetDisk, $driver) {
             if (str_starts_with($path, 'http')) return $path;
             
             if ($driver === 'local') {
@@ -30,7 +31,7 @@ class CustomOrder extends Model
                 return '/storage/' . $rawPath;
             }
             
-            return Storage::disk('public')->url($path);
+            return Storage::disk($targetDisk)->url($path);
         }, $paths);
     }
 
@@ -39,7 +40,8 @@ class CustomOrder extends Model
         $items = $this->items_json ?: [];
         if (!is_array($items)) return [];
 
-        $driver = config('filesystems.disks.public.driver', 'local');
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
         $processed = [];
         foreach ($items as $key => $item) {
             if ($key === 'precision_sizing') continue;
@@ -53,7 +55,7 @@ class CustomOrder extends Model
                         $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
                         $item['image_url'] = '/storage/' . $rawPath;
                     } else {
-                        $item['image_url'] = Storage::disk('public')->url($img);
+                        $item['image_url'] = Storage::disk($targetDisk)->url($img);
                     }
                 }
                 $processed[] = $item;

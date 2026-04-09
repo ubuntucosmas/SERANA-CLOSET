@@ -41,9 +41,10 @@ class Product extends Model
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
-        // Use the driver to determine how to build the URL
-        $disk = Storage::disk('public');
-        $driver = config('filesystems.disks.public.driver', 'local');
+        // Dynamically select the target disk (local public vs cloud s3)
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $disk = Storage::disk($targetDisk);
+        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
         if ($driver === 'local') {
             $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
@@ -56,9 +57,10 @@ class Product extends Model
     public function getSecondaryImageUrlsAttribute()
     {
         $images = $this->secondary_images ?? [];
-        $driver = config('filesystems.disks.public.driver', 'local');
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
-        return array_map(function($path) use ($driver) {
+        return array_map(function($path) use ($targetDisk, $driver) {
             if (!$path) return null;
             if (str_starts_with($path, 'http')) return $path;
 
@@ -67,7 +69,7 @@ class Product extends Model
                 return '/storage/' . $rawPath;
             }
 
-            return Storage::disk('public')->url($path);
+            return Storage::disk($targetDisk)->url($path);
         }, $images);
     }
 
