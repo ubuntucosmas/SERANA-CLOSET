@@ -129,7 +129,7 @@ class CheckoutController extends Controller
 
         return response()->json([
             'success'  => true,
-            'message'  => 'Order created. Proceed to payment.',
+            'message'  => 'Order created. Proceed to payment',
         ]);
     }
 }
