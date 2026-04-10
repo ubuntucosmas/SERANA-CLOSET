@@ -22,7 +22,7 @@ class ThemeSetting extends Model
 
         // If it looks like a file path (starts with themes/ or similar), return the full URL
         if (str_starts_with($setting->value, 'themes/')) {
-            $targetDisk = config('filesystems.public_disk', 'public');
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
             $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
             if ($driver === 'local') {

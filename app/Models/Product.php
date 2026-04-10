@@ -41,8 +41,8 @@ class Product extends Model
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
-        // Dynamically select the target disk (local public vs cloud)
-        $targetDisk = config('filesystems.public_disk', 'public');
+        // Dynamically select the target disk (local public vs cloud s3)
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         $disk = Storage::disk($targetDisk);
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
@@ -57,7 +57,7 @@ class Product extends Model
     public function getSecondaryImageUrlsAttribute()
     {
         $images = $this->secondary_images ?? [];
-        $targetDisk = config('filesystems.public_disk', 'public');
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
         return array_map(function($path) use ($targetDisk, $driver) {

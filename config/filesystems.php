@@ -17,17 +17,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Public Asset Disk (Custom)
-    |--------------------------------------------------------------------------
-    |
-    | This custom key controls which disk is used for public assets site-wide.
-    | It is defined here to ensure it's safe for production config caching.
-    |
-    */
-    'public_disk' => env('FILESYSTEM_DISK_PUBLIC', 'public'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

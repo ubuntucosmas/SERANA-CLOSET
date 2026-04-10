@@ -20,7 +20,7 @@ class OrderProgressSnap extends Model
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
-        $targetDisk = config('filesystems.public_disk', 'public');
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         $disk = Storage::disk($targetDisk);
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
