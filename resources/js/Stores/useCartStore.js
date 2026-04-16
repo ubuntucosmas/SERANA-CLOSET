@@ -23,11 +23,8 @@ export const useCartStore = defineStore('cart', () => {
         if (product.batch_limit) {
             const available = product.batch_limit - (product.batch_sold || 0);
             const currentQty = items.value.find(item => item.id === product.id)?.quantity ?? 0;
-            
+
             if (currentQty >= available) {
-                window.dispatchEvent(new CustomEvent('serana-toast', {
-                    detail: { message: `Only ${available} available for "${product.name}"`, type: 'error' }
-                }));
                 return;
             }
         }
@@ -42,9 +39,6 @@ export const useCartStore = defineStore('cart', () => {
             if (product.batch_limit) {
                 const available = product.batch_limit - (product.batch_sold || 0);
                 if (existing.quantity >= available) {
-                    window.dispatchEvent(new CustomEvent('serana-toast', {
-                        detail: { message: `Maximum stock reached for "${product.name}"`, type: 'error' }
-                    }));
                     return;
                 }
             }
@@ -61,11 +55,6 @@ export const useCartStore = defineStore('cart', () => {
                 is_bespoke: product.is_customizable || false
             });
         }
-
-        // Dispatch Global Toast for Bag Update
-        window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `"${product.name}" added to your curated bag.`, type: 'success' }
-        }));
 
         isOpen.value = true; // Auto-reveal the bag for momentum
     }
