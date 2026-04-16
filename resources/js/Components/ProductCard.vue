@@ -101,7 +101,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         <!-- Image Container -->
         <div :class="[
             'overflow-hidden bg-transparent relative rounded-sm border dark:border-white/10 border-black/10 shadow-2xl transition-all duration-700',
-            layout === 'editorial' ? 'h-full mb-0' : 'aspect-[3/4] mb-6'
+            layout === 'editorial' ? 'h-full mb-0' : 'aspect-[3/4] mb-3 md:mb-6'
         ]">
             <img
                 class="product-img w-full h-full object-cover transition-all duration-700"
@@ -114,39 +114,31 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             <!-- Technical X-Ray Overlay - Hidden on Mobile -->
             <XRayOverlay :specs="product.specifications" :active="isHovered" class="hidden md:flex" />
 
-            <!-- Editorial/Grid Hover Overlay -->
+            <!-- Desktop Editorial/Grid Hover Overlay -->
             <div :class="[
-                'overlay-content absolute inset-0 flex flex-col justify-end p-8 gap-4 z-30 pointer-events-none opacity-0',
+                'overlay-content absolute inset-0 flex flex-col justify-end p-8 gap-4 z-30 pointer-events-none opacity-0 hidden md:flex',
                 layout === 'editorial' 
                     ? 'bg-gradient-to-t from-black via-black/80 to-transparent' 
                     : 'bg-black/60 backdrop-blur-md'
             ]">
                 
                 <div v-if="layout === 'editorial'" class="space-y-3 mb-6">
-                    <p class="text-primary font-headline text-[11px] font-medium tracking-[0.3em]">{{ product.category?.name || 'Collection' }}</p>
-                    <h3 class="text-5xl lg:text-7xl font-headline font-medium dark:text-white text-on-surface dark:text-white text-on-surface leading-none drop-shadow-2xl">{{ product.name }}</h3>
-                    <p class="text-3xl font-headline font-medium dark:text-white text-on-surface dark:text-white text-on-surface">KSh {{ Number(product.price).toLocaleString() }}</p>
+                    <p class="text-primary font-headline text-[11px] font-medium tracking-[0.3em] uppercase">{{ product.category?.name || 'Collection' }}</p>
+                    <h3 class="text-5xl lg:text-7xl font-headline font-medium dark:text-white text-on-surface leading-none drop-shadow-2xl">{{ product.name }}</h3>
+                    <p class="text-3xl font-headline font-medium dark:text-white text-on-surface">KSh {{ Number(product.price).toLocaleString() }}</p>
                 </div>
 
                 <div class="flex flex-col gap-4 pointer-events-auto">
                     <button 
                         @click="cart.addItem(product)"
-                        class="w-full bg-gradient-to-br from-primary to-primary-container text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all lg:flex hidden"
+                        class="w-full bg-primary text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all"
                     >
                         <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
                         Add to bag
                     </button>
-                    <!-- Small Mobile Version -->
-                    <button 
-                         @click="cart.addItem(product)"
-                         class="lg:hidden w-full bg-primary text-black py-4 flex items-center justify-center rounded-sm"
-                    >
-                         <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
-                    </button>
-
                     <Link 
                         :href="route('shop.show', product.slug)"
-                        class="w-full glass-card border dark:border-white/10 border-black/10 dark:text-white text-on-surface dark:text-white text-on-surface py-5 text-[12px] font-headline font-medium tracking-[0.2em] flex items-center justify-center gap-2 rounded-sm hover:bg-primary/10 transition-all lg:flex hidden"
+                        class="w-full glass-card border border-white/10 text-white py-5 text-[12px] font-headline font-medium tracking-[0.2em] flex items-center justify-center gap-2 rounded-sm hover:bg-primary/10 transition-all"
                     >
                         <span class="material-symbols-outlined text-[18px]">open_in_full</span>
                         View spec sheet
@@ -154,88 +146,84 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 </div>
             </div>
 
-            <!-- Multi-Image Indicator -->
-            <div v-if="allImages.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+            <!-- Zen "Atelier Tag" (Fancy Mobile Info Overlay) -->
+            <div class="md:hidden absolute inset-x-0 bottom-0 p-3 z-40 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
+                <div class="flex flex-col gap-2 p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-sm pointer-events-auto shadow-2xl">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0 pr-2">
+                            <h3 class="text-[11px] font-medium text-white truncate uppercase tracking-widest leading-tight mb-0.5">{{ product.name }}</h3>
+                            <p class="text-[8px] font-medium text-primary uppercase tracking-[0.3em] opacity-80">{{ product.category?.name || 'Archive' }}</p>
+                        </div>
+                        <span class="text-[10px] font-black text-primary luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-1">
+                        <button 
+                            @click.stop="cart.addItem(product)"
+                            class="flex-1 bg-white text-black py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all shadow-lg"
+                        >
+                            <span class="material-symbols-outlined text-[16px] font-black">shopping_bag</span>
+                        </button>
+                        <a 
+                            :href="whatsappUrl" 
+                            target="_blank" 
+                            @click.stop
+                            class="flex-1 bg-primary/10 border border-primary/30 text-primary py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all"
+                        >
+                            <span class="material-symbols-outlined text-[16px]">chat</span>
+                        </a>
+                        <Link 
+                            :href="route('shop.show', product.slug)"
+                            @click.stop
+                            class="flex-1 bg-white/5 border border-white/10 text-white/40 py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all"
+                        >
+                            <span class="material-symbols-outlined text-[16px]">open_in_full</span>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Indicator Dots -->
+            <div v-if="allImages.length > 1" class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-1.5 opacity-60">
                 <div v-for="(_, i) in allImages" :key="i" 
                      class="w-1 h-1 rounded-full transition-all duration-300"
                      :class="currentIndex === i ? 'bg-primary shadow-[0_0_5px_#39FF14] scale-125' : 'bg-white/40'">
                 </div>
             </div>
 
-            <!-- Limited Drop Badge - Hidden on mobile for Zen -->
-            <div v-if="isLimitedDrop && !isSoldOut" class="absolute top-4 right-4 z-10 hidden lg:block">
-                <span class="bg-amber-500/90 backdrop-blur-sm text-black px-2.5 py-1 text-[10px] font-medium tracking-widest rounded-md shadow-lg">Limited Drop</span>
-            </div>
-
             <!-- Sold Out Overlay -->
-            <div v-if="isSoldOut" class="absolute inset-0 z-20 dark:bg-black/60 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                <span class="dark:text-white/60 text-black/60 text-xs font-medium tracking-[0.3em] uppercase border dark:border-white/20 border-black/20 px-4 py-2 rounded-sm">Sold Out</span>
-            </div>
-
-            <!-- Custom Badge - Hidden on mobile for Zen -->
-            <div v-if="product.is_customizable && !isSoldOut" class="absolute top-4 left-4 z-10 hidden lg:block">
-                <span class="dark:bg-black/60 bg-white/60 backdrop-blur-2xl border border-primary/40 text-primary px-5 py-2.5 text-[10.5px] font-headline font-medium tracking-[0.25em] rounded-sm shadow-2xl">Custom</span>
+            <div v-if="isSoldOut" class="absolute inset-0 z-[50] bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                <span class="text-white/60 text-[9px] font-black tracking-[0.4em] uppercase border border-white/20 px-4 py-2 rounded-sm bg-black/40">Sold_Out</span>
             </div>
         </div>
 
-        <!-- Cinematic Grand Gallery Tooltip (Universal Pop) - Hidden on Mobile -->
-        <div v-if="isHovered && allImages.length >= 1" 
-             class="hidden md:flex absolute -top-80 left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-2 animate-tooltip-pop min-w-[300px] justify-center">
-            <div class="bg-black/90 backdrop-blur-3xl border border-primary/30 p-6 shadow-[0_60px_120px_rgba(0,0,0,1)] flex gap-6 rounded-2xl items-center justify-center pointer-events-auto scale-110">
-                <div v-for="(img, i) in allImages" :key="i" 
-                     class="w-48 h-64 bg-surface overflow-hidden rounded-xl border border-white/20 reveal-stagger group/thumb cursor-crosshair shadow-2xl"
-                     :style="{ transitionDelay: (i * 100) + 'ms' }">
-                    <img :src="img" class="w-full h-full object-cover grayscale group-hover/thumb:grayscale-0 transition-all duration-1000 opacity-30 group-hover/thumb:opacity-100 group-hover/thumb:scale-110" />
-                </div>
-            </div>
-        </div>
-
-        <!-- Product Info (Grid only) -->
-        <div v-if="layout === 'grid'" class="mt-3 md:mt-4 px-1">
+        <!-- Desktop Grid Info (Hidden on Mobile) -->
+        <div v-if="layout === 'grid'" class="hidden md:block mt-4 px-1">
             <div class="flex flex-col mb-3">
-                <h3 class="font-headline text-base md:text-xl font-medium dark:text-white text-on-surface truncate group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
+                <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
                 <div class="flex justify-between items-center mt-1">
-                    <p class="dark:text-white/40 text-black/40 text-[9px] md:text-[11px] tracking-[0.2em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
-                    <span class="text-primary font-headline font-black text-sm md:text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
-                </div>
-            </div>
-
-            <!-- Mobile persistent CTA (Zen icon-only) -->
-            <div class="md:hidden mt-3">
-                <div v-if="!isSoldOut" class="flex gap-2">
-                    <button
-                        @click="cart.addItem(product)"
-                        class="flex-1 bg-primary text-black py-3.5 rounded-sm active:scale-95 transition-all flex items-center justify-center"
-                    >
-                        <span class="material-symbols-outlined text-[20px] font-bold">shopping_bag</span>
-                    </button>
-                    <a
-                        :href="whatsappUrl"
-                        target="_blank"
-                        class="flex-1 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 rounded-sm active:scale-95 transition-all flex items-center justify-center"
-                    >
-                        <span class="material-symbols-outlined text-[20px]">chat</span>
-                    </a>
-                </div>
-                <div v-else class="w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
-                    Sold Out
+                    <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
+                    <span class="text-primary font-headline font-black text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
                 </div>
             </div>
         </div>
+        <HandoffOverlay v-if="showHandoff" :show="showHandoff" :order-type="product.name" />
     </div>
 </template>
 
 <style scoped>
-.text-glow-after {
-    transition: text-shadow 0.3s ease;
+.text-glow-after { transition: text-shadow 0.3s ease; }
+.group:hover .text-glow-after { text-shadow: 0 0 15px rgba(57, 255, 20, 0.6); }
+
+/* Animation for the Tag appearance */
+.atelier-tag-pulse {
+    animation: tagPulse 3s ease-in-out infinite;
 }
-.group:hover .text-glow-after {
-    text-shadow: 0 0 10px rgba(57, 255, 20,0.4);
-}
-.group:hover {
-    transform: scale(1.02);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    z-index: 40;
+
+@keyframes tagPulse {
+    0% { border-color: rgba(57, 255, 20, 0.1); }
+    50% { border-color: rgba(57, 255, 20, 0.4); }
+    100% { border-color: rgba(57, 255, 20, 0.1); }
 }
 
 @keyframes tooltipPop {
@@ -243,17 +231,5 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.animate-tooltip-pop {
-    animation: tooltipPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.reveal-stagger {
-    opacity: 0;
-    transform: translateY(5px);
-    animation: revealItem 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes revealItem {
-    to { opacity: 1; transform: translateY(0); }
-}
+.animate-tooltip-pop { animation: tooltipPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 </style>
