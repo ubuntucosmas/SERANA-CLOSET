@@ -173,40 +173,27 @@ const activeCategory = computed(() => {
                 </div>
             </header>
 
-            <!-- Mobile Horizontal Category Pills -->
-            <div class="md:hidden sticky top-20 z-40 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-md mb-8 border-b dark:border-white/5 border-black/5 group/scroll">
-                <div class="relative flex items-center">
-                    <!-- Left Arrow Indicator (Always Visible) -->
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 z-20 pl-2 pointer-events-none">
-                        <div class="bg-primary/20 backdrop-blur-sm p-1 rounded-full border border-primary/30">
-                            <span class="material-symbols-outlined text-primary text-[14px] flex">chevron_left</span>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 scroll-smooth mask-horizontal w-full px-6">
-                        <button 
-                            @click="filterByCategory('all')"
-                            class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
-                            :class="!filters.category || filters.category === 'all' ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
-                        >
-                            All
-                        </button>
-                        <button 
-                            v-for="category in categories" :key="category.id"
-                            @click="filterByCategory(category.slug)"
-                            class="shrink-0 px-6 py-2.5 rounded-full text-[10px] font-headline font-bold uppercase tracking-[0.2em] transition-all"
-                            :class="filters.category === category.slug ? 'bg-primary text-black shadow-[0_0_20px_rgba(57,255,20,0.4)]' : 'bg-white/5 border dark:border-white/10 border-black/10 dark:text-white/60 text-black/60'"
-                        >
-                            {{ category.name }}
-                        </button>
-                    </div>
-
-                    <!-- Right Arrow Indicator (Always Visible) -->
-                    <div class="absolute right-0 top-1/2 -translate-y-1/2 z-20 pr-2 pointer-events-none text-right">
-                        <div class="bg-primary/20 backdrop-blur-sm p-1 rounded-full border border-primary/30">
-                            <span class="material-symbols-outlined text-primary text-[14px] flex">chevron_right</span>
-                        </div>
-                    </div>
+            <!-- Mobile Horizontal Category Tracer (Zen-Level Minimalism) -->
+            <div class="md:hidden sticky top-20 z-40 bg-background/40 backdrop-blur-xl border-b dark:border-white/5 border-black/5 -mx-4 px-4 py-6 mb-8 group/tracer overflow-hidden">
+                <div class="flex gap-8 overflow-x-auto no-scrollbar scroll-smooth mask-horizontal w-full px-6">
+                    <button 
+                        @click="filterByCategory('all')"
+                        class="shrink-0 relative py-2 text-[10px] font-headline font-black uppercase tracking-[0.3em] transition-all"
+                        :class="!filters.category || filters.category === 'all' ? 'text-primary' : 'dark:text-white/30 text-black/30'"
+                    >
+                        <span>Archive</span>
+                        <div v-if="!filters.category || filters.category === 'all'" class="absolute -bottom-1 left-0 w-full h-[1.5px] bg-primary luminous-glow animate-width-reveal"></div>
+                    </button>
+                    
+                    <button 
+                        v-for="category in categories" :key="category.id"
+                        @click="filterByCategory(category.slug)"
+                        class="shrink-0 relative py-2 text-[10px] font-headline font-black uppercase tracking-[0.3em] transition-all"
+                        :class="filters.category === category.slug ? 'text-primary' : 'dark:text-white/30 text-black/30'"
+                    >
+                        <span>{{ category.name }}</span>
+                        <div v-if="filters.category === category.slug" class="absolute -bottom-1 left-0 w-full h-[1.5px] bg-primary luminous-glow animate-width-reveal"></div>
+                    </button>
                 </div>
             </div>
 
@@ -336,16 +323,6 @@ const activeCategory = computed(() => {
                     </div>
                 </div>
             </div>
-
-            <!-- Mobile Ergonomic Floating Filter Toggle -->
-            <div class="md:hidden fixed bottom-10 right-8 z-[60] animate-bounce-in">
-                <button 
-                    @click="filterByCategory('all')" 
-                    class="bg-primary text-black w-14 h-14 rounded-full flex items-center justify-center shadow-[0_20px_40px_rgba(57,255,20,0.4)] border-2 border-primary active:scale-90 transition-all"
-                >
-                    <span class="material-symbols-outlined !text-[28px]">filter_list</span>
-                </button>
-            </div>
         </main>
         </div>
     </StorefrontLayout>
@@ -374,5 +351,14 @@ const activeCategory = computed(() => {
 .mask-horizontal {
     mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+@keyframes widthReveal {
+    from { width: 0; opacity: 0; }
+    to { width: 100%; opacity: 1; }
+}
+
+.animate-width-reveal {
+    animation: widthReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 </style>
