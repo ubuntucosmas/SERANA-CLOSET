@@ -126,7 +126,7 @@ const activeCategory = computed(() => {
             <header class="mb-10 lg:mb-16 reveal">
                 <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
-                        <span class="text-[9px] lg:text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-2 lg:mb-4 block drop-shadow-md">The digital studio</span>
+                        <!-- <span class="text-[9px] lg:text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-2 lg:mb-4 block drop-shadow-md">The digital studio</span> -->
                         <h1 class="serif-text text-4xl lg:text-8xl dark:text-white text-on-surface font-light tracking-tighter">
                             <span class="text-primary luminous-glow">Our</span> Collection
                         </h1>
