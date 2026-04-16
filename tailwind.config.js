@@ -31,9 +31,9 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Noto Serif", ...defaultTheme.fontFamily.serif],
-                "body": ["Space Grotesk", ...defaultTheme.fontFamily.sans],
-                "label": ["Space Grotesk", ...defaultTheme.fontFamily.sans]
+                "headline": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"],
+                "body": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"],
+                "label": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"]
             },
             borderRadius: {
                 "DEFAULT": "0px",
