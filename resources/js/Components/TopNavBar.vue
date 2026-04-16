@@ -123,54 +123,9 @@
                         </Link>
                     </template>
 
-                    <!-- Mobile Toggle -->
-                    <button @click="menuOpen = !menuOpen" class="lg:hidden icon-btn text-primary">
-                        <span class="material-symbols-outlined !text-[28px]">{{ menuOpen ? 'close' : 'menu' }}</span>
-                    </button>
                 </div>
             </div>
         </div>
-
-        <!-- Mobile Menu (Full Screen Luxury Overlay) -->
-        <transition 
-            enter-active-class="transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]" 
-            enter-from-class="opacity-0 translateY(20px)" 
-            enter-to-class="opacity-100 translateY(0)" 
-            leave-active-class="transition-all duration-500 ease-in" 
-            leave-from-class="opacity-100" 
-            leave-to-class="opacity-0"
-        >
-            <div v-if="menuOpen" class="fixed inset-0 z-[60] bg-black/95 backdrop-blur-3xl p-12 flex flex-col justify-center">
-                <div class="space-y-12">
-                    <div v-for="(link, i) in [
-                        { route: 'home', label: 'THE START' },
-                        { route: 'shop', label: 'COLLECTIONS' },
-                        { route: 'circle', label: 'THE CIRCLE' },
-                        { route: 'about', label: 'OUR STORY' },
-                        { route: 'profile.edit', label: 'THE VAULT' }
-                    ]" :key="link.route"
-                    class="reveal-stagger" :style="{ transitionDelay: (i * 100) + 'ms' }">
-                        <Link @click="menuOpen = false" :href="route(link.route)" 
-                            class="serif-text text-5xl font-light tracking-tighter text-white hover:text-primary transition-all">
-                            {{ link.label }}
-                        </Link>
-                    </div>
-                </div>
-                
-                <!-- Mobile Utility Quick-Actions (Theme & Contact) -->
-                <div class="mt-16 flex items-center gap-10 opacity-0 animate-reveal-up" style="animation-delay: 600ms">
-                    <ThemeToggle />
-                    <a :href="whatsappUrl" target="_blank" class="flex items-center gap-3 text-white/40 hover:text-primary transition-colors">
-                        <span class="material-symbols-outlined !text-[24px]">chat</span>
-                        <span class="font-headline text-[10px] tracking-[0.3em] uppercase font-bold">Studio WhatsApp</span>
-                    </a>
-                </div>
-
-                <button @click="menuOpen = false" class="absolute top-10 right-10 text-white/40 hover:text-primary">
-                    <span class="material-symbols-outlined text-4xl">close</span>
-                </button>
-            </div>
-        </transition>
 
         <!-- Identity Access Modal -->
         <LoginModal v-if="showLogin" @close="showLogin = false" />

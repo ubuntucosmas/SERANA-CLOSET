@@ -209,18 +209,18 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                     >
                         <span class="material-symbols-outlined text-[20px] font-bold">shopping_bag</span>
                     </button>
-                    <button
-                        @click="showHandoff = true"
+                    <a
+                        :href="whatsappUrl"
+                        target="_blank"
                         class="flex-1 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 rounded-sm active:scale-95 transition-all flex items-center justify-center"
                     >
                         <span class="material-symbols-outlined text-[20px]">chat</span>
-                    </button>
+                    </a>
                 </div>
                 <div v-else class="w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
                     Sold Out
                 </div>
             </div>
-            <HandoffOverlay :show="showHandoff" :order-type="product.name" />
         </div>
     </div>
 </template>

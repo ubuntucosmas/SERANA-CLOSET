@@ -157,7 +157,7 @@ watch(showLogisticsOverlay, (val) => {
             </main>
 
             <!-- Zen Logistics Hub (Mobile Only) -->
-            <div class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-[400px]">
+            <div class="md:hidden fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-[400px]">
                 <button @click="showLogisticsOverlay = true" class="w-full bg-white text-black py-5 px-8 rounded-sm shadow-[0_30px_60px_rgba(0,0,0,0.5)] flex items-center justify-between group active:scale-95 transition-all">
                     <div class="flex items-center gap-4">
                         <span class="text-[9px] font-black uppercase tracking-widest opacity-40">Showing</span>
