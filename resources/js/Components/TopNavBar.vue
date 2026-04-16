@@ -94,7 +94,7 @@
 
             <!-- 3. Right Vector: Absolute Actions (Registry & Settings) -->
             <div class="flex items-center gap-10 relative z-20">
-                <div class="flex items-center gap-6 pr-6 border-r dark:border-white/10 border-black/10">
+                <div class="hidden lg:flex items-center gap-6 pr-6 border-r dark:border-white/10 border-black/10">
                     <ThemeToggle />
                     <a :href="whatsappUrl" target="_blank" title="Studio WhatsApp" class="icon-btn dark:text-white/40 text-black/40 hover:text-primary !p-0">
                         <span class="material-symbols-outlined !text-[28px]">chat</span>
@@ -157,6 +157,15 @@
                     </div>
                 </div>
                 
+                <!-- Mobile Utility Quick-Actions (Theme & Contact) -->
+                <div class="mt-16 flex items-center gap-10 opacity-0 animate-reveal-up" style="animation-delay: 600ms">
+                    <ThemeToggle />
+                    <a :href="whatsappUrl" target="_blank" class="flex items-center gap-3 text-white/40 hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined !text-[24px]">chat</span>
+                        <span class="font-headline text-[10px] tracking-[0.3em] uppercase font-bold">Studio WhatsApp</span>
+                    </a>
+                </div>
+
                 <button @click="menuOpen = false" class="absolute top-10 right-10 text-white/40 hover:text-primary">
                     <span class="material-symbols-outlined text-4xl">close</span>
                 </button>

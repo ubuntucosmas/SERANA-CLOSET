@@ -131,14 +131,22 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <div class="flex flex-col gap-4 pointer-events-auto">
                     <button 
                         @click="cart.addItem(product)"
-                        class="w-full bg-gradient-to-br from-primary to-primary-container text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all"
+                        class="w-full bg-gradient-to-br from-primary to-primary-container text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all lg:flex hidden"
                     >
                         <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
                         Add to bag
                     </button>
+                    <!-- Small Mobile Version -->
+                    <button 
+                         @click="cart.addItem(product)"
+                         class="lg:hidden w-full bg-primary text-black py-4 flex items-center justify-center rounded-sm"
+                    >
+                         <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
+                    </button>
+
                     <Link 
                         :href="route('shop.show', product.slug)"
-                        class="w-full glass-card border dark:border-white/10 border-black/10 dark:text-white text-on-surface dark:text-white text-on-surface py-5 text-[12px] font-headline font-medium tracking-[0.2em] flex items-center justify-center gap-2 rounded-sm hover:bg-primary/10 transition-all"
+                        class="w-full glass-card border dark:border-white/10 border-black/10 dark:text-white text-on-surface dark:text-white text-on-surface py-5 text-[12px] font-headline font-medium tracking-[0.2em] flex items-center justify-center gap-2 rounded-sm hover:bg-primary/10 transition-all lg:flex hidden"
                     >
                         <span class="material-symbols-outlined text-[18px]">open_in_full</span>
                         View spec sheet
@@ -154,8 +162,8 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 </div>
             </div>
 
-            <!-- Limited Drop Badge -->
-            <div v-if="isLimitedDrop && !isSoldOut" class="absolute top-4 right-4 z-10">
+            <!-- Limited Drop Badge - Hidden on mobile for Zen -->
+            <div v-if="isLimitedDrop && !isSoldOut" class="absolute top-4 right-4 z-10 hidden lg:block">
                 <span class="bg-amber-500/90 backdrop-blur-sm text-black px-2.5 py-1 text-[10px] font-medium tracking-widest rounded-md shadow-lg">Limited Drop</span>
             </div>
 
@@ -164,8 +172,8 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <span class="dark:text-white/60 text-black/60 text-xs font-medium tracking-[0.3em] uppercase border dark:border-white/20 border-black/20 px-4 py-2 rounded-sm">Sold Out</span>
             </div>
 
-            <!-- Custom Badge -->
-            <div v-if="product.is_customizable && !isSoldOut" class="absolute top-4 left-4 z-10">
+            <!-- Custom Badge - Hidden on mobile for Zen -->
+            <div v-if="product.is_customizable && !isSoldOut" class="absolute top-4 left-4 z-10 hidden lg:block">
                 <span class="dark:bg-black/60 bg-white/60 backdrop-blur-2xl border border-primary/40 text-primary px-5 py-2.5 text-[10.5px] font-headline font-medium tracking-[0.25em] rounded-sm shadow-2xl">Custom</span>
             </div>
         </div>
@@ -192,25 +200,25 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <span class="text-primary font-headline font-medium text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
             </div>
 
-            <!-- Mobile persistent CTA (touch devices can't hover) -->
-            <button
-                v-if="!isSoldOut"
-                @click="cart.addItem(product)"
-                class="md:hidden w-full mt-3 bg-primary text-black py-4 text-[10.5px] font-headline font-black uppercase tracking-[0.25em] rounded-full shadow-[0_15px_30px_rgba(57,255,20,0.4)] border-2 border-primary active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-                <span class="material-symbols-outlined text-[18px] font-black">shopping_bag</span>
-                Add to Bag
-            </button>
-            <button
-                v-if="!isSoldOut"
-                @click="showHandoff = true; setTimeout(() => { window.open(whatsappUrl, '_blank') }, 3000)"
-                class="md:hidden w-full mt-2 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            >
-                <span class="material-symbols-outlined text-[18px]">chat</span>
-                Quick Order
-            </button>
-            <div v-else class="md:hidden w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
-                Sold Out
+            <!-- Mobile persistent CTA (Zen icon-only) -->
+            <div class="md:hidden mt-3">
+                <div v-if="!isSoldOut" class="flex gap-2">
+                    <button
+                        @click="cart.addItem(product)"
+                        class="flex-1 bg-primary text-black py-3.5 rounded-sm active:scale-95 transition-all flex items-center justify-center"
+                    >
+                        <span class="material-symbols-outlined text-[20px] font-bold">shopping_bag</span>
+                    </button>
+                    <button
+                        @click="showHandoff = true"
+                        class="flex-1 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 rounded-sm active:scale-95 transition-all flex items-center justify-center"
+                    >
+                        <span class="material-symbols-outlined text-[20px]">chat</span>
+                    </button>
+                </div>
+                <div v-else class="w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
+                    Sold Out
+                </div>
             </div>
             <HandoffOverlay :show="showHandoff" :order-type="product.name" />
         </div>

@@ -21,12 +21,12 @@ onMounted(() => {
 <template>
     <section class="py-12 bg-background border-y dark:border-white/5 border-black/5 overflow-hidden">
         <div class="px-8 mb-8 flex justify-between items-end">
-            <div class="space-y-2">
-                <span class="text-primary font-headline font-bold text-[8px] tracking-[0.4em] uppercase">Live from the Archive</span>
-                <h2 class="text-2xl font-headline font-medium dark:text-white text-on-surface uppercase tracking-tighter">Current Drop_</h2>
+            <div class="space-y-1">
+                <span class="text-primary font-headline font-bold text-[8px] tracking-[0.4em] uppercase hidden lg:block">Live from the Archive</span>
+                <h2 class="text-xl lg:text-2xl font-headline font-medium dark:text-white text-on-surface uppercase tracking-tight">Current Drop_</h2>
             </div>
-            <Link :href="route('shop')" class="text-[9px] font-headline font-bold text-primary border-b border-primary/20 pb-1 hover:border-primary transition-all uppercase tracking-widest">
-                View All
+            <Link :href="route('shop')" class="text-[9px] font-headline font-bold text-primary border-b border-primary/20 pb-1 hover:border-primary transition-all uppercase tracking-widest px-2">
+                All
             </Link>
         </div>
 
@@ -43,7 +43,8 @@ onMounted(() => {
                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-100 group-hover:scale-105" 
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div class="absolute bottom-4 left-4 right-4 translate-y-4 group-hover:translate-y-0 transition-transform opacity-0 group-hover:opacity-100">
+                        <!-- Hidden on mobile for Zen -->
+                        <div class="absolute bottom-4 left-4 right-4 translate-y-4 group-hover:translate-y-0 transition-transform opacity-0 group-hover:opacity-100 hidden lg:block">
                              <span class="bg-primary text-black px-4 py-2 text-[8px] font-headline font-black uppercase tracking-widest rounded-sm">Quick_View</span>
                         </div>
                     </div>

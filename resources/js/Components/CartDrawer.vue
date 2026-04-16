@@ -98,8 +98,8 @@ const closeDrawer = () => {
             <!-- Header -->
             <div class="px-8 py-10 flex justify-between items-center border-b dark:border-white/5 border-black/5">
                 <div>
-                    <h2 class="font-headline text-2xl tracking-widest dark:text-white text-on-surface">YOUR SELECTION</h2>
-                    <p class="font-label text-[10px] uppercase tracking-[0.2em] dark:text-white/70 text-black/70 mt-1">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'Item' : 'Items' }} in Bag</p>
+                    <h2 class="font-headline text-xl lg:text-2xl tracking-[0.2em] dark:text-white text-on-surface uppercase font-light">Your Selection_</h2>
+                    <p class="font-label text-[9px] uppercase tracking-[0.2em] dark:text-white/40 text-black/40 mt-1">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'Piece' : 'Pieces' }}</p>
                 </div>
                 <button @click="closeDrawer" class="dark:text-white text-on-surface hover:text-primary transition-colors">
                     <span class="material-symbols-outlined">close</span>
@@ -193,21 +193,21 @@ const closeDrawer = () => {
                 </div>
 
                 <!-- Actions -->
-                <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-3">
                     <Link 
                         :href="route('checkout')"
                         @click="closeDrawer"
-                        class="w-full bg-primary text-black py-4 font-label text-xs uppercase tracking-[0.2em] font-bold hover:brightness-110 transition-all text-center block"
+                        class="w-full bg-primary text-black py-5 font-headline text-[10px] uppercase tracking-[0.3em] font-bold hover:brightness-110 transition-all text-center block"
                     >
-                        Proceed to Secure Checkout
+                        Secure Checkout_
                     </Link>
                     <a 
                         :href="whatsappUrl" 
                         target="_blank"
-                        class="w-full flex items-center justify-center gap-2 border dark:border-white/10 border-black/10 py-4 font-label text-xs uppercase tracking-[0.2em] dark:text-white text-on-surface hover:bg-white/5 transition-colors"
+                        class="w-full flex items-center justify-center gap-2 border dark:border-white/10 border-black/10 py-4 font-headline text-[9px] uppercase tracking-[0.2em] dark:text-white text-on-surface hover:bg-white/5 transition-colors opacity-60"
                     >
                         <span class="material-symbols-outlined text-lg">chat</span>
-                        Quick Order via WhatsApp
+                        WhatsApp Order_
                     </a>
                 </div>
             </div>

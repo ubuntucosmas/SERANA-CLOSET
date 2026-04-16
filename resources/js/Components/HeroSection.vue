@@ -132,7 +132,7 @@ onMounted(() => {
                         
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                         
-                        <div class="absolute bottom-6 lg:bottom-10 left-6 lg:left-10 right-6 lg:right-10 px-2">
+                        <div class="absolute bottom-6 lg:bottom-10 left-6 lg:left-10 right-6 lg:right-10 px-2 lg:block hidden">
                             <transition name="fade-fast" mode="out-in">
                                 <span :key="focalImages[currentFocalIndex].label" class="inline-block bg-background/80 backdrop-blur-2xl text-primary text-[8px] lg:text-[9px] font-headline font-medium tracking-[0.3em] lg:tracking-[0.4em] px-4 lg:px-8 py-3 lg:py-4 border border-primary/20 rounded-sm shadow-2xl">
                                     {{ focalImages[currentFocalIndex].label }}
@@ -141,8 +141,8 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <!-- Secondary Floating Details Image -->
-                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110">
+                    <!-- Secondary Floating Details Image - Hidden on mobile for Zen -->
+                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
                         <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
                     </div>
                 </div>
