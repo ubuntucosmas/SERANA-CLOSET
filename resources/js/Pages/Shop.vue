@@ -172,35 +172,61 @@ watch(showLogisticsOverlay, (val) => {
             </div>
 
             <!-- Studio Control Overlay (Mobile Only) -->
-            <transition name="studio-pop">
-                <div v-if="showLogisticsOverlay" class="md:hidden fixed inset-0 z-[200] bg-black/95 backdrop-blur-3xl p-10 flex flex-col justify-between">
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-black uppercase tracking-[0.5em] text-primary">Studio_Control</span>
-                        <button @click="showLogisticsOverlay = false" class="text-white hover:text-primary transition-colors">
-                            <span class="material-symbols-outlined text-[32px]">close</span>
-                        </button>
+            <transition name="drawer">
+                <div v-if="showLogisticsOverlay" class="md:hidden fixed inset-0 z-[200]">
+                    <!-- Backdrop -->
+                    <div @click="showLogisticsOverlay = false" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+                    
+                    <!-- Drawer Content -->
+                    <div class="absolute right-0 top-0 bottom-0 w-[85%] max-w-[360px] bg-background border-l border-white/5 p-8 flex flex-col shadow-[-20px_0_60px_rgba(0,0,0,0.5)]">
+                        <div class="flex justify-between items-center mb-12">
+                            <span class="text-[9px] font-black uppercase tracking-[0.4em] text-primary">Studio_Curation</span>
+                            <button @click="showLogisticsOverlay = false" class="text-white/40 hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-2xl">close</span>
+                            </button>
+                        </div>
+
+                        <div class="flex-grow space-y-12 overflow-y-auto no-scrollbar">
+                            <section>
+                                <h3 class="text-[8px] font-black uppercase tracking-[0.3em] text-white/20 mb-6">Discovery_category</h3>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <button 
+                                        @click="filterByCategory('all')" 
+                                        class="text-left px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
+                                        :class="!filters.category || filters.category === 'all' ? 'bg-primary text-black border-primary font-black' : 'bg-white/5 text-white/40 border-white/5'"
+                                    >
+                                        All Collections
+                                    </button>
+                                    <button 
+                                        v-for="category in categories" :key="category.id" 
+                                        @click="filterByCategory(category.slug)" 
+                                        class="text-left px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
+                                        :class="filters.category === category.slug ? 'bg-primary text-black border-primary font-black' : 'bg-white/5 text-white/40 border-white/5'"
+                                    >
+                                        {{ category.name }}
+                                    </button>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h3 class="text-[8px] font-black uppercase tracking-[0.3em] text-white/20 mb-6">Archive_sort</h3>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <button 
+                                        v-for="opt in sortOptions" :key="opt.value" 
+                                        @click="filterBySort(opt.value)" 
+                                        class="text-left px-5 py-3 border rounded-sm text-[10px] uppercase font-black tracking-widest transition-all" 
+                                        :class="currentSort === opt.value ? 'bg-white text-black border-white' : 'bg-white/5 text-white/20 border-white/5'"
+                                    >
+                                        {{ opt.label }}
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="mt-auto pt-8 border-t border-white/5">
+                            <p class="text-[8px] text-center dark:text-white/20 text-black/20 uppercase tracking-[0.3em]">Serana Closet Studio Control v2.0</p>
+                        </div>
                     </div>
-
-                    <div class="space-y-16">
-                        <section>
-                            <h3 class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-8">Category_selection</h3>
-                            <div class="flex flex-col gap-8">
-                                <button @click="filterByCategory('all')" class="text-left text-4xl font-light transition-all uppercase tracking-tighter" :class="!filters.category || filters.category === 'all' ? 'text-primary' : 'text-white/40'">All Collections</button>
-                                <button v-for="category in categories" :key="category.id" @click="filterByCategory(category.slug)" class="text-left text-4xl font-light transition-all uppercase tracking-tighter" :class="filters.category === category.slug ? 'text-primary' : 'text-white/40'">{{ category.name }}</button>
-                            </div>
-                        </section>
-
-                        <section>
-                            <h3 class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-8">Re-order_archive</h3>
-                            <div class="grid grid-cols-1 gap-4">
-                                <button v-for="opt in sortOptions" :key="opt.value" @click="filterBySort(opt.value)" class="text-left py-4 px-6 border rounded-sm text-[11px] uppercase font-black tracking-widest transition-all" :class="currentSort === opt.value ? 'bg-primary text-black border-primary' : 'bg-white/5 text-white/40 border-white/10'">
-                                    {{ opt.label }}
-                                </button>
-                            </div>
-                        </section>
-                    </div>
-
-                    <p class="text-[9px] text-center dark:text-white/20 text-black/20 uppercase tracking-[0.4em]">Serana Closet Studio Matrix</p>
                 </div>
             </transition>
         </div>
@@ -217,6 +243,13 @@ watch(showLogisticsOverlay, (val) => {
 .studio-pop-enter-active, .studio-pop-leave-active { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 .studio-pop-enter-from { opacity: 0; transform: translateY(100%); }
 .studio-pop-leave-to { opacity: 0; transform: translateY(100%); }
+
+.drawer-enter-active, .drawer-leave-active { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.drawer-enter-active .bg-background { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.drawer-enter-from { opacity: 0; }
+.drawer-enter-from .bg-background { transform: translateX(100%); }
+.drawer-leave-to { opacity: 0; }
+.drawer-leave-to .bg-background { transform: translateX(100%); }
 
 @keyframes tooltipPop {
     from { opacity: 0; transform: translateY(10px) scale(0.95); }
