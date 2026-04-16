@@ -5,6 +5,7 @@ import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import HeroSection    from '@/Components/HeroSection.vue';
 import CategoryGrid   from '@/Components/CategoryGrid.vue';
 import ProductCard    from '@/Components/ProductCard.vue';
+import CollectionRibbon from '@/Components/CollectionRibbon.vue';
 import CraftsmanshipBlock from '@/Components/CraftsmanshipBlock.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
 import { animate, stagger } from 'animejs';
@@ -12,6 +13,9 @@ import { animate, stagger } from 'animejs';
 const props = defineProps({
     featuredProducts: Array
 });
+
+const studioLoad = ref(12);
+const studioCapacity = ref(85);
 
 // Newsletter form
 const form = useForm({
@@ -60,6 +64,10 @@ onMounted(() => {
     }, { threshold: 0.1 });
 
     document.querySelectorAll('.anime-reveal').forEach(el => observer.observe(el));
+
+    // Dynamic Studio Pulse Simulation
+    studioLoad.value = Math.floor(Math.random() * (16 - 8 + 1)) + 8;
+    studioCapacity.value = Math.floor(Math.random() * (96 - 78 + 1)) + 78;
 });
 </script>
 
@@ -73,7 +81,10 @@ onMounted(() => {
         <!-- 1. Hero -->
         <HeroSection />
 
-        <!-- 2. Categories -->
+        <!-- 2. Collection Ribbon (New Mobile Hook) -->
+        <CollectionRibbon :products="featuredProducts" />
+
+        <!-- 3. Categories -->
         <div>
             <CategoryGrid />
         </div>
@@ -119,11 +130,11 @@ onMounted(() => {
                     </div>
                     <div class="space-y-2 pl-8 border-l dark:border-white/5 border-black/5">
                         <span class="block text-[8px] font-headline font-medium uppercase tracking-[0.4em] text-primary/60">Studio Load</span>
-                        <span class="text-4xl font-headline font-medium dark:text-white text-on-surface tracking-tighter">12 <span class="dark:text-white/40 text-black/40 font-light text-xl">pcs</span></span>
+                        <span class="text-4xl font-headline font-medium dark:text-white text-on-surface tracking-tighter">{{ studioLoad }} <span class="dark:text-white/40 text-black/40 font-light text-xl">pcs</span></span>
                     </div>
                     <div class="space-y-2 pl-8 border-l dark:border-white/5 border-black/5">
                         <span class="block text-[8px] font-headline font-medium uppercase tracking-[0.4em] text-primary/60">Capacity</span>
-                        <span class="text-4xl font-headline font-medium text-primary tracking-tighter">85%</span>
+                        <span class="text-4xl font-headline font-medium text-primary tracking-tighter">{{ studioCapacity }}%</span>
                     </div>
                 </div>
 

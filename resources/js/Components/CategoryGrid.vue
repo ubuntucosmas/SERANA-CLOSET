@@ -24,7 +24,7 @@ const page = usePage();
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             
             <!-- 01: Dresses -->
-            <article class="h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
                 <img 
                     alt="Dresses" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
@@ -40,7 +40,7 @@ const page = usePage();
             </article>
 
             <!-- 02: Hoodies -->
-            <article class="h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
                 <img 
                     alt="Hoodies" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
@@ -56,7 +56,7 @@ const page = usePage();
             </article>
 
             <!-- 03: Corporate -->
-            <article class="h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
                 <img 
                     alt="Corporate" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
@@ -72,7 +72,7 @@ const page = usePage();
             </article>
 
             <!-- 04: Casual -->
-            <article class="h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
                 <img 
                     alt="Casual" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
@@ -88,7 +88,7 @@ const page = usePage();
             </article>
 
             <!-- 05: KIDS (Next Gen) -->
-            <article class="h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
                 <img 
                     alt="Kids" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 

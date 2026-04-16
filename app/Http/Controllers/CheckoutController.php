@@ -93,10 +93,17 @@ class CheckoutController extends Controller
         // Atomic order creation with stock decrement
         try {
             DB::transaction(function () use ($validated, $userId, $calculatedTotal, $itemsWithSizing) {
-                // Decrement batch stock for each item
+                // Decrement batch stock for each item with SHARED LOCK
                 foreach ($validated['items'] as $item) {
-                    $product = Product::find($item['id']);
+                    // SECURE LOCK: Use lockForUpdate to prevent race conditions during heavy traffic
+                    $product = Product::where('id', $item['id'])->lockForUpdate()->first();
+                    
                     if ($product && $product->batch_limit) {
+                        // Double-check stock inside the lock
+                        $available = $product->batch_limit - $product->batch_sold;
+                        if (($item['quantity'] ?? 1) > $available) {
+                            throw new \Exception("Stock level changed during processing for: {$product->name}");
+                        }
                         $product->increment('batch_sold', $item['quantity'] ?? 1);
                     }
                 }
@@ -113,7 +120,7 @@ class CheckoutController extends Controller
                     'city'         => $validated['city'],
                     'phone'        => $validated['phone'],
                     'items_json'   => $itemsWithSizing,
-                    'is_paid'      => false, // Payment pending
+                    'is_paid'      => false, 
                     'whatsapp_number' => $validated['phone'],
                     'bust_cm'  => $validated['bust_cm'] ?? null,
                     'waist_cm' => $validated['waist_cm'] ?? null,
@@ -121,9 +128,16 @@ class CheckoutController extends Controller
                 ]);
             });
         } catch (\Exception $e) {
+            // Log the error for Artisan inspection
+            \Illuminate\Support\Facades\Log::error("🚨 [Checkout_Fault] " . $e->getMessage(), [
+                'user_id' => $userId,
+                'email'   => $validated['email'],
+                'trace'   => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success'  => false,
-                'message'  => 'Order processing failed. Please try again.',
+                'message'  => 'Transaction security alert. Please refresh and try again.',
             ], 500);
         }
 

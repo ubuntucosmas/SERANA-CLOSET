@@ -47,97 +47,119 @@ class CustomOrderController extends Controller
             'priority_pass' => 'nullable',
         ]);
 
-        $priorityPass = filter_var($request->priority_pass, FILTER_VALIDATE_BOOLEAN);
+        try {
+            $priorityPass = filter_var($request->priority_pass, FILTER_VALIDATE_BOOLEAN);
 
-        $imagePaths = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $imagePaths[] = $image->store('inspiration_images', 'public');
+            $imagePaths = [];
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $image) {
+                    $imagePaths[] = $image->store('inspiration_images', 'public');
+                }
             }
-        }
 
-        $userId = optional(auth()->user())->id;
+            $userId = optional(auth()->user())->id;
 
-        $orderData = [
-            'full_name' => $validated['full_name'],
-            'whatsapp_number' => $validated['whatsapp_number'],
-            'fabric_preference' => $validated['fabric_preference'] ?? null,
-            'bust_cm' => $validated['bust_cm'] ?? null,
-            'waist_cm' => $validated['waist_cm'] ?? null,
-            'hips_cm' => $validated['hips_cm'] ?? null,
-            'length_cm' => $validated['length_cm'] ?? null,
-            'inspiration_image_paths' => $imagePaths,
-            'user_id' => $userId,
-            'type' => $validated['outfit_type'] ?? 'custom',
-            'priority_pass' => $priorityPass,
-            'items_json' => [
-                'location' => $validated['location'] ?? null,
-                'selected_color' => $validated['selected_color'] ?? null,
-                'notes' => $validated['notes'] ?? '',
-                'deadline' => $validated['deadline'] ?? null,
-                'occasion' => $validated['occasion'] ?? null,
-                'selected_fit' => $validated['selected_fit'] ?? null,
-                'height_cm' => $validated['height_cm'] ?? null,
-                'source_product' => $request->product
-            ]
-        ];
+            $orderData = [
+                'full_name' => $validated['full_name'],
+                'whatsapp_number' => $validated['whatsapp_number'],
+                'fabric_preference' => $validated['fabric_preference'] ?? null,
+                'bust_cm' => $validated['bust_cm'] ?? null,
+                'waist_cm' => $validated['waist_cm'] ?? null,
+                'hips_cm' => $validated['hips_cm'] ?? null,
+                'length_cm' => $validated['length_cm'] ?? null,
+                'inspiration_image_paths' => $imagePaths,
+                'user_id' => $userId,
+                'type' => $validated['outfit_type'] ?? 'custom',
+                'priority_pass' => $priorityPass,
+                'items_json' => [
+                    'location' => $validated['location'] ?? null,
+                    'selected_color' => $validated['selected_color'] ?? null,
+                    'notes' => $validated['notes'] ?? '',
+                    'deadline' => $validated['deadline'] ?? null,
+                    'occasion' => $validated['occasion'] ?? null,
+                    'selected_fit' => $validated['selected_fit'] ?? null,
+                    'height_cm' => $validated['height_cm'] ?? null,
+                    'source_product' => $request->product
+                ]
+            ];
 
-        $order = CustomOrder::create($orderData);
+            $order = CustomOrder::create($orderData);
 
-        // Construct Expanded Artisan Narrative
-        $storePhone = config('services.whatsapp.number');
-        $message = "🏁 *NEW CUSTOM ARTISAN BRIEF* 🏁\n\n";
-        $message .= "*[ 01: IDENTITY ]*\n";
-        $message .= "• Name: {$order->full_name}\n";
-        $message .= "• WhatsApp: {$order->whatsapp_number}\n";
-        if ($validated['location']) {
-            $message .= "• Location: {$validated['location']}\n";
-        }
-        
-        $message .= "\n*[ 02: CATEGORY & CONTEXT ]*\n";
-        $message .= "• Garment: {$order->type}\n";
-        if ($validated['occasion']) {
-            $message .= "• Event: {$validated['occasion']}\n";
-        }
-        if ($validated['deadline']) {
-            $message .= "• Target Date: {$validated['deadline']}\n";
-        }
+            // Construct Elite Artisan Brief
+            $storePhone = config('services.whatsapp.number');
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            
+            $message = "✨ *SERANA DIGITAL ATELIER | PRODUCTION BRIEF* ✨\n";
+            $message .= "Order ID: #{$order->id} | Protocol: V4.2\n";
+            $message .= "------------------------------------------\n\n";
 
-        $message .= "\n*[ 03: TECHNICAL SPECS ]*\n";
-        $message .= "• Height: " . ($validated['height_cm'] ?? 'N/A') . " cm\n";
-        $message .= "• Bust: " . ($order->bust_cm ?? 'N/A') . " cm\n";
-        $message .= "• Waist: " . ($order->waist_cm ?? 'N/A') . " cm\n";
-        $message .= "• Hips: " . ($order->hips_cm ?? 'N/A') . " cm\n";
-        $message .= "• Length: " . ($order->length_cm ?? 'N/A') . " cm\n";
-
-        $message .= "\n*[ 04: DESIGN FOUNDATION ]*\n";
-        $message .= "• Fit: " . ($validated['selected_fit'] ?? 'Regular') . "\n";
-        $message .= "• Fabric: " . ($order->fabric_preference ?? 'To be discussed') . "\n";
-        $message .= "• Color: " . ($validated['selected_color'] ?? 'To be discussed') . "\n";
-
-        if ($validated['notes']) {
-            $message .= "\n*[ DESIGNER NOTES ]*\n";
-            $message .= "{$validated['notes']}\n";
-        }
-
-        if (count($imagePaths) > 0) {
-            $message .= "\n*[ INSPIRATION ATTACHED ]*\n";
-            $message .= "• " . count($imagePaths) . " image(s) uploaded.\n";
-            foreach($imagePaths as $index => $path) {
-                // Generate full URL
-                $message .= "• Link " . ($index + 1) . ": " . asset('storage/' . $path) . "\n";
+            $message .= "👤 *[ CLIENT IDENTITY ]*\n";
+            $message .= "• Name: {$order->full_name}\n";
+            $message .= "• WhatsApp: {$order->whatsapp_number}\n";
+            if ($validated['location']) {
+                $message .= "• Residence: {$validated['location']}\n";
             }
-        }
+            
+            $message .= "\n👗 *[ GARMENT ARCHITECTURE ]*\n";
+            $message .= "• Style: " . strtoupper($order->type) . "\n";
+            if ($validated['occasion']) {
+                $message .= "• Context/Event: {$validated['occasion']}\n";
+            }
+            if ($validated['deadline']) {
+                $message .= "• Target Delivery: {$validated['deadline']}\n";
+            }
 
-        $message .= "\n--------------------------\n";
-        $message .= "Order ID: #{$order->id}\n";
-        if ($priorityPass) {
-            $message .= "*⚡ [ PRIORITY PRODUCTION CLAIMED ] * ⚡\n";
-        }
-        $message .= "--------------------------\n";
-        $message .= "Sent via Serana Digital Atelier Protocol.";
+            $message .= "\n📏 *[ PRECISION MEASUREMENTS ]*\n";
+            $message .= "• Full Height: " . ($validated['height_cm'] ?? 'N/A') . " cm\n";
+            $message .= "• Bust: " . ($order->bust_cm ?? 'N/A') . " cm\n";
+            $message .= "• Waist: " . ($order->waist_cm ?? 'N/A') . " cm\n";
+            $message .= "• Hips: " . ($order->hips_cm ?? 'N/A') . " cm\n";
+            $message .= "• Drape Length: " . ($order->length_cm ?? 'N/A') . " cm\n";
 
-        $whatsappUrl = "https://wa.me/{$storePhone}?text=" . rawurlencode($message);
+            $message .= "\n🧵 *[ DESIGN SPECIFICATIONS ]*\n";
+            $message .= "• Fit Preference: " . ($validated['selected_fit'] ?? 'Regular') . "\n";
+            $message .= "• Fabric: " . ($order->fabric_preference ?? 'To be discussed') . "\n";
+            $message .= "• Color: " . ($validated['selected_color'] ?? 'To be discussed') . "\n";
+
+            if ($validated['notes']) {
+                $message .= "\n📝 *[ DESIGNER NOTES ]*\n";
+                $message .= "_{$validated['notes']}_\n";
+            }
+
+            if (count($imagePaths) > 0) {
+                $message .= "\n🖼️ *[ INSPIRATION ARCHIVE ]*\n";
+                $message .= "• Total Assets: " . count($imagePaths) . "\n";
+                foreach($imagePaths as $index => $path) {
+                    // Use dynamic disk URL (Handles S3/Local automatically)
+                    $url = \Illuminate\Support\Facades\Storage::disk($targetDisk)->url($path);
+                    $message .= "• Asset " . ($index + 1) . ": " . $url . "\n";
+                }
+            }
+
+            $message .= "\n------------------------------------------\n";
+            if ($priorityPass) {
+                $message .= "⚡ *[ PRIORITY PRODUCTION CLAIMED ]* ⚡\n";
+                $message .= "------------------------------------------\n";
+            }
+            $message .= "CONFIRM RECEIPT TO BEGIN TAILORING.";
+
+            $whatsappUrl = "https://wa.me/{$storePhone}?text=" . rawurlencode($message);
+
+            return response()->json([
+                'success' => true,
+                'whatsapp_url' => $whatsappUrl
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("🚨 [CustomOrder_Fault] " . $e->getMessage(), [
+                'full_name' => $validated['full_name'],
+                'trace'     => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'The digital atelier is momentarily busy. Please try again.'
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,

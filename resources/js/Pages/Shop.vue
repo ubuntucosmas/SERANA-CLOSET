@@ -81,7 +81,7 @@ const activeCategory = computed(() => {
 <template>
     <StorefrontLayout>
         <Head>
-            <title>The Collection | Serana Closet</title>
+            <title>{{ activeCategory ? `${activeCategory.name} | Archive` : 'The Collection' }} | Serana Closet</title>
             <meta name="description" content="Browse our curated seasonal drops and limited-batch ready-to-wear pieces. Every garment is engineered for timeless confidence.">
         </Head>
 
@@ -121,17 +121,21 @@ const activeCategory = computed(() => {
             </div>
             <!-- ─────────────────────────────────────────────────────────── -->
 
-            <main class="relative z-10 pt-32 pb-24 max-w-screen-2xl mx-auto px-4 sm:px-8 font-body">
+            <main class="relative z-10 pt-24 lg:pt-32 pb-24 max-w-screen-2xl mx-auto px-4 sm:px-8 font-body">
             <!-- Page Header -->
-            <header class="mb-16 reveal">
+            <header class="mb-10 lg:mb-16 reveal">
                 <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
-                        <span class="text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-4 block drop-shadow-md">The digital studio</span>
-                        <h1 class="serif-text text-4xl md:text-8xl dark:text-white text-on-surface font-light tracking-tighter">
+                        <span class="text-[9px] lg:text-[11px] font-headline font-medium tracking-[0.2em] text-primary mb-2 lg:mb-4 block drop-shadow-md">The digital studio</span>
+                        <h1 class="serif-text text-4xl lg:text-8xl dark:text-white text-on-surface font-light tracking-tighter">
                             <span class="text-primary luminous-glow">Our</span> Collection
                         </h1>
                     </div>
                     <div class="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto">
+                        <!-- Mobile Category Quick-Toggle (Floating or Integrated) -->
+                        <div class="md:hidden flex items-center gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sticky top-0 z-50">
+                             <!-- This can be expanded if needed -->
+                        </div>
                         <!-- Layout Toggle -->
                         <div class="flex items-center bg-white/5 border dark:border-white/10 border-black/10 p-1 rounded-sm">
                             <button @click="currentLayout = 'grid'" 
@@ -207,7 +211,7 @@ const activeCategory = computed(() => {
             </div>
 
             <!-- Active Filter Chip + Result Count -->
-            <div class="flex items-center justify-between gap-4 mb-12 flex-wrap">
+            <div class="flex items-center justify-between gap-4 mb-8 lg:mb-12 flex-wrap">
                 <!-- Result count -->
                 <span class="text-[10px] dark:text-white/30 text-black/30 font-headline font-medium uppercase tracking-[0.3em]">
                     Showing {{ products.length }} {{ products.length === 1 ? 'piece' : 'pieces' }}
@@ -331,6 +335,16 @@ const activeCategory = computed(() => {
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Mobile Ergonomic Floating Filter Toggle -->
+            <div class="md:hidden fixed bottom-10 right-8 z-[60] animate-bounce-in">
+                <button 
+                    @click="filterByCategory('all')" 
+                    class="bg-primary text-black w-14 h-14 rounded-full flex items-center justify-center shadow-[0_20px_40px_rgba(57,255,20,0.4)] border-2 border-primary active:scale-90 transition-all"
+                >
+                    <span class="material-symbols-outlined !text-[28px]">filter_list</span>
+                </button>
             </div>
         </main>
         </div>

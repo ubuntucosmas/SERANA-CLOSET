@@ -317,6 +317,10 @@
                     </div>
                 </form>
 
+                <!-- Cinematic Handoff Intelligence Overlay -->
+                <HandoffOverlay :show="showHandoff" :order-type="form.outfit_type" />
+
+
                 <!-- 🛍️ Inspiration Archive -->
             <section class="pt-24 border-t dark:border-white/5 border-black/5">
                 <header class="mb-12">
@@ -345,6 +349,7 @@ import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import SizingIntelligence from '@/Components/SizingIntelligence.vue';
 import CraftsmanshipBlock from '@/Components/CraftsmanshipBlock.vue';
 import ProductCard from '@/Components/ProductCard.vue';
+import HandoffOverlay from '@/Components/HandoffOverlay.vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -355,6 +360,7 @@ const props = defineProps({
 const activeField = ref(null);
 const fileInput = ref(null);
 const isSubmitting = ref(false);
+const showHandoff = ref(false);
 const globalError = ref(null);
 
 const outfitTypes = ['Dress', 'Hoodie', 'Suit', 'Corporate', 'Casual'];
@@ -496,7 +502,11 @@ const submitOrder = async () => {
         });
 
         if (response.data.whatsapp_url) {
-            window.location.href = response.data.whatsapp_url;
+            showHandoff.value = true;
+            // Artificial delay to allow the cinematic handoff to play out
+            setTimeout(() => {
+                window.location.href = response.data.whatsapp_url;
+            }, 3500);
         } else {
             // Fallback just in case
             window.location.reload();

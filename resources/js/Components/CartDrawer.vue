@@ -108,11 +108,25 @@ const closeDrawer = () => {
 
             <!-- Scrollable Items Area -->
             <div ref="itemsRef" class="flex-grow overflow-y-auto px-8 no-scrollbar">
-                <div v-if="cart.items.length === 0" class="h-full flex flex-col items-center justify-center text-center space-y-6 pt-20">
-                    <span class="material-symbols-outlined text-6xl dark:text-white text-on-surface/5">shopping_bag</span>
+                <div v-if="cart.items.length === 0" class="h-full flex flex-col items-center justify-center text-center space-y-10 pt-20 animate-fade-in px-12">
+                    <div class="relative group">
+                        <div class="absolute inset-0 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-1000"></div>
+                        <svg viewBox="0 0 100 100" class="w-24 h-24 relative z-10 text-on-surface-variant/20 stroke-current fill-none stroke-[0.5] transition-all duration-700 group-hover:scale-110 group-hover:text-primary/30">
+                            <path d="M30 40 L70 40 L75 85 L25 85 Z" />
+                            <path d="M40 40 Q40 20 50 20 Q60 20 60 40" />
+                            <circle cx="50" cy="62" r="3" class="fill-current opacity-30" />
+                        </svg>
+                    </div>
                     <div>
-                        <h3 class="font-headline text-xl dark:text-white/70 text-black/70 tracking-widest uppercase mb-2">Bag is Empty</h3>
-                        <button @click="closeDrawer" class="text-[10px] font-label font-black uppercase tracking-[0.2em] text-primary hover:dark:text-white text-on-surface transition-all">Start Curating</button>
+                        <h3 class="font-headline text-2xl dark:text-white text-on-surface tracking-[0.3em] font-light uppercase mb-4">Archive_is_Empty</h3>
+                        <p class="text-[10px] uppercase tracking-[0.3em] dark:text-white/30 text-black/30 mb-8 leading-relaxed">Begin your curation. The digital atelier is ready for your selection.</p>
+                        <button 
+                            @click="closeDrawer" 
+                            class="group relative inline-flex items-center gap-4 px-10 py-5 bg-primary/5 border border-primary/20 rounded-full overflow-hidden transition-all hover:bg-primary/10 active:scale-95"
+                        >
+                            <span class="relative z-10 text-[9px] font-headline font-black uppercase tracking-[0.4em] text-primary">Start_Curating</span>
+                            <span class="material-symbols-outlined text-primary text-sm animate-bounce-x">arrow_right_alt</span>
+                        </button>
                     </div>
                 </div>
 

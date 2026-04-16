@@ -4,6 +4,7 @@ import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
 import { animate } from 'animejs';
+import HandoffOverlay from '@/Components/HandoffOverlay.vue';
 
 const props = defineProps({
     product: {
@@ -19,6 +20,7 @@ const props = defineProps({
 const page = usePage();
 const cart = useCartStore();
 const isHovered = ref(false);
+const showHandoff = ref(false);
 const cardElement = ref(null);
 const currentIndex = ref(0);
 let hoverInterval = null;
@@ -199,18 +201,18 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <span class="material-symbols-outlined text-[18px] font-black">shopping_bag</span>
                 Add to Bag
             </button>
-            <a
+            <button
                 v-if="!isSoldOut"
-                :href="whatsappUrl"
-                target="_blank"
-                class="md:hidden w-full mt-2 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full active:scale-95 transition-all flex items-center justify-center gap-2"
+                @click="showHandoff = true; setTimeout(() => { window.open(whatsappUrl, '_blank') }, 3000)"
+                class="md:hidden w-full mt-2 bg-white/5 border dark:border-white/10 border-black/10 dark:text-white text-on-surface py-3.5 text-[10px] font-headline font-bold uppercase tracking-[0.2em] rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
                 <span class="material-symbols-outlined text-[18px]">chat</span>
                 Quick Order
-            </a>
+            </button>
             <div v-else class="md:hidden w-full mt-2 border dark:border-white/10 border-black/10 dark:text-white text-on-surface/30 py-2.5 text-xs font-medium tracking-widest rounded-sm flex items-center justify-center">
                 Sold Out
             </div>
+            <HandoffOverlay :show="showHandoff" :order-type="product.name" />
         </div>
     </div>
 </template>

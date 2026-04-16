@@ -58,7 +58,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[100svh] min-h-[750px] overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-16 sm:pb-24 md:pb-32 pt-24 sm:pt-32">
+    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-[100svh] lg:min-h-[750px] overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-20 sm:pt-32">
         
         <!-- Refined Alternating Background Layer -->
         <div class="absolute inset-0 z-0 overflow-hidden">
@@ -84,8 +84,8 @@ onMounted(() => {
         </div>
 
         <!-- Hero Content (Grid Layout) -->
-        <div class="relative z-40 w-full max-w-screen-2xl mx-auto px-8 h-full">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end h-full pb-20">
+        <div class="relative z-40 w-full max-w-screen-2xl mx-auto px-4 sm:px-8 h-full">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-end h-full pb-10 lg:pb-20">
                 
                 <!-- Text Context Content (Left) -->
                 <div class="lg:col-span-6 relative z-20 space-y-10 pb-12">
@@ -96,7 +96,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Main Heading -->
-                    <h1 class="reveal-hero-item opacity-0 font-headline text-4xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
+                    <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
                         Crafting your<br/>
                         <span class=" font-light dark:text-white/40 text-black/40">perfect design_</span>
                     </h1>
@@ -107,20 +107,20 @@ onMounted(() => {
                     </p>
 
                     <!-- Actions -->
-                    <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-6">
-                        <Link :href="route('custom-order')" class="bg-primary text-background px-8 sm:px-14 py-5 sm:py-6 rounded-sm font-headline font-medium text-[11px] tracking-[0.4em] hover:bg-white transition-all duration-700 active:scale-95 shadow-[0_0_40px_rgba(57,255,20,0.15)]">
+                    <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-4 lg:pt-6">
+                        <Link :href="route('custom-order')" class="flex-grow sm:flex-grow-0 text-center bg-primary text-background px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white transition-all duration-700 active:scale-95 shadow-[0_0_40px_rgba(57,255,20,0.15)]">
                             Start order_
                         </Link>
-                        <Link :href="route('shop')" class="bg-white/5 backdrop-blur-3xl dark:text-white text-on-surface border dark:border-white/10 border-black/10 px-8 sm:px-14 py-5 sm:py-6 rounded-sm font-headline font-medium text-[11px] tracking-[0.4em] hover:bg-white/10 transition-all duration-700 active:scale-95">
+                        <Link :href="route('shop')" class="flex-grow sm:flex-grow-0 text-center bg-white/5 backdrop-blur-3xl dark:text-white text-on-surface border dark:border-white/10 border-black/10 px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white/10 transition-all duration-700 active:scale-95">
                             Open Shop_
                         </Link>
                     </div>
                 </div>
 
                 <!-- Asymmetrical Cinematic Imagery (Right) -->
-                <div class="lg:col-span-6 relative h-full min-h-[500px] flex items-center justify-end z-10 w-full opacity-0 md:opacity-100 group/hero reveal-hero-item">
+                <div class="lg:col-span-6 relative h-full min-h-[300px] lg:min-h-[500px] flex items-center justify-center lg:justify-end z-10 w-full group/hero reveal-hero-item">
                     <!-- Alternating Primary Main Image -->
-                    <div class="relative w-full max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_60px_150px_rgba(0,0,0,1)] border dark:border-white/5 border-black/5 z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-12 bg-transparent">
+                    <div class="relative w-full max-w-[280px] lg:max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] lg:shadow-[0_60px_150px_rgba(0,0,0,1)] border dark:border-white/5 border-black/5 z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-6 lg:translate-y-12 bg-transparent">
                         <transition name="fade-mid" mode="out-in">
                             <img 
                                 :key="focalImages[currentFocalIndex].src" 
@@ -132,17 +132,17 @@ onMounted(() => {
                         
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                         
-                        <div class="absolute bottom-10 left-10 right-10">
+                        <div class="absolute bottom-6 lg:bottom-10 left-6 lg:left-10 right-6 lg:right-10 px-2">
                             <transition name="fade-fast" mode="out-in">
-                                <span :key="focalImages[currentFocalIndex].label" class="inline-block bg-background/80 backdrop-blur-2xl text-primary text-[9px] font-headline font-medium tracking-[0.4em] px-8 py-4 border border-primary/20 rounded-sm shadow-2xl">
+                                <span :key="focalImages[currentFocalIndex].label" class="inline-block bg-background/80 backdrop-blur-2xl text-primary text-[8px] lg:text-[9px] font-headline font-medium tracking-[0.3em] lg:tracking-[0.4em] px-4 lg:px-8 py-3 lg:py-4 border border-primary/20 rounded-sm shadow-2xl">
                                     {{ focalImages[currentFocalIndex].label }}
                                 </span>
                             </transition>
                         </div>
                     </div>
 
-                    <!-- Secondary Floating Details Image (Fixed or could rotate too) -->
-                    <div class="absolute -bottom-10 left-0 w-64 aspect-square rounded-sm overflow-hidden shadow-[0_80px_150px_rgba(0,0,0,1)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110">
+                    <!-- Secondary Floating Details Image -->
+                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110">
                         <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
                     </div>
                 </div>

@@ -60,10 +60,6 @@ return [
             'report' => false,
         ],
 
-        'cloudinary' => [
-            'driver' => 'cloudinary',
-        ],
-
     ],
 
     /*
