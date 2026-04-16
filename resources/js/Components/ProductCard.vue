@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, router } from '@inertiajs/vue3';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
 import { animate } from 'animejs';
 import HandoffOverlay from '@/Components/HandoffOverlay.vue';
@@ -32,6 +32,10 @@ const allImages = computed(() => {
     }
     return images;
 });
+
+const navigateToSpecs = () => {
+    router.visit(route('shop.show', props.product.slug));
+};
 
 const handleHover = (hovering) => {
     isHovered.value = hovering;
@@ -92,11 +96,12 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
     <div 
         ref="cardElement"
         :class="[
-            'group relative transition-all duration-700',
+            'group relative transition-all duration-700 cursor-pointer',
             layout === 'editorial' ? 'h-[600px] lg:h-[800px]' : ''
         ]"
         @mouseenter="handleHover(true)"
         @mouseleave="handleHover(false)"
+        @click="navigateToSpecs"
     >
         <!-- Image Container -->
         <div :class="[
@@ -130,19 +135,13 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
 
                 <div class="flex flex-col gap-4 pointer-events-auto">
                     <button 
-                        @click="cart.addItem(product)"
+                        @click.stop="cart.addItem(product)"
                         class="w-full bg-primary text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all"
                     >
                         <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
                         Add to bag
                     </button>
-                    <Link 
-                        :href="route('shop.show', product.slug)"
-                        class="w-full glass-card border border-white/10 text-white py-5 text-[12px] font-headline font-medium tracking-[0.2em] flex items-center justify-center gap-2 rounded-sm hover:bg-primary/10 transition-all"
-                    >
-                        <span class="material-symbols-outlined text-[18px]">open_in_full</span>
-                        View spec sheet
-                    </Link>
+                    <!-- Link removed as card is now clickable -->
                 </div>
             </div>
 
@@ -160,7 +159,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                     <div class="flex gap-2 mt-1">
                         <button 
                             @click.stop="cart.addItem(product)"
-                            class="flex-1 bg-white text-black py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all shadow-lg"
+                            class="flex-1 bg-white text-black py-2.5 rounded-sm flex items-center justify-center active:scale-95 transition-all shadow-lg"
                         >
                             <span class="material-symbols-outlined text-[16px] font-black">shopping_bag</span>
                         </button>
@@ -168,17 +167,10 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                             :href="whatsappUrl" 
                             target="_blank" 
                             @click.stop
-                            class="flex-1 bg-primary/10 border border-primary/30 text-primary py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all"
+                            class="flex-1 bg-primary/10 border border-primary/30 text-primary py-2.5 rounded-sm flex items-center justify-center active:scale-95 transition-all"
                         >
                             <span class="material-symbols-outlined text-[16px]">chat</span>
                         </a>
-                        <Link 
-                            :href="route('shop.show', product.slug)"
-                            @click.stop
-                            class="flex-1 bg-white/5 border border-white/10 text-white/40 py-2.5 rounded-sm flex items-center justify-center active:scale-90 transition-all"
-                        >
-                            <span class="material-symbols-outlined text-[16px]">open_in_full</span>
-                        </Link>
                     </div>
                 </div>
             </div>
