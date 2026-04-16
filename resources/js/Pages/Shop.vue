@@ -149,7 +149,7 @@ watch(showLogisticsOverlay, (val) => {
                             <button @click="filterByCategory('all')" class="text-[10px] font-black uppercase tracking-[0.5em] text-primary border-b border-primary/40 pb-2">Reset Studio_</button>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-20">
+                        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-8 gap-y-12 md:gap-y-20">
                             <ProductCard v-for="product in products" :key="product.id" :product="product" layout="grid" />
                         </div>
                     </div>

@@ -191,13 +191,13 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         </div>
 
         <!-- Product Info (Grid only) -->
-        <div v-if="layout === 'grid'" class="mt-4 px-1">
-            <div class="flex justify-between items-start mb-3">
-                <div class="flex-1 min-w-0">
-                    <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate pr-4 group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
-                    <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium">{{ product.category?.name || 'Collection' }}</p>
+        <div v-if="layout === 'grid'" class="mt-3 md:mt-4 px-1">
+            <div class="flex flex-col mb-3">
+                <h3 class="font-headline text-base md:text-xl font-medium dark:text-white text-on-surface truncate group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
+                <div class="flex justify-between items-center mt-1">
+                    <p class="dark:text-white/40 text-black/40 text-[9px] md:text-[11px] tracking-[0.2em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
+                    <span class="text-primary font-headline font-black text-sm md:text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
                 </div>
-                <span class="text-primary font-headline font-medium text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
             </div>
 
             <!-- Mobile persistent CTA (Zen icon-only) -->
