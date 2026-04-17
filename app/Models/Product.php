@@ -24,7 +24,7 @@ class Product extends Model
         'secondary_images',
     ];
 
-    protected $appends = ['image_url', 'secondary_image_urls'];
+    protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls'];
 
     protected $casts = [
         'price' => 'decimal:2',
@@ -54,6 +54,25 @@ class Product extends Model
         return $disk->url($this->image_path);
     }
 
+    /**
+     * Supabase Image Intelligence: Serve optimized, resized WebP assets.
+     */
+    public function getOptimizedImageUrlAttribute()
+    {
+        $url = $this->image_url;
+        
+        // Only attempt optimization if enabled and URL is from Supabase
+        if (!env('SUPABASE_IMAGE_OPTIMIZATION', true) || 
+            !$url || 
+            str_contains($url, 'localhost') || 
+            !str_contains($url, 'supabase.co')) {
+            return $url;
+        }
+
+        // Supabase Transformation API: /render/image/public/
+        return str_replace('/object/public/', '/render/image/public/', $url) . '?width=1000&quality=80&format=webp';
+    }
+
     public function getSecondaryImageUrlsAttribute()
     {
         $images = $this->secondary_images ?? [];
@@ -71,6 +90,16 @@ class Product extends Model
 
             return Storage::disk($targetDisk)->url($path);
         }, $images);
+    }
+
+    public function getOptimizedSecondaryUrlsAttribute()
+    {
+        return array_map(function($url) {
+            if (!$url || str_contains($url, 'localhost') || !str_contains($url, 'supabase.co')) {
+                return $url;
+            }
+            return str_replace('/object/public/', '/render/image/public/', $url) . '?width=800&quality=75&format=webp';
+        }, $this->secondary_image_urls);
     }
 
     public function category()

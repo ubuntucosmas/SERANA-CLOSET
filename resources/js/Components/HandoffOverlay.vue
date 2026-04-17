@@ -146,6 +146,6 @@ onMounted(() => {
 }
 
 .luminous-glow {
-    text-shadow: 0 0 20px rgba(57, 255, 20, 0.6);
+    text-shadow: 0 0 20px rgba(185, 195, 255, 0.4);
 }
 </style>

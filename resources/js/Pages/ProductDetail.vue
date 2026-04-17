@@ -50,7 +50,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                     <div class="lg:col-span-7 space-y-4 md:space-y-12">
                         <!-- Main Featured Hero Image -->
                         <div class="relative w-full aspect-[4/5] md:aspect-[2/3] md:rounded-2xl overflow-hidden border-b md:border border-black/5 dark:border-white/5 shadow-2xl">
-                            <img class="w-full h-full object-cover" :src="product.image_url || '/images/hero_editorial.png'"/>
+                            <img class="w-full h-full object-cover" :src="product.optimized_image_url || '/images/hero_editorial.png'"/>
                             
                             <!-- Zen "Atelier Tag" (Mobile Header Overlay) -->
                             <div class="md:hidden absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
@@ -81,12 +81,12 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                         </div>
 
                         <!-- Secondary Split Details (Desktop & Mobile) -->
-                        <div v-if="product.secondary_image_urls && product.secondary_image_urls.length >= 1" class="grid grid-cols-2 gap-2 md:gap-8 px-2 md:px-0">
+                        <div v-if="product.optimized_secondary_urls && product.optimized_secondary_urls.length >= 1" class="grid grid-cols-2 gap-2 md:gap-8 px-2 md:px-0">
                             <div class="aspect-[3/4] md:mt-12 overflow-hidden md:rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" :src="product.secondary_image_urls[0]"/>
+                                <img class="w-full h-full object-cover" :src="product.optimized_secondary_urls[0]"/>
                             </div>
-                            <div v-if="product.secondary_image_urls[1]" class="aspect-[3/4] md:-mt-12 overflow-hidden md:rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" :src="product.secondary_image_urls[1]"/>
+                            <div v-if="product.optimized_secondary_urls[1]" class="aspect-[3/4] md:-mt-12 overflow-hidden md:rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
+                                <img class="w-full h-full object-cover" :src="product.optimized_secondary_urls[1]"/>
                             </div>
                         </div>
                     </div>

@@ -51,8 +51,8 @@
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Nairobi Studio</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">By Appointment Only. Experience the Serana Standard in person.</p>
-                                <p class="text-on-surface font-headline text-sm font-bold tracking-widest opacity-60">
-                                    Karen, Nairobi • Kenya
+                                <p class="text-on-surface font-headline text-sm font-bold tracking-[0.2em] uppercase opacity-60">
+                                    IMENTI HOUSE 29 • Nairobi • Kenya
                                 </p>
                             </div>
                         </div>

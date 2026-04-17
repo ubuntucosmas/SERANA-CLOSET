@@ -68,7 +68,9 @@ const handleHover = (hovering) => {
 
 const whatsappUrl = computed(() => {
     const baseUrl = window.location.origin;
-    const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
+    const imageUrl = (props.product.image_url && props.product.image_url.startsWith('http')) 
+        ? props.product.image_url 
+        : `${baseUrl}/${(props.product.image_url || '').replace(/^\//, '')}`;
     
     const message = `🏁 *NEW ARTISAN BRIEF* 🏁\n\n` +
                     `*[ 01: PIECE ]*\n` +
@@ -110,7 +112,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         ]">
             <img
                 class="product-img w-full h-full object-cover transition-all duration-700"
-                :src="allImages[currentIndex] || '/images/hero_editorial.png'"
+                :src="product.optimized_image_url || '/images/placeholder.png'"
                 :alt="product.name"
                 loading="lazy"
                 :class="{ 'opacity-80': isHovered }"
@@ -199,7 +201,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 </div>
             </div>
         </div>
-        <HandoffOverlay v-if="showHandoff" :show="showHandoff" :order-type="product.name" />
+        <HandoffOverlay v-if="showHandoff && product" :show="showHandoff" :order-type="product.name" />
     </div>
 </template>
 

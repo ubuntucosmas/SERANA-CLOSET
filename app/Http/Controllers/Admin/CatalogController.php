@@ -37,17 +37,19 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('products', 'public');
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $path = $request->file('image')->store('products', $targetDisk);
             $validated['image_path'] = $path;
         }
 
         // Handle up to 2 secondary images
         $secondaryPaths = [];
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         if ($request->hasFile('secondary_image_1')) {
-            $secondaryPaths[] = $request->file('secondary_image_1')->store('products', 'public');
+            $secondaryPaths[] = $request->file('secondary_image_1')->store('products', $targetDisk);
         }
         if ($request->hasFile('secondary_image_2')) {
-            $secondaryPaths[] = $request->file('secondary_image_2')->store('products', 'public');
+            $secondaryPaths[] = $request->file('secondary_image_2')->store('products', $targetDisk);
         }
         
         if (!empty($secondaryPaths)) {
@@ -75,30 +77,32 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
             // Delete old primary image if it exists
             if ($product->image_path) {
-                Storage::disk('public')->delete($product->image_path);
+                Storage::disk($targetDisk)->delete($product->image_path);
             }
-            $validated['image_path'] = $request->file('image')->store('products', 'public');
+            $validated['image_path'] = $request->file('image')->store('products', $targetDisk);
         }
 
         // Handle Secondary Image Replacements
         $secondaryImages = $product->secondary_images ?? [];
         
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         if ($request->hasFile('secondary_image_1')) {
             // Delete old slot 1 if it exists
             if (isset($secondaryImages[0])) {
-                Storage::disk('public')->delete($secondaryImages[0]);
+                Storage::disk($targetDisk)->delete($secondaryImages[0]);
             }
-            $secondaryImages[0] = $request->file('secondary_image_1')->store('products', 'public');
+            $secondaryImages[0] = $request->file('secondary_image_1')->store('products', $targetDisk);
         }
 
         if ($request->hasFile('secondary_image_2')) {
             // Delete old slot 2 if it exists
             if (isset($secondaryImages[1])) {
-                Storage::disk('public')->delete($secondaryImages[1]);
+                Storage::disk($targetDisk)->delete($secondaryImages[1]);
             }
-            $secondaryImages[1] = $request->file('secondary_image_2')->store('products', 'public');
+            $secondaryImages[1] = $request->file('secondary_image_2')->store('products', $targetDisk);
         }
 
         if (!empty($secondaryImages)) {
@@ -125,14 +129,15 @@ class CatalogController extends Controller
 
     public function forceDeleteProduct(Product $product)
     {
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         // Permanent asset removal on force delete
         if ($product->image_path) {
-            Storage::disk('public')->delete($product->image_path);
+            Storage::disk($targetDisk)->delete($product->image_path);
         }
 
         if ($product->secondary_images && is_array($product->secondary_images)) {
             foreach ($product->secondary_images as $path) {
-                Storage::disk('public')->delete($path);
+                Storage::disk($targetDisk)->delete($path);
             }
         }
 

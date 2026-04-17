@@ -17,7 +17,7 @@ class GalleryImage extends Model
         'is_featured'
     ];
 
-    protected $appends = ['image_url'];
+    protected $appends = ['image_url', 'optimized_image_url'];
 
     public function getImageUrlAttribute()
     {
@@ -34,5 +34,21 @@ class GalleryImage extends Model
         }
 
         return $disk->url($this->image_path);
+    }
+
+    /**
+     * Supabase Image Intelligence optimization.
+     */
+    public function getOptimizedImageUrlAttribute()
+    {
+        $url = $this->image_url;
+        if (!env('SUPABASE_IMAGE_OPTIMIZATION', true) || 
+            !$url || 
+            str_contains($url, 'localhost') || 
+            !str_contains($url, 'supabase.co')) {
+            return $url;
+        }
+
+        return str_replace('/object/public/', '/render/image/public/', $url) . '?width=1000&quality=80&format=webp';
     }
 }

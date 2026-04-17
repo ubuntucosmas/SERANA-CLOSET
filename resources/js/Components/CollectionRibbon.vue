@@ -8,13 +8,16 @@ defineProps({
 });
 
 onMounted(() => {
-    animate('.ribbon-item', {
-        opacity: [0, 1],
-        translateX: [50, 0],
-        delay: stagger(100, { start: 500 }),
-        duration: 1000,
-        easing: 'easeOutExpo'
-    });
+    const items = document.querySelectorAll('.ribbon-item');
+    if (items.length > 0) {
+        animate(items, {
+            opacity: [0, 1],
+            translateX: [50, 0],
+            delay: stagger(100, { start: 500 }),
+            duration: 1000,
+            easing: 'easeOutExpo'
+        });
+    }
 });
 </script>
 
@@ -36,11 +39,12 @@ onMounted(() => {
                 :key="product.id" 
                 class="ribbon-item flex-shrink-0 w-64 opacity-0"
             >
-                <Link :href="route('product.show', product.slug)" class="group block">
+                <Link :href="route('shop.show', product.slug)" class="group block">
                     <div class="aspect-[4/5] bg-surface-container overflow-hidden rounded-sm relative border dark:border-white/5 border-black/5 shadow-2xl">
                         <img 
-                            :src="product.image" 
+                            :src="product.optimized_image_url || '/images/hero_editorial.png'" 
                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-100 group-hover:scale-105" 
+                            loading="lazy"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <!-- Hidden on mobile for Zen -->

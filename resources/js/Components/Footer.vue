@@ -110,7 +110,7 @@ function subscribe() {
         <div class="px-8 max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center border-t dark:border-white/5 border-black/5 pt-12 gap-8">
             <span class="dark:text-white text-on-surface text-[11px] font-headline tracking-[0.2em] font-black">
                 {{ $page.props.theme_settings.footer_copyright || `© ${year} Serana Closet. The digital atelier.` }}
-                <span class="mx-6 text-primary not-italic">Nairobi • Worldwide</span>
+                <span class="mx-6 text-primary not-italic uppercase tracking-widest">IMENTI HOUSE 29 • Nairobi • Worldwide</span>
             </span>
             <div class="flex gap-10 items-center text-on-surface-variant opacity-30">
                 <span class="material-symbols-outlined text-xl" title="Available Worldwide">public</span>

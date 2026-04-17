@@ -13,7 +13,7 @@ class OrderProgressSnap extends Model
         'description'
     ];
 
-    protected $appends = ['image_url'];
+    protected $appends = ['image_url', 'optimized_image_url'];
 
     public function getImageUrlAttribute()
     {
@@ -30,6 +30,22 @@ class OrderProgressSnap extends Model
         }
 
         return $disk->url($this->image_path);
+    }
+
+    /**
+     * Supabase Image Intelligence optimization.
+     */
+    public function getOptimizedImageUrlAttribute()
+    {
+        $url = $this->image_url;
+        if (!env('SUPABASE_IMAGE_OPTIMIZATION', true) || 
+            !$url || 
+            str_contains($url, 'localhost') || 
+            !str_contains($url, 'supabase.co')) {
+            return $url;
+        }
+
+        return str_replace('/object/public/', '/render/image/public/', $url) . '?width=1200&quality=85&format=webp';
     }
 
     public function customOrder()

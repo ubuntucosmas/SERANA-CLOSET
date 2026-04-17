@@ -19,10 +19,11 @@ class GalleryController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
             // Delete old image
-            Storage::disk('public')->delete($image->image_path);
+            Storage::disk($targetDisk)->delete($image->image_path);
             
-            $validated['image_path'] = $request->file('image')->store('gallery', 'public');
+            $validated['image_path'] = $request->file('image')->store('gallery', $targetDisk);
         }
 
         $image->update($validated);
@@ -40,8 +41,9 @@ class GalleryController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('gallery', 'public');
-            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via Storage::disk('public')->url()
+            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $path = $request->file('image')->store('gallery', $targetDisk);
+            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via dynamic disk logic
         }
 
         GalleryImage::create($validated);
@@ -64,8 +66,9 @@ class GalleryController extends Controller
 
     public function forceDelete(GalleryImage $image)
     {
+        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         // Permanent asset removal
-        Storage::disk('public')->delete($image->image_path);
+        Storage::disk($targetDisk)->delete($image->image_path);
         
         $image->forceDelete();
 

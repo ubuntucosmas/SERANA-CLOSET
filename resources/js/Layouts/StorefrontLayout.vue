@@ -7,6 +7,7 @@
         <MobileBottomNav />
         <CartDrawer />
         <Notification />
+        <PurchaseHandoff />
 
         <main class="flex-grow relative z-10">
             <transition name="fade" mode="out-in" appear>
@@ -26,8 +27,8 @@ import TopNavBar from '@/Components/TopNavBar.vue';
 import AppFooter from '@/Components/Footer.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
-import Notification from '@/Components/Notification.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
+import PurchaseHandoff from '@/Components/PurchaseHandoff.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 
 const cart = useCartStore();

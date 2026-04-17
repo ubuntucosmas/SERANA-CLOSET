@@ -21,15 +21,23 @@
             <main class="relative z-10 pt-24 sm:pt-32 pb-24 px-4 sm:px-6 md:px-12 xl:px-24 2xl:px-32 w-full space-y-12">
             
             <!-- Artisan Terminal System Header -->
-            <header class="mb-16 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-4 reveal">
+            <header class="mb-12 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-6 reveal">
                 <div class="flex items-center gap-4">
-                    <span class="font-headline text-[10px] tracking-[0.2em] text-primary font-medium uppercase">[ ARTISAN_ID: SRN ]</span>
-                    <div class="w-1 h-1 rounded-full bg-primary animate-pulse "></div>
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white/40 text-black/40 font-medium uppercase">ATELIER: ACTIVE</span>
+                    <div class="px-3 py-1 bg-primary/10 border border-primary/20 rounded-sm">
+                        <span class="font-headline text-[9px] tracking-[0.3em] text-primary font-bold uppercase">System: Artisan_Studio</span>
+                    </div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(182,143,101,0.5)]"></div>
+                    <span class="font-headline text-[9px] tracking-[0.3em] dark:text-white/30 text-black/30 font-bold uppercase">Status: Protocol_Active</span>
                 </div>
-                <div class="hidden md:flex items-center gap-6 opacity-20">
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white text-on-surface font-medium uppercase">CONNECTION: SECURE</span>
-                    <span class="font-headline text-[10px] tracking-[0.2em] dark:text-white text-on-surface font-medium uppercase">LATENCY: 24MS</span>
+                <div class="hidden lg:flex items-center gap-8 border-l dark:border-white/5 border-black/5 pl-8">
+                    <div class="flex flex-col items-end">
+                        <span class="font-headline text-[8px] tracking-[0.2em] dark:text-white/20 text-black/20 uppercase">Node_Secure</span>
+                        <span class="font-headline text-[9px] tracking-[0.2em] dark:text-white text-on-surface font-bold">L-FRANKFURT-01</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="font-headline text-[8px] tracking-[0.2em] dark:text-white/20 text-black/20 uppercase">Latency_</span>
+                        <span class="font-headline text-[9px] tracking-[0.2em] text-primary font-bold">12ms</span>
+                    </div>
                 </div>
             </header>
 
@@ -50,17 +58,17 @@
                     <!-- Form Side -->
                     <div class="lg:col-span-7 space-y-20">
                         
-                <!-- ── Step Progress Tracker ──────────────────────────── -->
-                <div class="flex items-center gap-3 mb-12">
+                <!-- ── Minimalist Step Tracer ──────────────────────────── -->
+                <div class="flex items-center gap-3 mb-16 lg:mb-24">
                     <template v-for="(step, i) in ['Silhouette', 'Foundation', 'Identity']" :key="i">
-                        <div class="flex items-center gap-2 group">
-                            <div class="w-7 h-7 rounded-full border text-[9px] font-headline font-medium flex items-center justify-center transition-all duration-500"
-                                :class="formProgress > i ? 'bg-primary border-primary text-background ' : 'dark:border-white/10 border-black/10 dark:text-white text-on-surface/20'"
-                            >{{ i + 1 }}</div>
-                            <span class="text-xs font-medium tracking-widest transition-colors duration-500"
-                                :class="formProgress > i ? 'text-primary' : 'dark:text-white/40 text-black/40'">{{ step }}</span>
+                        <div class="flex items-center gap-3 group">
+                            <div class="w-8 h-8 border text-[10px] font-headline font-bold flex items-center justify-center transition-all duration-700"
+                                :class="formProgress > i ? 'bg-primary border-primary text-background' : 'dark:border-white/5 border-black/10 dark:text-white/10 text-on-surface/10'"
+                            >{{ (i + 1).toString().padStart(2, '0') }}</div>
+                            <span class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase transition-colors duration-700"
+                                :class="formProgress > i ? 'text-primary' : 'dark:text-white/10 text-black/10 group-hover:dark:text-white/30 text-on-surface/30'">{{ step }}</span>
                         </div>
-                        <div v-if="i < 2" class="flex-1 h-px transition-all duration-700"
+                        <div v-if="i < 2" class="flex-1 h-px bg-white/5 transition-all duration-1000 origin-left scale-x-100"
                             :class="formProgress > i + 1 ? 'bg-primary/40' : 'bg-white/5'"></div>
                     </template>
                 </div>
@@ -68,17 +76,16 @@
 
                         <!-- ════ STEP 01: SILHOUETTE & ARCHITECTURE ════ -->
                         <section class="form-section">
-                            <!-- Step Header -->
-                            <div class="flex items-center gap-4 mb-10">
-                                <div class="w-10 h-10 rounded-sm bg-primary/10 border border-primary/30 flex items-center justify-center  shrink-0">
-                                    <span class="font-headline text-[10px] tracking-[0.2em] text-primary font-medium">01</span>
+                            <!-- Zen Step Descriptor -->
+                            <div class="flex items-center gap-6 mb-12">
+                                <div class="px-3 py-4 bg-primary text-background font-headline font-black text-xs tracking-tighter shrink-0">
+                                    01_
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-headline tracking-[0.2em] text-primary/60 font-medium uppercase">Step one</p>
-                                    <h3 class="text-2xl font-headline font-medium dark:text-white text-on-surface tracking-widest uppercase">Style & Design</h3>
-                                    <p class="text-[10px] text-on-surface-variant/40 mt-2 leading-relaxed uppercase tracking-widest max-w-md">Choose your basic style and provide some details for your custom piece.</p>
+                                <div class="space-y-1">
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Silhouette & Architecture</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: INITIAL_DEFINITION</p>
                                 </div>
-                                <div class="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent ml-2"></div>
+                                <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
 
                             <div class="space-y-12">
@@ -94,10 +101,10 @@
                                 </div>
 
                                 <!-- Outfit Type Selection -->
-                                <div class="space-y-3">
-                                    <div class="flex flex-col mb-4">
-                                        <label class="text-xs font-medium tracking-widest uppercase dark:text-white text-on-surface/75">Outfit Type</label>
-                                        <p class="text-[9px] text-primary/40 uppercase tracking-widest mt-1">Select the type of outfit you want us to create.</p>
+                                <div class="space-y-6">
+                                    <div class="flex flex-col">
+                                        <label class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase text-primary">SELECT SILHOUETTE_</label>
+                                        <div class="h-px w-12 bg-primary/20 mt-2"></div>
                                     </div>
                                     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
                                         <button 
@@ -105,8 +112,8 @@
                                             :key="type"
                                             type="button"
                                             @click="form.outfit_type = type"
-                                            class="px-4 py-3 rounded-sm border text-xs font-medium tracking-widest uppercase transition-all"
-                                            :class="form.outfit_type === type ? 'bg-primary text-background border-primary' : 'bg-white/[0.03] dark:border-white/10 border-black/10 dark:text-white text-on-surface/55 hover:dark:text-white text-on-surface hover:dark:border-white/20 border-black/20'"
+                                            class="px-4 py-4 border text-[10px] font-headline font-bold tracking-[0.2em] uppercase transition-all duration-500"
+                                            :class="form.outfit_type === type ? 'bg-primary text-background border-primary' : 'bg-white/[0.02] dark:border-white/5 border-black/5 dark:text-white/40 text-black/40 hover:dark:text-white text-on-surface hover:dark:border-white/20'"
                                         >
                                             {{ type }}
                                         </button>
@@ -180,16 +187,16 @@
 
                         <!-- ════ STEP 02: THE FOUNDATION ════ -->
                         <section class="form-section">
-                            <!-- Step Header -->
-                            <div class="flex items-center gap-4 mb-10">
-                                <div class="w-10 h-10 rounded-sm bg-primary/10 border border-primary/30 flex items-center justify-center  shrink-0">
-                                    <span class="font-headline text-[10px] tracking-[0.2em] text-primary font-medium">02</span>
+                            <!-- Zen Step Descriptor -->
+                            <div class="flex items-center gap-6 mb-12">
+                                <div class="px-3 py-4 bg-primary text-background font-headline font-black text-xs tracking-tighter shrink-0">
+                                    02_
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-headline tracking-[0.2em] text-primary/60 font-medium uppercase">Step two</p>
-                                    <h3 class="text-2xl font-headline font-medium dark:text-white text-on-surface tracking-widest uppercase">Foundation & Fabric</h3>
+                                <div class="space-y-1">
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Foundation & Material</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: TEXTILE_SELECTION</p>
                                 </div>
-                                <div class="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent ml-2"></div>
+                                <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
 
                             <div class="space-y-12">
@@ -249,18 +256,18 @@
                             </div>
                         </section>
 
-                        <!-- ════ STEP 03: CONTACT DETAILS ════ -->
+                        <!-- ════ STEP 03: CLIENT IDENTITY ════ -->
                         <section class="form-section">
-                            <!-- Step Header -->
-                            <div class="flex items-center gap-4 mb-10">
-                                <div class="w-10 h-10 rounded-sm bg-primary/10 border border-primary/30 flex items-center justify-center  shrink-0">
-                                    <span class="font-headline text-[10px] tracking-[0.2em] text-primary font-medium">03</span>
+                            <!-- Zen Step Descriptor -->
+                            <div class="flex items-center gap-6 mb-12">
+                                <div class="px-3 py-4 bg-primary text-background font-headline font-black text-xs tracking-tighter shrink-0">
+                                    03_
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-headline tracking-[0.2em] text-primary/60 font-medium uppercase">Step three</p>
-                                    <h3 class="text-2xl font-headline font-medium dark:text-white text-on-surface tracking-widest uppercase">Client Identity</h3>
+                                <div class="space-y-1">
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Client Identity</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: FINAL_REGISTRATION</p>
                                 </div>
-                                <div class="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent ml-2"></div>
+                                <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t dark:border-white/10 border-black/10">
@@ -284,11 +291,14 @@
 
                         <!-- Final Action CTA -->
                         <div class="pt-16">
-                            <button type="submit" :disabled="isSubmitting" class="w-full bg-primary text-background px-12 py-8 rounded-[2rem]  hover:bg-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-700 disabled:opacity-50 group">
-                                <span class="font-headline tracking-[0.6em] uppercase font-medium text-sm flex items-center justify-center gap-4">
-                                    {{ isSubmitting ? 'SENDING ORDER_' : 'SUBMIT REQUEST_' }}
-                                    <span v-if="!isSubmitting" class="material-symbols-outlined text-lg group-hover:translate-x-2 transition-transform">bolt</span>
-                                </span>
+                            <button type="submit" :disabled="isSubmitting" class="w-full bg-primary text-background py-8 hover:bg-white hover:scale-[1.01] active:scale-[0.99] transition-all duration-700 disabled:opacity-50 group shadow-[0_0_50px_rgba(182,143,101,0.2)]">
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="font-headline tracking-[0.6em] uppercase font-bold text-sm flex items-center justify-center gap-4">
+                                        {{ isSubmitting ? 'PROTOCOL_ID: SENDING_' : 'FINALIZE ACQUISITION_' }}
+                                        <span v-if="!isSubmitting" class="material-symbols-outlined text-lg group-hover:translate-x-2 transition-transform">bolt</span>
+                                    </span>
+                                    <span class="text-[8px] font-headline tracking-[0.4em] uppercase opacity-40">Ready to build your silhouette</span>
+                                </div>
                             </button>
                         </div>
                     </div>
@@ -296,21 +306,24 @@
                     <!-- Visual/Editorial Side -->
                     <div class="lg:col-span-5 hidden lg:block">
                         <div class="sticky top-40 space-y-10">
-                            <!-- Priority Pass Card -->
-                            <div class="p-6 bg-primary/5 border border-primary/10 rounded-sm space-y-6 relative overflow-hidden group/pass">
-                                <div class="absolute -right-4 -top-4 text-primary/5 material-symbols-outlined pointer-events-none group-hover/pass:rotate-12 transition-transform duration-700" style="font-size: 80px;">confirmation_number</div>
-                                <div class="flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-primary text-sm luminous-glow">shuttle</span>
-                                    <h3 class="font-headline text-[10px] tracking-[0.2em] font-medium uppercase dark:text-white text-on-surface">Priority Pass_</h3>
-                                </div>
-                                <p class="text-[9px] text-on-surface-variant leading-relaxed uppercase tracking-wider font-light">
-                                    Claim a priority production slot for <span class="text-primary font-medium">KSh 1,500</span>.
-                                </p>
-                                <div class="flex items-center gap-3 py-3 border-t dark:border-white/5 border-black/5">
-                                    <input type="checkbox" v-model="form.priority_pass" class="w-4 h-4 rounded dark:border-white/10 border-black/10 bg-white/5 text-primary focus:ring-0 cursor-pointer" />
-                                    <span class="text-[8px] font-headline font-medium uppercase tracking-[0.3em] text-[#99ff33]">Claim priority slot_</span>
-                                </div>
-                            </div>
+                             <!-- Priority Pass Card -->
+                             <div class="p-8 bg-primary/5 border border-primary/10 rounded-sm space-y-6 relative overflow-hidden group/pass">
+                                 <div class="absolute -right-6 -top-6 text-primary/5 material-symbols-outlined pointer-events-none group-hover/pass:rotate-12 transition-all duration-1000" style="font-size: 100px;">confirmation_number</div>
+                                 <div class="flex items-center gap-3">
+                                     <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                     <h3 class="font-headline text-[10px] tracking-[0.3em] font-bold uppercase dark:text-white text-on-surface">Queue_Priority</h3>
+                                 </div>
+                                 <p class="text-[10px] text-on-surface-variant/60 leading-relaxed uppercase tracking-widest font-medium">
+                                     Bypass the standard production queue for <span class="text-primary font-bold">KSh 1,500</span>.
+                                 </p>
+                                 <div class="flex items-center gap-4 py-4 border-t dark:border-white/5 border-black/5">
+                                     <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" v-model="form.priority_pass" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-white/5 peer-focus:outline-none rounded-full peer dark:bg-white/10 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20"></div>
+                                     </label>
+                                     <span class="text-[9px] font-headline font-bold uppercase tracking-[0.2em] text-primary">Activate Priority_</span>
+                                 </div>
+                             </div>
 
                             <SizingIntelligence :active-field="activeField" />
                         </div>
@@ -568,62 +581,50 @@ main {
 }
 
 .luminous-glow {
-    text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+    text-shadow: 0 0 10px rgba(185, 195, 255, 0.3);
 }
 
 /* Sharp Borders & Crisp Inputs */
 input, textarea {
-    font-family: 'Inter', sans-serif !important;
+    font-family: 'Calibri', sans-serif !important;
     letter-spacing: 0.15em;
     text-transform: uppercase;
 }
 
-.border-white\/10 {
-    border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
 input, textarea {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.2) !important;
+    border-bottom: 1px solid rgba(185, 195, 255, 0.1) !important;
     transition: all 0.5s ease;
 }
 
 input:focus, textarea:focus {
-    border-bottom: 2px solid #39FF14 !important;
-    box-shadow: 0 4px 20px -10px rgba(57, 255, 20, 0.4);
+    border-bottom: 2px solid var(--primary) !important;
+    box-shadow: 0 4px 25px -10px rgba(185, 195, 255, 0.2);
 }
 
-/* Luminous highlight for empty required fields */
+/* highlight for empty required fields */
 input:placeholder-shown:not(:focus), 
 textarea:placeholder-shown:not(:focus) {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.4) !important;
-}
-
-input:not(:placeholder-shown), 
-textarea:not(:placeholder-shown) {
-    border-bottom: 1px solid rgba(57, 255, 20, 0.8) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 /* Form section glassmorphic cards */
 .form-section {
-    background: rgba(255, 255, 255, 0.025);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(57, 255, 20, 0.08);
-    border-radius: 1.5rem;
-    padding: 2rem;
-    animation: sectionReveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    background: rgba(255, 255, 255, 0.015);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 2.5rem;
+    animation: sectionReveal 1s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-@media (min-width: 640px) {
-    .form-section { padding: 2.5rem; }
-}
+
 .form-section:hover {
-    border-color: rgba(57, 255, 20, 0.15);
-    box-shadow: 0 0 40px rgba(57, 255, 20, 0.04), inset 0 1px 0 rgba(255,255,255,0.04);
-    transition: border-color 0.6s ease, box-shadow 0.6s ease;
+    border-color: rgba(185, 195, 255, 0.2);
+    box-shadow: 0 0 50px rgba(185, 195, 255, 0.03);
+    transition: all 0.6s ease;
 }
 
 @keyframes sectionReveal {
-    from { opacity: 0; transform: translateY(24px); }
+    from { opacity: 0; transform: translateY(30px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 .form-section:nth-child(1) { animation-delay: 0.1s; }
