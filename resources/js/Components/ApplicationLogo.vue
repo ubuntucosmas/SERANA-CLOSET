@@ -1,5 +1,5 @@
 <template>
-    <div class="flex items-center gap-4 group cursor-pointer" @click="$inertia.visit('/')">
+    <div class="flex items-center gap-2 lg:gap-4 group cursor-pointer" @click="$inertia.visit('/')">
         <!-- Site Logo -->
         <template v-if="$page.props.theme_settings.site_logo">
             <img :src="$page.props.theme_settings.site_logo" class="h-12 w-auto object-contain" alt="Serana Logo">
