@@ -161,7 +161,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
 
             <!-- Zen "Atelier Tag" (Fancy Mobile Info Overlay) -->
             <div class="md:hidden absolute inset-x-0 bottom-0 p-3 z-40 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
-                <div class="flex flex-col gap-2 p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-sm pointer-events-auto shadow-2xl">
+                <div class="flex flex-col gap-2 p-3 pointer-events-auto">
                     <div class="flex justify-between items-start">
                         <div class="flex-1 min-w-0 pr-2">
                             <h3 class="text-[11px] font-medium text-white truncate uppercase tracking-widest leading-tight mb-0.5">{{ product.name }}</h3>
