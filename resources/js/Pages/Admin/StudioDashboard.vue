@@ -777,9 +777,11 @@ function getAllOrderImages(order) {
                     <!-- Category Assets Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <div v-for="cat in [
-                                { key: 'cat_men_bg', label: 'Men\'s Collection' },
-                                { key: 'cat_women_bg', label: 'Women\'s Collection' },
-                                { key: 'cat_acc_bg', label: 'Accessories' },
+                                { key: 'cat_men_bg', label: 'Men\'s / Hoodies' },
+                                { key: 'cat_women_bg', label: 'Women\'s / Dresses' },
+                                { key: 'cat_acc_bg', label: 'Corporate Wear' },
+                                { key: 'cat_casual_bg', label: 'Casual Collection' },
+                                { key: 'cat_kids_bg', label: 'Kids Collection' },
                                 { key: 'hero_detail_bg', label: 'Hero Detail Overlay' }
                             ]" :key="cat.key" class="space-y-4">
                             <label class="curator-label">{{ cat.label }} Overlay</label>

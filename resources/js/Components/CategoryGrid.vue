@@ -76,7 +76,7 @@ const page = usePage();
                 <img 
                     alt="Casual" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    src="/images/beige_contrast_set.png"
+                    :src="page.props.theme_settings.cat_casual_bg || '/images/beige_contrast_set.png'"
                 />
                 <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
@@ -92,7 +92,7 @@ const page = usePage();
                 <img 
                     alt="Kids" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    src="/images/ready_to_wear_rack.png"
+                    :src="page.props.theme_settings.cat_kids_bg || '/images/ready_to_wear_rack.png'"
                 />
                 <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
