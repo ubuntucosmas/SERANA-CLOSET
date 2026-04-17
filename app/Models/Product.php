@@ -43,17 +43,15 @@ class Product extends Model
 
         // Dynamically select the target disk (local public vs cloud s3)
         $targetDisk = config('filesystems.public_disk');
+        $disk = Storage::disk($targetDisk);
+        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
+
         if ($driver === 'local') {
             $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
             return '/storage/' . $rawPath;
         }
 
-        try {
-            return Storage::disk($targetDisk)->url($this->image_path);
-        } catch (\Exception $e) {
-            $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
-            return '/storage/' . $rawPath;
-        }
+        return $disk->url($this->image_path);
     }
 
     /**
@@ -90,12 +88,7 @@ class Product extends Model
                 return '/storage/' . $rawPath;
             }
 
-            try {
-                return Storage::disk($targetDisk)->url($path);
-            } catch (\Exception $e) {
-                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-                return '/storage/' . $rawPath;
-            }
+            return Storage::disk($targetDisk)->url($path);
         }, $images);
     }
 

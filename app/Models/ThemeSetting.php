@@ -28,11 +28,7 @@ class ThemeSetting extends Model
             if ($driver === 'local') {
                 return '/storage/' . ltrim($setting->value, '/');
             }
-            try {
-                return Storage::disk($targetDisk)->url($setting->value);
-            } catch (\Exception $e) {
-                return '/storage/' . ltrim($setting->value, '/');
-            }
+            return Storage::disk($targetDisk)->url($setting->value);
         }
 
         return $setting->value;
