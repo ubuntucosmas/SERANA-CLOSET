@@ -39,4 +39,8 @@ return [
         'number' => env('WHATSAPP_NUMBER', '254741589200'),
     ],
 
+    'supabase' => [
+        'image_optimization' => env('SUPABASE_IMAGE_OPTIMIZATION', false),
+    ],
+
 ];

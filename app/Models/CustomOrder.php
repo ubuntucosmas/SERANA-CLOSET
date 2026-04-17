@@ -20,7 +20,7 @@ class CustomOrder extends Model
     public function getInspirationUrlsAttribute()
     {
         $paths = $this->inspiration_image_paths ?: [];
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
         return array_map(function ($path) use ($targetDisk, $driver) {
@@ -40,7 +40,7 @@ class CustomOrder extends Model
         $items = $this->items_json ?: [];
         if (!is_array($items)) return [];
 
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
         $processed = [];
         foreach ($items as $key => $item) {

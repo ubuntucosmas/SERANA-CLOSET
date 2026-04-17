@@ -87,7 +87,7 @@ class CustomOrderController extends Controller
 
             // Construct Elite Artisan Brief
             $storePhone = config('services.whatsapp.number');
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $targetDisk = config('filesystems.public_disk');
             
             $message = "✨ *SERANA DIGITAL ATELIER | PRODUCTION BRIEF* ✨\n";
             $message .= "Order ID: #{$order->id} | Protocol: V4.2\n";

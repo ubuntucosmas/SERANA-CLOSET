@@ -42,7 +42,7 @@ class Product extends Model
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
         // Dynamically select the target disk (local public vs cloud s3)
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         $disk = Storage::disk($targetDisk);
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
@@ -62,7 +62,7 @@ class Product extends Model
         $url = $this->image_url;
         
         // Only attempt optimization if enabled and URL is from Supabase
-        if (!env('SUPABASE_IMAGE_OPTIMIZATION', true) || 
+        if (!config('services.supabase.image_optimization', true) || 
             !$url || 
             str_contains($url, 'localhost') || 
             !str_contains($url, 'supabase.co')) {
@@ -76,7 +76,7 @@ class Product extends Model
     public function getSecondaryImageUrlsAttribute()
     {
         $images = $this->secondary_images ?? [];
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
         return array_map(function($path) use ($targetDisk, $driver) {

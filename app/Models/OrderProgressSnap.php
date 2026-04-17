@@ -20,7 +20,7 @@ class OrderProgressSnap extends Model
         if (!$this->image_path) return null;
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         $disk = Storage::disk($targetDisk);
         $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
 
@@ -38,7 +38,7 @@ class OrderProgressSnap extends Model
     public function getOptimizedImageUrlAttribute()
     {
         $url = $this->image_url;
-        if (!env('SUPABASE_IMAGE_OPTIMIZATION', true) || 
+        if (!config('services.supabase.image_optimization', true) || 
             !$url || 
             str_contains($url, 'localhost') || 
             !str_contains($url, 'supabase.co')) {
