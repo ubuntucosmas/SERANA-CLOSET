@@ -25,15 +25,17 @@ class GalleryImage extends Model
         if (str_starts_with($this->image_path, 'http')) return $this->image_path;
 
         $targetDisk = config('filesystems.public_disk');
-        $disk = Storage::disk($targetDisk);
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
         if ($driver === 'local') {
             $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
             return '/storage/' . $rawPath;
         }
 
-        return $disk->url($this->image_path);
+        try {
+            return Storage::disk($targetDisk)->url($this->image_path);
+        } catch (\Exception $e) {
+            $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
+            return '/storage/' . $rawPath;
+        }
     }
 
     /**

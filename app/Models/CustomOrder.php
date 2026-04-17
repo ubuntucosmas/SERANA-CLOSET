@@ -31,7 +31,12 @@ class CustomOrder extends Model
                 return '/storage/' . $rawPath;
             }
             
-            return Storage::disk($targetDisk)->url($path);
+            try {
+                return Storage::disk($targetDisk)->url($path);
+            } catch (\Exception $e) {
+                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
+                return '/storage/' . $rawPath;
+            }
         }, $paths);
     }
 
@@ -55,7 +60,12 @@ class CustomOrder extends Model
                         $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
                         $item['image_url'] = '/storage/' . $rawPath;
                     } else {
-                        $item['image_url'] = Storage::disk($targetDisk)->url($img);
+                        try {
+                            $item['image_url'] = Storage::disk($targetDisk)->url($img);
+                        } catch (\Exception $e) {
+                            $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
+                            $item['image_url'] = '/storage/' . $rawPath;
+                        }
                     }
                 }
                 $processed[] = $item;
