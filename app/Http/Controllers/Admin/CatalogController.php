@@ -37,14 +37,14 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $targetDisk = config('filesystems.public_disk');
             $path = $request->file('image')->store('products', $targetDisk);
             $validated['image_path'] = $path;
         }
 
         // Handle up to 2 secondary images
         $secondaryPaths = [];
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         if ($request->hasFile('secondary_image_1')) {
             $secondaryPaths[] = $request->file('secondary_image_1')->store('products', $targetDisk);
         }
@@ -77,7 +77,7 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $targetDisk = config('filesystems.public_disk');
             // Delete old primary image if it exists
             if ($product->image_path) {
                 Storage::disk($targetDisk)->delete($product->image_path);
@@ -88,7 +88,7 @@ class CatalogController extends Controller
         // Handle Secondary Image Replacements
         $secondaryImages = $product->secondary_images ?? [];
         
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         if ($request->hasFile('secondary_image_1')) {
             // Delete old slot 1 if it exists
             if (isset($secondaryImages[0])) {

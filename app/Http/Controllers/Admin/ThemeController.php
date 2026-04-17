@@ -25,7 +25,7 @@ class ThemeController extends Controller
 
         // Handle File Uploads
         if ($request->hasFile('value')) {
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $targetDisk = config('filesystems.public_disk');
             // Delete old file if exists
             $oldSetting = ThemeSetting::where('key', $key)->first();
             if ($oldSetting && !empty($oldSetting->value) && str_starts_with($oldSetting->value, 'themes/')) {
@@ -65,7 +65,7 @@ class ThemeController extends Controller
         if ($setting) {
             // Delete file if it exists in storage
             if (!empty($setting->value) && str_starts_with($setting->value, 'themes/')) {
-                $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+                $targetDisk = config('filesystems.public_disk');
                 Storage::disk($targetDisk)->delete($setting->value);
             }
             

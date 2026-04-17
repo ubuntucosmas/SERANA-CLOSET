@@ -41,7 +41,7 @@ class GalleryController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+            $targetDisk = config('filesystems.public_disk');
             $path = $request->file('image')->store('gallery', $targetDisk);
             $validated['image_path'] = $path; // Store raw path; models resolve to full URL via dynamic disk logic
         }
