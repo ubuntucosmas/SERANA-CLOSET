@@ -544,7 +544,7 @@ const submitOrder = async () => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;900&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,300,400&display=swap');
 
 :deep(body) {
     -webkit-font-smoothing: antialiased;
@@ -553,11 +553,11 @@ const submitOrder = async () => {
 }
 
 .font-headline {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Satoshi', sans-serif !important;
 }
 
 main {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Satoshi', sans-serif;
 }
 
 .reveal-step {
@@ -586,7 +586,7 @@ main {
 
 /* Sharp Borders & Crisp Inputs */
 input, textarea {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Satoshi', sans-serif !important;
     letter-spacing: 0.15em;
     text-transform: uppercase;
 }

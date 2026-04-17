@@ -132,6 +132,6 @@ const handleClose = () => {
 
 <style scoped>
 .font-headline {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Satoshi', sans-serif !important;
 }
 </style>

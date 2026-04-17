@@ -31,9 +31,9 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Poppins", ...defaultTheme.fontFamily.sans],
-                "body": ["Poppins", ...defaultTheme.fontFamily.sans],
-                "label": ["Poppins", ...defaultTheme.fontFamily.sans]
+                "headline": ["Satoshi", ...defaultTheme.fontFamily.sans],
+                "body": ["Satoshi", ...defaultTheme.fontFamily.sans],
+                "label": ["Satoshi", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
                 "DEFAULT": "0px",

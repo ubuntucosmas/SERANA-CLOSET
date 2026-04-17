@@ -112,7 +112,7 @@ onMounted(() => {
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@900&display=swap');
 
 .font-headline {
-    font-family: 'Poppins', sans-serif !important;
+    font-family: 'Satoshi', sans-serif !important;
 }
 
 .handoff-enter-active, .handoff-leave-active {
