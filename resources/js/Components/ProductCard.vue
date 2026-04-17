@@ -5,6 +5,7 @@ import { Link, usePage, router } from '@inertiajs/vue3';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
 import { animate } from 'animejs';
 import HandoffOverlay from '@/Components/HandoffOverlay.vue';
+import { useCurrency } from '@/Composables/useCurrency';
 
 const props = defineProps({
     product: {
@@ -19,6 +20,7 @@ const props = defineProps({
 
 const page = usePage();
 const cart = useCartStore();
+const { formatAmount } = useCurrency();
 const isHovered = ref(false);
 const showHandoff = ref(false);
 const cardElement = ref(null);
@@ -86,7 +88,7 @@ const whatsappUrl = computed(() => {
                     `*[ 01: PIECE ]*\n` +
                     `• Name: ${props.product.name}\n` +
                     `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
-                    `• Price: KSh ${Number(props.product.price).toLocaleString()}\n\n` +
+                    `• Price: ${formatAmount(props.product.price, page.props)}\n\n` +
                     `*[ 02: REFERENCE ]*\n` +
                     `• URL: ${route('shop.show', props.product.slug)}\n` +
                     `• Image: ${imageUrl}\n\n` +
@@ -142,7 +144,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <div v-if="layout === 'editorial'" class="space-y-3 mb-6">
                     <p class="text-primary font-headline text-[11px] font-medium tracking-[0.3em] uppercase">{{ product.category?.name || 'Collection' }}</p>
                     <h3 class="text-5xl lg:text-7xl font-headline font-medium dark:text-white text-on-surface leading-none drop-shadow-2xl">{{ product.name }}</h3>
-                    <p class="text-3xl font-headline font-medium dark:text-white text-on-surface">KSh {{ Number(product.price).toLocaleString() }}</p>
+                    <p class="text-3xl font-headline font-medium dark:text-white text-on-surface">{{ formatAmount(product.price, page.props) }}</p>
                 </div>
 
                 <div class="flex flex-col gap-4 pointer-events-auto">
@@ -165,7 +167,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                             <h3 class="text-[11px] font-medium text-white truncate uppercase tracking-widest leading-tight mb-0.5">{{ product.name }}</h3>
                             <p class="text-[8px] font-medium text-primary uppercase tracking-[0.3em] opacity-80">{{ product.category?.name || 'Archive' }}</p>
                         </div>
-                        <span class="text-[10px] font-black text-primary luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
+                        <span class="text-[10px] font-black text-primary luminous-glow shrink-0">{{ formatAmount(product.price, page.props) }}</span>
                     </div>
                     
                     <div class="flex gap-2 mt-1">
@@ -207,7 +209,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
                 <div class="flex justify-between items-center mt-1">
                     <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
-                    <span class="text-primary font-headline font-black text-lg luminous-glow shrink-0">KSh {{ Number(product.price).toLocaleString() }}</span>
+                    <span class="text-primary font-headline font-black text-lg luminous-glow shrink-0">{{ formatAmount(product.price, page.props) }}</span>
                 </div>
             </div>
         </div>

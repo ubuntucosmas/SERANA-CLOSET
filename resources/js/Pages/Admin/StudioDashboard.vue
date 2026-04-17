@@ -852,7 +852,11 @@ function getAllOrderImages(order) {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 border-t border-[#1C1B1B]">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 pt-8 border-t border-[#1C1B1B]">
+                            <div>
+                                <label class="curator-label">Currency Symbol</label>
+                                <input :value="$page.props.theme_settings.currency || 'KSh'" @blur="updateThemeAsset('currency', $event.target.value)" class="curator-input text-base border-b-[#B9C3FF]/30 text-[#B9C3FF]" placeholder="KSh">
+                            </div>
                             <div>
                                 <label class="curator-label">Instagram Handle (URL)</label>
                                 <input :value="$page.props.theme_settings.instagram_url" @blur="updateThemeAsset('instagram_url', $event.target.value)" class="curator-input text-base" placeholder="https://instagram.com/serana_studio">

@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import SizingIntelligence from '@/Components/SizingIntelligence.vue';
+import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
@@ -10,6 +11,7 @@ const page = usePage();
 const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=Hello%2C%20I've%20just%20placed%20order%20%23${orderId.value}%20and%20I'd%20like%20to%20complete%20payment.`);
 
 const cart = useCartStore();
+const { formatAmount } = useCurrency();
 const step = ref(1);
 const isProcessing = ref(false);
 const isSuccess = ref(false);
@@ -277,14 +279,14 @@ function nextStep() {
                                             <p class="text-[10.5px] text-primary uppercase tracking-widest font-black">Qty: {{ item.quantity }}</p>
                                         </div>
                                     </div>
-                                    <span class="dark:text-white text-on-surface text-sm font-headline font-black">KSh {{ (item.price * item.quantity).toLocaleString() }}</span>
+                                    <span class="dark:text-white text-on-surface text-sm font-headline font-black">{{ formatAmount(item.price * item.quantity, page.props) }}</span>
                                 </div>
                             </div>
 
                             <div class="space-y-4 pt-10 border-t dark:border-white/10 border-black/10 hover:border-primary/50">
                                 <div class="flex justify-between text-sm dark:text-white text-on-surface font-medium">
                                     <span class="uppercase tracking-widest text-[11px] font-black">Subtotal</span>
-                                    <span class="font-black">KSh {{ cart.totalPrice.toLocaleString() }}</span>
+                                    <span class="font-black">{{ formatAmount(cart.totalPrice, page.props) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm dark:text-white text-on-surface font-medium">
                                     <span class="uppercase tracking-widest text-[11px] font-black">Shipping</span>
@@ -292,7 +294,7 @@ function nextStep() {
                                 </div>
                                 <div class="flex justify-between items-baseline pt-8 border-t dark:border-white/10 border-black/10 hover:border-primary/50">
                                     <span class="text-lg font-headline dark:text-white text-on-surface uppercase tracking-widest font-black">Total</span>
-                                    <span class="text-4xl font-headline text-primary font-black luminous-glow">KSh {{ cart.totalPrice.toLocaleString() }}</span>
+                                    <span class="text-4xl font-headline text-primary font-black luminous-glow">{{ formatAmount(cart.totalPrice, page.props) }}</span>
                                 </div>
                             </div>
 

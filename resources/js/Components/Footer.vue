@@ -5,7 +5,7 @@ import { Link, useForm, usePage } from '@inertiajs/vue3';
 const year = new Date().getFullYear();
 
 // Social Links
-const instagramFallback = "https://instagram.com/seranacloset";
+const instagramFallback = computed(() => usePage().props.theme_settings?.instagram_url || "https://instagram.com/seranacloset");
 const whatsapp = computed(() => `https://wa.me/${usePage().props.whatsapp_number}`);
 
 // Navigation Links

@@ -1,11 +1,15 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 import { animate, stagger } from 'animejs';
+import { useCurrency } from '@/Composables/useCurrency';
 
 defineProps({
     products: Array
 });
+
+const page = usePage();
+const { formatAmount } = useCurrency();
 
 onMounted(() => {
     const items = document.querySelectorAll('.ribbon-item');
@@ -54,7 +58,7 @@ onMounted(() => {
                     </div>
                     <div class="mt-4 flex justify-between items-start">
                         <h3 class="text-[11px] font-headline font-medium dark:text-white text-on-surface uppercase tracking-widest">{{ product.name }}</h3>
-                        <span class="text-[9px] font-headline font-black text-primary">KSh {{ Number(product.price).toLocaleString() }}</span>
+                        <span class="text-[9px] font-headline font-black text-primary">{{ formatAmount(product.price, page.props) }}</span>
                     </div>
                 </Link>
             </div>

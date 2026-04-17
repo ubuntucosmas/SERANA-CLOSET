@@ -3,13 +3,15 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
 import { animate, stagger } from 'animejs';
+import { useCurrency } from '@/Composables/useCurrency';
 
 const page = usePage();
 const cart = useCartStore();
+const { formatAmount } = useCurrency();
 
 const whatsappUrl = computed(() => {
-    const itemsList = cart.items.map(item => `• ${item.name} (${item.quantity}) - KSh ${Number(item.price * item.quantity).toLocaleString()}`).join('\n');
-    const total = `Total: KSh ${Number(cart.totalPrice).toLocaleString()}`;
+    const itemsList = cart.items.map(item => `• ${item.name} (${item.quantity}) - ${formatAmount(item.price * item.quantity, page.props)}`).join('\n');
+    const total = `Total: ${formatAmount(cart.totalPrice, page.props)}`;
     const message = `🏁 *NEW CART ORDER* 🏁\n\n` +
                     `*[ 01: SELECTION ]*\n` +
                     `${itemsList}\n\n` +
@@ -30,7 +32,7 @@ const overlayRef = ref(null);
 const itemsRef = ref(null);
 
 function formatPrice(price) {
-    return 'KSh ' + Number(price).toLocaleString();
+    return formatAmount(price, page.props);
 }
 
 const hasBespokeItems = computed(() => cart.items.some(item => item.is_bespoke));

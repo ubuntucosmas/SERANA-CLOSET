@@ -314,7 +314,7 @@
                                      <h3 class="font-headline text-[10px] tracking-[0.3em] font-bold uppercase dark:text-white text-on-surface">Queue_Priority</h3>
                                  </div>
                                  <p class="text-[10px] text-on-surface-variant/60 leading-relaxed uppercase tracking-widest font-medium">
-                                     Bypass the standard production queue for <span class="text-primary font-bold">KSh 1,500</span>.
+                                     Bypass the standard production queue for <span class="text-primary font-bold">{{ formatAmount(1500, page.props) }}</span>.
                                  </p>
                                  <div class="flex items-center gap-4 py-4 border-t dark:border-white/5 border-black/5">
                                      <label class="relative inline-flex items-center cursor-pointer">
@@ -357,12 +357,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import SizingIntelligence from '@/Components/SizingIntelligence.vue';
 import CraftsmanshipBlock from '@/Components/CraftsmanshipBlock.vue';
 import ProductCard from '@/Components/ProductCard.vue';
 import HandoffOverlay from '@/Components/HandoffOverlay.vue';
+import { useCurrency } from '@/Composables/useCurrency';
 import axios from 'axios';
 
 const props = defineProps({
@@ -370,6 +371,8 @@ const props = defineProps({
     baseProduct: Object
 });
 
+const page = usePage();
+const { formatAmount } = useCurrency();
 const activeField = ref(null);
 const fileInput = ref(null);
 const isSubmitting = ref(false);

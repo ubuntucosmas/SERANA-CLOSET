@@ -1,7 +1,11 @@
 <script setup>
 import { computed } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
+import { usePage } from '@inertiajs/vue3';
+import { useCurrency } from '@/Composables/useCurrency';
 
+const page = usePage();
+const { formatAmount } = useCurrency();
 const cart = useCartStore();
 
 const lastItem = computed(() => cart.items[cart.items.length - 1]);
@@ -12,12 +16,12 @@ const close = () => {
 
 const goToWhatsApp = () => {
     // Generate WhatsApp link for the specific item or full cart
-    const number = "254113167266";
+    const number = page.props.theme_settings?.whatsapp_number || page.props.whatsapp_number;
     const item = lastItem.value;
     const text = encodeURIComponent(
         `◆ ITEM SECURED ◆\n\n` +
         `Ref: ${item.name}\n` +
-        `Price: ${item.display_price}\n` +
+        `Price: ${formatAmount(item.price, page.props)}\n` +
         `Link: ${window.location.origin}/product/${item.slug}\n\n` +
         `I am ready to buy this item.`
     );

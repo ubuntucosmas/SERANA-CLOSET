@@ -13,6 +13,11 @@ const props = defineProps({
     user: Object
 });
 
+import { useCurrency } from '@/Composables/useCurrency';
+import { usePage } from '@inertiajs/vue3';
+const page = usePage();
+const { formatAmount } = useCurrency();
+
 const statuses = [
     { key: 'pending', label: 'Signup', icon: 'assignment' },
     { key: 'designing', label: 'Design', icon: 'architecture' },
@@ -102,7 +107,7 @@ const getOrderThumbnails = (order) => {
                                     </div>
                                     <div v-if="order.price_quoted" class="text-left md:text-right">
                                         <p class="text-[8px] text-on-surface-variant uppercase tracking-[0.2em] font-black mb-1">Value</p>
-                                        <p class="text-3xl font-headline font-black text-primary luminous-glow">KSh {{ Number(order.price_quoted).toLocaleString() }}</p>
+                                        <p class="text-3xl font-headline font-black text-primary luminous-glow">{{ formatAmount(order.price_quoted, page.props) }}</p>
                                     </div>
                                 </div>
 

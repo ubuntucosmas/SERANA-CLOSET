@@ -49,7 +49,7 @@ export const useCartStore = defineStore('cart', () => {
                 id: product.id,
                 name: product.name,
                 price: price,
-                display_price: typeof product.price === 'number' ? `KSh ${product.price.toLocaleString()}` : product.price,
+                display_price: product.price,
                 image: product.image_url || '/images/hero_editorial.png',
                 quantity: 1,
                 slug: product.slug,

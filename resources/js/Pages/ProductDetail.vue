@@ -3,8 +3,10 @@ import { computed } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
+import { useCurrency } from '@/Composables/useCurrency';
 
 const page = usePage();
+const { formatAmount } = useCurrency();
 
 const props = defineProps({
     product: Object
@@ -18,7 +20,7 @@ const whatsappUrl = computed(() => {
                     `*[ 01: ITEM ]*\n` +
                     `• Name: ${props.product.name}\n` +
                     `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
-                    `• Price: KSh ${Number(props.product.price).toLocaleString()}\n\n` +
+                    `• Price: ${formatAmount(props.product.price, page.props)}\n\n` +
                     `*[ 02: REFERENCE ]*\n` +
                     `• URL: ${window.location.href}\n` +
                     `• Image: ${imageUrl}\n\n` +
@@ -60,7 +62,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                                             <p class="text-[8px] font-black tracking-[0.4em] text-primary uppercase mb-1">{{ product.category?.name || 'Archive' }}</p>
                                             <h1 class="text-xl font-headline font-black text-white uppercase tracking-wider leading-tight">{{ product.name }}</h1>
                                         </div>
-                                        <span class="text-lg font-black text-primary luminous-glow">KSh {{ Number(product.price).toLocaleString() }}</span>
+                                        <span class="text-lg font-black text-primary luminous-glow">{{ formatAmount(product.price, page.props) }}</span>
                                     </div>
                                     <div class="flex items-center gap-2 mt-3 opacity-60">
                                         <span class="material-symbols-outlined text-[14px] text-primary">verified</span>
@@ -99,7 +101,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                             <h2 class="font-headline text-5xl lg:text-7xl font-black leading-[0.9] dark:text-white text-on-surface mb-6 drop-shadow-md text-glow-after uppercase">
                                 {{ product.name }}
                             </h2>
-                            <p class="font-headline text-3xl font-black text-primary luminous-glow">KSh {{ Number(product.price).toLocaleString() }}</p>
+                            <p class="font-headline text-3xl font-black text-primary luminous-glow">{{ formatAmount(product.price, page.props) }}</p>
                         </div>
 
                         <!-- Mobile Price/Status Bar -->
