@@ -1,12 +1,12 @@
 <template>
-    <div class="flex items-center gap-2 lg:gap-4 group cursor-pointer" @click="$inertia.visit('/')">
+    <div class="flex items-center gap-1 lg:gap-4 group cursor-pointer" @click="$inertia.visit('/')">
         <!-- Site Logo -->
         <template v-if="$page.props.theme_settings.site_logo">
-            <img :src="$page.props.theme_settings.site_logo" class="h-9 lg:h-12 w-auto object-contain" alt="Serana Logo">
+            <img :src="$page.props.theme_settings.site_logo" class="h-7 lg:h-12 w-auto object-contain" alt="Serana Logo">
         </template>
         
         <!-- Serana Monolith Icon (Fallback) -->
-        <svg v-else viewBox="0 0 100 100" class="w-6 h-6 lg:w-12 lg:h-12 drop-shadow-[0_0_15px_rgba(8,203,0,0.3)]">
+        <svg v-else viewBox="0 0 100 100" class="w-5 h-5 lg:w-12 lg:h-12 drop-shadow-[0_0_15px_rgba(8,203,0,0.3)]">
             <!-- The Monolith (Main Slab) -->
             <rect x="35" y="10" width="30" height="80" class="fill-white" />
             
@@ -22,10 +22,10 @@
 
         <!-- Serana Wordmark -->
         <div class="flex flex-col">
-            <h1 class="font-headline text-base lg:text-2xl font-black tracking-[0.4em] dark:text-white text-on-surface leading-none uppercase">
+            <h1 class="font-headline text-sm lg:text-2xl font-black tracking-[0.3em] dark:text-white text-on-surface leading-none uppercase">
                 {{ $page.props.theme_settings.site_headline || 'SERANA' }}
             </h1>
-            <span class="text-[7px] font-headline font-bold uppercase tracking-[0.8em] text-primary mt-1">
+            <span class="text-[6px] font-headline font-bold uppercase tracking-[0.6em] text-primary mt-0.5">
                 {{ $page.props.theme_settings.site_headline ? 'STUDIO' : 'CLOSET' }}
             </span>
         </div>
