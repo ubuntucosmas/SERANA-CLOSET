@@ -24,10 +24,10 @@
             <header class="mb-12 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-6 reveal">
                 <div class="flex items-center gap-4">
                     <div class="px-3 py-1 bg-primary/10 border border-primary/20 rounded-sm">
-                        <span class="font-headline text-[9px] tracking-[0.3em] text-primary font-bold uppercase">System: Artisan_Studio</span>
+                        <span class="font-headline text-[9px] tracking-[0.3em] text-primary font-bold uppercase">Design Studio</span>
                     </div>
                     <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(182,143,101,0.5)]"></div>
-                    <span class="font-headline text-[9px] tracking-[0.3em] dark:text-white/30 text-black/30 font-bold uppercase">Status: Protocol_Active</span>
+                    <span class="font-headline text-[9px] tracking-[0.3em] dark:text-white/30 text-black/30 font-bold uppercase">Status: Online</span>
                 </div>
                 <div class="hidden lg:flex items-center gap-8 border-l dark:border-white/5 border-black/5 pl-8">
                     <div class="flex flex-col items-end">
@@ -60,7 +60,7 @@
                         
                 <!-- ── Minimalist Step Tracer ──────────────────────────── -->
                 <div class="flex items-center gap-3 mb-16 lg:mb-24">
-                    <template v-for="(step, i) in ['Silhouette', 'Foundation', 'Identity']" :key="i">
+                    <template v-for="(step, i) in ['Style', 'Details', 'Contact']" :key="i">
                         <div class="flex items-center gap-3 group">
                             <div class="w-8 h-8 border text-[10px] font-headline font-bold flex items-center justify-center transition-all duration-700"
                                 :class="formProgress > i ? 'bg-primary border-primary text-background' : 'dark:border-white/5 border-black/10 dark:text-white/10 text-on-surface/10'"
@@ -82,8 +82,8 @@
                                     01_
                                 </div>
                                 <div class="space-y-1">
-                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Silhouette & Architecture</h3>
-                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: INITIAL_DEFINITION</p>
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Style & Design</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">STEP 01: CHOOSE YOUR STYLE</p>
                                 </div>
                                 <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
@@ -103,7 +103,7 @@
                                 <!-- Outfit Type Selection -->
                                 <div class="space-y-6">
                                     <div class="flex flex-col">
-                                        <label class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase text-primary">SELECT SILHOUETTE_</label>
+                                        <label class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase text-primary">SELECT STYLE_</label>
                                         <div class="h-px w-12 bg-primary/20 mt-2"></div>
                                     </div>
                                     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -193,8 +193,8 @@
                                     02_
                                 </div>
                                 <div class="space-y-1">
-                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Foundation & Material</h3>
-                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: TEXTILE_SELECTION</p>
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Details & Materials</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">STEP 02: FABRIC & PREFERENCE</p>
                                 </div>
                                 <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
@@ -264,8 +264,8 @@
                                     03_
                                 </div>
                                 <div class="space-y-1">
-                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Client Identity</h3>
-                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">PHASE: FINAL_REGISTRATION</p>
+                                    <h3 class="text-2xl font-headline font-bold dark:text-white text-on-surface tracking-tighter uppercase leading-none">Your Information</h3>
+                                    <p class="text-[9px] font-headline font-bold text-primary tracking-[0.3em] uppercase opacity-60">STEP 03: SHIPPING & CONTACT</p>
                                 </div>
                                 <div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent ml-4"></div>
                             </div>
@@ -294,10 +294,10 @@
                             <button type="submit" :disabled="isSubmitting" class="w-full bg-primary text-background py-8 hover:bg-white hover:scale-[1.01] active:scale-[0.99] transition-all duration-700 disabled:opacity-50 group shadow-[0_0_50px_rgba(182,143,101,0.2)]">
                                 <div class="flex flex-col items-center gap-2">
                                     <span class="font-headline tracking-[0.6em] uppercase font-bold text-sm flex items-center justify-center gap-4">
-                                        {{ isSubmitting ? 'PROTOCOL_ID: SENDING_' : 'FINALIZE ACQUISITION_' }}
+                                        {{ isSubmitting ? 'ORDER: PROCESSING_' : 'SUBMIT ORDER_' }}
                                         <span v-if="!isSubmitting" class="material-symbols-outlined text-lg group-hover:translate-x-2 transition-transform">bolt</span>
                                     </span>
-                                    <span class="text-[8px] font-headline tracking-[0.4em] uppercase opacity-40">Ready to build your silhouette</span>
+                                    <span class="text-[8px] font-headline tracking-[0.4em] uppercase opacity-40">Ready to create your custom outfit</span>
                                 </div>
                             </button>
                         </div>
@@ -321,7 +321,7 @@
                                         <input type="checkbox" v-model="form.priority_pass" class="sr-only peer">
                                         <div class="w-11 h-6 bg-white/5 peer-focus:outline-none rounded-full peer dark:bg-white/10 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20"></div>
                                      </label>
-                                     <span class="text-[9px] font-headline font-bold uppercase tracking-[0.2em] text-primary">Activate Priority_</span>
+                                     <span class="text-[9px] font-headline font-bold uppercase tracking-[0.2em] text-primary">Activate Express_</span>
                                  </div>
                              </div>
 
@@ -535,7 +535,7 @@ const submitOrder = async () => {
             if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
             // Emulate the requested Artisan connection error
-            globalError.value = "SYSTEM ERROR: Artisan connection lost. Please try again.";
+            globalError.value = "SYSTEM ERROR: Connection lost. Please try again.";
         }
     } finally {
         isSubmitting.value = false;
@@ -544,7 +544,7 @@ const submitOrder = async () => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;900&family=Outfit:wght@300;400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;900&display=swap');
 
 :deep(body) {
     -webkit-font-smoothing: antialiased;
@@ -553,11 +553,11 @@ const submitOrder = async () => {
 }
 
 .font-headline {
-    font-family: 'Outfit', 'Inter', sans-serif !important;
+    font-family: 'Poppins', sans-serif !important;
 }
 
 main {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
 
 .reveal-step {
@@ -586,7 +586,7 @@ main {
 
 /* Sharp Borders & Crisp Inputs */
 input, textarea {
-    font-family: 'Calibri', sans-serif !important;
+    font-family: 'Poppins', sans-serif !important;
     letter-spacing: 0.15em;
     text-transform: uppercase;
 }

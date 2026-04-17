@@ -9,12 +9,12 @@ const props = defineProps({
 const progress = ref(0);
 const statusIndex = ref(0);
 const statuses = [
-    "Initializing Atelier Link...",
-    "Encrypting Silhouette Data...",
-    "Establishing Artisan Signal...",
-    "Securing Fabric Selection...",
-    "Mapping Digital Fit...",
-    "Signal Established. Forwarding to Artisan."
+    "Preparing your order...",
+    "Finalizing your design details...",
+    "Connecting to our team...",
+    "Verifying fabric availability...",
+    "Confirming your measurements...",
+    "Connection ready. Opening WhatsApp."
 ];
 
 onMounted(() => {
@@ -49,11 +49,11 @@ onMounted(() => {
                 <!-- Artisan ID Branding -->
                 <div class="flex flex-col items-center gap-4">
                     <div class="flex items-center gap-4 border-b border-white/5 pb-4 px-8">
-                        <span class="font-headline text-[10px] tracking-[0.4em] text-primary uppercase font-black">Serana_Atelier_Handoff</span>
+                        <span class="font-headline text-[10px] tracking-[0.4em] text-primary uppercase font-black">Serana Boutique Checkout</span>
                         <div class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></div>
                     </div>
                     <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface tracking-tighter uppercase">
-                        Establishing Connection_
+                        SECURE CHECKOUT_
                     </h2>
                 </div>
 
@@ -73,7 +73,7 @@ onMounted(() => {
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-4xl font-headline font-black text-primary luminous-glow">{{ Math.floor(progress) }}%</span>
-                            <span class="text-[8px] font-headline tracking-widest text-primary/40 uppercase">Linking_</span>
+                            <span class="text-[8px] font-headline tracking-widest text-primary/40 uppercase">Processing_</span>
                         </div>
                     </div>
                 </div>
@@ -99,10 +99,10 @@ onMounted(() => {
             <!-- ── Footer Intelligence ── -->
             <div class="absolute bottom-12 inset-x-0 flex flex-col items-center gap-4 opacity-40">
                 <div class="flex items-center gap-6">
-                    <span class="text-[8px] font-headline tracking-[0.2em] text-white uppercase">Encrypted_Packet_SRN</span>
-                    <span class="text-[8px] font-headline tracking-[0.2em] text-white uppercase">Protocol_V4.2</span>
+                    <span class="text-[8px] font-headline tracking-[0.2em] text-white uppercase">Secure Checkout</span>
+                    <span class="text-[8px] font-headline tracking-[0.2em] text-white uppercase">Serana Design Studio</span>
                 </div>
-                <p class="text-[8px] font-headline tracking-[0.3em] text-primary uppercase">Elite Artisans are standing by.</p>
+                <p class="text-[8px] font-headline tracking-[0.3em] text-primary uppercase">Our team is ready to help.</p>
             </div>
         </div>
     </transition>
@@ -112,7 +112,7 @@ onMounted(() => {
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@900&display=swap');
 
 .font-headline {
-    font-family: 'Outfit', sans-serif !important;
+    font-family: 'Poppins', sans-serif !important;
 }
 
 .handoff-enter-active, .handoff-leave-active {

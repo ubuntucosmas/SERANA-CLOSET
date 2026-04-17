@@ -62,7 +62,7 @@ const handleClose = () => {
             <div class="p-10">
                 <div class="text-center mb-10">
                     <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface mb-2 tracking-tighter">Account <span class="text-primary luminous-glow">Login</span></h2>
-                    <p class="text-[10px] text-on-surface-variant tracking-[0.3em] font-black">Authorized staff only</p>
+                    <p class="text-[10px] text-on-surface-variant tracking-[0.3em] font-black">Customer & Staff Login</p>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-6">
@@ -122,7 +122,7 @@ const handleClose = () => {
                 <div class="mt-8 pt-8 border-t dark:border-white/5 border-black/5 text-center">
                     <p class="text-[9px] text-on-surface-variant tracking-widest leading-relaxed">
                         By accessing this portal, you agree to the <br/>
-                        <span class="text-on-surface font-bold">Serana Digital Integrity protocols.</span>
+                        <span class="text-on-surface font-bold">Serana Boutique Terms & Conditions.</span>
                     </p>
                 </div>
             </div>
@@ -131,7 +131,7 @@ const handleClose = () => {
 </template>
 
 <style scoped>
-input::placeholder {
-    font-family: 'Manrope', sans-serif;
+.font-headline {
+    font-family: 'Poppins', sans-serif !important;
 }
 </style>

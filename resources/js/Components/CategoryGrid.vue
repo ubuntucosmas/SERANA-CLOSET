@@ -9,10 +9,10 @@ const page = usePage();
         <header class="mb-24 max-w-2xl anime-reveal">
             <div class="flex items-center gap-4 mb-6">
                 <span class="w-12 h-px bg-primary/30"></span>
-                <span class="text-primary font-headline font-medium text-[10px] tracking-[0.4em]">The collection archive</span>
+                <span class="text-primary font-headline font-medium text-[10px] tracking-[0.4em]">The seasonal archive</span>
             </div>
             <h2 class="font-headline text-5xl md:text-7xl font-medium dark:text-white text-on-surface tracking-tighter leading-tight mb-8">
-                Strategic <span class="dark:text-white/40 text-black/40 font-light">Chapters.</span>
+                Our <span class="dark:text-white/40 text-black/40 font-light">Collections.</span>
             </h2>
             <p class="dark:text-white/40 text-black/40 font-body text-base max-w-lg font-light leading-relaxed opacity-80">
                 A curated selection of tactical wardrobe solutions. Every piece is a commitment to precision, engineered for the absolute silhouette.
@@ -34,7 +34,7 @@ const page = usePage();
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Dresses_</h3>
                     <Link :href="route('shop', {category: 'dresses'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        Explore archive <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>
@@ -50,7 +50,7 @@ const page = usePage();
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Hoodies_</h3>
                     <Link :href="route('shop', {category: 'hoodies'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        Explore archive <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>
@@ -66,7 +66,7 @@ const page = usePage();
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Corporate_</h3>
                     <Link :href="route('shop', {category: 'corporate-wear'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        Explore archive <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>
@@ -82,7 +82,7 @@ const page = usePage();
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Casual_</h3>
                     <Link :href="route('shop', {category: 'casual-collection'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        Explore archive <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>
@@ -98,7 +98,7 @@ const page = usePage();
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Kids_</h3>
                     <Link :href="route('shop', {category: 'kids-collection'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        Explore archive <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>

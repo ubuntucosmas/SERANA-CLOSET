@@ -31,9 +31,9 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"],
-                "body": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"],
-                "label": ["Calibri", "Candara", "Segoe", "Segoe UI", "Optima", "Arial", "sans-serif"]
+                "headline": ["Poppins", ...defaultTheme.fontFamily.sans],
+                "body": ["Poppins", ...defaultTheme.fontFamily.sans],
+                "label": ["Poppins", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
                 "DEFAULT": "0px",

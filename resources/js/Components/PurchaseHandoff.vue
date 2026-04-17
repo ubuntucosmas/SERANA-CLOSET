@@ -15,11 +15,11 @@ const goToWhatsApp = () => {
     const number = "254113167266";
     const item = lastItem.value;
     const text = encodeURIComponent(
-        `◆ PIECE SECURED ◆\n\n` +
+        `◆ ITEM SECURED ◆\n\n` +
         `Ref: ${item.name}\n` +
         `Price: ${item.display_price}\n` +
         `Link: ${window.location.origin}/product/${item.slug}\n\n` +
-        `I am ready to finalize this acquisition.`
+        `I am ready to buy this item.`
     );
     window.open(`https://wa.me/${number}?text=${text}`, '_blank');
     close();
@@ -39,7 +39,7 @@ const goToWhatsApp = () => {
                     <div class="flex justify-between items-start">
                         <div class="space-y-1">
                             <p class="text-[9px] font-headline font-bold text-primary tracking-[0.4em] uppercase">Status: In Bag</p>
-                            <h2 class="text-2xl font-headline font-medium dark:text-white text-on-surface uppercase tracking-tighter">Bespoke Handoff_</h2>
+                            <h2 class="text-2xl font-headline font-medium dark:text-white text-on-surface uppercase tracking-tighter">Checkout_</h2>
                         </div>
                         <button @click="close" class="p-2 dark:text-white/40 text-black/40 hover:text-primary transition-colors">
                             <span class="material-symbols-outlined">close</span>
@@ -71,7 +71,7 @@ const goToWhatsApp = () => {
                             @click="close"
                             class="w-full bg-white/[0.05] dark:text-white text-on-surface py-5 rounded-xl font-headline text-[10px] font-bold uppercase tracking-[0.2em] border border-white/5 hover:bg-white/10 transition-all"
                         >
-                            Continue Curation
+                            Continue Shopping
                         </button>
                     </div>
 

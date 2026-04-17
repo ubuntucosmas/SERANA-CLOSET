@@ -113,6 +113,6 @@ const submit = () => {
 
 <style scoped>
 input::placeholder {
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
 </style>

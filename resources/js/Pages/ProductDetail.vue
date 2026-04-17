@@ -14,8 +14,8 @@ const whatsappUrl = computed(() => {
     const baseUrl = window.location.origin;
     const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
     
-    const message = `🏁 *NEW ARTISAN BRIEF* 🏁\n\n` +
-                    `*[ 01: PIECE ]*\n` +
+    const message = `🏁 *NEW ORDER DETAILS* 🏁\n\n` +
+                    `*[ 01: ITEM ]*\n` +
                     `• Name: ${props.product.name}\n` +
                     `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
                     `• Price: KSh ${Number(props.product.price).toLocaleString()}\n\n` +
@@ -23,8 +23,8 @@ const whatsappUrl = computed(() => {
                     `• URL: ${window.location.href}\n` +
                     `• Image: ${imageUrl}\n\n` +
                     `--------------------------\n` +
-                    `Can you help me secure this piece?\n` +
-                    `Sent via Serana Digital Atelier.`;
+                    `I'm interested in this item. Can you help me with the purchase?\n` +
+                    `Sent via Serana Closet.`;
 
     return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
 });
@@ -123,7 +123,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                         <div class="space-y-6">
                             <div class="flex items-center gap-3 border-b dark:border-white/10 border-black/10 pb-4">
                                 <span class="material-symbols-outlined text-primary luminous-glow">architecture</span>
-                                <h3 class="font-headline text-[10px] tracking-[0.3em] font-black text-on-surface uppercase">Artisan Blueprint_</h3>
+                                <h3 class="font-headline text-[10px] tracking-[0.3em] font-black text-on-surface uppercase">Product Specifications_</h3>
                             </div>
                             
                             <div class="relative p-6 md:p-8 bg-surface-container/30 border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group/blueprint">
@@ -164,7 +164,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                             
                             <a :href="whatsappUrl" target="_blank" class="w-full py-6 bg-white/5 border border-white/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12px] tracking-[0.3em] font-black transition-all rounded-sm flex justify-center items-center gap-3 group">
                                 <span class="material-symbols-outlined text-stone-400 group-hover:text-primary transition-colors font-black">chat</span>
-                                Fast-Track Inquiry
+                                Fast-Track Order
                             </a>
                         </div>
                         
@@ -172,7 +172,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                         <div class="pt-10 space-y-2">
                             <details class="group bg-surface-container-low rounded-sm mb-2 overflow-hidden border border-outline-variant/10">
                                 <summary class="flex justify-between items-center cursor-pointer list-none p-6 font-headline text-[10px] tracking-[0.2em] font-black text-on-surface hover:text-primary transition-colors uppercase">
-                                    <span>The Craftsmanship Story</span>
+                                    <span>Our Heritage & Quality</span>
                                     <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
                                 </summary>
                                 <div class="px-6 pb-6 pt-0 text-[12px] text-on-surface-variant leading-relaxed opacity-70">
@@ -182,7 +182,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                             
                             <details class="group bg-surface-container-low rounded-sm overflow-hidden border border-outline-variant/10">
                                 <summary class="flex justify-between items-center cursor-pointer list-none p-6 font-headline text-[10px] tracking-[0.2em] font-black text-on-surface hover:text-primary transition-colors uppercase">
-                                    <span>Shipping & Logistics</span>
+                                    <span>Shipping & Delivery</span>
                                     <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
                                 </summary>
                                 <div class="px-6 pb-6 pt-0 text-[12px] text-on-surface-variant leading-relaxed opacity-70">
@@ -218,7 +218,7 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                     class="flex-[2] bg-primary text-black rounded-sm flex items-center justify-center gap-3 font-headline text-[11px] font-black tracking-[0.25em] uppercase shadow-2xl active:scale-95 transition-all"
                 >
                     <span class="material-symbols-outlined text-[20px] font-black">shopping_bag</span>
-                    Secure Bag_
+                    Add to Bag_
                 </button>
                 
                 <!-- WhatsApp -->

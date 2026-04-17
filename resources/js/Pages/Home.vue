@@ -74,7 +74,7 @@ onMounted(() => {
 <template>
     <StorefrontLayout>
         <Head>
-            <title>Serana Closet | The Digital Studio</title>
+            <title>Serana Closet | Custom Studio</title>
             <meta name="description" content="Nairobi's elite bespoke fashion house. Merging traditional tailoring with futuristic digital precision. Experience the Serana Standard of custom wear.">
         </Head>
 
@@ -115,7 +115,7 @@ onMounted(() => {
                     <div class="space-y-2">
                         <p class="text-[9px] font-headline font-medium uppercase tracking-[0.5em] text-primary">Live Studio Pulse</p>
                         <h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] uppercase ">
-                            The <span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent  font-medium">Studio</span> Archive_
+                            Our <span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent  font-medium">Collection</span>_
                         </h1>
                         <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 uppercase tracking-[0.4em] font-medium leading-loose font-sans">
                             Nairobi's high-tech maker space. Engineering high-fashion silhouettes with careful precision and digital craft.
@@ -139,7 +139,7 @@ onMounted(() => {
                 </div>
 
                 <Link :href="route('custom-order')" class="hidden lg:flex items-center gap-6 px-10 py-5 border dark:border-white/10 border-black/10 rounded-sm text-[10px] font-headline font-medium uppercase tracking-[0.3em] hover:bg-white hover:text-background transition-all">
-                    Secure Slot <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                    Book Custom <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                 </Link>
             </div>
         </section>
@@ -151,7 +151,7 @@ onMounted(() => {
                 <div class="space-y-6">
                     <div class="inline-flex items-center gap-3 text-primary font-sans tracking-[0.4em] text-[9px] font-medium uppercase">
                         <span class="w-8 h-px bg-primary/40"></span>
-                        Artisan History
+                        Our Quality story
                     </div>
                     <h2 class="text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter uppercase ">
                         Every stitch_ <span class="dark:text-white text-on-surface/20">tells a story</span>
@@ -180,7 +180,7 @@ onMounted(() => {
                         Ready to shop?
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
-                    <h2 class="font-headline text-4xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Inner <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
+                    <h2 class="font-headline text-4xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Serana <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
                     <p class="text-sm dark:text-white/40 text-black/40 leading-loose  max-w-md font-sans uppercase tracking-widest text-[10px] font-medium">
                         Our pieces are not just made; they are carefully built. We merge high-tech design with the soul of Kenyan makers to create something truly unique.
                     </p>
