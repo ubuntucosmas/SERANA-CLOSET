@@ -95,7 +95,10 @@ class Product extends Model
     public function getOptimizedSecondaryUrlsAttribute()
     {
         return array_map(function($url) {
-            if (!$url || str_contains($url, 'localhost') || !str_contains($url, 'supabase.co')) {
+            if (!config('services.supabase.image_optimization', true) || 
+                !$url || 
+                str_contains($url, 'localhost') || 
+                !str_contains($url, 'supabase.co')) {
                 return $url;
             }
             return str_replace('/object/public/', '/render/image/public/', $url) . '?width=800&quality=75&format=webp';

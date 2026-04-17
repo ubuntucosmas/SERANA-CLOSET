@@ -33,6 +33,16 @@ const allImages = computed(() => {
     return images;
 });
 
+const optimizedAllImages = computed(() => {
+    const images = [props.product.optimized_image_url || props.product.image_url];
+    if (props.product.optimized_secondary_urls) {
+        images.push(...props.product.optimized_secondary_urls.filter(Boolean));
+    } else if (props.product.secondary_image_urls) {
+        images.push(...props.product.secondary_image_urls.filter(Boolean));
+    }
+    return images.filter(Boolean);
+});
+
 const navigateToSpecs = () => {
     router.visit(route('shop.show', props.product.slug));
 };
@@ -112,7 +122,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         ]">
             <img
                 class="product-img w-full h-full object-cover transition-all duration-700"
-                :src="product.optimized_image_url || '/images/placeholder.png'"
+                :src="optimizedAllImages[currentIndex] || product.optimized_image_url || '/images/placeholder.png'"
                 :alt="product.name"
                 loading="lazy"
                 :class="{ 'opacity-80': isHovered }"
@@ -202,6 +212,18 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             </div>
         </div>
         <HandoffOverlay v-if="showHandoff && product" :show="showHandoff" :order-type="product.name" />
+
+        <!-- Hover Image Gallery Tooltip Pop-up (Hidden on Mobile) -->
+        <div v-if="isHovered && optimizedAllImages.length > 1" 
+             class="hidden md:flex absolute -top-80 left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-2 animate-tooltip-pop min-w-[300px] justify-center">
+            <div class="bg-black/90 backdrop-blur-3xl border border-primary/30 p-6 shadow-[0_60px_120px_rgba(0,0,0,1)] flex gap-6 rounded-2xl items-center justify-center pointer-events-auto scale-110">
+                <div v-for="(img, i) in optimizedAllImages" :key="i" 
+                     class="w-48 h-64 bg-surface overflow-hidden rounded-xl border border-white/20 reveal-stagger group/thumb cursor-crosshair shadow-2xl"
+                     :style="{ transitionDelay: (i * 100) + 'ms' }">
+                    <img :src="img" class="w-full h-full object-cover grayscale group-hover/thumb:grayscale-0 transition-all duration-1000 opacity-30 group-hover/thumb:opacity-100 group-hover/thumb:scale-110" />
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -226,4 +248,14 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
 }
 
 .animate-tooltip-pop { animation: tooltipPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+.reveal-stagger {
+    opacity: 0;
+    transform: translateY(5px);
+    animation: revealItem 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes revealItem {
+    to { opacity: 1; transform: translateY(0); }
+}
 </style>
