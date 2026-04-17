@@ -58,7 +58,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-[100svh] lg:min-h-[750px] overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-20 sm:pt-32">
+    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-[100svh] lg:min-h-[750px] overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
         
         <!-- Refined Alternating Background Layer -->
         <div class="absolute inset-0 z-0 overflow-hidden">
