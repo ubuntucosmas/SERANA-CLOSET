@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
@@ -44,6 +44,17 @@ const allImages = computed(() => {
     if (props.product.optimized_secondary_urls) images.push(...props.product.optimized_secondary_urls);
     return images.length > 0 ? images : ['/images/hero_editorial.png'];
 });
+
+const galleryRef = ref(null);
+
+const scrollGallery = (direction) => {
+    if (!galleryRef.value) return;
+    const scrollAmount = galleryRef.value.clientWidth;
+    galleryRef.value.scrollBy({
+        left: direction === 'next' ? scrollAmount : -scrollAmount,
+        behavior: 'smooth'
+    });
+};
 </script>
 
 <template>
@@ -58,10 +69,20 @@ const allImages = computed(() => {
                     <!-- Left: Editorial Gallery (Horizontal Slider) -->
                     <div class="lg:col-span-7 relative group/slider">
                         <!-- Scrollable Container -->
-                        <div class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar md:rounded-2xl border-b md:border border-black/5 dark:border-white/5 shadow-2xl bg-black">
+                        <div ref="galleryRef" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar md:rounded-2xl border-b md:border border-black/5 dark:border-white/5 shadow-2xl bg-black scroll-smooth">
                             <div v-for="(img, idx) in allImages" :key="idx" class="flex-none w-full snap-center aspect-[4/5] md:aspect-[2/3] overflow-hidden">
                                 <img :src="img" class="w-full h-full object-cover" />
                             </div>
+                        </div>
+
+                        <!-- Directional Arrows (Desktop Only) -->
+                        <div v-if="allImages.length > 1" class="hidden lg:block">
+                            <button @click="scrollGallery('prev')" class="absolute left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/slider:opacity-100 transition-all duration-500 hover:bg-white hover:text-black">
+                                <span class="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <button @click="scrollGallery('next')" class="absolute right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/slider:opacity-100 transition-all duration-500 hover:bg-white hover:text-black">
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </button>
                         </div>
 
                         <!-- Gallery Counter (Zen Indicator) -->
