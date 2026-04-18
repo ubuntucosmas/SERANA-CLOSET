@@ -1,5 +1,5 @@
 <template>
-    <div @click="openWhatsApp" class="fixed bottom-6 right-6 z-[100] group cursor-pointer">
+    <div @click="openWhatsApp" class="fixed bottom-6 right-6 z-[100] group cursor-pointer hidden lg:block">
         <div class="flex items-center gap-3">
             <!-- Label (Reveal on Hover) -->
             <div class="bg-black/80 backdrop-blur-xl border border-white/10 px-4 py-2 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all duration-500 pointer-events-none">
