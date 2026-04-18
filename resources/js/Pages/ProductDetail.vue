@@ -37,6 +37,13 @@ const rawurlencode = (str) => {
 
 const cart = useCartStore();
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
+
+const allImages = computed(() => {
+    const images = [];
+    if (props.product.optimized_image_url) images.push(props.product.optimized_image_url);
+    if (props.product.optimized_secondary_urls) images.push(...props.product.optimized_secondary_urls);
+    return images.length > 0 ? images : ['/images/hero_editorial.png'];
+});
 </script>
 
 <template>
@@ -48,45 +55,44 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
                 <!-- PDP Header Section: Editorial Asymmetry -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-0 md:gap-20 items-start">
                     
-                    <!-- Left: Editorial Gallery (Asymmetric Layout) -->
-                    <div class="lg:col-span-7 space-y-4 md:space-y-12">
-                        <!-- Main Featured Hero Image -->
-                        <div class="relative w-full aspect-[4/5] md:aspect-[2/3] md:rounded-2xl overflow-hidden border-b md:border border-black/5 dark:border-white/5 shadow-2xl">
-                            <img class="w-full h-full object-cover" :src="product.optimized_image_url || '/images/hero_editorial.png'"/>
-                            
-                            <!-- Zen "Atelier Tag" (Mobile Header Overlay) -->
-                            <div class="md:hidden absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
-                                <div class="flex justify-between items-end">
-                                    <div class="flex-1">
-                                        <p class="text-[7px] font-black tracking-[0.5em] text-primary uppercase mb-1.5 opacity-80">{{ product.category?.name || 'Archive' }}</p>
-                                        <h1 class="text-2xl font-headline font-black text-white uppercase tracking-tight leading-none drop-shadow-2xl">{{ product.name }}</h1>
-                                    </div>
-                                    <div class="flex flex-col items-end gap-1">
-                                        <span class="text-xl font-black text-primary luminous-glow leading-none">{{ formatAmount(product.price, page.props) }}</span>
-                                        <span class="text-[6px] text-white/40 uppercase tracking-widest">Inclusive of VAT</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Desktop Badges -->
-                            <div class="hidden md:flex absolute top-8 left-8 flex-col gap-2 z-10">
-                                <span class="bg-surface-container/80 backdrop-blur font-headline text-[11px] tracking-[0.15em] px-4 py-2 border dark:border-white/10 border-black/10 rounded-full inline-block w-fit font-black uppercase">
-                                    {{ product.category?.name }}
-                                </span>
-                                <span v-if="product.is_customizable" class="bg-primary text-background font-headline text-[11px] tracking-[0.2em] px-4 py-2 rounded-full w-fit shadow-[0_0_20px_rgba(57, 255, 20,0.3)] font-black uppercase">
-                                    Customizable
-                                </span>
+                    <!-- Left: Editorial Gallery (Horizontal Slider) -->
+                    <div class="lg:col-span-7 relative group/slider">
+                        <!-- Scrollable Container -->
+                        <div class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar md:rounded-2xl border-b md:border border-black/5 dark:border-white/5 shadow-2xl bg-black">
+                            <div v-for="(img, idx) in allImages" :key="idx" class="flex-none w-full snap-center aspect-[4/5] md:aspect-[2/3] overflow-hidden">
+                                <img :src="img" class="w-full h-full object-cover" />
                             </div>
                         </div>
 
-                        <!-- Secondary Split Details (Desktop & Mobile) -->
-                        <div v-if="product.optimized_secondary_urls && product.optimized_secondary_urls.length >= 1" class="grid grid-cols-2 gap-2 md:gap-8 px-2 md:px-0">
-                            <div class="aspect-[3/4] md:mt-12 overflow-hidden md:rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" :src="product.optimized_secondary_urls[0]"/>
+                        <!-- Gallery Counter (Zen Indicator) -->
+                        <div v-if="allImages.length > 1" class="absolute bottom-10 right-10 z-20">
+                            <div class="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full">
+                                <span class="font-headline text-[10px] tracking-[0.4em] text-white font-bold opacity-80 italic">GALLERY_0{{ allImages.length }}</span>
                             </div>
-                            <div v-if="product.optimized_secondary_urls[1]" class="aspect-[3/4] md:-mt-12 overflow-hidden md:rounded-2xl border dark:border-white/5 border-black/5 shadow-2xl">
-                                <img class="w-full h-full object-cover" :src="product.optimized_secondary_urls[1]"/>
+                        </div>
+
+                        <!-- Zen "Atelier Tag" (Mobile Header Overlay) -->
+                        <div class="md:hidden absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/95 via-black/40 to-transparent z-10 pointer-events-none">
+                            <div class="flex justify-between items-end">
+                                <div class="flex-1">
+                                    <p class="text-[7px] font-black tracking-[0.5em] text-primary uppercase mb-1.5 opacity-80">{{ product.category?.name || 'Archive' }}</p>
+                                    <h1 class="text-2xl font-headline font-black text-white uppercase tracking-tight leading-none drop-shadow-2xl">{{ product.name }}</h1>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span class="text-xl font-black text-primary luminous-glow leading-none">{{ formatAmount(product.price, page.props) }}</span>
+                                    <span class="text-[6px] text-white/40 uppercase tracking-widest">Inclusive of VAT</span>
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- Desktop Badges -->
+                        <div class="hidden md:flex absolute top-8 left-8 flex-col gap-2 z-10">
+                            <span class="bg-surface-container/80 backdrop-blur font-headline text-[11px] tracking-[0.15em] px-4 py-2 border dark:border-white/10 border-black/10 rounded-full inline-block w-fit font-black uppercase">
+                                {{ product.category?.name }}
+                            </span>
+                            <span v-if="product.is_customizable" class="bg-primary text-background font-headline text-[11px] tracking-[0.2em] px-4 py-2 rounded-full w-fit shadow-[0_0_20px_rgba(57, 255, 20,0.3)] font-black uppercase">
+                                Customizable
+                            </span>
                         </div>
                     </div>
 
