@@ -130,6 +130,34 @@ function deleteThemeAsset(key) {
 const statuses = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 
 const menuOpen = ref(false); // Mobile menu toggle
+const showBriefNotification = ref(false);
+
+function copyOrderBrief() {
+    if (!selectedOrder.value) return;
+    
+    const o = selectedOrder.value;
+    const brief = `
+◆ SERANA ORDER BRIEF #${String(o.id).padStart(4, '0')}
+--------------------------
+Client: ${o.full_name}
+Item: ${o.garment_name || o.outfit_type || 'Custom Piece'}
+Status: ${o.status || 'Active'}
+
+MEASUREMENTS (CM):
+• Bust: ${o.bust_cm || '--'}
+• Waist: ${o.waist_cm || '--'}
+• Hips: ${o.hips_cm || '--'}
+• Height: ${o.height_cm || '--'}
+
+TOTAL: ${formatAmount(o.total || 0, page.props)}
+--------------------------
+`.trim();
+
+    navigator.clipboard.writeText(brief).then(() => {
+        showBriefNotification.value = true;
+        setTimeout(() => showBriefNotification.value = false, 3000);
+    });
+}
 
 function selectOrder(order) {
     if (selectedOrder.value?.id === order.id) {
@@ -923,6 +951,10 @@ function getAllOrderImages(order) {
                 <div class="flex items-center justify-between">
                     <p class="text-[10px] text-primary tracking-[0.4em] font-black italic">ID: #ORD-{{ String(form.id).padStart(4, '0') }}</p>
                     <div class="h-[1px] flex-grow mx-6 bg-white/5"></div>
+                    <button @click="copyOrderBrief" class="flex items-center gap-2 group">
+                        <span class="text-[8px] text-[#454652] tracking-[0.3em] font-black uppercase opacity-0 group-hover:opacity-100 transition-all">{{ showBriefNotification ? 'Copied!' : 'Copy Brief' }}</span>
+                        <span class="material-symbols-outlined text-sm text-[#454652] group-hover:text-[#B9C3FF] transition-all">content_copy</span>
+                    </button>
                 </div>
             </header>
 

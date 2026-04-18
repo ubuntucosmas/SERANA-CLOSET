@@ -8,6 +8,7 @@
         <CartDrawer />
         <Notification />
         <PurchaseHandoff />
+        <ConciergeButton />
 
         <main class="flex-grow relative z-10">
             <transition name="fade" mode="out-in" appear>
@@ -29,6 +30,7 @@ import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
 import PurchaseHandoff from '@/Components/PurchaseHandoff.vue';
+import ConciergeButton from '@/Components/ConciergeButton.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 
 const cart = useCartStore();
