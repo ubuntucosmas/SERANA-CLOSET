@@ -75,13 +75,13 @@ const scrollGallery = (direction) => {
                             </div>
                         </div>
 
-                        <!-- Directional Arrows (Desktop Only) -->
-                        <div v-if="allImages.length > 1" class="hidden lg:block">
-                            <button @click="scrollGallery('prev')" class="absolute left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/slider:opacity-100 transition-all duration-500 hover:bg-white hover:text-black">
-                                <span class="material-symbols-outlined">chevron_left</span>
+                        <!-- Directional Arrows (Overlaid on Image) -->
+                        <div v-if="allImages.length > 1" class="absolute inset-y-0 inset-x-0 pointer-events-none z-20 flex items-center justify-between px-4">
+                            <button @click="scrollGallery('prev')" class="pointer-events-auto w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:bg-black/40 transition-all duration-300">
+                                <span class="material-symbols-outlined text-xl md:text-2xl">chevron_left</span>
                             </button>
-                            <button @click="scrollGallery('next')" class="absolute right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/slider:opacity-100 transition-all duration-500 hover:bg-white hover:text-black">
-                                <span class="material-symbols-outlined">chevron_right</span>
+                            <button @click="scrollGallery('next')" class="pointer-events-auto w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:bg-black/40 transition-all duration-300">
+                                <span class="material-symbols-outlined text-xl md:text-2xl">chevron_right</span>
                             </button>
                         </div>
 
