@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
@@ -46,15 +46,54 @@ const allImages = computed(() => {
 });
 
 const galleryRef = ref(null);
+let autoScrollInterval = null;
 
 const scrollGallery = (direction) => {
     if (!galleryRef.value) return;
-    const scrollAmount = galleryRef.value.clientWidth;
-    galleryRef.value.scrollBy({
-        left: direction === 'next' ? scrollAmount : -scrollAmount,
-        behavior: 'smooth'
-    });
+    
+    const container = galleryRef.value;
+    const scrollAmount = container.clientWidth;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    
+    if (direction === 'next') {
+        if (container.scrollLeft >= maxScroll - 10) {
+            container.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    } else {
+        if (container.scrollLeft <= 10) {
+            container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+        } else {
+            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        }
+    }
+    
+    // Reset timer on manual interaction
+    resetAutoScroll();
 };
+
+const startAutoScroll = () => {
+    if (allImages.value.length <= 1) return;
+    autoScrollInterval = setInterval(() => {
+        scrollGallery('next');
+    }, 5000);
+};
+
+const resetAutoScroll = () => {
+    if (autoScrollInterval) {
+        clearInterval(autoScrollInterval);
+        startAutoScroll();
+    }
+};
+
+onMounted(() => {
+    startAutoScroll();
+});
+
+onUnmounted(() => {
+    if (autoScrollInterval) clearInterval(autoScrollInterval);
+});
 </script>
 
 <template>
