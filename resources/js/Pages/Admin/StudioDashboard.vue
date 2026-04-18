@@ -20,6 +20,7 @@ const { formatAmount } = useCurrency();
 const currentTab = ref(props.active_tab);
 const showArchivedProducts = ref(false);
 const showArchivedGallery = ref(false);
+const selectedOrder = ref(null);
 
 const filteredOrders = computed(() => {
 	return props.orders.filter(o => currentTab.value === 'overview' ? o.type === 'standard' : o.type !== 'standard');
