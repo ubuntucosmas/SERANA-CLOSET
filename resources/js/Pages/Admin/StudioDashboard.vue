@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import { useCurrency } from '../../Composables/useCurrency';
 
 const props = defineProps({
 	orders: Array,
@@ -15,6 +16,7 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { formatAmount } = useCurrency();
 const currentTab = ref(props.active_tab);
 const showArchivedProducts = ref(false);
 const showArchivedGallery = ref(false);
@@ -537,7 +539,7 @@ function getAllOrderImages(order) {
                                 </td>
                                 
                                 <td class="p-6 text-right">
-                                    <p class="serif-text text-sm text-[#B9C3FF] tracking-tighter">{{ Number(order.price_quoted || 0).toLocaleString() }}</p>
+                                    <p class="serif-text text-sm text-[#B9C3FF] tracking-tighter">{{ formatAmount(order.price_quoted || 0, page.props) }}</p>
                                     <p :class="`text-[8px] tracking-widest uppercase font-black mt-1 ${order.is_paid ? 'text-[#8A9DFF]' : 'text-red-900/50'}`">
                                         {{ order.is_paid ? 'Secured' : 'Unpaid' }}
                                     </p>
