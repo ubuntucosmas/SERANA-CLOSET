@@ -126,7 +126,7 @@ function deleteThemeAsset(key) {
 
 const statuses = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 
-const selectedOrder = ref(null);
+const menuOpen = ref(false); // Mobile menu toggle
 
 function selectOrder(order) {
     if (selectedOrder.value?.id === order.id) {
@@ -140,6 +140,14 @@ function selectOrder(order) {
     form.internal_notes = order.internal_notes || '';
     form.price_quoted = order.price_quoted || 0;
     form.is_paid = order.is_paid || false;
+    
+    // Auto-scroll to details on mobile when selecting an order
+    if (window.innerWidth < 1024) {
+        setTimeout(() => {
+            const el = document.getElementById('order-sheet-mobile');
+            el?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
 }
 
 function updateOrder() {
@@ -380,87 +388,98 @@ function getAllOrderImages(order) {
     <div class="flex h-screen bg-[#050505] text-[#e5e2e1] body-text overflow-hidden selection:bg-[#B9C3FF]/20 relative">
         <div class="grain-overlay"></div>
 
-        <!-- Sidebar -->
-        <nav class="h-screen w-64 flex-shrink-0 bg-[#0E0E0E] flex flex-col py-10 px-6 z-50 border-r border-[#1C1B1B]">
-            <div class="mb-12">
-                <span class="text-[#B9C3FF] serif-text italic text-xl tracking-tighter uppercase font-light">Serana Studio</span>
-                <p class="text-[#454652] text-[10px] tracking-[0.2em] mt-1 font-medium uppercase text-opacity-50">V 1.0.42</p>
+        <!-- Mobile Header Bar -->
+        <div class="lg:hidden fixed top-0 inset-x-0 h-16 bg-[#0E0E0E]/80 backdrop-blur-xl border-b border-[#1C1B1B] z-[100] flex items-center justify-between px-6">
+            <div class="flex items-center gap-3">
+                <span class="serif-text italic text-lg tracking-tighter uppercase font-light text-[#B9C3FF]">Serana</span>
+                <span class="text-[8px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Atelier</span>
+            </div>
+            <button @click="menuOpen = !menuOpen" class="material-symbols-outlined text-[#B9C3FF]">
+                {{ menuOpen ? 'close' : 'menu' }}
+            </button>
+        </div>
+
+        <!-- Sidebar / Mobile Drawer -->
+        <nav :class="[
+            'h-screen bg-[#0E0E0E] flex flex-col py-10 lg:py-10 px-6 z-[110] border-r border-[#1C1B1B] transition-all duration-500 fixed lg:relative',
+            'w-72 lg:w-64',
+            menuOpen ? 'translate-x-0 shadow-[0_0_100px_rgba(0,0,0,1)]' : '-translate-x-full lg:translate-x-0'
+        ]">
+            <div class="mb-12 flex items-center justify-between">
+                <div>
+                    <span class="text-[#B9C3FF] serif-text italic text-xl tracking-tighter uppercase font-light">Serana Studio</span>
+                    <p class="text-[#454652] text-[10px] tracking-[0.2em] mt-1 font-medium uppercase text-opacity-50">V 1.0.42</p>
+                </div>
+                <button @click="menuOpen = false" class="lg:hidden material-symbols-outlined text-[#454652]">close</button>
             </div>
 
-            <div class="flex flex-col gap-y-2 flex-grow overflow-y-auto no-scrollbar">
+            <div class="flex flex-col gap-y-1 flex-grow overflow-y-auto no-scrollbar">
                 <button v-for="tab in [
-                    { id: 'overview', label: 'Ready Orders', icon: 'grid_view' },
-                    { id: 'orders', label: 'Custom Design', icon: 'architecture' },
-                    { id: 'catalog', label: 'Product List', icon: 'inventory_2' },
-                    { id: 'gallery', label: 'Client Gallery', icon: 'auto_awesome' },
-                    { id: 'leads', label: 'Subscribers', icon: 'insights' },
-                    { id: 'brand', label: 'Brand Assets', icon: 'palette' },
+                    { id: 'overview', label: 'Order Queue', icon: 'grid_view' },
+                    { id: 'orders', label: 'Custom Lab', icon: 'architecture' },
+                    { id: 'catalog', label: 'Piece Registry', icon: 'inventory_2' },
+                    { id: 'gallery', label: 'Circle Photos', icon: 'auto_awesome' },
+                    { id: 'leads', label: 'Patrons', icon: 'insights' },
+                    { id: 'brand', label: 'Concept Assets', icon: 'palette' },
                     { id: 'settings', label: 'Measurements', icon: 'settings' }
                 ]" :key="tab.id"
-                @click="currentTab = tab.id"
-                class="flex items-center gap-4 px-4 py-3 transition-all duration-300 border-l-4"
+                @click="currentTab = tab.id; menuOpen = false"
+                class="flex items-center gap-4 px-4 py-3.5 transition-all duration-300 border-l-4"
                 :class="currentTab === tab.id ? 'bg-[#1C1B1B] text-[#B9C3FF] border-[#B9C3FF] translate-x-1' : 'text-[#454652] border-transparent hover:bg-[#1C1B1B] hover:text-[#B9C3FF]'">
                     <span class="material-symbols-outlined text-[20px]">{{ tab.icon }}</span>
-                    <span class="text-sm font-light tracking-wide">{{ tab.label }}</span>
+                    <span class="text-[11px] font-black uppercase tracking-widest">{{ tab.label }}</span>
                 </button>
             </div>
 
             <div class="mt-auto pt-8">
-                <button v-if="currentTab !== 'gallery'" @click="showAddProductModal = true" class="w-full py-4 mb-8 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-bold tracking-[0.2em] uppercase glow-indigo transition-all transform active:scale-95">
-                    Add New Product
+                <button v-if="currentTab === 'catalog'" @click="showAddProductModal = true; menuOpen = false" class="w-full py-4 mb-4 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-black tracking-[0.25em] uppercase glow-indigo active:scale-95 transition-all">
+                    New Piece
                 </button>
-                <button v-else @click="showAddGalleryModal = true" class="w-full py-4 mb-8 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-bold tracking-[0.2em] uppercase glow-indigo transition-all transform active:scale-95">
-                    Add Gallery Photo
+                <button v-if="currentTab === 'gallery'" @click="showAddGalleryModal = true; menuOpen = false" class="w-full py-4 mb-4 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-black tracking-[0.25em] uppercase glow-indigo active:scale-95 transition-all">
+                    Add Legacy Shot
                 </button>
-                <div class="flex flex-col gap-2">
-                    <Link :href="route('home')" class="flex items-center gap-4 px-4 py-2 text-[#454652] hover:text-[#B9C3FF] transition-colors cursor-pointer">
+                <div class="flex flex-col gap-1">
+                    <Link :href="route('home')" class="flex items-center gap-4 px-4 py-2.5 text-[#454652] hover:text-[#B9C3FF] transition-colors">
                         <span class="material-symbols-outlined text-[18px]">help_outline</span>
-                        <span class="text-[11px] uppercase tracking-widest font-semibold">Support</span>
+                        <span class="text-[9px] uppercase tracking-[0.3em] font-black">Support</span>
                     </Link>
-                    <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-4 px-4 py-2 text-[#454652] hover:text-[#B9C3FF] transition-colors cursor-pointer w-full text-left">
+                    <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-4 px-4 py-2.5 text-[#454652] hover:text-[#B9C3FF] transition-colors w-full text-left">
                         <span class="material-symbols-outlined text-[18px]">logout</span>
-                        <span class="text-[11px] uppercase tracking-widest font-semibold">Sign Out</span>
+                        <span class="text-[9px] uppercase tracking-[0.3em] font-black">Sign Out</span>
                     </Link>
                 </div>
             </div>
         </nav>
 
         <!-- Main Content -->
-        <main class="flex-grow bg-[#050505] p-12 overflow-y-auto no-scrollbar animate-in">
-            <header class="flex justify-between items-end mb-16">
+        <main class="flex-grow bg-[#050505] p-5 sm:p-8 lg:p-12 mt-16 lg:mt-0 overflow-y-auto no-scrollbar animate-in">
+            <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 lg:mb-16 gap-6 lg:gap-0">
                 <div>
-                    <span class="text-[10px] text-[#8A9DFF] tracking-[0.4em] uppercase font-bold mb-2 block opacity-80">Studio Status</span>
-                    <h1 class="serif-text text-5xl font-light text-[#B9C3FF] tracking-tight">
-                        {{ currentTab === 'overview' ? 'Order Queue' : (currentTab === 'orders' ? 'Custom Lab' : (currentTab === 'gallery' ? 'Gallery' : (currentTab === 'brand' ? 'Brand Concept' : currentTab.charAt(0).toUpperCase() + currentTab.slice(1)))) }}
+                    <span class="text-[9px] text-primary tracking-[0.4em] uppercase font-black mb-2 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_#39FF14]"></span>
+                        Atelier Terminal
+                    </span>
+                    <h1 class="serif-text text-3xl lg:text-5xl font-light text-[#B9C3FF] tracking-tight">
+                        {{ currentTab === 'overview' ? 'Order Queue' : (currentTab === 'orders' ? 'Custom Lab' : (currentTab === 'gallery' ? 'Gallery' : (currentTab === 'brand' ? 'Concept' : currentTab.charAt(0).toUpperCase() + currentTab.slice(1)))) }}
                     </h1>
                 </div>
-                <div class="text-right">
-                    <p class="text-[#454652] text-[10px] tracking-widest uppercase font-bold">System Status</p>
-                    <p class="text-[#B9C3FF] text-sm font-medium tracking-widest">ONLINE / OPTIMIZED</p>
+                <div class="text-right flex lg:flex-col items-center lg:items-end justify-between w-full lg:w-auto">
+                    <p class="text-[#454652] text-[9px] tracking-widest uppercase font-black lg:mb-1">Sync Status</p>
+                    <p class="text-primary text-[10px] font-black tracking-widest bg-primary/5 px-3 py-1 border border-primary/20">LIVE_OPTIMIZED</p>
                 </div>
             </header>
 
-            <!-- Stats/Bento Grid -->
-            <div v-if="currentTab === 'overview'" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-                <div class="bg-[#0E0E0E] p-8 h-40 flex flex-col justify-between border border-[#1C1B1B] hover:bg-[#131313] transition-colors">
-                    <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">In Production</p>
+            <!-- Stats Ribbon (Mobile Optimized) -->
+            <div v-if="currentTab === 'overview'" class="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-6 mb-10 lg:mb-16 overflow-x-auto no-scrollbar pb-4 lg:pb-0 -mx-5 px-5 lg:mx-0 lg:px-0">
+                <div v-for="s in [
+                    { label: 'In Production', val: stats.active_orders, sub: 'Active Orders' },
+                    { label: 'Quality Score', val: '99.8%', sub: 'Precision Rating' },
+                    { label: 'Revenue Flow', val: 'KES ' + (stats.total_revenue / 1000).toFixed(1) + 'k', sub: 'MTD Velocity' }
+                ]" :key="s.label" class="min-w-[200px] lg:min-w-0 flex-1 bg-[#0E0E0E] p-6 lg:p-8 flex flex-col justify-between border border-white/5 hover:bg-[#131313] transition-all">
+                    <p class="text-[9px] text-[#454652] tracking-widest uppercase font-black mb-6">{{ s.label }}</p>
                     <div>
-                        <p class="serif-text text-4xl text-[#B9C3FF]">{{ stats.active_orders }}</p>
-                        <p class="text-[9px] text-[#8A9DFF] tracking-tighter uppercase font-black">Active Orders</p>
-                    </div>
-                </div>
-                <div class="bg-[#0E0E0E] p-8 h-40 flex flex-col justify-between border border-[#1C1B1B] hover:bg-[#131313] transition-colors">
-                    <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Quality Score</p>
-                    <div>
-                        <p class="serif-text text-4xl text-[#B9C3FF]">99.8%</p>
-                        <p class="text-[9px] text-[#8A9DFF] tracking-tighter uppercase font-black">Precision Rating</p>
-                    </div>
-                </div>
-                <div class="bg-[#0E0E0E] p-8 h-40 flex flex-col justify-between border border-[#1C1B1B] hover:bg-[#131313] transition-colors">
-                    <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Revenue Flow</p>
-                    <div>
-                        <p class="serif-text text-4xl text-[#B9C3FF]">KES {{ (stats.total_revenue / 1000).toFixed(1) }}k</p>
-                        <p class="text-[9px] text-[#8A9DFF] tracking-tighter uppercase font-black">Month to Date</p>
+                        <p class="serif-text text-2xl lg:text-4xl text-[#B9C3FF]">{{ s.val }}</p>
+                        <p class="text-[8px] text-primary/60 tracking-tighter uppercase font-black mt-1">{{ s.sub }}</p>
                     </div>
                 </div>
             </div>
@@ -528,31 +547,35 @@ function getAllOrderImages(order) {
                     </table>
                 </div>
 
-                <!-- Mobile Card Registry -->
-                <div class="lg:hidden space-y-6 pb-20">
+                <!-- Mobile Order Registry (Atelier Feed) -->
+                <div class="lg:hidden space-y-4 pb-20">
                     <div v-for="order in filteredOrders" :key="order.id" 
                         @click="selectOrder(order)"
-                        class="bg-[#0E0E0E] p-6 border border-white/5 active:bg-[#131313] transition-all rounded-sm flex gap-6"
-                        :class="form.id === order.id ? 'border-[#B9C3FF]/40' : ''">
+                        class="bg-[#0E0E0E] p-5 border border-white/5 active:bg-[#131313] transition-all flex gap-5 relative overflow-hidden"
+                        :class="form.id === order.id ? 'border-primary/40' : ''">
                         
-                        <div class="w-16 h-20 bg-[#050505] border border-white/5 flex-shrink-0 overflow-hidden">
-                            <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover">
+                        <div class="absolute top-0 right-0 p-2">
+                             <span :class="`text-[7px] font-black tracking-widest uppercase px-2 py-1 ${order.status === 'completed' ? 'text-primary bg-primary/5' : 'text-white/20 bg-white/5'}`">
+                                {{ order.status }}
+                             </span>
                         </div>
 
-                        <div class="flex-grow flex flex-col justify-between">
+                        <div class="w-14 h-18 bg-[#050505] border border-white/5 flex-shrink-0 overflow-hidden shadow-2xl">
+                            <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover opacity-60">
+                        </div>
+
+                        <div class="flex-grow flex flex-col justify-between py-1">
                             <div>
-                                <div class="flex justify-between items-start">
-                                    <p class="text-[9px] text-[#B9C3FF] tracking-widest font-bold">#{{ String(order.id).padStart(4, '0') }}</p>
-                                    <span :class="`text-[7px] font-black tracking-widest uppercase px-2 py-1 bg-white/5 ${order.status === 'completed' ? 'text-primary' : 'text-white/40'}`">
-                                        {{ order.status }}
-                                    </span>
-                                </div>
-                                <p class="text-[13px] text-white mt-1 font-medium">{{ order.full_name }}</p>
-                                <p class="serif-text text-xs text-white/40 italic">{{ order.garment_name }}</p>
+                                <p class="text-[8px] text-primary tracking-[0.3em] font-black mb-1">#ORD-{{ String(order.id).padStart(4, '0') }}</p>
+                                <h3 class="text-[13px] text-white font-headline font-black uppercase tracking-wide leading-none mb-1">{{ order.full_name }}</h3>
+                                <p class="text-[9px] text-white/30 uppercase tracking-widest font-medium">{{ order.garment_name || 'Legacy Draft' }}</p>
                             </div>
-                            <div class="flex justify-between items-end mt-2">
-                                <p class="text-[10px] text-primary font-black">KES {{ Number(order.price_quoted || 0).toLocaleString() }}</p>
-                                <p class="text-[7px] text-white/20 tracking-tighter">{{ new Date(order.created_at).toLocaleDateString() }}</p>
+                            <div class="flex justify-between items-end">
+                                <div>
+                                    <p class="text-[11px] text-primary font-black">{{ formatAmount(order.price_quoted || 0, page.props) }}</p>
+                                    <p class="text-[7px] text-white/20 uppercase tracking-widest mt-0.5">{{ new Date(order.created_at).toLocaleDateString() }}</p>
+                                </div>
+                                <span class="material-symbols-outlined text-white/10 text-xl">arrow_forward_ios</span>
                             </div>
                         </div>
                     </div>
@@ -576,7 +599,7 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <div v-if="!showArchivedProducts" class="grid grid-cols-1 md:grid-cols-3 gap-10 animate-in">
+                <div v-if="!showArchivedProducts" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-10 animate-in">
                     <div v-for="product in products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B] group">
                         <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative">
                             <img :src="product.image_url" class="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
@@ -601,7 +624,7 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-10 animate-in">
+                <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-10 animate-in">
                     <div v-for="product in archived_products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
                         <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative grayscale">
                             <img :src="product.image_url" class="w-full h-full object-cover opacity-30" />
@@ -647,7 +670,7 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <div v-if="!showArchivedGallery" class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in">
+                <div v-if="!showArchivedGallery" class="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12 animate-in lg:pb-0 pb-20">
                     <div v-for="item in gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B] group">
                         <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B]">
                             <img :src="item.image_url" class="w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000" />
@@ -666,7 +689,7 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in">
+                <div v-else class="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12 animate-in lg:pb-0 pb-20">
                     <div v-for="item in archived_gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
                         <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B] grayscale">
                             <img :src="item.image_url" class="w-full h-full object-cover opacity-30" />
@@ -717,7 +740,7 @@ function getAllOrderImages(order) {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12">
                         <!-- Site Logo -->
                         <div class="space-y-6">
                             <label class="curator-label uppercase">Application Logo (Light)</label>
@@ -775,7 +798,7 @@ function getAllOrderImages(order) {
                     </div>
 
                     <!-- Category Assets Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
                             <div v-for="cat in [
                                 { key: 'cat_men_bg', label: 'Men\'s / Hoodies' },
                                 { key: 'cat_women_bg', label: 'Women\'s / Dresses' },
@@ -806,7 +829,7 @@ function getAllOrderImages(order) {
                             <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">The rotating high-fidelity marketing shots</p>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 lg:gap-12">
                             <div v-for="i in [1, 2, 3]" :key="i" class="space-y-6">
                                 <label class="curator-label">Focal Shot {{ i }}</label>
                                 <div class="aspect-[3/4] bg-[#050505] border border-[#1C1B1B] relative group overflow-hidden">
@@ -839,7 +862,7 @@ function getAllOrderImages(order) {
                     </div>
 
                     <div class="space-y-12">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
                             <div>
                                 <label class="curator-label">Site Headline</label>
                                 <input :value="$page.props.theme_settings.site_headline" @blur="updateThemeAsset('site_headline', $event.target.value)" class="curator-input text-base" placeholder="THE ATELIER">
@@ -854,7 +877,7 @@ function getAllOrderImages(order) {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 pt-8 border-t border-[#1C1B1B]">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 pt-8 border-t border-[#1C1B1B]">
                             <div>
                                 <label class="curator-label">Currency Symbol</label>
                                 <input :value="$page.props.theme_settings.currency || 'KSh'" @blur="updateThemeAsset('currency', $event.target.value)" class="curator-input text-base border-b-[#B9C3FF]/30 text-[#B9C3FF]" placeholder="KSh">
@@ -878,7 +901,7 @@ function getAllOrderImages(order) {
                     <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-8">Measurement Settings</h3>
                     <p class="text-sm text-[#454652] leading-loose mb-12 max-w-2xl">Manage your global sizing presets and measurement standards here. These settings ensure a perfect fit across all custom and ready-to-wear pieces.</p>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-12">
                         <div class="p-8 border border-[#1C1B1B] bg-[#050505]">
                             <p class="text-[10px] text-[#B9C3FF] tracking-widest uppercase font-bold mb-4">Size Variation</p>
                             <div class="flex justify-between items-end">
@@ -898,15 +921,26 @@ function getAllOrderImages(order) {
             </div>
         </main>
 
-        <!-- Right Side Panel -->
-        <aside class="w-[450px] flex-shrink-0 bg-[#0E0E0E] p-12 overflow-y-auto no-scrollbar border-l border-[#1C1B1B] transition-all duration-700 animate-in" v-if="form.id">
-            <header class="mb-14">
+        <!-- Right Side Panel / Mobile Bottom Sheet -->
+        <aside id="order-sheet-mobile" 
+               :class="[
+                 'transition-all duration-700 fixed lg:relative z-[120] lg:z-40 lg:flex-shrink-0 bg-[#0E0E0E] border-l lg:border-[#1C1B1B]',
+                 'w-full lg:w-[450px] overflow-y-auto no-scrollbar lg:h-screen',
+                 'inset-x-0 bottom-0 h-[85vh] lg:h-screen lg:inset-auto translate-y-0 shadow-[0_-20px_100px_rgba(0,0,0,1)]',
+                 form.id ? 'flex flex-col p-8 lg:p-12' : 'hidden lg:flex lg:p-12'
+               ]">
+            <header class="mb-10 lg:mb-14 flex-shrink-0">
                 <div class="flex justify-between items-start mb-6">
-                    <h2 class="serif-text text-3xl font-light text-[#B9C3FF]">Order Sheet</h2>
-                    <button @click="form.id = null" class="material-symbols-outlined text-[#454652] text-2xl hover:text-[#B9C3FF] transition-colors">close</button>
+                    <div>
+                         <h2 class="serif-text text-2xl lg:text-3xl font-light text-[#B9C3FF]">Order Sheet</h2>
+                         <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-bold mt-1 opacity-60">Digital Registry Archive</p>
+                    </div>
+                    <button @click="form.id = null" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center material-symbols-outlined text-[#454652] hover:text-white transition-all">close</button>
                 </div>
-                <p class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-1 opacity-60">ID: #ORD-{{ String(form.id).padStart(4, '0') }}</p>
-                <div class="w-12 h-[1px] bg-[#B9C3FF]/30 mt-4"></div>
+                <div class="flex items-center justify-between">
+                    <p class="text-[10px] text-primary tracking-[0.4em] font-black italic">ID: #ORD-{{ String(form.id).padStart(4, '0') }}</p>
+                    <div class="h-[1px] flex-grow mx-6 bg-white/5"></div>
+                </div>
             </header>
 
             <div class="mb-14 space-y-10">
@@ -997,7 +1031,7 @@ function getAllOrderImages(order) {
         <div v-if="showAddProductModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
             <div @click="showAddProductModal = false; isEditingProduct = false; productPreview = null; productForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
             <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
-                <div class="w-full md:w-1/2 p-20 border-r border-[#1C1B1B]">
+                <div class="w-full lg:w-1/2 p-6 sm:p-10 lg:p-20 border-b lg:border-b-0 lg:border-r border-[#1C1B1B]">
                     <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingProduct ? 'Editorial Management' : 'Product Entry' }}</span>
                     <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingProduct ? 'Edit Piece' : 'Product Details' }}</h2>
                     <div class="space-y-10">
@@ -1029,7 +1063,7 @@ function getAllOrderImages(order) {
                         {{ productForm.processing ? 'PROCESSING_COMMISSION...' : (productForm.wasSuccessful ? 'RECORDED' : (isEditingProduct ? 'Update Collection Piece' : 'Add to Collection')) }}
                     </button>
                 </div>
-                <div class="w-full md:w-1/2 bg-[#050505] relative flex flex-col">
+                <div class="w-full lg:w-1/2 bg-[#050505] relative flex flex-col">
                     <!-- Main Image Slot -->
                     <div class="flex-grow relative flex items-center justify-center border-b border-[#1C1B1B]">
                         <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]" class="hidden" />
@@ -1068,7 +1102,7 @@ function getAllOrderImages(order) {
         <div v-if="showAddGalleryModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
             <div @click="showAddGalleryModal = false; isEditingGallery = false; galleryPreview = null; galleryForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
             <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
-                <div class="w-full md:w-1/2 p-20 border-r border-[#1C1B1B]">
+                <div class="w-full lg:w-1/2 p-6 sm:p-10 lg:p-20 border-b lg:border-b-0 lg:border-r border-[#1C1B1B]">
                     <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingGallery ? 'Showcase Refinement' : 'New Photo' }}</span>
                     <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingGallery ? 'Edit Showcase' : 'Add to Gallery' }}</h2>
                     <div class="space-y-10">
@@ -1092,9 +1126,9 @@ function getAllOrderImages(order) {
                         {{ galleryForm.processing ? 'POSTING_SHOT...' : (galleryForm.wasSuccessful ? 'POSTED' : (isEditingGallery ? 'Update Showcase' : 'Post to Gallery')) }}
                     </button>
                 </div>
-                <div class="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center">
+                <div class="w-full lg:w-1/2 bg-[#050505] relative flex items-center justify-center min-h-[300px]">
                     <input type="file" id="gallery-img" @input="galleryForm.image = $event.target.files[0]" class="hidden" />
-                    <label for="gallery-img" class="cursor-pointer group text-center p-20">
+                    <label for="gallery-img" class="cursor-pointer group text-center p-10 lg:p-20">
                         <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
                         <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">{{ isEditingGallery ? 'Replace Shot' : 'Upload Photo' }}</p>
                     </label>
