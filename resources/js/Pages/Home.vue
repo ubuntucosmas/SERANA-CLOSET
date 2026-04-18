@@ -14,9 +14,6 @@ const props = defineProps({
     featuredProducts: Array
 });
 
-const studioLoad = ref(12);
-const studioCapacity = ref(85);
-
 // Newsletter form
 const form = useForm({
     email: '',
@@ -65,9 +62,7 @@ onMounted(() => {
 
     document.querySelectorAll('.anime-reveal').forEach(el => observer.observe(el));
 
-    // Dynamic Studio Pulse Simulation
-    studioLoad.value = Math.floor(Math.random() * (16 - 8 + 1)) + 8;
-    studioCapacity.value = Math.floor(Math.random() * (96 - 78 + 1)) + 78;
+    document.querySelectorAll('.anime-reveal').forEach(el => observer.observe(el));
 });
 </script>
 
@@ -93,9 +88,9 @@ onMounted(() => {
         <section class="py-16 md:py-24 bg-background px-4 sm:px-8 anime-reveal">
             <div class="max-w-screen-xl mx-auto">
                 <CraftsmanshipBlock 
-                    subtitle="Our Uncompromising Standard"
-                    title="Built by Hand. <br/> <span class='text-primary font-medium luminous-glow'>Perfected by Code.</span>"
-                    description="We reject the mediocrity of fast fashion. Every piece at Serana Closet is a fusion of traditional Kenyan tailoring excellence and futuristic digital precision. We source only the heaviest silks and most resilient canvases to ensure your garment isn't just an outfit—it's an armor of style."
+                    subtitle="Our Quality Standard"
+                    title="Built by Hand. <br/> <span class='text-primary font-medium luminous-glow'>Perfected with Precision.</span>"
+                    description="We reject mass production. Every piece at Serana Closet is a fusion of traditional Kenyan tailoring and modern precision. We source the finest materials to ensure your garment isn't just an outfit—it's a signature piece."
                     image="/images/white_hoodie_silver_zipper.png"
                 >
                     <template #action>

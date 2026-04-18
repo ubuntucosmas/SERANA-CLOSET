@@ -98,7 +98,7 @@ onMounted(() => {
                     <!-- Main Heading -->
                     <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
                         Crafting your<br/>
-                        <span class=" font-light dark:text-white/40 text-black/40">perfect design_</span>
+                        <span class=" font-light dark:text-white/40 text-black/40">perfect design</span>
                     </h1>
 
                     <!-- Subtitle -->
@@ -108,11 +108,11 @@ onMounted(() => {
 
                     <!-- Actions -->
                     <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-4 lg:pt-6">
-                        <Link :href="route('custom-order')" class="flex-grow sm:flex-grow-0 text-center bg-primary text-background px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white transition-all duration-700 active:scale-95 shadow-[0_0_40px_rgba(57,255,20,0.15)]">
-                            Start order_
+                        <Link :href="route('custom-order')" class="flex-grow sm:flex-grow-0 text-center bg-primary text-background px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white transition-all duration-700 active:scale-95 shadow-[0_0_40_rgba(57,255,20,0.15)]">
+                            Start Order
                         </Link>
                         <Link :href="route('shop')" class="flex-grow sm:flex-grow-0 text-center bg-white/5 backdrop-blur-3xl dark:text-white text-on-surface border dark:border-white/10 border-black/10 px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white/10 transition-all duration-700 active:scale-95">
-                            Open Shop_
+                            Open Shop
                         </Link>
                     </div>
                 </div>

@@ -24,19 +24,7 @@
             <header class="mb-12 flex items-center justify-between border-b dark:border-white/5 border-black/5 pb-6 reveal">
                 <div class="flex items-center gap-4">
                     <div class="px-3 py-1 bg-primary/10 border border-primary/20 rounded-sm">
-                        <span class="font-headline text-[9px] tracking-[0.3em] text-primary font-bold uppercase">Design Studio</span>
-                    </div>
-                    <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(182,143,101,0.5)]"></div>
-                    <span class="font-headline text-[9px] tracking-[0.3em] dark:text-white/30 text-black/30 font-bold uppercase">Status: Online</span>
-                </div>
-                <div class="hidden lg:flex items-center gap-8 border-l dark:border-white/5 border-black/5 pl-8">
-                    <div class="flex flex-col items-end">
-                        <span class="font-headline text-[8px] tracking-[0.2em] dark:text-white/20 text-black/20 uppercase">Node_Secure</span>
-                        <span class="font-headline text-[9px] tracking-[0.2em] dark:text-white text-on-surface font-bold">L-FRANKFURT-01</span>
-                    </div>
-                    <div class="flex flex-col items-end">
-                        <span class="font-headline text-[8px] tracking-[0.2em] dark:text-white/20 text-black/20 uppercase">Latency_</span>
-                        <span class="font-headline text-[9px] tracking-[0.2em] text-primary font-bold">12ms</span>
+                        <span class="font-headline text-[9px] tracking-[0.3em] text-primary font-bold uppercase">Custom Order Request</span>
                     </div>
                 </div>
             </header>
@@ -103,7 +91,7 @@
                                 <!-- Outfit Type Selection -->
                                 <div class="space-y-6">
                                     <div class="flex flex-col">
-                                        <label class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase text-primary">SELECT STYLE_</label>
+                                        <label class="text-[10px] font-headline font-bold tracking-[0.3em] uppercase text-primary">SELECT STYLE</label>
                                         <div class="h-px w-12 bg-primary/20 mt-2"></div>
                                     </div>
                                     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -294,10 +282,10 @@
                             <button type="submit" :disabled="isSubmitting" class="w-full bg-primary text-background py-8 hover:bg-white hover:scale-[1.01] active:scale-[0.99] transition-all duration-700 disabled:opacity-50 group shadow-[0_0_50px_rgba(182,143,101,0.2)]">
                                 <div class="flex flex-col items-center gap-2">
                                     <span class="font-headline tracking-[0.6em] uppercase font-bold text-sm flex items-center justify-center gap-4">
-                                        {{ isSubmitting ? 'ORDER: PROCESSING_' : 'SUBMIT ORDER_' }}
+                                        {{ isSubmitting ? 'PROCESSING...' : 'REQUEST QUOTE' }}
                                         <span v-if="!isSubmitting" class="material-symbols-outlined text-lg group-hover:translate-x-2 transition-transform">bolt</span>
                                     </span>
-                                    <span class="text-[8px] font-headline tracking-[0.4em] uppercase opacity-40">Ready to create your custom outfit</span>
+                                    <span class="text-[8px] font-headline tracking-[0.4em] uppercase opacity-40">Ready to start your custom outfit</span>
                                 </div>
                             </button>
                         </div>

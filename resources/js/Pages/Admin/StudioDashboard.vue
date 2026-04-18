@@ -416,15 +416,12 @@ function getAllOrderImages(order) {
                 <button @click="menuOpen = false" class="lg:hidden material-symbols-outlined text-[#454652]">close</button>
             </div>
 
-            <div class="flex flex-col gap-y-1 flex-grow overflow-y-auto no-scrollbar">
+            <div class="space-y-4">
                 <button v-for="tab in [
-                    { id: 'overview', label: 'Order Queue', icon: 'grid_view' },
-                    { id: 'orders', label: 'Custom Lab', icon: 'architecture' },
-                    { id: 'catalog', label: 'Piece Registry', icon: 'inventory_2' },
-                    { id: 'gallery', label: 'Circle Photos', icon: 'auto_awesome' },
-                    { id: 'leads', label: 'Patrons', icon: 'insights' },
-                    { id: 'brand', label: 'Concept Assets', icon: 'palette' },
-                    { id: 'settings', label: 'Measurements', icon: 'settings' }
+                    { id: 'overview', label: 'Order Queue', icon: 'reorder' },
+                    { id: 'catalog', label: 'Store Catalog', icon: 'shelves' },
+                    { id: 'gallery', label: 'Studio Showcase', icon: 'gallery_thumbnail' },
+                    { id: 'brand', label: 'Brand Concept', icon: 'brush' }
                 ]" :key="tab.id"
                 @click="currentTab = tab.id; menuOpen = false"
                 class="flex items-center gap-4 px-4 py-3.5 transition-all duration-300 border-l-4"
@@ -474,17 +471,16 @@ function getAllOrderImages(order) {
 
             <!-- Stats Ribbon (Mobile Optimized) -->
             <div v-if="currentTab === 'overview'" class="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-6 mb-10 lg:mb-16 overflow-x-auto no-scrollbar pb-4 lg:pb-0 -mx-5 px-5 lg:mx-0 lg:px-0">
-                <div v-for="s in [
-                    { label: 'In Production', val: stats.active_orders, sub: 'Active Orders' },
-                    { label: 'Quality Score', val: '99.8%', sub: 'Precision Rating' },
-                    { label: 'Revenue Flow', val: 'KES ' + (stats.total_revenue / 1000).toFixed(1) + 'k', sub: 'MTD Velocity' }
-                ]" :key="s.label" class="min-w-[200px] lg:min-w-0 flex-1 bg-[#0E0E0E] p-6 lg:p-8 flex flex-col justify-between border border-white/5 hover:bg-[#131313] transition-all">
-                    <p class="text-[9px] text-[#454652] tracking-widest uppercase font-black mb-6">{{ s.label }}</p>
-                    <div>
-                        <p class="serif-text text-2xl lg:text-4xl text-[#B9C3FF]">{{ s.val }}</p>
-                        <p class="text-[8px] text-primary/60 tracking-tighter uppercase font-black mt-1">{{ s.sub }}</p>
+                    <div class="flex items-center gap-10">
+                        <div class="p-6 border border-[#1C1B1B] bg-[#0E0E0E] min-w-[200px]">
+                            <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-black mb-1">Active Boutique Orders</p>
+                            <p class="serif-text text-3xl text-[#B9C3FF] font-light">{{ orders.length }}</p>
+                        </div>
+                        <div class="p-6 border border-[#1C1B1B] bg-[#0E0E0E] min-w-[200px]">
+                            <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-black mb-1">Store Revenue Registry</p>
+                            <p class="serif-text text-3xl text-[#B9C3FF] font-light">{{ formatAmount(stats.total_revenue || 0, page.props) }}</p>
+                        </div>
                     </div>
-                </div>
             </div>
 
             <div v-if="currentTab === 'overview' || currentTab === 'orders'">
@@ -569,9 +565,9 @@ function getAllOrderImages(order) {
 
                         <div class="flex-grow flex flex-col justify-between py-1">
                             <div>
-                                <p class="text-[8px] text-primary tracking-[0.3em] font-black mb-1">#ORD-{{ String(order.id).padStart(4, '0') }}</p>
+                                <p class="text-[8px] text-primary tracking-[0.3em] font-black mb-1">ID: #{{ String(order.id).padStart(4, '0') }}</p>
                                 <h3 class="text-[13px] text-white font-headline font-black uppercase tracking-wide leading-none mb-1">{{ order.full_name }}</h3>
-                                <p class="text-[9px] text-white/30 uppercase tracking-widest font-medium">{{ order.garment_name || 'Legacy Draft' }}</p>
+                                <p class="text-[9px] text-white/30 uppercase tracking-widest font-medium">{{ order.garment_name || 'Piece' }}</p>
                             </div>
                             <div class="flex justify-between items-end">
                                 <div>
@@ -715,22 +711,6 @@ function getAllOrderImages(order) {
                 </div>
             </div>
 
-            <!-- Subscribers -->
-            <div v-if="currentTab === 'leads'" class="space-y-4 animate-in">
-                <div v-for="lead in leads" :key="lead.id" class="bg-[#0E0E0E] p-8 border border-[#1C1B1B] flex items-center justify-between group hover:bg-[#131313] transition-colors">
-                    <div class="flex items-center gap-8">
-                        <div class="w-12 h-12 bg-[#050505] border border-[#1C1B1B] flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[#B9C3FF] text-lg font-light">mail</span>
-                        </div>
-                        <div>
-                            <p class="serif-text text-xl text-[#e5e2e1] font-light">{{ lead.email }}</p>
-                            <p class="text-[9px] text-[#454652] tracking-widest uppercase mt-1">Subscribed: Ref #{{ String(lead.id).padStart(4, '0') }}</p>
-                        </div>
-                    </div>
-                    <span class="text-[10px] text-[#B9C3FF] tracking-[0.4em] uppercase font-bold opacity-40 group-hover:opacity-100 transition-opacity">Active Member</span>
-                </div>
-            </div>
-
             <!-- Brand Assets -->
             <div v-if="currentTab === 'brand'" class="max-w-6xl animate-in space-y-12 pb-20">
                 
@@ -738,7 +718,7 @@ function getAllOrderImages(order) {
                 <div class="bg-[#0E0E0E] p-12 border border-[#1C1B1B]">
                     <div class="flex justify-between items-start mb-12">
                         <div>
-                            <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-2">Core Identity</h3>
+                            <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-2">Visual Identity</h3>
                             <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Logos & Symbols</p>
                         </div>
                     </div>
@@ -933,10 +913,10 @@ function getAllOrderImages(order) {
                  form.id ? 'flex flex-col p-8 lg:p-12' : 'hidden lg:flex lg:p-12'
                ]">
             <header class="mb-10 lg:mb-14 flex-shrink-0">
-                <div class="flex justify-between items-start mb-6">
+                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
                     <div>
-                         <h2 class="serif-text text-2xl lg:text-3xl font-light text-[#B9C3FF]">Order Sheet</h2>
-                         <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-bold mt-1 opacity-60">Digital Registry Archive</p>
+                        <h1 class="serif-text text-4xl text-white font-light tracking-tight">{{ currentTab === 'overview' ? 'Order Queue' : (currentTab === 'catalog' ? 'Collection Registry' : 'Visual Showcase') }}</h1>
+                        <p class="text-[9px] text-[#454652] tracking-[0.4em] uppercase font-bold mt-2">Active {{ currentTab }} stream</p>
                     </div>
                     <button @click="form.id = null" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center material-symbols-outlined text-[#454652] hover:text-white transition-all">close</button>
                 </div>
@@ -967,36 +947,34 @@ function getAllOrderImages(order) {
                 </div>
             </div>
 
+            <!-- Progress Documentation -->
             <div class="mb-20">
-                <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold mb-10 opacity-60">Status Tracking</p>
-                <div class="space-y-12 relative ml-1">
-                    <div class="absolute left-[5px] top-0 bottom-0 w-[1px] bg-[#1C1B1B]"></div>
-                    <div v-for="(p, i) in [{ label: 'Cutting Fabric', active: true, done: true }, { label: 'Sewing Process', active: true, done: false, progress: 42 }, { label: 'Quality Check', active: false, done: false }]" :key="p.label" class="relative pl-10 group">
-                        <div :class="`absolute left-0 top-1 w-2.5 h-2.5 transition-all duration-700 ${p.done ? 'bg-[#8A9DFF]' : (p.active ? 'bg-[#B9C3FF] glow-indigo' : 'bg-[#454652]')}`"></div>
-                        <p :class="`text-[10px] tracking-[0.2em] uppercase font-bold ${p.active || p.done ? 'text-[#e5e2e1]' : 'text-[#454652]'}`">{{ p.label }}</p>
-                        <p class="text-[11px] text-[#454652] mt-2 font-medium uppercase tracking-widest italic opacity-60">{{ p.done ? 'Finished' : (p.active ? `In Progress / ${p.progress}%` : 'Waiting') }}</p>
-                        <div v-if="p.active && !p.done" class="mt-4 w-full h-[2px] bg-[#1C1B1B]"><div class="h-full bg-[#B9C3FF] transition-all duration-1000" :style="{ width: p.progress + '%' }"></div></div>
+                <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold mb-10 opacity-60">Status Notes</p>
+                <div class="space-y-8">
+                    <div class="p-6 border border-white/5 bg-black/20 flex items-center gap-6">
+                        <div class="w-2.5 h-2.5 bg-[#B9C3FF] glow-indigo"></div>
+                        <p class="text-[10px] tracking-[0.2em] uppercase font-bold text-[#e5e2e1]">Currently: {{ form.status }}</p>
                     </div>
                 </div>
             </div>
 
                 <div class="mt-12 pt-10 border-t border-white/10 space-y-8">
                     
-                    <!-- Core Order Controls (Restored) -->
+                    <!-- Core Order Controls -->
                     <div class="space-y-6">
                         <div>
-                            <label class="curator-label">Internal Process Notes</label>
-                            <textarea v-model="form.internal_notes" rows="3" class="curator-textarea no-scrollbar text-sm" placeholder="Add private notes about this order..."></textarea>
+                            <label class="curator-label uppercase">Private Notes</label>
+                            <textarea v-model="form.internal_notes" rows="3" class="curator-textarea no-scrollbar text-sm" placeholder="Add private notes..."></textarea>
                         </div>
                         <div>
-                            <label class="curator-label">Fulfillment Phase</label>
+                            <label class="curator-label uppercase">Current Phase</label>
                             <select v-model="form.status" class="w-full bg-[#050505] border border-white/5 p-4 text-[10px] tracking-widest uppercase font-black text-[#B9C3FF] focus:border-[#B9C3FF] outline-none">
                                 <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
                             </select>
                         </div>
                     </div>
 
-                    <p class="text-[10px] text-[#B9C3FF] tracking-[0.6em] uppercase font-bold italic mb-4 pt-4">Artisan Logbook</p>
+                    <p class="text-[10px] text-[#B9C3FF] tracking-[0.6em] uppercase font-bold italic mb-4 pt-4">Process Log</p>
                     
                     <!-- Progress Photo Upload -->
                     <div class="bg-[#1C1B1B]/40 p-6 border border-white/5 space-y-6">
