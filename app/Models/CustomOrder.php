@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class CustomOrder extends Model
 {
+    use SoftDeletes;
     protected $guarded = [];
 
     protected $casts = [
@@ -17,6 +19,13 @@ class CustomOrder extends Model
 
     protected $appends = ['inspiration_urls', 'items_with_urls'];
 
+    /**
+     * getInspirationUrlsAttribute
+     * 
+     * Dynamically resolves stored image paths into full, publicly accessible URLs.
+     * It intelligently handles both local storage and cloud (S3) drivers
+     * based on the active storage configuration.
+     */
     public function getInspirationUrlsAttribute()
     {
         $paths = $this->inspiration_image_paths ?: [];

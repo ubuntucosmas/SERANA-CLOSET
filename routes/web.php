@@ -6,6 +6,7 @@ use App\Http\Controllers\CustomOrderController;
 use App\Http\Controllers\CircleController;
 use App\Http\Controllers\Admin\StudioController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\MpesaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -28,6 +29,10 @@ Route::get('/contact',             fn () => Inertia::render('Contact'))->name('c
 Route::get('/cart',                fn () => Inertia::render('Cart'))->name('cart');
 Route::get('/checkout',            [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout/process',   [CheckoutController::class, 'process'])->name('checkout.process');
+
+// M-Pesa Secure Protocol Routes
+Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])->name('mpesa.stk');
+Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])->name('mpesa.status');
 
 // Centralized Dashboard Redirect (Handles legacy Breeze redirects)
 Route::get('/dashboard', function () {
@@ -70,6 +75,9 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::get('/', [StudioController::class, 'index'])->name('studio.index');
     Route::put('/order/{order}', [StudioController::class, 'update'])->name('studio.update');
+    Route::delete('/order/{order}', [StudioController::class, 'destroy'])->name('studio.order.destroy');
+    Route::post('/order/{id}/restore', [StudioController::class, 'restore'])->name('studio.order.restore');
+    Route::delete('/order/{id}/force', [StudioController::class, 'forceDelete'])->name('studio.order.force_delete');
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
 
     // Catalog Management

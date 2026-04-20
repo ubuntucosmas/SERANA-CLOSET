@@ -1,3 +1,16 @@
+<!-- 
+  StudioDashboard.vue - The "Order Registry" 
+  
+  Architectural Role: 
+  The primary administrative hub for Serana Studio. It manages incoming custom orders,
+  production progress, and brand asset management.
+  
+  Key Features:
+  1. High-Density Tabular Registry: Desktop view optimized for rapid data auditing.
+  2. Mobile Command Center: Sidebar transforms into a drawer; layout becomes vertical.
+  3. Artisan Snapshot: Rapid data portability for WhatsApp production sharing.
+  4. Bento-to-Sheet Transition: Order details open as side panels (desktop) or bottom-sheets (mobile).
+-->
 <script setup>
 import { ref, computed } from 'vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
@@ -12,6 +25,7 @@ const props = defineProps({
     archived_gallery: { type: Array, default: () => [] },
 	stats: { type: Object, default: () => ({}) },
 	leads: { type: Array, default: () => [] },
+    archived_orders: { type: Array, default: () => [] },
 	active_tab: { type: String, default: 'overview' }
 });
 
@@ -20,13 +34,18 @@ const { formatAmount } = useCurrency();
 const currentTab = ref(props.active_tab);
 const showArchivedProducts = ref(false);
 const showArchivedGallery = ref(false);
+const showArchivedOrders = ref(false);
 const selectedOrder = ref(null);
 
 const filteredOrders = computed(() => {
-	return props.orders.filter(o => currentTab.value === 'overview' ? o.type === 'standard' : o.type !== 'standard');
+    const pool = showArchivedOrders.value ? props.archived_orders : props.orders;
+	return pool.filter(o => currentTab.value === 'overview' ? o.type === 'standard' : o.type !== 'standard');
 });
 
 const productPreview = ref(null);
+const secondaryPreview1 = ref(null);
+const secondaryPreview2 = ref(null);
+
 function editProduct(product) {
     isEditingProduct.value = true;
     productForm.id = product.id;
@@ -37,8 +56,14 @@ function editProduct(product) {
     productForm.in_stock = product.in_stock;
     productForm.is_customizable = product.is_customizable;
     productForm.batch_limit = product.batch_limit;
-    productForm.image = null; // Only if replacing
+    productForm.image = null; 
+    productForm.secondary_image_1 = null;
+    productForm.secondary_image_2 = null;
+    
     productPreview.value = product.image_url;
+    secondaryPreview1.value = product.secondary_image_urls?.[0] || null;
+    secondaryPreview2.value = product.secondary_image_urls?.[1] || null;
+    
     showAddProductModal.value = true;
 }
 
@@ -95,6 +120,31 @@ const themeForm = useForm({
     value: null
 });
 
+const siteInfoForm = useForm({
+    settings: {
+        site_name: '',
+        site_tagline: '',
+        whatsapp_number: '',
+    }
+});
+
+function initSiteInfo() {
+    const ts = usePage().props.theme_settings ?? {};
+    siteInfoForm.settings.site_name      = ts.site_name ?? '';
+    siteInfoForm.settings.site_tagline   = ts.site_tagline ?? '';
+    siteInfoForm.settings.whatsapp_number = ts.whatsapp_number ?? usePage().props.whatsapp_number ?? '';
+    siteInfoForm.settings.focal_1_label = ts.focal_1_label ?? '';
+    siteInfoForm.settings.focal_2_label = ts.focal_2_label ?? '';
+    siteInfoForm.settings.focal_3_label = ts.focal_3_label ?? '';
+}
+initSiteInfo();
+
+function saveSiteInfo() {
+    siteInfoForm.post(route('admin.theme.bulk_update'), {
+        preserveScroll: true,
+    });
+}
+
 function updateThemeAsset(key, val) {
     themeForm.key = key;
     themeForm.value = val;
@@ -109,15 +159,6 @@ const progressSnapForm = useForm({
     description: ''
 });
 
-function submitProgressSnap() {
-    if (!selectedOrder.value) return;
-    progressSnapForm.post(route('studio.progress_snap', selectedOrder.value.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            progressSnapForm.reset();
-        }
-    });
-}
 
 function deleteThemeAsset(key) {
     if (confirm(`Reset ${key} to default?`)) {
@@ -159,6 +200,13 @@ TOTAL: ${formatAmount(o.total || 0, page.props)}
     });
 }
 
+/**
+ * selectOrder(order)
+ * 
+ * Handles the focused selection of an order for the detail view.
+ * Note: On mobile viewports (<1024px), this triggers an auto-scroll
+ * to the details section to ensure visual continuity.
+ */
 function selectOrder(order) {
     if (selectedOrder.value?.id === order.id) {
         selectedOrder.value = null;
@@ -191,6 +239,47 @@ function updateOrder() {
             console.error('[Serana] Order update failed:', err);
         }
 	});
+}
+
+function deleteOrder(id) {
+    if (confirm('Move this order to the archive? This will remove it from the active registry.')) {
+        router.delete(route('studio.order.destroy', id), {
+            preserveScroll: true,
+            onSuccess: () => selectedOrder.value = null
+        });
+    }
+}
+
+function restoreOrder(id) {
+    if (confirm('Restore this order to the active registry?')) {
+        router.post(route('studio.order.restore', id), {}, {
+            preserveScroll: true,
+            onSuccess: () => selectedOrder.value = null
+        });
+    }
+}
+
+function forceDeleteOrder(id) {
+    if (confirm('PERMANENTLY PURGE this order and all its visual assets? This cannot be undone.')) {
+        router.delete(route('studio.order.force_delete', id), {
+            preserveScroll: true,
+            onSuccess: () => selectedOrder.value = null
+        });
+    }
+}
+
+function submitProgressSnap() {
+    if (!form.id || !progressSnapForm.image) return;
+    
+    progressSnapForm.post(route('studio.progress_snap', form.id), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            progressSnapForm.image = null;
+            // The record is updated via inertia, so computed refs will handle the rest
+            console.log('[Serana] Progress snap archived.');
+        }
+    });
 }
 
 function deleteProduct(id) {
@@ -228,6 +317,8 @@ function submitProduct() {
                 isEditingProduct.value = false;
                 productForm.id = null;
                 productPreview.value = null;
+                secondaryPreview1.value = null;
+                secondaryPreview2.value = null;
                 productForm.reset();
             }
         });
@@ -235,6 +326,8 @@ function submitProduct() {
         productForm.post(route('admin.catalog.store_product'), {
             onSuccess: () => {
                 showAddProductModal.value = false;
+                secondaryPreview1.value = null;
+                secondaryPreview2.value = null;
                 productForm.reset();
             }
         });
@@ -334,839 +427,854 @@ function getAllOrderImages(order) {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Manrope:wght@200;400;600;800&display=swap');
+
 .serif-text { font-family: "Noto Serif", serif; }
-.body-text { font-family: "Space Grotesk", sans-serif; }
+.font-headline { font-family: 'Noto Serif', serif; }
+.font-body { font-family: 'Manrope', sans-serif; }
 
-.grain-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.03;
-    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuANd_1l5vSNlqCaap9xyuJ7wljCLCb-Q-fbaXEEoUYJ5a7CNPUv_rgLBn_Um2FTcqAOKu-EwaylogmNtIZBD9TjfaqUIcn783CYOEDel16ybTSd-kKdpIioKf4JPOtmNFDtDfa_cdU8ddffXw67rHSQKcLhHnPFJWY8mZtyJuO8cgPZVvi8NV1JhZOinwfpek7CHVaRUBhhKMrfjjRkwzJzYDNjJWzolUP8yDv8TlkT31janlAuesR5fnUQP-Wn96h13HtddXxGOu0);
+.bg-atelier-bg { background-color: #fcf9f4; }
+.bg-atelier-surface { background-color: #f6f3ee; }
+.text-atelier-primary { color: #390908; }
+.text-atelier-secondary { color: #5f5e5e; }
+
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
 }
-
-.glow-indigo {
-    box-shadow: 0 0 40px rgba(138, 157, 255, 0.15);
-}
-
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #050505; }
-::-webkit-scrollbar-thumb { background: #1C1B1B; border-radius: 0px; }
-::-webkit-scrollbar-thumb:hover { background: #B9C3FF; }
 
 .animate-in {
-    animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUpFade 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes fadeIn {
+@keyframes slideUpFade {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Form Styles for Clarity */
-.curator-label {
-    display: block;
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: #454652;
-    margin-bottom: 8px;
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.status-pulse {
+    position: relative;
 }
 
-.curator-input {
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #1C1B1B;
-    padding: 12px 0;
-    font-size: 1.25rem;
-    font-family: inherit;
-    color: #e5e2e1;
-    outline: none;
-    transition: all 0.3s ease;
+.status-pulse::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 2px solid currentColor;
+    opacity: 0;
+    animation: pulse 2s infinite;
 }
 
-.curator-input:focus {
-    border-color: #B9C3FF;
-    border-bottom-width: 2px;
+@keyframes pulse {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    100% { transform: scale(1.5); opacity: 0; }
 }
 
-.curator-textarea {
-    width: 100%;
-    background: transparent;
-    border: 1px solid #1C1B1B;
-    padding: 16px;
-    font-size: 0.875rem;
-    line-height: 1.6;
-    color: #e5e2e1;
-    outline: none;
-    transition: all 0.3s ease;
-}
-
-.curator-textarea:focus {
-    border-color: #B9C3FF;
+.luxury-shadow {
+    box-shadow: 0 10px 30px -10px rgba(57, 9, 8, 0.05);
 }
 </style>
 
 <template>
-    <Head title="THE ATELIER | CURATOR DASHBOARD" />
+    <Head title="Serana Studio | The Atelier" />
 
-    <div class="flex h-screen bg-[#050505] text-[#e5e2e1] body-text overflow-hidden selection:bg-[#B9C3FF]/20 relative">
-        <div class="grain-overlay"></div>
-
-        <!-- Mobile Header Bar -->
-        <div class="lg:hidden fixed top-0 inset-x-0 h-16 bg-[#0E0E0E]/80 backdrop-blur-xl border-b border-[#1C1B1B] z-[100] flex items-center justify-between px-6">
-            <div class="flex items-center gap-3">
-                <span class="serif-text italic text-lg tracking-tighter uppercase font-light text-[#B9C3FF]">Serana</span>
-                <span class="text-[8px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Atelier</span>
-            </div>
-            <button @click="menuOpen = !menuOpen" class="material-symbols-outlined text-[#B9C3FF]">
-                {{ menuOpen ? 'close' : 'menu' }}
-            </button>
-        </div>
-
-        <!-- Sidebar / Mobile Drawer -->
-        <nav :class="[
-            'h-screen bg-[#0E0E0E] flex flex-col py-10 lg:py-10 px-6 z-[110] border-r border-[#1C1B1B] transition-all duration-500 fixed lg:relative',
-            'w-72 lg:w-64',
-            menuOpen ? 'translate-x-0 shadow-[0_0_100px_rgba(0,0,0,1)]' : '-translate-x-full lg:translate-x-0'
+    <div class="flex h-screen bg-[#fcf9f4] text-[#1c1c19] font-body overflow-hidden selection:bg-[#ffdad6] relative">
+        
+        <!-- SideNavBar -->
+        <aside :class="[
+            'h-screen w-64 fixed left-0 top-0 bg-[#f6f3ee] flex flex-col py-8 px-6 z-50 transition-transform duration-500',
+            menuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         ]">
-            <div class="mb-12 flex items-center justify-between">
-                <div>
-                    <span class="text-[#B9C3FF] serif-text italic text-xl tracking-tighter uppercase font-light">Serana Studio</span>
-                    <p class="text-[#454652] text-[10px] tracking-[0.2em] mt-1 font-medium uppercase text-opacity-50">V 1.0.42</p>
-                </div>
-                <button @click="menuOpen = false" class="lg:hidden material-symbols-outlined text-[#454652]">close</button>
+            <div class="mb-12">
+                <h2 class="font-headline text-2xl text-[#390908] leading-tight">The Atelier</h2>
+                <p class="font-body tracking-wider uppercase text-[10px] text-[#5f5e5e] mt-1">Luxury Dashboard</p>
             </div>
-
-            <div class="space-y-4">
+            
+            <nav class="flex-1 space-y-2">
                 <button v-for="tab in [
-                    { id: 'overview', label: 'Order Queue', icon: 'reorder' },
-                    { id: 'catalog', label: 'Store Catalog', icon: 'shelves' },
-                    { id: 'gallery', label: 'Studio Showcase', icon: 'gallery_thumbnail' },
-                    { id: 'brand', label: 'Brand Concept', icon: 'brush' }
+                    { id: 'overview', label: 'Orders', icon: 'shopping_bag' },
+                    { id: 'catalog', label: 'Inventory', icon: 'inventory_2' },
+                    { id: 'gallery', label: 'Showcase', icon: 'auto_awesome_motion' },
+                    { id: 'leads', label: 'Subscribers', icon: 'insights' },
+                    { id: 'brand', label: 'Identity', icon: 'collections' },
+                    { id: 'settings', label: 'Settings', icon: 'settings' }
                 ]" :key="tab.id"
                 @click="currentTab = tab.id; menuOpen = false"
-                class="flex items-center gap-4 px-4 py-3.5 transition-all duration-300 border-l-4"
-                :class="currentTab === tab.id ? 'bg-[#1C1B1B] text-[#B9C3FF] border-[#B9C3FF] translate-x-1' : 'text-[#454652] border-transparent hover:bg-[#1C1B1B] hover:text-[#B9C3FF]'">
+                :class="[
+                    'group flex items-center gap-3 px-4 py-3 w-full transition-all duration-300 rounded-lg',
+                    currentTab === tab.id 
+                        ? 'text-[#390908] font-bold bg-[#fcf9f4]/50' 
+                        : 'text-[#5f5e5e] hover:translate-x-1'
+                ]">
                     <span class="material-symbols-outlined text-[20px]">{{ tab.icon }}</span>
-                    <span class="text-[11px] font-black uppercase tracking-widest">{{ tab.label }}</span>
+                    <span class="font-body tracking-wider uppercase text-[10px]">{{ tab.label }}</span>
                 </button>
-            </div>
 
-            <div class="mt-auto pt-8">
-                <button v-if="currentTab === 'catalog'" @click="showAddProductModal = true; menuOpen = false" class="w-full py-4 mb-4 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-black tracking-[0.25em] uppercase glow-indigo active:scale-95 transition-all">
-                    New Piece
+                <a href="#" class="group flex items-center gap-3 px-4 py-3 text-[#5f5e5e] hover:translate-x-1 transition-transform duration-200">
+                    <span class="material-symbols-outlined text-[20px]">analytics</span>
+                    <span class="font-body tracking-wider uppercase text-[10px]">Analytics</span>
+                </a>
+                <a href="#" class="group flex items-center gap-3 px-4 py-3 text-[#5f5e5e] hover:translate-x-1 transition-transform duration-200">
+                    <span class="material-symbols-outlined text-[20px]">event_note</span>
+                    <span class="font-body tracking-wider uppercase text-[10px]">Schedule</span>
+                </a>
+            </nav>
+
+            <div class="mt-auto space-y-6">
+                <button @click="currentTab === 'catalog' ? showAddProductModal = true : (currentTab === 'gallery' ? showAddGalleryModal = true : null)" 
+                        class="w-full py-4 bg-[#390908] text-white font-headline text-sm rounded-lg hover:opacity-90 transition-all active:scale-95">
+                    {{ currentTab === 'catalog' ? 'New Product' : (currentTab === 'gallery' ? 'Add Showcase' : 'Create New Line') }}
                 </button>
-                <button v-if="currentTab === 'gallery'" @click="showAddGalleryModal = true; menuOpen = false" class="w-full py-4 mb-4 bg-gradient-to-r from-[#B9C3FF] to-[#8A9DFF] text-[#092484] text-[10px] font-black tracking-[0.25em] uppercase glow-indigo active:scale-95 transition-all">
-                    Add Legacy Shot
-                </button>
-                <div class="flex flex-col gap-1">
-                    <Link :href="route('home')" class="flex items-center gap-4 px-4 py-2.5 text-[#454652] hover:text-[#B9C3FF] transition-colors">
+                <div class="space-y-2">
+                    <a class="group flex items-center gap-3 px-4 py-2 text-[#5f5e5e]" href="#">
                         <span class="material-symbols-outlined text-[18px]">help_outline</span>
-                        <span class="text-[9px] uppercase tracking-[0.3em] font-black">Support</span>
-                    </Link>
-                    <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-4 px-4 py-2.5 text-[#454652] hover:text-[#B9C3FF] transition-colors w-full text-left">
+                        <span class="font-body tracking-wider uppercase text-[10px]">Support</span>
+                    </a>
+                    <Link :href="route('logout')" method="post" as="button" class="group flex items-center gap-3 px-4 py-2 text-[#5f5e5e] w-full text-left">
                         <span class="material-symbols-outlined text-[18px]">logout</span>
-                        <span class="text-[9px] uppercase tracking-[0.3em] font-black">Sign Out</span>
+                        <span class="font-body tracking-wider uppercase text-[10px]">Sign Out</span>
                     </Link>
                 </div>
             </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="flex-grow bg-[#050505] p-5 sm:p-8 lg:p-12 mt-16 lg:mt-0 overflow-y-auto no-scrollbar animate-in">
-            <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 lg:mb-16 gap-6 lg:gap-0">
-                <div>
-                    <span class="text-[9px] text-primary tracking-[0.4em] uppercase font-black mb-2 flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_#39FF14]"></span>
-                        Atelier Terminal
-                    </span>
-                    <h1 class="serif-text text-3xl lg:text-5xl font-light text-[#B9C3FF] tracking-tight">
-                        {{ currentTab === 'overview' ? 'Order Queue' : (currentTab === 'orders' ? 'Custom Lab' : (currentTab === 'gallery' ? 'Gallery' : (currentTab === 'brand' ? 'Concept' : currentTab.charAt(0).toUpperCase() + currentTab.slice(1)))) }}
-                    </h1>
-                </div>
-                <div class="text-right flex lg:flex-col items-center lg:items-end justify-between w-full lg:w-auto">
-                    <p class="text-[#454652] text-[9px] tracking-widest uppercase font-black lg:mb-1">Sync Status</p>
-                    <p class="text-primary text-[10px] font-black tracking-widest bg-primary/5 px-3 py-1 border border-primary/20">LIVE_OPTIMIZED</p>
-                </div>
-            </header>
-
-            <!-- Stats Ribbon (Mobile Optimized) -->
-            <div v-if="currentTab === 'overview'" class="flex lg:grid lg:grid-cols-3 gap-4 lg:gap-6 mb-10 lg:mb-16 overflow-x-auto no-scrollbar pb-4 lg:pb-0 -mx-5 px-5 lg:mx-0 lg:px-0">
-                    <div class="flex items-center gap-10">
-                        <div class="p-6 border border-[#1C1B1B] bg-[#0E0E0E] min-w-[200px]">
-                            <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-black mb-1">Active Boutique Orders</p>
-                            <p class="serif-text text-3xl text-[#B9C3FF] font-light">{{ orders.length }}</p>
-                        </div>
-                        <div class="p-6 border border-[#1C1B1B] bg-[#0E0E0E] min-w-[200px]">
-                            <p class="text-[8px] text-[#454652] tracking-[0.4em] uppercase font-black mb-1">Store Revenue Registry</p>
-                            <p class="serif-text text-3xl text-[#B9C3FF] font-light">{{ formatAmount(stats.total_revenue || 0, page.props) }}</p>
-                        </div>
-                    </div>
-            </div>
-
-            <div v-if="currentTab === 'overview' || currentTab === 'orders'">
-                
-                <!-- Desktop Tabular Registry -->
-                <div class="hidden lg:block overflow-x-auto no-scrollbar border border-white/5 bg-[#0E0E0E]">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-white/5">
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Registry</th>
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Identifier</th>
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Client / Partner</th>
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Piece Designation</th>
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold">Status</th>
-                                <th class="p-6 text-[10px] text-[#454652] tracking-[0.3em] uppercase font-bold text-right">Value (KES)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(order, idx) in filteredOrders" :key="order.id" 
-                                @click="selectOrder(order)"
-                                @mouseenter="hoveredOrder = order"
-                                @mouseleave="hoveredOrder = null"
-                                class="border-b border-white/5 group cursor-pointer hover:bg-[#131313] transition-all duration-300"
-                                :class="form.id === order.id ? 'bg-[#1C1B1B]/50' : ''">
-                                
-                                <td class="p-6">
-                                    <div class="w-12 h-16 bg-[#050505] border border-white/5 overflow-hidden">
-                                        <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" 
-                                             class="w-full h-full object-cover grayscale opacity-50 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-700" />
-                                    </div>
-                                </td>
-                                
-                                <td class="p-6">
-                                    <p class="text-[10px] text-[#B9C3FF] tracking-widest font-bold">#ORD-{{ String(order.id).padStart(4, '0') }}</p>
-                                    <p class="text-[9px] text-[#454652] mt-1">{{ new Date(order.created_at).toLocaleDateString() }}</p>
-                                </td>
-                                
-                                <td class="p-6">
-                                    <p class="text-[11px] text-[#e5e2e1] font-medium tracking-wide">{{ order.full_name }}</p>
-                                    <p class="text-[9px] text-[#454652] mt-1 font-bold uppercase tracking-widest">{{ order.type === 'bespoke' ? 'Bespoke Artisan' : 'Ready Acquisition' }}</p>
-                                </td>
-                                
-                                <td class="p-6">
-                                    <p class="serif-text text-sm font-light text-[#e5e2e1]">{{ order.garment_name || (order.type === 'standard' ? 'Ready-to-Wear' : 'Custom Piece') }}</p>
-                                    <p class="text-[9px] text-[#454652] mt-1 italic line-clamp-1 max-w-[200px]">{{ order.internal_notes || 'No notes' }}</p>
-                                </td>
-                                
-                                <td class="p-6">
-                                    <span :class="`inline-flex items-center px-3 py-1 text-[8px] font-bold tracking-widest uppercase ${order.status === 'completed' ? 'text-[#B9C3FF]' : 'text-[#454652]'}`">
-                                        <span :class="`w-1.5 h-1.5 rounded-full mr-2 ${order.status === 'completed' ? 'bg-[#B9C3FF] shadow-[0_0_8px_#B9C3FF]' : 'bg-[#454652]'}`"></span>
-                                        {{ order.status }}
-                                    </span>
-                                </td>
-                                
-                                <td class="p-6 text-right">
-                                    <p class="serif-text text-sm text-[#B9C3FF] tracking-tighter">{{ formatAmount(order.price_quoted || 0, page.props) }}</p>
-                                    <p :class="`text-[8px] tracking-widest uppercase font-black mt-1 ${order.is_paid ? 'text-[#8A9DFF]' : 'text-red-900/50'}`">
-                                        {{ order.is_paid ? 'Secured' : 'Unpaid' }}
-                                    </p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Mobile Order Registry (Atelier Feed) -->
-                <div class="lg:hidden space-y-4 pb-20">
-                    <div v-for="order in filteredOrders" :key="order.id" 
-                        @click="selectOrder(order)"
-                        class="bg-[#0E0E0E] p-5 border border-white/5 active:bg-[#131313] transition-all flex gap-5 relative overflow-hidden"
-                        :class="form.id === order.id ? 'border-primary/40' : ''">
-                        
-                        <div class="absolute top-0 right-0 p-2">
-                             <span :class="`text-[7px] font-black tracking-widest uppercase px-2 py-1 ${order.status === 'completed' ? 'text-primary bg-primary/5' : 'text-white/20 bg-white/5'}`">
-                                {{ order.status }}
-                             </span>
-                        </div>
-
-                        <div class="w-14 h-18 bg-[#050505] border border-white/5 flex-shrink-0 overflow-hidden shadow-2xl">
-                            <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover opacity-60">
-                        </div>
-
-                        <div class="flex-grow flex flex-col justify-between py-1">
-                            <div>
-                                <p class="text-[8px] text-primary tracking-[0.3em] font-black mb-1">ID: #{{ String(order.id).padStart(4, '0') }}</p>
-                                <h3 class="text-[13px] text-white font-headline font-black uppercase tracking-wide leading-none mb-1">{{ order.full_name }}</h3>
-                                <p class="text-[9px] text-white/30 uppercase tracking-widest font-medium">{{ order.garment_name || 'Piece' }}</p>
-                            </div>
-                            <div class="flex justify-between items-end">
-                                <div>
-                                    <p class="text-[11px] text-primary font-black">{{ formatAmount(order.price_quoted || 0, page.props) }}</p>
-                                    <p class="text-[7px] text-white/20 uppercase tracking-widest mt-0.5">{{ new Date(order.created_at).toLocaleDateString() }}</p>
-                                </div>
-                                <span class="material-symbols-outlined text-white/10 text-xl">arrow_forward_ios</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Catalog -->
-            <div v-if="currentTab === 'catalog'">
-                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
-                    <div class="flex gap-8">
-                        <button @click="showArchivedProducts = false" 
-                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
-                                :class="!showArchivedProducts ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
-                            Live Collection ({{ products.length }})
-                        </button>
-                        <button @click="showArchivedProducts = true" 
-                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
-                                :class="showArchivedProducts ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
-                            Archived Registry ({{ archived_products.length }})
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="!showArchivedProducts" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-10 animate-in">
-                    <div v-for="product in products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B] group">
-                        <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative">
-                            <img :src="product.image_url" class="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
-                            <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-[#0E0E0E] to-transparent">
-                                <span class="text-[9px] text-[#8A9DFF] tracking-widest uppercase font-bold">KES {{ Number(product.price).toLocaleString() }}</span>
-                            </div>
-                        </div>
-                        <div class="px-2 pb-4 flex justify-between items-end">
-                            <div>
-                                <h3 class="serif-text text-xl text-[#e5e2e1] font-light">{{ product.name }}</h3>
-                                <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-2">Active Collection</p>
-                            </div>
-                            <div class="flex gap-4">
-                                <button @click.stop="editProduct(product)" class="text-[#454652] hover:text-[#B9C3FF] transition-colors" title="Edit Piece">
-                                    <span class="material-symbols-outlined text-sm">edit</span>
-                                </button>
-                                <button @click.stop="deleteProduct(product.id)" class="text-[#454652] hover:text-red-500 transition-colors" title="Unpublish (Archive)">
-                                    <span class="material-symbols-outlined text-sm">archive</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-10 animate-in">
-                    <div v-for="product in archived_products" :key="product.id" class="bg-[#0E0E0E] p-4 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
-                        <div class="aspect-[3/4] bg-[#050505] overflow-hidden mb-6 relative grayscale">
-                            <img :src="product.image_url" class="w-full h-full object-cover opacity-30" />
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <span class="text-[8px] tracking-[0.4em] uppercase font-bold text-white/20 bg-black/40 px-4 py-2 border border-white/5 backdrop-blur-sm italic">Archived</span>
-                            </div>
-                        </div>
-                        <div class="px-2 pb-4 flex justify-between items-end">
-                            <div>
-                                <h3 class="serif-text text-xl text-[#B9C3FF]/50 font-light">{{ product.name }}</h3>
-                                <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-2">Offline Product</p>
-                            </div>
-                            <div class="flex gap-4">
-                                <button @click.stop="restoreProduct(product.id)" class="text-[#B9C3FF] hover:text-white transition-colors" title="Publish (Restore)">
-                                    <span class="material-symbols-outlined text-sm">unarchive</span>
-                                </button>
-                                <button @click.stop="forceDeleteProduct(product.id)" class="text-[#454652] hover:text-red-500 transition-colors" title="Permanent Purge">
-                                    <span class="material-symbols-outlined text-sm">delete_forever</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-if="archived_products.length === 0" class="col-span-full py-20 text-center border border-dashed border-[#1C1B1B]">
-                        <p class="text-[10px] text-[#454652] tracking-[0.5em] uppercase font-bold">No pieces in the archive</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gallery -->
-            <div v-if="currentTab === 'gallery'">
-                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
-                    <div class="flex gap-8">
-                        <button @click="showArchivedGallery = false" 
-                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
-                                :class="!showArchivedGallery ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
-                            Live Gallery ({{ gallery.length }})
-                        </button>
-                        <button @click="showArchivedGallery = true" 
-                                class="text-[10px] tracking-[0.3em] uppercase font-bold transition-all"
-                                :class="showArchivedGallery ? 'text-[#B9C3FF] border-b border-[#B9C3FF] pb-1' : 'text-[#454652] hover:text-[#B9C3FF]'">
-                            Showcase Archive ({{ archived_gallery.length }})
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="!showArchivedGallery" class="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12 animate-in lg:pb-0 pb-20">
-                    <div v-for="item in gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B] group">
-                        <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B]">
-                            <img :src="item.image_url" class="w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000" />
-                            <div class="absolute bottom-6 left-6 px-4 py-2 bg-[#0E0E0E]/80 backdrop-blur-md border border-[#1C1B1B]">
-                                <span class="text-[9px] text-[#B9C3FF] tracking-widest uppercase font-bold">Piece: {{ item.garment_name }}</span>
-                            </div>
-                        </div>
-                        <div class="px-2">
-                            <h3 class="serif-text text-3xl text-[#e5e2e1] font-light mb-4">{{ item.client_name }}</h3>
-                            <p class="text-sm text-[#454652] leading-loose italic opacity-80">"{{ item.testimonial }}"</p>
-                        </div>
-                        <div class="mt-10 pt-8 border-t border-[#1C1B1B] flex justify-end gap-6">
-                            <button @click="editGallery(item)" class="text-[10px] text-[#454652] hover:text-[#B9C3FF] tracking-widest uppercase font-bold transition-colors">Edit Photo</button>
-                            <button @click="deleteGallery(item.id)" class="text-[10px] text-[#454652] hover:text-red-500 tracking-widest uppercase font-bold transition-colors">Unpublish Photo</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-else class="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12 animate-in lg:pb-0 pb-20">
-                    <div v-for="item in archived_gallery" :key="item.id" class="bg-[#0E0E0E] p-10 border border-[#1C1B1B]/40 group opacity-70 hover:opacity-100 transition-opacity">
-                        <div class="aspect-[16/9] bg-[#050505] mb-8 overflow-hidden relative border border-[#1C1B1B] grayscale">
-                            <img :src="item.image_url" class="w-full h-full object-cover opacity-30" />
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <span class="text-[8px] tracking-[0.4em] uppercase font-bold text-white/20 bg-black/40 px-4 py-2 border border-white/5 backdrop-blur-sm italic">Archived</span>
-                            </div>
-                        </div>
-                        <div class="px-2">
-                            <h3 class="serif-text text-3xl text-[#B9C3FF]/50 font-light mb-4">{{ item.client_name }}</h3>
-                            <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Offline Showcase</p>
-                        </div>
-                        <div class="mt-10 pt-8 border-t border-[#1C1B1B] flex justify-end gap-10">
-                            <button @click="restoreGallery(item.id)" class="text-[10px] text-[#B9C3FF] hover:text-white tracking-widest uppercase font-bold transition-colors">Publish Photo</button>
-                            <button @click="forceDeleteGallery(item.id)" class="text-[10px] text-[#454652] hover:text-red-500 tracking-widest uppercase font-bold transition-colors">Purge Permanently</button>
-                        </div>
-                    </div>
-                    <div v-if="archived_gallery.length === 0" class="col-span-full py-40 text-center border border-dashed border-[#1C1B1B]">
-                        <p class="text-[10px] text-[#454652] tracking-[0.5em] uppercase font-bold">No showcases in the archive</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Assets -->
-            <div v-if="currentTab === 'brand'" class="max-w-6xl animate-in space-y-12 pb-20">
-                
-                <!-- 1. Core Identity -->
-                <div class="bg-[#0E0E0E] p-12 border border-[#1C1B1B]">
-                    <div class="flex justify-between items-start mb-12">
-                        <div>
-                            <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-2">Visual Identity</h3>
-                            <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Logos & Symbols</p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12">
-                        <!-- Site Logo -->
-                        <div class="space-y-6">
-                            <label class="curator-label uppercase">Application Logo (Light)</label>
-                            <div class="h-40 bg-[#050505] border border-[#1C1B1B] relative group flex items-center justify-center">
-                                <img v-if="$page.props.theme_settings.site_logo" :src="$page.props.theme_settings.site_logo" class="max-h-24 object-contain">
-                                <span v-else class="serif-text text-2xl italic text-[#454652] opacity-40 uppercase tracking-tighter">Serana Studio</span>
-                                
-                                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                                    <input type="file" id="logo-up" @input="updateThemeAsset('site_logo', $event.target.files[0])" class="hidden">
-                                    <label for="logo-up" class="px-6 py-2 bg-[#B9C3FF] text-[#092484] text-[9px] font-black tracking-widest uppercase cursor-pointer">Upload</label>
-                                    <button v-if="$page.props.theme_settings.site_logo" @click="deleteThemeAsset('site_logo')" class="px-6 py-2 bg-white/10 text-white text-[9px] font-black tracking-widest uppercase">Reset</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Favicon -->
-                        <div class="space-y-6">
-                            <label class="curator-label uppercase">Site Favicon (Browser Icon)</label>
-                            <div class="h-40 bg-[#050505] border border-[#1C1B1B] relative group flex items-center justify-center">
-                                <img v-if="$page.props.theme_settings.site_favicon" :src="$page.props.theme_settings.site_favicon" class="w-12 h-12 object-contain">
-                                <span v-else class="material-symbols-outlined text-4xl text-[#454652] opacity-40">tab</span>
-                                
-                                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                                    <input type="file" id="fav-up" @input="updateThemeAsset('site_favicon', $event.target.files[0])" class="hidden">
-                                    <label for="fav-up" class="px-6 py-2 bg-[#B9C3FF] text-[#092484] text-[9px] font-black tracking-widest uppercase cursor-pointer">Upload</label>
-                                    <button v-if="$page.props.theme_settings.site_favicon" @click="deleteThemeAsset('site_favicon')" class="px-6 py-2 bg-white/10 text-white text-[9px] font-black tracking-widest uppercase">Reset</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. Cinematic Media -->
-                <div class="bg-[#0E0E0E] p-12 border border-[#1C1B1B]">
-                    <div class="mb-12">
-                        <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-2">Cinematic Media</h3>
-                        <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Full-Screen & Category Backdrops</p>
-                    </div>
-
-                    <!-- Hero Asset Slot -->
-                    <div class="mb-16">
-                        <label class="curator-label mb-6">Main Hero Backdrop</label>
-                        <div class="aspect-[21/9] bg-[#050505] border border-[#1C1B1B] relative group overflow-hidden">
-                            <img v-if="$page.props.theme_settings.home_hero_bg" :src="$page.props.theme_settings.home_hero_bg" class="w-full h-full object-cover">
-                            <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-[#454652] opacity-30">
-                                <span class="material-symbols-outlined text-6xl font-light">landscape</span>
-                                <p class="text-[10px] tracking-widest uppercase mt-4">Static Fallback Active</p>
-                            </div>
-                            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6">
-                                <input type="file" id="hero-up" @input="updateThemeAsset('home_hero_bg', $event.target.files[0])" class="hidden">
-                                <label for="hero-up" class="px-10 py-3 bg-[#B9C3FF] text-[#092484] text-[10px] font-black tracking-widest uppercase cursor-pointer">Update Backdrop</label>
-                                <button v-if="$page.props.theme_settings.home_hero_bg" @click="deleteThemeAsset('home_hero_bg')" class="px-10 py-3 bg-white/10 text-white text-[10px] font-black tracking-widest uppercase">Remove Custom</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Category Assets Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-                            <div v-for="cat in [
-                                { key: 'cat_men_bg', label: 'Men\'s / Hoodies' },
-                                { key: 'cat_women_bg', label: 'Women\'s / Dresses' },
-                                { key: 'cat_acc_bg', label: 'Corporate Wear' },
-                                { key: 'cat_casual_bg', label: 'Casual Collection' },
-                                { key: 'cat_kids_bg', label: 'Kids Collection' },
-                                { key: 'hero_detail_bg', label: 'Hero Detail Overlay' }
-                            ]" :key="cat.key" class="space-y-4">
-                            <label class="curator-label">{{ cat.label }} Overlay</label>
-                            <div class="aspect-[4/5] bg-[#050505] border border-[#1C1B1B] relative group overflow-hidden">
-                                <img v-if="$page.props.theme_settings[cat.key]" :src="$page.props.theme_settings[cat.key]" class="w-full h-full object-cover">
-                                <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-[#454652] opacity-30">
-                                    <span class="material-symbols-outlined text-4xl font-light">image</span>
-                                </div>
-                                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
-                                    <input :id="cat.key" type="file" @input="updateThemeAsset(cat.key, $event.target.files[0])" class="hidden">
-                                    <label :for="cat.key" class="px-6 py-2 bg-white text-black text-[9px] font-black tracking-widest uppercase cursor-pointer">Replace</label>
-                                    <button v-if="$page.props.theme_settings[cat.key]" @click="deleteThemeAsset(cat.key)" class="px-6 py-2 bg-red-900/40 text-red-100 text-[9px] font-black tracking-widest uppercase">Remove</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Hero Focal Images (Marketing Shots) -->
-                    <div class="mt-20 pt-16 border-t border-[#1C1B1B]">
-                        <div class="mb-12">
-                            <h4 class="serif-text text-2xl text-[#e5e2e1] font-light mb-2">Editorial Focal Points</h4>
-                            <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">The rotating high-fidelity marketing shots</p>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 lg:gap-12">
-                            <div v-for="i in [1, 2, 3]" :key="i" class="space-y-6">
-                                <label class="curator-label">Focal Shot {{ i }}</label>
-                                <div class="aspect-[3/4] bg-[#050505] border border-[#1C1B1B] relative group overflow-hidden">
-                                    <img v-if="$page.props.theme_settings['hero_focal_' + i]" :src="$page.props.theme_settings['hero_focal_' + i]" class="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                                    <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-[#454652] opacity-30">
-                                        <span class="material-symbols-outlined text-4xl font-light">portrait</span>
-                                    </div>
-                                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4 px-6 text-center">
-                                        <input :id="'focal-' + i" type="file" @input="updateThemeAsset('hero_focal_' + i, $event.target.files[0])" class="hidden">
-                                        <label :for="'focal-' + i" class="px-6 py-2 bg-[#B9C3FF] text-[#092484] text-[9px] font-black tracking-widest uppercase cursor-pointer">Update Photo</label>
-                                        <button v-if="$page.props.theme_settings['hero_focal_' + i]" @click="deleteThemeAsset('hero_focal_' + i)" class="px-6 py-2 bg-white/10 text-white text-[9px] font-black tracking-widest uppercase">Reset</button>
-                                    </div>
-                                </div>
-                                <div class="pt-4">
-                                    <label class="curator-label text-[8px] opacity-60">Visual Label</label>
-                                    <input :value="$page.props.theme_settings['hero_focal_label_' + i]" 
-                                           @blur="updateThemeAsset('hero_focal_label_' + i, $event.target.value)"
-                                           class="curator-input text-xs pt-2" placeholder="e.g. Signature Series">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 3. System Nomenclature & Socials -->
-                <div class="bg-[#0E0E0E] p-12 border border-[#1C1B1B]">
-                    <div class="mb-12">
-                        <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-2">Technical Registry</h3>
-                        <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold">Metadata & Global Strings</p>
-                    </div>
-
-                    <div class="space-y-12">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
-                            <div>
-                                <label class="curator-label">Site Headline</label>
-                                <input :value="$page.props.theme_settings.site_headline" @blur="updateThemeAsset('site_headline', $event.target.value)" class="curator-input text-base" placeholder="THE ATELIER">
-                            </div>
-                            <div>
-                                <label class="curator-label">Support Email</label>
-                                <input :value="$page.props.theme_settings.support_email" @blur="updateThemeAsset('support_email', $event.target.value)" class="curator-input text-base" placeholder="curator@serana.com">
-                            </div>
-                            <div>
-                                <label class="curator-label text-[#B9C3FF]">Platform WhatsApp (Ordering)</label>
-                                <input :value="$page.props.theme_settings.whatsapp_number || $page.props.whatsapp_number" @blur="updateThemeAsset('whatsapp_number', $event.target.value)" class="curator-input text-base border-b-[#B9C3FF]/30" placeholder="254700000000">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 pt-8 border-t border-[#1C1B1B]">
-                            <div>
-                                <label class="curator-label">Currency Symbol</label>
-                                <input :value="$page.props.theme_settings.currency || 'KSh'" @blur="updateThemeAsset('currency', $event.target.value)" class="curator-input text-base border-b-[#B9C3FF]/30 text-[#B9C3FF]" placeholder="KSh">
-                            </div>
-                            <div>
-                                <label class="curator-label">Instagram Handle (URL)</label>
-                                <input :value="$page.props.theme_settings.instagram_url" @blur="updateThemeAsset('instagram_url', $event.target.value)" class="curator-input text-base" placeholder="https://instagram.com/serana_studio">
-                            </div>
-                            <div>
-                                <label class="curator-label">Footer Copyright Text</label>
-                                <input :value="$page.props.theme_settings.footer_copyright" @blur="updateThemeAsset('footer_copyright', $event.target.value)" class="curator-input text-base" placeholder="© 2026 SERANA CLOSET. NAIROBI.">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Measurements -->
-            <div v-if="currentTab === 'settings'" class="max-w-4xl animate-in">
-                <div class="bg-[#0E0E0E] p-12 border border-[#1C1B1B] mb-12">
-                    <h3 class="serif-text text-3xl text-[#B9C3FF] font-light mb-8">Measurement Settings</h3>
-                    <p class="text-sm text-[#454652] leading-loose mb-12 max-w-2xl">Manage your global sizing presets and measurement standards here. These settings ensure a perfect fit across all custom and ready-to-wear pieces.</p>
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-12">
-                        <div class="p-8 border border-[#1C1B1B] bg-[#050505]">
-                            <p class="text-[10px] text-[#B9C3FF] tracking-widest uppercase font-bold mb-4">Size Variation</p>
-                            <div class="flex justify-between items-end">
-                                <span class="serif-text text-4xl font-light">± 0.2cm</span>
-                                <span class="text-[9px] text-[#454652] tracking-widest uppercase font-bold py-2 px-4 border border-[#1C1B1B]">Adjust</span>
-                            </div>
-                        </div>
-                        <div class="p-8 border border-[#1C1B1B] bg-[#050505]">
-                            <p class="text-[10px] text-[#B9C3FF] tracking-widest uppercase font-bold mb-4">System Overrides</p>
-                            <div class="flex justify-between items-end">
-                                <span class="serif-text text-4xl font-light italic">Inactive</span>
-                                <span class="text-[9px] text-[#454652] tracking-widest uppercase font-bold py-2 px-4 border border-[#1C1B1B]">Enable</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Right Side Panel / Mobile Bottom Sheet -->
-        <aside id="order-sheet-mobile" 
-               :class="[
-                 'transition-all duration-700 fixed lg:relative z-[120] lg:z-40 lg:flex-shrink-0 bg-[#0E0E0E] border-l lg:border-[#1C1B1B]',
-                 'w-full lg:w-[450px] overflow-y-auto no-scrollbar lg:h-screen',
-                 'inset-x-0 bottom-0 h-[85vh] lg:h-screen lg:inset-auto translate-y-0 shadow-[0_-20px_100px_rgba(0,0,0,1)]',
-                 form.id ? 'flex flex-col p-8 lg:p-12' : 'hidden lg:flex lg:p-12'
-               ]">
-            <header class="mb-10 lg:mb-14 flex-shrink-0">
-                <div class="flex items-center justify-between mb-10 pb-6 border-b border-[#1C1B1B]">
-                    <div>
-                        <h1 class="serif-text text-4xl text-white font-light tracking-tight">{{ currentTab === 'overview' ? 'Order Queue' : (currentTab === 'catalog' ? 'Collection Registry' : 'Visual Showcase') }}</h1>
-                        <p class="text-[9px] text-[#454652] tracking-[0.4em] uppercase font-bold mt-2">Active {{ currentTab }} stream</p>
-                    </div>
-                    <button @click="form.id = null" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center material-symbols-outlined text-[#454652] hover:text-white transition-all">close</button>
-                </div>
-                <div class="flex items-center justify-between">
-                    <p class="text-[10px] text-primary tracking-[0.4em] font-black italic">ID: #ORD-{{ String(form.id).padStart(4, '0') }}</p>
-                    <div class="h-[1px] flex-grow mx-6 bg-white/5"></div>
-                    <button @click="copyOrderBrief" class="flex items-center gap-2 group">
-                        <span class="text-[8px] text-[#454652] tracking-[0.3em] font-black uppercase opacity-0 group-hover:opacity-100 transition-all">{{ showBriefNotification ? 'Copied!' : 'Copy Brief' }}</span>
-                        <span class="material-symbols-outlined text-sm text-[#454652] group-hover:text-[#B9C3FF] transition-all">content_copy</span>
-                    </button>
-                </div>
-            </header>
-
-            <div class="mb-14 space-y-10">
-                <div class="aspect-[3/4] bg-[#1C1B1B] mb-10 overflow-hidden border border-[#1C1B1B] shadow-2xl relative group">
-                    <img v-if="getOrderThumbnails(selectedOrder).length" 
-                         :src="getOrderThumbnails(selectedOrder)[0]" 
-                         class="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
-                    <div v-else class="w-full h-full flex items-center justify-center text-[#454652] opacity-20">
-                        <span class="material-symbols-outlined text-8xl font-light">image</span>
-                    </div>
-                    <div class="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-transparent to-transparent opacity-60"></div>
-                </div>
-
-                <div class="space-y-10">
-                    <div class="grid grid-cols-2 gap-8">
-                        <div v-for="m in [['Bust', selectedOrder?.bust_cm + ' cm'], ['Waist', selectedOrder?.waist_cm + ' cm'], ['Hips', selectedOrder?.hips_cm + ' cm'], ['Material', selectedOrder?.fabric_preference || 'Standard Cotton']]" :key="m[0]">
-                            <p class="text-[9px] text-[#454652] tracking-widest uppercase mb-2 font-bold">{{ m[0] }}</p>
-                            <p class="serif-text text-2xl text-[#e5e2e1] font-light">{{ m[1] || '--' }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Progress Documentation -->
-            <div class="mb-20">
-                <p class="text-[10px] text-[#454652] tracking-widest uppercase font-bold mb-10 opacity-60">Status Notes</p>
-                <div class="space-y-8">
-                    <div class="p-6 border border-white/5 bg-black/20 flex items-center gap-6">
-                        <div class="w-2.5 h-2.5 bg-[#B9C3FF] glow-indigo"></div>
-                        <p class="text-[10px] tracking-[0.2em] uppercase font-bold text-[#e5e2e1]">Currently: {{ form.status }}</p>
-                    </div>
-                </div>
-            </div>
-
-                <div class="mt-12 pt-10 border-t border-white/10 space-y-8">
-                    
-                    <!-- Core Order Controls -->
-                    <div class="space-y-6">
-                        <div>
-                            <label class="curator-label uppercase">Private Notes</label>
-                            <textarea v-model="form.internal_notes" rows="3" class="curator-textarea no-scrollbar text-sm" placeholder="Add private notes..."></textarea>
-                        </div>
-                        <div>
-                            <label class="curator-label uppercase">Current Phase</label>
-                            <select v-model="form.status" class="w-full bg-[#050505] border border-white/5 p-4 text-[10px] tracking-widest uppercase font-black text-[#B9C3FF] focus:border-[#B9C3FF] outline-none">
-                                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <p class="text-[10px] text-[#B9C3FF] tracking-[0.6em] uppercase font-bold italic mb-4 pt-4">Process Log</p>
-                    
-                    <!-- Progress Photo Upload -->
-                    <div class="bg-[#1C1B1B]/40 p-6 border border-white/5 space-y-6">
-                        <div class="flex items-center justify-between">
-                             <p class="text-[9px] text-white/40 uppercase tracking-[0.3em] font-black">Upload Build Progress</p>
-                             <span v-if="progressSnapForm.processing" class="text-[8px] text-[#B9C3FF] animate-pulse">UPLOADING_STREAM_</span>
-                        </div>
-                        
-                        <input type="file" id="snap-up" @input="progressSnapForm.image = $event.target.files[0]" class="hidden" />
-                        <label for="snap-up" class="block w-full py-4 border border-dashed border-white/10 text-center cursor-pointer hover:border-[#B9C3FF] transition-all">
-                            <span v-if="!progressSnapForm.image" class="text-[9px] text-white/20 uppercase tracking-widest">Select Snapshot</span>
-                            <span v-else class="text-[9px] text-[#B9C3FF] uppercase tracking-widest font-black">{{ progressSnapForm.image.name }}</span>
-                        </label>
-                        
-                        <textarea v-model="progressSnapForm.description" rows="2" class="curator-textarea text-[11px] h-auto py-3" placeholder="Brief process note..."></textarea>
-                        
-                        <div v-if="progressSnapForm.progress" class="h-[1px] bg-white/5 w-full">
-                            <div class="h-full bg-[#B9C3FF] transition-all duration-300" :style="{ width: progressSnapForm.progress.percentage + '%' }"></div>
-                        </div>
-
-                        <button @click="submitProgressSnap" :disabled="progressSnapForm.processing || !progressSnapForm.image"
-                                class="w-full py-4 bg-white/5 text-white/40 hover:bg-[#B9C3FF] hover:text-[#092484] text-[9px] font-black tracking-[0.4em] uppercase transition-all disabled:opacity-30">
-                            {{ progressSnapForm.processing ? 'TRANSFERRING...' : 'Sync to Registry' }}
-                        </button>
-                    </div>
-
-                    <button @click="updateOrder" :disabled="form.processing"
-                            class="w-full py-5 bg-[#B9C3FF] text-[#092484] text-[10px] font-black tracking-[0.3em] uppercase glow-indigo disabled:opacity-50">
-                        {{ form.processing ? 'DOCUMENTING...' : 'Update Order Status' }}
-                    </button>
-                </div>
         </aside>
 
-        <!-- Product Modal -->
-        <div v-if="showAddProductModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
-            <div @click="showAddProductModal = false; isEditingProduct = false; productPreview = null; productForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
-            <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
-                <div class="w-full lg:w-1/2 p-6 sm:p-10 lg:p-20 border-b lg:border-b-0 lg:border-r border-[#1C1B1B]">
-                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingProduct ? 'Editorial Management' : 'Product Entry' }}</span>
-                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingProduct ? 'Edit Piece' : 'Product Details' }}</h2>
-                    <div class="space-y-10">
-                        <div>
-                            <label class="curator-label">Product Name</label>
-                            <input v-model="productForm.name" placeholder="e.g. Silk Evening Gown" class="curator-input" />
-                        </div>
-                        <div class="grid grid-cols-2 gap-10">
-                            <div>
-                                <label class="curator-label">Price (KES)</label>
-                                <input v-model="productForm.price" type="number" placeholder="0.00" class="curator-input" />
+        <!-- Main Content Area -->
+        <main class="ml-0 lg:ml-64 flex-1 flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+            
+            <!-- TopAppBar -->
+            <header class="w-full sticky top-0 z-40 bg-[#fcf9f4]/90 backdrop-blur-md flex justify-between items-center px-8 py-4 border-b border-[#f0ede8]">
+                <div class="flex items-center gap-8">
+                    <button @click="menuOpen = !menuOpen" class="lg:hidden material-symbols-outlined text-[#390908]">menu</button>
+                    <h1 class="text-2xl font-headline italic text-[#390908]">Serana Closet</h1>
+                    <div class="hidden md:flex relative w-72">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5f5e5e] text-lg">search</span>
+                        <input class="w-full pl-10 pr-4 py-2 bg-[#f0ede8] border-none text-sm font-body rounded-full focus:ring-1 focus:ring-[#390908]" placeholder="Search archive..." type="text"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="flex gap-4">
+                        <button class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] transition-colors">notifications</button>
+                        <button @click="currentTab = 'settings'" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] transition-colors">settings</button>
+                    </div>
+                    <div class="h-10 w-10 rounded-full bg-[#f0ede8] overflow-hidden border border-[#ebe8e3]">
+                        <img alt="Manager" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4Jge4oeulbricIpFRaOi6sWjXn0__QQLEnVspMapERjhco2dLuiQHyXEvPu-HKvoSBk6XCsJrCn9Z1L3kINWNn8gli7Y-IwpvcE6iiYjZxFyQZxx0YRAl0gZaQ6k5G2G2RoOjPiRI2oMM3ZDP1CQXmRYM2nPsoVBSYiQ2Rr79Nb9P19zPy05SUVxv8U1xm1d5SphCUKCMTfzL4cSR49gE8r-rLfYVXcUiS0oWxg9IJOVE-sIby2IzVld81OR5HopATKu7hiDCjcc"/>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Canvas -->
+            <section class="flex-1 p-8 lg:p-12 animate-in">
+                <!-- Editorial Header -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+                    <div class="max-w-2xl">
+                        <h2 class="text-5xl font-light tracking-tight text-[#390908] mb-4">
+                            {{ currentTab === 'overview' ? 'Orders' : (currentTab === 'catalog' ? 'Inventory' : (currentTab === 'gallery' ? 'Showcase' : 'Identity')) }}
+                        </h2>
+                        <p class="text-[#5f5e5e] font-body leading-relaxed max-w-lg">
+                            {{ 
+                                currentTab === 'overview' ? 'Manage customer orders and track production status.' :
+                                (currentTab === 'catalog' ? 'View and manage the boutique inventory.' :
+                                (currentTab === 'gallery' ? 'Manage the brand showcase and gallery items.' :
+                                'Update brand assets and identity elements.'))
+                            }}
+                        </p>
+                    </div>
+                    <button v-if="currentTab === 'catalog' || currentTab === 'gallery'" 
+                            @click="currentTab === 'catalog' ? showAddProductModal = true : showAddGalleryModal = true"
+                            class="flex items-center gap-2 px-6 py-3 bg-[#390908] text-white rounded-lg font-body font-semibold tracking-wide hover:opacity-90 transition-all">
+                        <span class="material-symbols-outlined">add</span>
+                        {{ currentTab === 'catalog' ? 'New Product' : 'New Photo' }}
+                    </button>
+                </div>
+            <!-- Bento Filter Section & Stock Health (Mapped to Atelier) -->
+            <div v-if="currentTab === 'overview'" class="grid grid-cols-12 gap-6 mb-12">
+                <div class="col-span-full xl:col-span-8 bg-[#f6f3ee] p-8 rounded-xl flex flex-col md:flex-row items-center justify-between gap-6 luxury-shadow">
+                    <div class="flex flex-col md:flex-row gap-8 w-full md:w-auto">
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Total Orders</span>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline text-2xl text-[#390908]">{{ stats.total_orders }}</span>
+                                <span class="text-[9px] text-[#5f5e5e] uppercase font-bold tracking-tighter">Active Tasks</span>
                             </div>
+                        </div>
+                        <div class="hidden md:block w-px h-10 bg-[#ebe8e3]"></div>
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">In Production</span>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline text-2xl text-[#390908]">{{ orders.filter(o => o.status !== 'completed').length }}</span>
+                                <span class="text-[9px] text-[#5f5e5e] uppercase font-bold tracking-tighter">In Production</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button @click="showArchivedOrders = !showArchivedOrders" 
+                                :class="[
+                                    'px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border',
+                                    showArchivedOrders 
+                                        ? 'bg-[#390908] text-white border-[#390908]' 
+                                        : 'bg-[#fcf9f4] text-[#5f5e5e] border-[#f0ede8] hover:bg-[#f0ede8]'
+                                ]">
+                            {{ showArchivedOrders ? 'Active Registry' : 'View Archive' }}
+                        </button>
+                        <button class="p-3 rounded-lg bg-[#fcf9f4] text-[#1c1c19] border border-[#f0ede8] hover:bg-[#f0ede8] transition-colors">
+                            <span class="material-symbols-outlined text-xl">filter_list</span>
+                        </button>
+                        <button class="p-3 rounded-lg bg-[#fcf9f4] text-[#1c1c19] border border-[#f0ede8] hover:bg-[#f0ede8] transition-colors">
+                            <span class="material-symbols-outlined text-xl">sort</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-span-full xl:col-span-4 bg-[#541e1b] p-8 rounded-xl flex flex-col justify-between luxury-shadow group">
+                    <span class="text-[10px] uppercase tracking-widest text-[#d1827c] font-bold">Revenue</span>
+                    <div class="flex justify-between items-baseline mb-4">
+                        <p class="text-3xl font-headline text-white">{{ formatAmount(stats.total_revenue, $page.props) }}</p>
+                        <span class="text-[#d1827c] text-xs font-body italic">Cumulative</span>
+                    </div>
+                    <div class="w-full bg-[#390908]/30 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-white h-full w-[85%] transition-all duration-1000"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Ledger (Mapped to Order Registry) -->
+            <!-- Registry Tab: Order Document Flow -->
+            <div v-if="currentTab === 'overview'">
+                <!-- Desktop Tabular Registry -->
+                <div class="hidden lg:block">
+                    <div class="space-y-1 overflow-x-auto no-scrollbar pb-10">
+                        <!-- Heading Row -->
+                        <div class="grid grid-cols-12 min-w-[1000px] px-8 py-5 bg-[#e5e2dd]/30 rounded-t-xl mb-3 border-b border-[#f0ede8]">
+                            <div class="col-span-4 text-[10px] uppercase tracking-widest font-bold text-[#5f5e5e]">Order Details</div>
+                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-[#5f5e5e]">Order ID</div>
+                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-[#5f5e5e]">Progress</div>
+                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-[#5f5e5e]">Status</div>
+                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-[#5f5e5e] text-right">Price</div>
+                        </div>
+                        
+                        <!-- Ledger Rows -->
+                        <div v-for="order in filteredOrders" :key="order.id" 
+                             @click="selectOrder(order)"
+                             @mouseenter="hoveredOrder = order"
+                             @mouseleave="hoveredOrder = null"
+                             class="grid grid-cols-12 min-w-[1000px] px-8 py-6 bg-[#f6f3ee] hover:bg-[#f0ede8] transition-all items-center group cursor-pointer mb-2 rounded-lg luxury-shadow"
+                             :class="form.id === order.id ? 'ring-1 ring-[#390908]' : ''">
+                            
+                            <div class="col-span-4 flex items-center gap-6">
+                                <div class="h-20 w-16 bg-[#e5e2dd] rounded-lg overflow-hidden flex-shrink-0 relative group-hover:scale-105 transition-transform duration-500">
+                                    <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                </div>
+                                <div>
+                                    <p class="font-headline text-lg text-[#390908]">{{ order.full_name }}</p>
+                                    <p class="text-xs text-[#5f5e5e] font-body">{{ order.garment_name || 'Bespoke Item' }}</p>
+                                </div>
+                            </div>
+
+                            <div class="col-span-2 font-body text-sm tracking-tight text-[#5f5e5e]">#{{ String(order.id).padStart(5, '0') }}</div>
+                            
+                            <div class="col-span-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-headline text-xl text-[#390908] uppercase text-xs">{{ order.status }}</span>
+                                </div>
+                                <div class="w-16 h-0.5 bg-[#d8c1bf] mt-2 relative overflow-hidden">
+                                    <div class="bg-[#390908] h-full transition-all duration-1000" 
+                                         :style="{ width: order.status === 'completed' ? '100%' : (order.status === 'sewing' ? '75%' : (order.status === 'designing' ? '40%' : '15%')) }"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-span-2">
+                                <span :class="[
+                                    'px-3 py-1 rounded-full text-[9px] uppercase font-bold tracking-wider',
+                                    order.is_paid ? 'bg-[#f6f3ee] text-[#1c1c19] border border-[#ebe8e3]' : 'bg-[#ffdad6] text-[#93000a]'
+                                ]">
+                                    {{ order.is_paid ? 'SECURED_FUNDS' : 'UNSECURED' }}
+                                </span>
+                            </div>
+
+                            <div class="col-span-2 text-right font-headline text-lg text-[#390908]">
+                                {{ formatAmount(order.price_quoted || 0, page.props) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile Card Registry -->
+                <div class="lg:hidden space-y-6 pb-20 mt-6">
+                    <div v-for="order in filteredOrders" :key="order.id" 
+                        @click="selectOrder(order)"
+                        class="bg-[#f6f3ee] p-6 border border-[#f0ede8] active:bg-[#e5e2dd] transition-all rounded-xl flex gap-6 luxury-shadow"
+                        :class="form.id === order.id ? 'border-[#390908]/40 border-2' : ''">
+                        
+                        <div class="w-16 h-20 bg-[#e5e2dd] border border-[#f0ede8] flex-shrink-0 overflow-hidden rounded-md">
+                            <img :src="getOrderThumbnails(order)[0] || '/images/hero_editorial.png'" class="w-full h-full object-cover">
+                        </div>
+
+                        <div class="flex-grow flex flex-col justify-between">
                             <div>
-                                <label class="curator-label">Category</label>
-                                <select v-model="productForm.category_id" class="w-full bg-transparent border-b border-[#1C1B1B] py-3 text-[10px] tracking-widest uppercase font-bold text-[#e5e2e1] outline-none focus:border-[#B9C3FF]">
-                                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                                <div class="flex justify-between items-start">
+                                    <p class="text-[9px] text-[#390908] tracking-widest font-bold">#{{ String(order.id).padStart(4, '0') }}</p>
+                                    <span :class="`text-[7px] font-black tracking-widest uppercase px-2 py-1 rounded-sm border border-[#f0ede8] ${order.status === 'completed' ? 'bg-[#390908] text-white' : 'bg-white text-[#5f5e5e]'}`">
+                                        {{ order.status }}
+                                    </span>
+                                </div>
+                                <p class="font-headline text-lg text-[#390908]">{{ order.full_name }}</p>
+                                <p class="font-body text-xs text-[#5f5e5e] italic">{{ order.garment_name || 'Bespoke' }}</p>
+                            </div>
+                            <div class="flex justify-between items-end mt-2">
+                                <p class="text-[10px] text-[#390908] font-black uppercase">{{ formatAmount(order.price_quoted || 0, page.props) }}</p>
+                                <p class="text-[7px] text-[#5f5e5e] tracking-tighter uppercase font-bold">{{ new Date(order.created_at).toLocaleDateString() }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div v-if="currentTab === 'catalog'">
+                <div class="grid grid-cols-12 gap-8 mb-12">
+                    <div class="col-span-full md:col-span-8 bg-[#f6f3ee] p-8 rounded-xl flex items-center justify-between gap-6 luxury-shadow">
+                        <div class="flex gap-8">
+                            <div class="flex flex-col gap-2">
+                            <span class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Category Filter</span>
+                                <select class="bg-transparent border-none p-0 font-headline text-lg focus:ring-0 cursor-pointer text-[#390908]">
+                                    <option>Full Collection</option>
+                                    <option v-for="cat in categories" :key="cat.id">{{ cat.name }}</option>
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <label class="curator-label">Description</label>
-                            <textarea v-model="productForm.description" rows="4" placeholder="Detail the construction and materials..." class="curator-textarea no-scrollbar"></textarea>
+                        <div class="flex gap-2">
+                           <button @click="showArchivedProducts = !showArchivedProducts" 
+                                   class="px-5 py-2 rounded-lg bg-[#fcf9f4] border border-[#f0ede8] text-[#5f5e5e] text-[9px] font-bold uppercase tracking-widest hover:text-[#390908] transition-colors">
+                               {{ showArchivedProducts ? 'Live Catalog' : 'Archive Entry' }}
+                           </button>
                         </div>
                     </div>
-                    <div v-if="productForm.wasSuccessful" class="mt-8 p-4 bg-[#B9C3FF]/10 border border-[#B9C3FF]/20 text-center">
-                         <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">COMMISSION_SYNC_COMPLETE</p>
+                    <div class="col-span-full md:col-span-4 bg-[#f6f3ee] p-8 rounded-xl flex flex-col justify-between border border-[#ebe8e3] luxury-shadow">
+                        <span class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Stock Status</span>
+                        <div class="flex justify-between items-baseline">
+                            <p class="text-3xl font-headline text-[#390908]">98%</p>
+                            <span class="text-[#5f5e5e] text-[10px] font-bold uppercase tracking-tighter">In Stock</span>
+                        </div>
                     </div>
-                    <button @click="submitProduct" :disabled="productForm.processing || productForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
-                        {{ productForm.processing ? 'PROCESSING_COMMISSION...' : (productForm.wasSuccessful ? 'RECORDED' : (isEditingProduct ? 'Update Collection Piece' : 'Add to Collection')) }}
+                </div>
+
+                <div class="space-y-1">
+                    <div v-for="product in (showArchivedProducts ? archived_products : products)" :key="product.id"
+                         class="grid grid-cols-12 px-8 py-6 bg-[#f6f3ee] hover:bg-[#f0ede8] transition-all items-center group mb-2 rounded-xl luxury-shadow">
+                        <div class="col-span-5 flex items-center gap-6">
+                            <div class="h-24 w-20 bg-[#e5e2dd] rounded-lg overflow-hidden flex-shrink-0 relative group-hover:scale-105 transition-all duration-700">
+                                <img :src="product.image_url" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                            </div>
+                            <div>
+                                <p class="font-headline text-xl text-[#390908] leading-tight mb-1">{{ product.name }}</p>
+                                <p class="text-xs text-[#5f5e5e] font-body">{{ product.category?.name || 'Artisan Series' }}</p>
+                            </div>
+                        </div>
+                        <div class="col-span-2 font-body text-xs tracking-widest text-[#5f5e5e] uppercase">SNC-{{ String(product.id).padStart(4, '0') }}</div>
+                        <div class="col-span-2">
+                            <div class="flex items-center gap-2">
+                                <span :class="['font-headline text-xl', product.in_stock ? 'text-[#390908]' : 'text-[#ba1a1a]']">
+                                    {{ product.in_stock ? 'READY' : 'EXHAUSTED' }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-span-3 text-right">
+                            <div class="flex flex-col items-end gap-4">
+                                <p class="font-headline text-2xl text-[#390908]">{{ formatAmount(product.price, page.props) }}</p>
+                                <div class="flex gap-4">
+                                    <button @click="editProduct(product)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] text-xl transition-colors">edit_note</button>
+                                    <button @click="deleteProduct(product.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] text-xl transition-colors">
+                                        {{ showArchivedProducts ? 'restore_from_trash' : 'archive' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Showcase Tab -->
+            <div v-if="currentTab === 'gallery'">
+                <div class="grid grid-cols-12 gap-8 mb-12">
+                    <div class="col-span-full md:col-span-12 bg-[#f6f3ee] p-8 rounded-xl flex items-center justify-between luxury-shadow border border-[#f0ede8]">
+                        <div class="flex gap-12">
+                            <button @click="showArchivedGallery = false" 
+                                    class="text-[10px] uppercase tracking-[0.2em] font-bold transition-all relative py-2"
+                                    :class="!showArchivedGallery ? 'text-[#390908]' : 'text-[#5f5e5e]'">
+                                Active Showcase
+                                <span v-if="!showArchivedGallery" class="absolute bottom-0 left-0 w-full h-[1px] bg-[#390908]"></span>
+                            </button>
+                            <button @click="showArchivedGallery = true" 
+                                    class="text-[10px] uppercase tracking-[0.2em] font-bold transition-all relative py-2"
+                                    :class="showArchivedGallery ? 'text-[#390908]' : 'text-[#5f5e5e]'">
+                                Archive
+                                <span v-if="showArchivedGallery" class="absolute bottom-0 left-0 w-full h-[1px] bg-[#390908]"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="!showArchivedGallery" class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in pb-20">
+                    <div v-for="item in gallery" :key="item.id" class="bg-[#f6f3ee] p-3 rounded-xl luxury-shadow group relative">
+                        <div class="aspect-[16/11] bg-[#e5e2dd] rounded-lg overflow-hidden mb-6 relative">
+                            <img :src="item.image_url" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" />
+                            <div class="absolute top-4 left-4">
+                                <span class="bg-[#390908]/90 text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest">{{ item.garment_name }}</span>
+                            </div>
+                        </div>
+                        <div class="p-4 px-6 mb-4">
+                            <h3 class="font-headline text-3xl text-[#390908] italic mb-3">{{ item.client_name }}</h3>
+                            <p class="text-sm text-[#5f5e5e] font-body leading-relaxed">"{{ item.testimonial }}"</p>
+                        </div>
+                        <div class="flex justify-end gap-6 p-4 border-t border-[#f0ede8]">
+                            <button @click="editGallery(item)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] transition-colors">edit</button>
+                            <button @click="deleteGallery(item.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] transition-colors">archive</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in pb-20">
+                    <div v-for="item in archived_gallery" :key="item.id" class="bg-[#f6f3ee] p-3 rounded-xl luxury-shadow group opacity-60 hover:opacity-100 transition-opacity">
+                         <div class="aspect-[16/11] bg-[#e5e2dd] rounded-lg overflow-hidden mb-6 relative grayscale">
+                            <img :src="item.image_url" class="w-full h-full object-cover opacity-50" />
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-sm">
+                                <span class="text-[10px] text-white font-bold uppercase tracking-[0.3em]">Archived Item</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-6 p-4 border-t border-[#f0ede8]">
+                            <button @click="restoreGallery(item.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] transition-colors">unarchive</button>
+                            <button @click="forceDeleteGallery(item.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] transition-colors">delete_forever</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscribers Panel -->
+            <div v-if="currentTab === 'leads'" class="space-y-4 animate-in pb-20">
+                <div v-for="lead in leads" :key="lead.id" class="bg-[#f6f3ee] p-8 rounded-xl luxury-shadow border border-[#f0ede8] flex items-center justify-between group hover:bg-[#f0ede8] transition-colors">
+                    <div class="flex items-center gap-8">
+                        <div class="w-12 h-12 bg-[#e5e2dd] rounded-lg flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[#390908] text-lg">mail</span>
+                        </div>
+                        <div>
+                            <p class="font-headline text-xl text-[#390908]">{{ lead.email }}</p>
+                            <p class="text-[9px] text-[#5f5e5e] font-bold tracking-widest uppercase mt-1">Subscribed: Ref #{{ String(lead.id).padStart(4, '0') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Identity Tab -->
+            <div v-if="currentTab === 'brand'" class="space-y-12 pb-20 animate-in">
+
+                <!-- Row 1: Site Info (Text Fields) -->
+                <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <div class="flex items-center justify-between mb-8">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Site Info</label>
+                        <button @click="saveSiteInfo" :disabled="siteInfoForm.processing"
+                                class="px-6 py-2 bg-[#390908] text-white text-[9px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-all disabled:opacity-30">
+                            {{ siteInfoForm.processing ? 'Saving...' : 'Save Changes' }}
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="space-y-2">
+                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">Site Name</label>
+                            <input v-model="siteInfoForm.settings.site_name"
+                                   class="w-full bg-transparent border-b border-[#d8c1bf] py-3 text-lg font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors"
+                                   placeholder="e.g. Serana Closet" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">Tagline</label>
+                            <input v-model="siteInfoForm.settings.site_tagline"
+                                   class="w-full bg-transparent border-b border-[#d8c1bf] py-3 text-lg font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors"
+                                   placeholder="e.g. Bespoke Made With Love" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">WhatsApp Number</label>
+                            <input v-model="siteInfoForm.settings.whatsapp_number"
+                                   class="w-full bg-transparent border-b border-[#d8c1bf] py-3 text-lg font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors"
+                                   placeholder="e.g. 254712345678" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Logo + Favicon -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Main Logo -->
+                    <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Main Logo</label>
+                        <div class="h-56 bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <img v-if="$page.props.theme_settings.site_logo" :src="$page.props.theme_settings.site_logo" class="max-h-28 object-contain grayscale group-hover:grayscale-0 transition-all duration-700">
+                            <h1 v-else class="font-headline text-2xl text-[#390908] opacity-20 italic">No Logo Set</h1>
+                            <div class="absolute inset-0 bg-[#390908]/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
+                                <input type="file" id="logo-up" @input="updateThemeAsset('site_logo', $event.target.files[0])" class="hidden">
+                                <label for="logo-up" class="px-6 py-2 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg hover:bg-[#f6f3ee] transition-colors">Upload Logo</label>
+                                <button v-if="$page.props.theme_settings.site_logo" @click="deleteThemeAsset('site_logo')" class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Site Icon / Favicon -->
+                    <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Site Icon</label>
+                        <div class="h-56 bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <img v-if="$page.props.theme_settings.site_favicon" :src="$page.props.theme_settings.site_favicon" class="w-16 h-16 object-contain grayscale group-hover:grayscale-0 transition-all duration-700">
+                            <span v-else class="material-symbols-outlined text-6xl text-[#390908] opacity-10">fingerprint</span>
+                            <div class="absolute inset-0 bg-[#390908]/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
+                                <input type="file" id="fav-up" @input="updateThemeAsset('site_favicon', $event.target.files[0])" class="hidden">
+                                <label for="fav-up" class="px-6 py-2 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg hover:bg-[#f6f3ee] transition-colors">Upload Icon</label>
+                                <button v-if="$page.props.theme_settings.site_favicon" @click="deleteThemeAsset('site_favicon')" class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Hero Background -->
+                <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Homepage Hero</label>
+                    <div class="aspect-[21/6] bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-xl relative group overflow-hidden flex items-center justify-center">
+                        <img v-if="$page.props.theme_settings.hero_bg" :src="$page.props.theme_settings.hero_bg" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]">
+                        <span v-else class="material-symbols-outlined text-6xl text-[#390908] opacity-10">panorama</span>
+                        <div class="absolute inset-0 bg-[#390908]/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-4 backdrop-blur-sm">
+                            <input id="hero-bg-up" type="file" @input="updateThemeAsset('hero_bg', $event.target.files[0])" class="hidden">
+                            <label for="hero-bg-up" class="px-8 py-3 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Upload Hero Image</label>
+                            <button v-if="$page.props.theme_settings.hero_bg" @click="deleteThemeAsset('hero_bg')" class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 4: Page Banners (Category Backgrounds) -->
+                <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Page Banners</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div v-for="cat in [
+                            { key: 'cat_men_bg', label: 'Menswear Page' },
+                            { key: 'cat_women_bg', label: 'Womenswear Page' },
+                            { key: 'cat_acc_bg', label: 'Studio / Accessories' },
+                        ]" :key="cat.key" class="space-y-3">
+                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">{{ cat.label }}</label>
+                            <div class="aspect-[3/4] bg-[#fcf9f4] border border-[#f0ede8] rounded-lg relative group overflow-hidden flex items-center justify-center">
+                                <img v-if="$page.props.theme_settings[cat.key]" :src="$page.props.theme_settings[cat.key]" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]">
+                                <span v-else class="material-symbols-outlined text-4xl text-[#390908] opacity-10">image</span>
+                                <div class="absolute inset-0 bg-[#390908]/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 text-center backdrop-blur-sm">
+                                    <input :id="`banner-${cat.key}`" type="file" @input="updateThemeAsset(cat.key, $event.target.files[0])" class="hidden">
+                                    <label :for="`banner-${cat.key}`" class="px-5 py-2 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Update Banner</label>
+                                    <button v-if="$page.props.theme_settings[cat.key]" @click="deleteThemeAsset(cat.key)" class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 5: Editorial Focal Points -->
+                <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <div class="flex items-center justify-between mb-8">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Editorial Curation</label>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        <div v-for="i in [1, 2, 3]" :key="i" class="space-y-6">
+                            <div class="aspect-[4/5] bg-[#fcf9f4] border border-[#f0ede8] rounded-xl relative group overflow-hidden flex items-center justify-center luxury-shadow">
+                                <img v-if="$page.props.theme_settings[`focal_${i}_bg`]" :src="$page.props.theme_settings[`focal_${i}_bg`]" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000">
+                                <div v-else class="text-center opacity-10">
+                                    <span class="material-symbols-outlined text-6xl">photo_filter</span>
+                                </div>
+                                <div class="absolute inset-0 bg-[#390908]/90 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 backdrop-blur-md">
+                                    <input :id="`focal-up-${i}`" type="file" @input="updateThemeAsset(`focal_${i}_bg`, $event.target.files[0])" class="hidden">
+                                    <label :for="`focal-up-${i}`" class="px-6 py-2 bg-white text-[#390908] text-[8px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Replace Media</label>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">Focal Point {{ i }} Label</label>
+                                <div class="flex gap-4">
+                                    <input v-model="siteInfoForm.settings[`focal_${i}_label`]" 
+                                           class="flex-grow bg-transparent border-b border-[#d8c1bf] py-2 text-sm font-headline text-[#390908] focus:border-[#390908] outline-none"
+                                           :placeholder="`Editorial Slot ${i}...`" />
+                                    <button @click="updateThemeAsset(`focal_${i}_label`, siteInfoForm.settings[`focal_${i}_label`])" 
+                                            class="material-symbols-outlined text-[#390908] hover:scale-110 transition-transform">check_circle</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab: System Configuration -->
+            <div v-if="currentTab === 'settings'" class="max-w-4xl space-y-12 animate-in pb-20">
+                <div class="bg-[#f6f3ee] p-12 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <h3 class="font-headline text-3xl text-[#390908] italic mb-6">Archive Settings</h3>
+                    <p class="text-sm text-[#5f5e5e] font-body leading-relaxed mb-10 max-w-xl">Configure the technical parameters of the Serana digital atelier, including precision and access protocols.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="p-8 bg-[#390908] rounded-xl flex flex-col justify-between group h-48">
+                            <p class="text-[10px] text-[#d1827c] uppercase font-bold tracking-widest">Pricing Precision</p>
+                            <div class="flex items-center justify-between">
+                                <span class="font-headline text-4xl text-white italic">± 0.2 <span class="text-xs uppercase not-italic opacity-60">cm</span></span>
+                                <button class="w-10 h-10 rounded-lg bg-white/10 text-white material-symbols-outlined hover:bg-white/20 transition-all">tune</button>
+                            </div>
+                        </div>
+                        <div class="p-8 bg-[#fcf9f4] border border-[#f0ede8] rounded-xl flex flex-col justify-between h-48 group">
+                            <p class="text-[10px] text-[#5f5e5e] uppercase font-bold tracking-widest">Developer Gateway</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold text-[#390908] uppercase tracking-widest">Station Locked</span>
+                                <div class="w-12 h-6 bg-[#ebe8e3] rounded-full p-1 cursor-not-allowed">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </section>
+        </main>
+
+        <!-- Command Detail Side Panel: The Document Registry -->
+        <aside id="order-sheet-mobile" 
+               :class="[
+                 'transition-all duration-700 fixed lg:relative z-[160] lg:z-40 lg:flex-shrink-0 bg-[#f6f3ee] border-l border-[#f0ede8]',
+                 'w-full lg:w-[620px] overflow-y-auto lg:h-screen lg:rounded-l-3xl luxury-shadow',
+                 'inset-x-0 bottom-0 h-[92vh] lg:h-screen lg:inset-auto translate-y-0',
+                 form.id ? 'flex flex-col p-10 lg:p-16' : 'hidden'
+               ]">
+            <header class="mb-12 flex-shrink-0 animate-in">
+                <div class="flex items-center justify-between mb-12">
+                    <div class="flex items-center gap-6">
+                        <div class="w-12 h-12 rounded-lg bg-[#390908] flex items-center justify-center text-white material-symbols-outlined">
+                            {{ selectedOrder?.deleted_at ? 'archive' : 'description' }}
+                        </div>
+                        <div>
+                            <h1 class="font-headline text-3xl text-[#390908] italic leading-none">
+                                {{ selectedOrder?.deleted_at ? 'Archived Brief' : 'Order Details' }}
+                            </h1>
+                            <p class="text-[9px] text-[#5f5e5e] tracking-[0.4em] uppercase font-bold mt-2">ID #{{ String(form.id).padStart(5, '0') }}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button v-if="selectedOrder?.deleted_at" @click="restoreOrder(selectedOrder.id)" 
+                                class="w-10 h-10 rounded-full border border-green-100 bg-green-50 text-green-700 hover:bg-green-600 hover:text-white material-symbols-outlined transition-all" title="Restore order">restore</button>
+                        <button v-if="selectedOrder?.deleted_at" @click="forceDeleteOrder(selectedOrder.id)" 
+                                class="w-10 h-10 rounded-full border border-red-100 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white material-symbols-outlined transition-all" title="Purge permanently">delete_forever</button>
+                        <button v-if="!selectedOrder?.deleted_at" @click="deleteOrder(selectedOrder.id)" 
+                                class="w-10 h-10 rounded-full border border-red-100 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white material-symbols-outlined transition-all" title="Archive order">archive</button>
+                        <button @click="form.id = null" class="w-10 h-10 rounded-full border border-[#f0ede8] hover:bg-[#f0ede8] material-symbols-outlined text-[#5f5e5e] transition-all">close</button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between py-6 border-y border-[#f0ede8]">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 rounded-full bg-[#390908] status-pulse"></span>
+                        <p class="text-[10px] text-[#390908] font-bold uppercase tracking-widest">Order Status</p>
+                    </div>
+                    <button @click="copyOrderBrief" class="flex items-center gap-3 px-5 py-2 bg-[#fcf9f4] border border-[#f0ede8] rounded-lg group hover:bg-[#390908] transition-all">
+                        <span class="text-[9px] text-[#5f5e5e] group-hover:text-white tracking-widest font-bold uppercase">{{ showBriefNotification ? 'ID_COPIED' : 'TRANSFER_BRIEF' }}</span>
+                        <span class="material-symbols-outlined text-sm text-[#5f5e5e] group-hover:text-white">file_copy</span>
                     </button>
                 </div>
-                <div class="w-full lg:w-1/2 bg-[#050505] relative flex flex-col">
-                    <!-- Main Image Slot -->
-                    <div class="flex-grow relative flex items-center justify-center border-b border-[#1C1B1B]">
-                        <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]" class="hidden" />
-                        <label for="product-img" class="cursor-pointer group text-center p-10 z-10">
-                            <span class="material-symbols-outlined text-5xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
-                            <p class="text-[9px] text-[#454652] tracking-widest uppercase mt-4 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Replace Photo' : 'Primary Photo' }}</p>
+            </header>
+
+            <div class="mb-16 space-y-12 animate-in flex-grow">
+                <!-- Visual Asset Display -->
+                <div class="aspect-[16/10] bg-[#e5e2dd] rounded-xl overflow-hidden luxury-shadow relative group">
+                    <img v-if="getOrderThumbnails(selectedOrder).length" 
+                         :src="getOrderThumbnails(selectedOrder)[0]" 
+                         class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[3000ms]" />
+                    <div v-else class="w-full h-full flex flex-col items-center justify-center text-[#5f5e5e]">
+                        <span class="material-symbols-outlined text-6xl opacity-20 mb-3">image_not_supported</span>
+                        <p class="text-[9px] tracking-[0.4em] uppercase font-bold">No Visual Linked</p>
+                    </div>
+                </div>
+
+                <!-- Anatomical Blueprint -->
+                <div class="p-8 bg-[#fcf9f4] border border-[#f0ede8] rounded-xl">
+                    <p class="text-[10px] text-[#390908] tracking-[0.4em] uppercase font-bold mb-8 flex items-center gap-3">
+                        <span class="w-6 h-[1px] bg-[#d8c1bf]"></span>
+                        Measurements
+                    </p>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div v-for="m in [['BUST', selectedOrder?.bust_cm], ['WAIST', selectedOrder?.waist_cm], ['HIPS', selectedOrder?.hips_cm], ['FABRIC', selectedOrder?.fabric_preference || 'STND']]" :key="m[0]" class="space-y-1">
+                            <label class="text-[9px] text-[#5f5e5e] tracking-widest font-bold uppercase">{{ m[0] }}</label>
+                            <p class="font-headline text-2xl text-[#390908]">{{ m[1] }}{{ typeof m[1] === 'number' ? ' CM' : '' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Production Traceability -->
+                <div class="p-8 bg-[#f6f3ee] border border-[#f0ede8] rounded-xl space-y-8 luxury-shadow">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] text-[#390908] tracking-[0.4em] uppercase font-bold flex items-center gap-3">
+                            <span class="w-6 h-[1px] bg-[#d8c1bf]"></span>
+                            Production Proofs
+                        </p>
+                        <p v-if="progressSnapForm.processing" class="text-[9px] text-[#390908] font-bold animate-pulse uppercase tracking-widest text-[#d1827c]">Syncing...</p>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-3">
+                        <div v-for="snap in selectedOrder?.progress_snaps" :key="snap.id" 
+                             class="aspect-square bg-[#e5e2dd] rounded shadow-sm overflow-hidden relative group">
+                            <img :src="snap.image_url" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500">
+                        </div>
+                        <div class="aspect-square bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded flex items-center justify-center relative group">
+                             <input type="file" id="snap-up" @input="progressSnapForm.image = $event.target.files[0]; submitProgressSnap()" class="hidden">
+                             <label for="snap-up" class="absolute inset-0 cursor-pointer flex items-center justify-center text-[#d8c1bf] group-hover:text-[#390908] transition-colors">
+                                 <span class="material-symbols-outlined">{{ progressSnapForm.processing ? 'sync' : 'add_a_photo' }}</span>
+                             </label>
+                             <img v-if="progressSnapForm.image" :src="getObjectURL(progressSnapForm.image)" class="absolute inset-0 w-full h-full object-cover opacity-50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technical Notes -->
+                <div class="space-y-8">
+                    <div class="space-y-4">
+                        <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.3em]">Internal Notes</label>
+                        <textarea v-model="form.internal_notes" rows="4" class="w-full bg-[#fcf9f4] border border-[#f0ede8] rounded-xl p-6 text-sm font-body focus:ring-1 focus:ring-[#390908] outline-none transition-all placeholder:text-[#ebe8e3]" placeholder="Enter garment construction details..."></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.3em]">Status</label>
+                        <div class="relative bg-[#fcf9f4] border border-[#f0ede8] rounded-xl p-1">
+                             <select v-model="form.status" class="w-full bg-transparent p-4 text-[10px] tracking-[0.2em] font-bold uppercase text-[#390908] outline-none appearance-none cursor-pointer">
+                                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                             </select>
+                             <span class="absolute right-6 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#d8c1bf] pointer-events-none">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto pt-10 border-t border-[#f0ede8] animate-in">
+                <button @click="updateOrder" :disabled="form.processing"
+                        class="w-full py-5 bg-[#390908] text-white rounded-lg text-[10px] font-bold uppercase tracking-[0.3em] hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-30">
+                    {{ form.processing ? 'Saving Changes...' : 'Save Changes' }}
+                </button>
+            </div>
+        </aside>
+
+        <!-- Product Modal: The Boutique Curator -->
+        <div v-if="showAddProductModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-xl bg-[#390908]/20">
+            <div @click="showAddProductModal = false" class="absolute inset-0"></div>
+            <div class="relative w-full max-w-5xl bg-[#fcf9f4] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden animate-in border border-[#f0ede8]">
+                <div class="flex-1 p-10 lg:p-16">
+                    <h2 class="font-headline text-4xl text-[#390908] italic mb-12">{{ isEditingProduct ? 'Edit Product' : 'Add New Product' }}</h2>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="col-span-2 space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Product Name</label>
+                             <input v-model="productForm.name" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-xl font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors" />
+                        </div>
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Price (KES)</label>
+                             <input v-model="productForm.price" type="number" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-xl font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors" />
+                        </div>
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Category</label>
+                             <select v-model="productForm.category_id" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-[10px] font-bold uppercase tracking-widest text-[#390908] focus:border-[#390908] outline-none cursor-pointer">
+                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                             </select>
+                        </div>
+                        <div class="col-span-2 space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Description</label>
+                             <textarea v-model="productForm.description" rows="3" class="w-full bg-[#f6f3ee] rounded-lg p-6 text-sm font-body outline-none focus:ring-1 focus:ring-[#390908] transition-all"></textarea>
+                        </div>
+                    </div>
+                    <button @click="submitProduct" :disabled="productForm.processing" class="w-full py-6 mt-12 bg-[#390908] text-white rounded-lg text-[10px] font-bold uppercase tracking-[0.4em] hover:opacity-90 active:scale-[0.99] transition-all">
+                        {{ productForm.processing ? 'PROCESSING...' : 'Verify Entry' }}
+                    </button>
+                </div>
+                <div class="w-full md:w-5/12 bg-[#f6f3ee] p-10 flex flex-col justify-center border-l border-[#f0ede8] space-y-6">
+                    <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Media Registry</label>
+                    
+                    <!-- Main Product Image -->
+                    <div class="aspect-[4/3] bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden luxury-shadow">
+                        <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]; productPreview = getObjectURL($event.target.files[0])" class="hidden" />
+                        <label for="product-img" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center p-8 group">
+                            <span class="material-symbols-outlined text-4xl text-[#d8c1bf] group-hover:text-[#390908] transition-colors mb-2">linked_camera</span>
+                            <p class="text-[8px] text-[#5f5e5e] font-bold uppercase tracking-widest">Primary Signature</p>
                         </label>
-                        <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
-                        <img v-else-if="productPreview" :src="productPreview" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                        <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                        <img v-else-if="productPreview" :src="productPreview" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                     </div>
 
-                    <!-- Secondary Image Slots -->
-                    <div class="h-1/3 grid grid-cols-2">
-                        <div class="relative flex items-center justify-center border-r border-[#1C1B1B]">
-                            <input type="file" id="sec-img-1" @input="productForm.secondary_image_1 = $event.target.files[0]" class="hidden" />
-                            <label for="sec-img-1" class="cursor-pointer group text-center p-4 z-10">
-                                <span class="material-symbols-outlined text-3xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_photo_alternate</span>
-                                <p class="text-[8px] text-[#454652] tracking-widest uppercase mt-2 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Update Angle 02' : 'Angle 02' }}</p>
+                    <!-- Secondary Curations -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="aspect-square bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <input type="file" id="sec-img-1" @input="productForm.secondary_image_1 = $event.target.files[0]; secondaryPreview1 = getObjectURL($event.target.files[0])" class="hidden" />
+                            <label for="sec-img-1" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center group">
+                                <span class="material-symbols-outlined text-2xl text-[#d8c1bf] group-hover:text-[#390908] transition-colors">add_photo_alternate</span>
+                                <p class="text-[7px] text-[#5f5e5e] font-bold uppercase tracking-widest mt-1">Slot A</p>
                             </label>
-                            <img v-if="productForm.secondary_image_1" :src="getObjectURL(productForm.secondary_image_1)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 pointer-events-none" />
+                            <img v-if="productForm.secondary_image_1" :src="getObjectURL(productForm.secondary_image_1)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                            <img v-else-if="secondaryPreview1" :src="secondaryPreview1" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                         </div>
-                        <div class="relative flex items-center justify-center">
-                            <input type="file" id="sec-img-2" @input="productForm.secondary_image_2 = $event.target.files[0]" class="hidden" />
-                            <label for="sec-img-2" class="cursor-pointer group text-center p-4 z-10">
-                                <span class="material-symbols-outlined text-3xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_photo_alternate</span>
-                                <p class="text-[8px] text-[#454652] tracking-widest uppercase mt-2 group-hover:text-[#B9C3FF]">{{ isEditingProduct ? 'Update Angle 03' : 'Angle 03' }}</p>
+                        <div class="aspect-square bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <input type="file" id="sec-img-2" @input="productForm.secondary_image_2 = $event.target.files[0]; secondaryPreview2 = getObjectURL($event.target.files[0])" class="hidden" />
+                            <label for="sec-img-2" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center group">
+                                <span class="material-symbols-outlined text-2xl text-[#d8c1bf] group-hover:text-[#390908] transition-colors">add_photo_alternate</span>
+                                <p class="text-[7px] text-[#5f5e5e] font-bold uppercase tracking-widest mt-1">Slot B</p>
                             </label>
-                            <img v-if="productForm.secondary_image_2" :src="getObjectURL(productForm.secondary_image_2)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 pointer-events-none" />
+                            <img v-if="productForm.secondary_image_2" :src="getObjectURL(productForm.secondary_image_2)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                            <img v-else-if="secondaryPreview2" :src="secondaryPreview2" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Gallery Modal -->
-        <div v-if="showAddGalleryModal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 sm:p-10">
-            <div @click="showAddGalleryModal = false; isEditingGallery = false; galleryPreview = null; galleryForm.reset()" class="absolute inset-0 bg-[#050505]/95 backdrop-blur-3xl"></div>
-            <div class="relative w-full max-w-5xl bg-[#0E0E0E] border border-[#1C1B1B] shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden animate-in">
-                <div class="w-full lg:w-1/2 p-6 sm:p-10 lg:p-20 border-b lg:border-b-0 lg:border-r border-[#1C1B1B]">
-                    <span class="text-[10px] text-[#454652] tracking-[0.4em] uppercase font-bold mb-4 block">{{ isEditingGallery ? 'Showcase Refinement' : 'New Photo' }}</span>
-                    <h2 class="serif-text text-4xl font-light text-[#B9C3FF] mb-12">{{ isEditingGallery ? 'Edit Showcase' : 'Add to Gallery' }}</h2>
-                    <div class="space-y-10">
-                        <div>
-                            <label class="curator-label">Client Name</label>
-                            <input v-model="galleryForm.client_name" placeholder="Name of Client" class="curator-input" />
+        <!-- Gallery Modal: Showcase Registry -->
+        <div v-if="showAddGalleryModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-xl bg-[#390908]/20">
+            <div @click="showAddGalleryModal = false" class="absolute inset-0"></div>
+            <div class="relative w-full max-w-5xl bg-[#fcf9f4] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden animate-in border border-[#f0ede8]">
+                <div class="flex-1 p-10 lg:p-16">
+                    <h2 class="font-headline text-4xl text-[#390908] italic mb-12">{{ isEditingGallery ? 'Edit Showcase' : 'Add Showcase' }}</h2>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Client Name</label>
+                             <input v-model="galleryForm.client_name" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-xl font-headline text-[#390908] outline-none" />
                         </div>
-                        <div>
-                            <label class="curator-label">Garment Name</label>
-                            <input v-model="galleryForm.garment_name" placeholder="Piece worn by client" class="curator-input" />
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Garment Name</label>
+                             <input v-model="galleryForm.garment_name" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-xl font-headline text-[#390908] outline-none" />
                         </div>
-                        <div>
-                            <label class="curator-label">Description</label>
-                            <textarea v-model="galleryForm.testimonial" rows="4" placeholder="Share the client's experience..." class="curator-textarea no-scrollbar"></textarea>
+                        <div class="col-span-2 space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Testimonial</label>
+                             <textarea v-model="galleryForm.testimonial" rows="3" class="w-full bg-[#f6f3ee] rounded-lg p-6 text-sm font-body outline-none"></textarea>
                         </div>
                     </div>
-                    <div v-if="galleryForm.wasSuccessful" class="mt-8 p-4 bg-[#B9C3FF]/10 border border-[#B9C3FF]/20 text-center">
-                         <p class="text-[9px] text-[#B9C3FF] tracking-[0.4em] font-black uppercase">SYNC_TO_ARCHIVE_SUCCESS</p>
-                    </div>
-                    <button @click="submitGallery" :disabled="galleryForm.processing || galleryForm.wasSuccessful" class="w-full py-6 mt-10 bg-[#B9C3FF] text-[#092484] text-[11px] font-black tracking-[0.4em] uppercase glow-indigo transition-all transform active:scale-95 disabled:opacity-50">
-                        {{ galleryForm.processing ? 'POSTING_SHOT...' : (galleryForm.wasSuccessful ? 'POSTED' : (isEditingGallery ? 'Update Showcase' : 'Post to Gallery')) }}
+                    <button @click="submitGallery" :disabled="galleryForm.processing" class="w-full py-6 mt-12 bg-[#390908] text-white rounded-lg text-[10px] font-bold uppercase tracking-[0.4em] hover:opacity-90 active:scale-[0.99] transition-all">
+                        {{ galleryForm.processing ? 'ARCHIVING...' : 'Secure Showcase' }}
                     </button>
                 </div>
-                <div class="w-full lg:w-1/2 bg-[#050505] relative flex items-center justify-center min-h-[300px]">
-                    <input type="file" id="gallery-img" @input="galleryForm.image = $event.target.files[0]" class="hidden" />
-                    <label for="gallery-img" class="cursor-pointer group text-center p-10 lg:p-20">
-                        <span class="material-symbols-outlined text-7xl text-[#454652] group-hover:text-[#B9C3FF] transition-all">add_a_photo</span>
-                        <p class="text-[10px] text-[#454652] tracking-widest uppercase mt-6 group-hover:text-[#B9C3FF]">{{ isEditingGallery ? 'Replace Shot' : 'Upload Photo' }}</p>
-                    </label>
-                    <img v-if="galleryForm.image" :src="getObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
-                    <img v-else-if="galleryPreview" :src="galleryPreview" class="absolute inset-0 w-full h-full object-cover grayscale opacity-50 pointer-events-none" />
+                <div class="w-full md:w-5/12 bg-[#f6f3ee] border-l border-[#f0ede8] p-10 flex flex-col justify-center">
+                    <div class="aspect-square bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden luxury-shadow">
+                        <input type="file" id="gallery-img" @input="galleryForm.image = $event.target.files[0]" class="hidden" />
+                        <label for="gallery-img" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center p-8 group">
+                            <span class="material-symbols-outlined text-5xl text-[#d8c1bf] group-hover:text-[#390908] transition-colors mb-4">linked_camera</span>
+                            <p class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Upload Photo</p>
+                        </label>
+                        <img v-if="galleryForm.image" :src="getObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                        <img v-else-if="galleryPreview" :src="galleryPreview" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Global Cinematic Hover Gallery (Escaped from transform context) -->
+        <!-- Global Reveal Gallery: Asset Inspection -->
         <div v-if="hoveredOrder && getAllOrderImages(hoveredOrder).length" 
-             class="fixed top-32 left-[280px] z-[200] w-72 bg-[#0E0E0E] border border-[#B9C3FF]/30 p-4 shadow-[0_40px_100px_rgba(0,0,0,1)] animate-in pointer-events-none">
-            <p class="text-[8px] text-[#B9C3FF] tracking-[0.3em] uppercase font-bold mb-4 flex justify-between">
-                <span>Asset Stream</span>
-                <span>#{{ String(hoveredOrder.id).padStart(4, '0') }}</span>
-            </p>
-            <div class="grid grid-cols-2 gap-3">
+             class="fixed top-40 left-[420px] z-[220] w-[320px] bg-[#fcf9f4] p-8 rounded-2xl shadow-2xl border border-[#f0ede8] animate-in pointer-events-none">
+            <div class="flex items-center justify-between mb-8 border-b border-[#f0ede8] pb-4">
+                <p class="text-[9px] text-[#390908] tracking-widest font-bold uppercase">Asset Drilldown</p>
+                <span class="text-[10px] text-[#5f5e5e] font-bold">#{{ String(hoveredOrder.id).padStart(4, '0') }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
                 <div v-for="(img, i) in getAllOrderImages(hoveredOrder).slice(0, 4)" :key="i" 
-                     class="aspect-square bg-[#050505] overflow-hidden border border-[#1C1B1B]">
-                    <img :src="img" class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all opacity-80" />
+                     class="aspect-square bg-[#e5e2dd] overflow-hidden rounded-lg border border-[#f0ede8] shadow-inner group">
+                    <img :src="img" class="w-full h-full object-cover grayscale transition-all duration-700" />
                 </div>
             </div>
-            <p class="text-[9px] text-[#454652] tracking-widest uppercase font-bold mt-4 text-center">
-                {{ getAllOrderImages(hoveredOrder).length }} Pieces
-            </p>
+            <div class="mt-8 flex items-center justify-between">
+                <p class="text-[9px] font-bold text-[#5f5e5e] uppercase tracking-widest italic opacity-60">{{ getAllOrderImages(hoveredOrder).length }} Assets</p>
+                <span class="material-symbols-outlined text-[#390908] opacity-30">visibility</span>
+            </div>
         </div>
 
     </div>

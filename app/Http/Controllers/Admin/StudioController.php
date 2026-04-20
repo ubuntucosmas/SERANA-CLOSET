@@ -30,6 +30,7 @@ class StudioController extends Controller
 
         return Inertia::render('Admin/StudioDashboard', [
             'orders' => CustomOrder::with(['user', 'progressSnaps'])->latest()->get(),
+            'archived_orders' => CustomOrder::onlyTrashed()->with(['user', 'progressSnaps'])->latest()->get(),
             'products' => Product::with('category')->latest()->get(),
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
             'categories' => Category::all(),
@@ -39,7 +40,8 @@ class StudioController extends Controller
             'stats' => [
                 'total_revenue' => $total_revenue,
                 'active_orders' => $active_orders,
-                'total_leads' => $total_leads,
+                'total_orders'  => CustomOrder::withTrashed()->count(),
+                'total_leads'   => $total_leads,
                 'recent_leads_growth' => $recent_leads
             ],
             'active_tab' => $request->get('tab', 'overview')
@@ -58,6 +60,34 @@ class StudioController extends Controller
         $order->update($validated);
 
         return back()->with('success', 'Order updated successfully.');
+    }
+
+    public function destroy(CustomOrder $order)
+    {
+        $order->delete();
+        return back()->with('success', 'Order moved to the archive.');
+    }
+
+    public function restore($id)
+    {
+        $order = CustomOrder::withTrashed()->findOrFail($id);
+        $order->restore();
+        return back()->with('success', 'Order restored to active registry.');
+    }
+
+    public function forceDelete($id)
+    {
+        $order = CustomOrder::withTrashed()->findOrFail($id);
+        
+        // Clean up linked progress snaps imagery if they exist
+        foreach ($order->progressSnaps as $snap) {
+            if ($snap->image_path) {
+                Storage::disk(config('filesystems.public_disk'))->delete($snap->image_path);
+            }
+        }
+        
+        $order->forceDelete();
+        return back()->with('success', 'Order and associated visual assets permanently purged.');
     }
 
     public function storeProgressSnap(Request $request, CustomOrder $order)

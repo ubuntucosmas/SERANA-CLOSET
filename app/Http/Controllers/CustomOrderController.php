@@ -7,10 +7,18 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * CustomOrderController
+ * 
+ * Manages the "Digital Atelier" procurement flow.
+ * This controller handles custom order requests, generates structured
+ * production briefs for WhatsApp handoff, and persists client data.
+ */
 class CustomOrderController extends Controller
 {
     /**
      * Display the Custom Order (Studio) page.
+     * Optionally pre-fills the form if a source product slug is provided.
      */
     public function index(Request $request)
     {
@@ -83,9 +91,12 @@ class CustomOrderController extends Controller
                 ]
             ];
 
+            // 1. Persist the Order to Database
             $order = CustomOrder::create($orderData);
 
-            // Construct Elite Artisan Brief
+            // 2. Construct Elite Artisan Brief (WhatsApp Handoff)
+            // This string is formatted for high readability on small mobile screens
+            // used by production teams and clients.
             $storePhone = config('services.whatsapp.number');
             $targetDisk = config('filesystems.public_disk');
             
@@ -136,13 +147,10 @@ class CustomOrderController extends Controller
                 }
             }
 
-            $message .= "\n------------------------------------------\n";
-            if ($priorityPass) {
-                $message .= "⚡ *[ PRIORITY PRODUCTION CLAIMED ]* ⚡\n";
-                $message .= "------------------------------------------\n";
-            }
+            $message .= "------------------------------------------\n";
             $message .= "CONFIRM RECEIPT TO BEGIN TAILORING.";
 
+            // 3. Encode the message for safe URI transport
             $whatsappUrl = "https://wa.me/{$storePhone}?text=" . rawurlencode($message);
 
             return response()->json([

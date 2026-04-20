@@ -2,6 +2,8 @@
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import SizingIntelligence from '@/Components/SizingIntelligence.vue';
+import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
+import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
 import { ref, computed } from 'vue';
@@ -14,9 +16,12 @@ const cart = useCartStore();
 const { formatAmount } = useCurrency();
 const step = ref(1);
 const isProcessing = ref(false);
+const isWaitingForStk = ref(false);
 const isSuccess = ref(false);
+const isPaid = ref(false);
 const orderId = ref(null);
 const activeField = ref(null);
+let pollingInterval = null;
 
 const form = ref({
     email: '',
@@ -50,11 +55,18 @@ async function handlePayment() {
         const response = await axios.post(route('checkout.process'), payload);
 
         if (response.data.success) {
-            isSuccess.value = true;
             orderId.value = response.data.order_id || Date.now();
-            cart.clearBag();
+            
+            if (form.value.payment_method === 'mpesa') {
+                isWaitingForStk.value = true;
+                step.value = 4; // Move to Authorization Phase
+            } else {
+                isSuccess.value = true;
+                cart.clearBag();
+            }
+
             window.dispatchEvent(new CustomEvent('serana-toast', {
-                detail: { message: 'Order created. Proceed to payment.', type: 'success' }
+                detail: { message: 'Order created successfully.', type: 'success' }
             }));
         }
     } catch (err) {
@@ -70,6 +82,63 @@ async function handlePayment() {
     }
 }
 
+async function initiateMpesaStk(data) {
+    isProcessing.value = true;
+    try {
+        const response = await axios.post(route('mpesa.stk'), {
+            order_id: orderId.value,
+            phone: data.phone,
+            amount: data.amount
+        });
+
+        if (response.data.success) {
+            window.dispatchEvent(new CustomEvent('serana-toast', {
+                detail: { message: 'STK Push sent to your phone.', type: 'info' }
+            }));
+            startPolling();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Failed to initiate M-Pesa payment. Please check your phone number and try again.');
+    } finally {
+        isProcessing.value = false;
+    }
+}
+
+function startPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+    
+    let attempts = 0;
+    const maxAttempts = 12; // 60 seconds total
+
+    pollingInterval = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(pollingInterval);
+            isWaitingForStk.value = false;
+            alert('Payment verification timed out. If you have paid, please contact support with your Order ID.');
+            return;
+        }
+
+        try {
+            const response = await axios.get(route('mpesa.status', orderId.value));
+            if (response.data.is_paid) {
+                clearInterval(pollingInterval);
+                isPaid.value = true;
+                isWaitingForStk.value = false;
+                isSuccess.value = true;
+                cart.clearBag();
+                
+                window.dispatchEvent(new CustomEvent('serana-toast', {
+                    detail: { message: 'Payment Verified! Your order is now in production.', type: 'success' }
+                }));
+            }
+        } catch (err) {
+            console.error('Polling error:', err);
+        }
+    }, 5000);
+}
+
 function nextStep() {
     if (step.value < 3) step.value++;
 }
@@ -80,9 +149,9 @@ function nextStep() {
         <Head title="Secure Checkout" />
 
         <main class="pt-32 pb-24 bg-surface min-h-screen">
-            <div class="max-w-[1200px] mx-auto px-8 lg:px-16">
+            <div class="max-w-[1920px] mx-auto px-8 lg:px-32">
                 
-                <div class="grid lg:grid-cols-12 gap-16">
+                <div class="grid lg:grid-cols-12 gap-32">
                     <!-- Checkout Steps -->
                     <div class="lg:col-span-7 space-y-12">
                         <header class="space-y-4">
@@ -219,7 +288,7 @@ function nextStep() {
                             </button>
                         </div>
 
-                        <div v-if="step === 3 && !isSuccess" class="space-y-12 reveal">
+                        <div v-if="step === 3 && !isSuccess && !isWaitingForStk" class="space-y-12 reveal">
                             <div class="grid grid-cols-2 gap-6">
                                 <button @click="form.payment_method = 'mpesa'" 
                                         class="p-8 bg-transparent rounded-sm border-2 transition-all flex flex-col items-center gap-4 group"
@@ -242,8 +311,19 @@ function nextStep() {
                             </button>
                         </div>
 
-                        <!-- Success State -->
-                        <div v-if="isSuccess" class="text-center py-20 bg-transparent/50 rounded-3xl border border-primary/20 space-y-8 reveal">
+                        <!-- Step 4: M-Pesa STK Push Phase -->
+                        <div v-if="step === 4 && !isPaid" class="reveal">
+                            <MpesaStkPanel 
+                                :amount="cart.totalPrice" 
+                                :phone="form.phone"
+                                :isProcessing="isProcessing"
+                                @pay="initiateMpesaStk"
+                                @cancel="step = 3; isWaitingForStk = false"
+                            />
+                        </div>
+
+                        <!-- Success State (Standard / Card) -->
+                        <div v-if="isSuccess && !isWaitingForStk && form.payment_method !== 'mpesa'" class="text-center py-20 bg-transparent/50 rounded-3xl border border-primary/20 space-y-8 reveal max-w-5xl mx-auto">
                             <span class="material-symbols-outlined text-7xl text-primary luminous-glow">hourglass_empty</span>
                             <div class="space-y-4">
                                 <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface">Order <span class="text-primary">Created.</span></h2>
@@ -255,6 +335,14 @@ function nextStep() {
                                 </a>
                                 <Link :href="route('home')" class="text-xs dark:text-white/40 text-black/40 hover:text-primary transition-colors">Return to Homepage</Link>
                             </div>
+                        </div>
+
+                        <!-- Success State (M-Pesa) -->
+                        <div v-if="isSuccess && form.payment_method === 'mpesa'" class="reveal">
+                            <MpesaSuccessPanel 
+                                :amount="cart.totalPrice" 
+                                :orderId="orderId"
+                            />
                         </div>
                     </div>
 

@@ -92,7 +92,7 @@ class CheckoutController extends Controller
 
         // Atomic order creation with stock decrement
         try {
-            DB::transaction(function () use ($validated, $userId, $calculatedTotal, $itemsWithSizing) {
+            $order = DB::transaction(function () use ($validated, $userId, $calculatedTotal, $itemsWithSizing) {
                 // Decrement batch stock for each item with SHARED LOCK
                 foreach ($validated['items'] as $item) {
                     // SECURE LOCK: Use lockForUpdate to prevent race conditions during heavy traffic
@@ -109,7 +109,7 @@ class CheckoutController extends Controller
                 }
 
                 // Create order - mark as pending payment (NOT paid yet)
-                CustomOrder::create([
+                return CustomOrder::create([
                     'user_id'      => $userId,
                     'full_name'    => $validated['full_name'],
                     'email'        => $validated['email'],
@@ -144,6 +144,7 @@ class CheckoutController extends Controller
         return response()->json([
             'success'  => true,
             'message'  => 'Order created. Proceed to payment',
+            'order_id' => $order->id
         ]);
     }
 }
