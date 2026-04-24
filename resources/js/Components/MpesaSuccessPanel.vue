@@ -16,7 +16,13 @@ const { formatAmount } = useCurrency();
 
 function shareToWhatsApp() {
     const orderRef = `ORD-${String(props.orderId).substring(0, 8).toUpperCase()}`;
-    const productList = props.items.map(item => `• ${item.name} (x${item.quantity})`).join('\n');
+    const baseUrl = window.location.origin;
+    const productList = props.items.map(item => {
+        const imgUrl = (item.image && item.image.startsWith('http')) 
+            ? item.image 
+            : `${baseUrl}/${(item.image || '').replace(/^\//, '')}`;
+        return `• ${item.name} (x${item.quantity})\n  Image: ${imgUrl}`;
+    }).join('\n\n');
     
     const message = `*PAYMENT CONFIRMED — SERANA ATELIER*\n\n` +
                   `I have successfully paid for Order *#${orderRef}* via M-Pesa.\n\n` +
