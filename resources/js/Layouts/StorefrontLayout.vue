@@ -2,6 +2,9 @@
     <div class="min-h-screen flex flex-col bg-background selection:bg-primary selection:text-background relative overflow-hidden">
         <!-- Global Obsidian Base Layer -->
         <SectionBackground class="fixed !z-[-1]" opacity="opacity-5" :showScan="false" />
+        
+        <!-- Studio Grain - Tactile Texture Layer -->
+        <div class="studio-grain"></div>
 
         <TopNavBar />
         <CommandPortal ref="portalRef" />

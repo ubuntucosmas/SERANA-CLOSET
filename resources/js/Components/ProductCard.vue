@@ -214,7 +214,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                     <div class="flex items-end justify-between z-10 px-1">
                         <div class="flex flex-col flex-1 min-w-0 pr-2">
                             <h3 class="text-[12px] font-headline font-medium text-white uppercase tracking-widest leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] truncate">{{ product.name }}</h3>
-                            <p class="text-[8px] mt-1 font-medium text-white/60 uppercase tracking-[0.2em]">{{ product.category?.name || 'Archive' }}</p>
+                            <p class="text-[8px] mt-1 font-medium dark:text-white/60 text-on-surface-variant uppercase tracking-[0.2em]">{{ product.category?.name || 'Archive' }}</p>
                         </div>
                         <span class="text-[14px] font-headline font-black text-primary drop-shadow-lg shrink-0">{{ formatAmount(product.price, page.props) }}</span>
                     </div>
@@ -248,7 +248,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                             isHovered ? 'text-primary drop-shadow-[0_0_10px_rgba(57,255,20,0.3)]' : ''
                         ]">{{ product.name }}</h3>
                         <div class="flex items-center gap-3 mt-1">
-                            <p class="dark:text-white/30 text-black/30 text-[10px] tracking-[0.2em] font-headline font-medium uppercase font-black">{{ product.category?.name || 'Collection' }}</p>
+                            <p class="dark:text-white/40 text-on-surface-variant text-[10px] tracking-[0.3em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
                             <span v-if="product.garment_type === 'set'" class="text-primary text-[8px] font-black tracking-widest border border-primary/20 px-2 py-0.5 rounded-full">// FULL SET</span>
                             <span v-else class="text-white/20 text-[8px] font-black tracking-widest border border-white/5 px-2 py-0.5 rounded-full">// SINGLE</span>
                         </div>
@@ -275,7 +275,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 <div v-for="(img, i) in optimizedAllImages" :key="i" 
                      class="w-48 h-64 bg-surface overflow-hidden rounded-xl border border-white/20 reveal-stagger group/thumb cursor-crosshair shadow-2xl"
                      :style="{ transitionDelay: (i * 100) + 'ms' }">
-                    <img :src="img" class="w-full h-full object-cover grayscale group-hover/thumb:grayscale-0 transition-all duration-1000 opacity-30 group-hover/thumb:opacity-100 group-hover/thumb:scale-110" />
+                    <img :src="img" class="w-full h-full object-cover transition-all duration-1000 opacity-80 group-hover/thumb:opacity-100 group-hover/thumb:scale-110" />
                 </div>
             </div>
         </div>

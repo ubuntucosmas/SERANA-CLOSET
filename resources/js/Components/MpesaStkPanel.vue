@@ -153,8 +153,8 @@ const steps = [
             </div>
         </div>
 
-        <h3 class="text-white font-headline font-black text-2xl mb-3">Initiating Secure Session</h3>
-        <p class="text-white/40 text-sm font-medium max-w-xs leading-relaxed">Establishing encrypted channel with Safaricom Daraja API. This takes a moment.</p>
+        <h3 class="text-white font-headline font-medium text-2xl mb-3 uppercase tracking-tight">Initiating Secure Session</h3>
+        <p class="text-white/60 text-sm font-light max-w-xs leading-relaxed">Establishing encrypted channel with Safaricom Daraja API. This takes a moment.</p>
 
         <!-- Animated Dots -->
         <div class="flex gap-2 mt-8">
@@ -180,8 +180,8 @@ const steps = [
                 </div>
             </div>
 
-            <h2 class="text-white font-headline font-black text-2xl mt-6 mb-2">Check Your Phone!</h2>
-            <p class="text-[#4fb33f] text-sm font-black uppercase tracking-widest">M-PESA PIN Prompt Incoming</p>
+            <h2 class="text-white font-headline font-light text-2xl mt-6 mb-2 uppercase tracking-wide">Check Your Phone!</h2>
+            <p class="text-[#4fb33f] text-sm font-medium uppercase tracking-widest">M-PESA PIN Prompt Incoming</p>
         </div>
 
         <!-- Body -->
@@ -189,8 +189,8 @@ const steps = [
             <!-- Amount reminder -->
             <div class="flex justify-between items-center p-5 bg-[#4fb33f]/5 border border-[#4fb33f]/15 rounded-2xl">
                 <div>
-                    <p class="text-[9px] text-white/30 uppercase tracking-widest font-black mb-1">Authorization Required</p>
-                    <p class="text-white font-headline font-black text-2xl">KSh {{ Number(amount).toLocaleString() }}</p>
+                    <p class="text-[9px] text-white/40 uppercase tracking-widest font-medium mb-1">Authorization Required</p>
+                    <p class="text-white font-headline font-light text-2xl">KSh {{ Number(amount).toLocaleString() }}</p>
                 </div>
                 <div class="text-right">
                     <p class="text-[9px] text-white/30 uppercase tracking-widest font-black mb-1">To</p>
@@ -229,7 +229,7 @@ const steps = [
             <!-- Polling indicator -->
             <div class="flex items-center justify-center gap-3">
                 <div class="w-1.5 h-1.5 rounded-full bg-[#4fb33f] animate-pulse"></div>
-                <p class="text-[10px] text-white/20 uppercase tracking-widest font-black">Listening for confirmation...</p>
+                <p class="text-[10px] text-white/40 uppercase tracking-widest font-medium">Listening for confirmation...</p>
                 <div class="w-1.5 h-1.5 rounded-full bg-[#4fb33f] animate-pulse" style="animation-delay:500ms"></div>
             </div>
         </div>

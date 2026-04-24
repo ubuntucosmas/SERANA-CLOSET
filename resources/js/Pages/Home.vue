@@ -80,12 +80,16 @@ onMounted(() => {
         <CollectionRibbon :products="featuredProducts" />
 
         <!-- 3. Categories -->
-        <div>
-            <CategoryGrid />
-        </div>
+        <section class="relative py-16 md:py-24 overflow-hidden">
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" />
+            <div class="relative z-10">
+                <CategoryGrid />
+            </div>
+        </section>
 
         <!-- 3. The Serana Standard -->
-        <section class="py-16 md:py-24 bg-background px-4 sm:px-8 anime-reveal">
+        <section class="py-16 md:py-24 bg-surface px-4 sm:px-8 silk-reveal relative overflow-hidden">
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-10" />
             <div class="max-w-screen-xl mx-auto">
                 <CraftsmanshipBlock 
                     subtitle="Our Quality Standard"
@@ -103,8 +107,8 @@ onMounted(() => {
         </section>
 
         <!-- 4. Studio Pulse (Minimalist Refinement) -->
-        <section class="py-16 md:py-24 lg:py-40 bg-background border-b dark:border-white/5 border-black/5 reveal relative">
-            <SectionBackground opacity="opacity-20" blur="blur-none" />
+        <section class="py-16 md:py-24 lg:py-40 bg-background border-b dark:border-white/5 border-black/5 reveal relative silk-reveal">
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" blur="blur-none" />
             <div class="max-w-screen-xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
@@ -112,7 +116,7 @@ onMounted(() => {
                         <h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] uppercase ">
                             Our <span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent  font-medium">Collection</span>_
                         </h1>
-                        <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 uppercase tracking-[0.4em] font-medium leading-loose font-sans">
+                        <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-on-surface-variant uppercase tracking-[0.4em] font-medium leading-loose font-sans">
                             Nairobi's high-tech maker space. Engineering high-fashion silhouettes with careful precision and digital craft.
                         </p>
                     </div>
@@ -140,8 +144,8 @@ onMounted(() => {
         </section>
 
         <!-- 5. Featured Products -->
-        <section class="py-16 md:py-32 lg:py-48 px-8 max-w-screen-2xl mx-auto anime-reveal relative" data-stagger=".product-card-container">
-            <SectionBackground opacity="opacity-10" :showScan="false" />
+        <section class="py-16 md:py-32 lg:py-48 px-8 max-w-screen-2xl mx-auto anime-reveal relative bg-surface-container/50 overflow-hidden" data-stagger=".product-card-container">
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" :showScan="false" />
             <div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-12 relative z-10">
                 <div class="space-y-6">
                     <div class="inline-flex items-center gap-3 text-primary font-sans tracking-[0.4em] text-[9px] font-medium uppercase">
@@ -165,8 +169,8 @@ onMounted(() => {
         </section>
 
         <!-- 6. Newsletter / Studio Circle CTA -->
-        <section class="bg-background dark:text-white text-on-surface py-16 md:py-32 lg:py-48 px-8 overflow-hidden relative border-t dark:border-white/5 border-black/5 reveal">
-            <SectionBackground texture="/images/black_zip_up_hoodie_gray_bg.png" opacity="opacity-30" />
+        <section class="bg-surface dark:text-white text-on-surface py-16 md:py-32 lg:py-48 px-8 overflow-hidden relative border-t dark:border-white/5 border-black/5 reveal">
+            <SectionBackground texture="/images/black_zip_up_hoodie_gray_bg.png" opacity="opacity-[0.15]" />
             
             <div class="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-24 relative z-10">
                 <div class="space-y-10">
@@ -176,7 +180,7 @@ onMounted(() => {
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
                     <h2 class="font-headline text-4xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Serana <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
-                    <p class="text-sm dark:text-white/40 text-black/40 leading-loose  max-w-md font-sans uppercase tracking-widest text-[10px] font-medium">
+                    <p class="text-sm dark:text-white/40 text-on-surface-variant leading-loose  max-w-md font-sans uppercase tracking-widest text-[10px] font-medium">
                         Our pieces are not just made; they are carefully built. We merge high-tech design with the soul of Kenyan makers to create something truly unique.
                     </p>
                     <form @submit.prevent="subscribeNewsletter" class="flex flex-col gap-6 max-w-md">
@@ -203,7 +207,7 @@ onMounted(() => {
                     <div class="absolute inset-0 bg-primary/20 rounded-full blur-[120px] group-hover:bg-primary/30 transition-all duration-1000"></div>
                     <div class="relative z-10 w-full h-full aspect-square rounded-full border dark:border-white/10 border-black/10 overflow-hidden">
                         <img
-                            class="w-full h-full object-cover grayscale opacity-40 hover:opacity-100 hover:grayscale-0 transition-all duration-1000"
+                            class="w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105 opacity-80"
                             src="/images/black_zip_up_hoodie_gray_bg.png"
                         />
                     </div>

@@ -1,7 +1,7 @@
 <template>
     <nav
         class="fixed top-0 w-full z-50 transition-all duration-300"
-        :class="scrolled ? 'bg-surface/60 backdrop-blur-3xl shadow-2xl border-b border-white/5' : 'bg-transparent pt-4'"
+        :class="scrolled ? 'bg-background/95 backdrop-blur-3xl shadow-2xl border-b border-black/5 dark:border-white/5' : 'bg-transparent pt-4'"
     >
         <div class="flex items-center justify-between px-4 py-2 md:py-4 lg:px-12 w-full max-w-[1920px] mx-auto relative h-full">
 
@@ -27,7 +27,7 @@
                         <span class="material-symbols-outlined text-[12px] opacity-40 group-hover:rotate-180 transition-transform duration-300">keyboard_arrow_down</span>
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[580px]">
-                        <div class="dark:bg-black/40 bg-white/40 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
+                        <div class="dark:bg-black/80 bg-background/95 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
                             <div class="space-y-6">
                                 <div>
                                     <h4 class="font-headline text-[13px] text-primary tracking-[0.4em] font-medium mb-3">Browse the shop</h4>
@@ -63,7 +63,7 @@
                         </span>
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[500px]">
-                        <div class="dark:bg-black/40 bg-white/40 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
+                        <div class="dark:bg-black/80 bg-background/95 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
                             <div class="aspect-[3/4] bg-transparent border dark:border-white/5 border-black/5 rounded-sm p-1 overflow-hidden border dark:border-white/5 border-black/5">
                                 <img src="/images/detailed_texture.png" class="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-1000" alt="Custom Order" />
                             </div>

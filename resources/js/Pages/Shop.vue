@@ -128,7 +128,7 @@ watch(showLogisticsOverlay, (val) => {
             <title>{{ activeCategory ? `${activeCategory.name} | Archive` : 'The Collection' }} | Serana Closet</title>
         </Head>
 
-        <div class="relative min-h-screen bg-background">
+        <div class="relative min-h-screen bg-surface-container/30">
             <!-- Cinematic Shifting Background -->
             <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
                 <img :src="slotA" class="absolute inset-0 w-full h-full object-cover scale-110 grayscale brightness-[0.3] blur-[2px] transition-opacity duration-[3000ms]" :class="showA ? 'opacity-30' : 'opacity-0'" alt="" />

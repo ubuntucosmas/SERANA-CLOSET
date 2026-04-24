@@ -8,6 +8,10 @@ defineProps({
         type: String,
         default: '/images/black_cloth_texture.png'
     },
+    video: {
+        type: String,
+        default: null
+    },
     opacity: {
         type: String,
         default: 'opacity-10'
@@ -25,17 +29,31 @@ defineProps({
 
 <template>
     <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
-        <!-- Silk Texture Layer -->
+        
+        <!-- Video Layer -->
+        <video 
+            v-if="video"
+            :src="video"
+            autoplay 
+            muted 
+            loop 
+            playsinline
+            class="absolute inset-0 w-full h-full object-cover"
+            :class="[opacity, blur]"
+        ></video>
+
+        <!-- Silk Texture Layer (Fallback or Static) -->
         <img 
+            v-else
             :src="texture" 
-            class="absolute inset-0 w-full h-full object-cover grayscale brightness-50" 
+            class="absolute inset-0 w-full h-full object-cover" 
             :class="[opacity, blur]"
             alt="Obsidian Silk Background"
         />
 
         <!-- Refined Gradient Shading -->
-        <div class="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background z-10 opacity-80"></div>
-        <div class="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40 z-10"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background z-10 opacity-30"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-background/10 via-transparent to-background/10 z-10"></div>
 
         <!-- Tactical White Scan Line -->
         <div v-if="showScan" class="absolute inset-0 z-20">

@@ -108,7 +108,7 @@ const closeDrawer = () => {
         <!-- Semantic Shell: Mini Cart Slide-out Component -->
         <div 
             ref="drawerRef"
-            class="relative z-10 w-full max-w-lg dark:bg-black bg-white border-l dark:border-white/10 border-black/10 shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col h-full transform translate-x-full"
+            class="relative z-10 w-full max-w-lg dark:bg-black bg-surface border-l dark:border-white/10 border-black/10 shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col h-full transform translate-x-full"
         >
             <!-- Header -->
             <div class="px-8 py-10 flex justify-between items-center border-b dark:border-white/5 border-black/5">
@@ -203,7 +203,7 @@ const closeDrawer = () => {
             </div>
 
             <!-- Checkout Footer Section -->
-            <div v-if="cart.items.length > 0" class="px-8 py-10 bg-[#050505] border-t dark:border-white/5 border-black/5">
+            <div v-if="cart.items.length > 0" class="px-8 py-10 dark:bg-[#050505] bg-surface-container border-t dark:border-white/5 border-black/5">
                 <div class="space-y-3 mb-8">
                     <div class="flex justify-between font-body text-sm dark:text-white/70 text-black/70">
                         <span>Subtotal</span>

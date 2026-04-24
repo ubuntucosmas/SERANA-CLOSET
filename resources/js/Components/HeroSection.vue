@@ -66,7 +66,7 @@ onMounted(() => {
                 <img 
                     :key="dynamicBackgrounds[currentBgIndex]"
                     :src="dynamicBackgrounds[currentBgIndex]" 
-                    class="absolute inset-0 w-full h-full object-cover scale-110 opacity-30 blur-[2px] grayscale brightness-50" 
+                    class="absolute inset-0 w-full h-full object-cover scale-110 opacity-40 blur-[2px]" 
                     alt="Serana Studio Tectonic" 
                 />
             </transition>
@@ -98,11 +98,11 @@ onMounted(() => {
                     <!-- Main Heading -->
                     <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
                         Crafting your<br/>
-                        <span class=" font-light dark:text-white/40 text-black/40">perfect design</span>
+                        <span class=" font-light dark:text-white/40 text-on-surface-variant">perfect design</span>
                     </h1>
 
                     <!-- Subtitle -->
-                    <p class="reveal-hero-item opacity-0 text-lg md:text-xl dark:text-white/40 text-black/40 max-w-lg leading-relaxed font-light border-l border-primary/20 pl-10 opacity-80">
+                    <p class="reveal-hero-item opacity-0 text-lg md:text-xl dark:text-white/40 text-on-surface-variant max-w-lg leading-relaxed font-light border-l border-primary/20 pl-10">
                         Careful tailoring for the modern style. From signature custom orders to limited drops, we make clothes with excellent craft.
                     </p>
 
@@ -142,7 +142,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Secondary Floating Details Image - Hidden on mobile for Zen -->
-                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
+                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
                         <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
                     </div>
                 </div>
