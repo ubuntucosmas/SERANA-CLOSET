@@ -149,7 +149,30 @@
 
 @layer components {
     .glass-panel {
-        @apply bg-black/40 backdrop-blur-3xl border border-white/5;
+        @apply bg-black/20 backdrop-blur-3xl border border-white/5;
+    }
+
+    /* Global Mobile High-Density Card */
+    @media (max-width: 767px) {
+        .mobile-floating-card {
+            @apply glass-panel p-6 shadow-2xl relative z-10 mx-auto w-full max-w-md;
+            border-radius: 2rem !important;
+            /* Premium rounded app-feel */
+        }
+
+        .dense-text {
+            letter-spacing: -0.01em;
+            line-height: 1.4;
+            @apply text-[13px];
+        }
+
+        .tiny-label {
+            @apply text-[8px] uppercase tracking-[0.2em] font-bold opacity-60;
+        }
+
+        .compact-button {
+            @apply py-3 px-6 text-[9px] uppercase tracking-[0.2em] font-bold;
+        }
     }
 
     .serif-text {

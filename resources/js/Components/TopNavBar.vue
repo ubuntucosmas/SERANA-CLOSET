@@ -3,12 +3,12 @@
         class="fixed top-0 w-full z-50 transition-all duration-300"
         :class="scrolled ? 'bg-surface/60 backdrop-blur-3xl shadow-2xl border-b border-white/5' : 'bg-transparent pt-4'"
     >
-        <div class="flex items-center justify-between px-4 py-4 lg:px-12 w-full max-w-[1920px] mx-auto relative h-full">
+        <div class="flex items-center justify-between px-4 py-2 md:py-4 lg:px-12 w-full max-w-[1920px] mx-auto relative h-full">
 
             <!-- 1. Left Vector: Brand & Pulse -->
             <div class="flex items-center gap-10 relative z-20">
                 <Link :href="route('home')" class="flex-shrink-0">
-                    <ApplicationLogo class="[&_h1]:text-3xl" />
+                    <ApplicationLogo class="[&_h1]:text-2xl md:[&_h1]:text-3xl" />
                 </Link>
             </div>
 

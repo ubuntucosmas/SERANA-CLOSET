@@ -128,7 +128,7 @@ function nextStep() { if (step.value < 3) step.value++; }
 </script>
 
 <template>
-    <StorefrontLayout>
+    <StorefrontLayout hideMobileCard>
         <Head title="Secure Checkout — Serana Atelier" />
 
         <main class="relative pt-24 md:pt-32 pb-12 md:pb-24 px-4 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
@@ -202,7 +202,7 @@ function nextStep() { if (step.value < 3) step.value++; }
                         </header>
 
                         <!-- Step Indicator (Condensed) -->
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 mb-8">
                             <template v-for="s in 3" :key="s">
                                 <div class="flex items-center gap-1 cursor-pointer" @click="step = s">
                                     <div class="w-6 h-6 flex items-center justify-center border text-[9px] font-bold transition-all"

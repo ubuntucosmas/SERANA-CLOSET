@@ -14,11 +14,11 @@ function isActive(routeName) {
 </script>
 
 <template>
-    <nav class="lg:hidden fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm">
-        <div class="bg-black/60 backdrop-blur-2xl border border-white/5 rounded-full px-8 py-4 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+    <nav class="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[94%] max-w-sm">
+        <div class="bg-black/80 backdrop-blur-3xl border border-white/5 rounded-full px-5 py-2.5 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
             
-            <Link :href="route('home')" class="flex flex-col items-center gap-1 transition-all" :class="isActive('home') ? 'text-primary' : 'text-white/40'">
-                <span class="material-symbols-outlined text-[24px]">home</span>
+            <Link :href="route('home')" class="flex flex-col items-center gap-0.5 transition-all" :class="isActive('home') ? 'text-primary' : 'text-white/40'">
+                <span class="material-symbols-outlined text-[22px]">home</span>
                 <span class="text-[8px] font-bold uppercase tracking-widest">Home</span>
             </Link>
 

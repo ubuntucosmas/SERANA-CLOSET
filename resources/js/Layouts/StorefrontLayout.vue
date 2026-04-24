@@ -15,7 +15,16 @@
         <main class="flex-grow relative z-10">
             <transition name="fade" mode="out-in" appear>
                 <div :key="$page.url">
-                    <slot />
+                    <!-- Standard Mobile App-Like Wrapper -->
+                    <div v-if="!hideMobileCard" class="block md:hidden px-4 pt-16 pb-20">
+                        <div class="mobile-floating-card">
+                            <slot />
+                        </div>
+                    </div>
+                    <!-- Desktop / Original Content -->
+                    <div :class="!hideMobileCard ? 'hidden md:block' : ''">
+                        <slot />
+                    </div>
                 </div>
             </transition>
         </main>
@@ -36,6 +45,10 @@ import ConciergeButton from '@/Components/ConciergeButton.vue';
 import CommandPortal from '@/Components/CommandPortal.vue';
 import RegistryPath from '@/Components/RegistryPath.vue';
 import { useCartStore } from '@/Stores/useCartStore';
+
+const props = defineProps({
+    hideMobileCard: { type: Boolean, default: false }
+});
 
 const cart = useCartStore();
 const portalRef = ref(null);
