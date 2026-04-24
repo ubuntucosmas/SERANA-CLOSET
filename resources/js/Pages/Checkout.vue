@@ -126,10 +126,42 @@ function startPolling() {
 
 const stepTheme = computed(() => {
     switch (step.value) {
-        case 1: return { color: 'text-blue-500', border: 'border-blue-500', bg: 'bg-blue-500', bgAlpha: 'bg-blue-500/10', glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]' };
-        case 2: return { color: 'text-emerald-500', border: 'border-emerald-500', bg: 'bg-emerald-500', bgAlpha: 'bg-emerald-500/10', glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]' };
-        case 3: return { color: 'text-rose-500', border: 'border-rose-500', bg: 'bg-rose-500', bgAlpha: 'bg-rose-500/10', glow: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]' };
-        default: return { color: 'text-primary', border: 'border-primary', bg: 'bg-primary', bgAlpha: 'bg-primary/10', glow: 'shadow-[0_0_20px_rgba(57,255,20,0.3)]' };
+        case 1: return { 
+            color: 'text-blue-500', 
+            border: 'border-blue-500', 
+            bg: 'bg-blue-500', 
+            bgAlpha: 'bg-blue-500/10', 
+            glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
+            mobileCard: 'bg-blue-900',
+            onMobile: 'text-white'
+        };
+        case 2: return { 
+            color: 'text-emerald-500', 
+            border: 'border-emerald-500', 
+            bg: 'bg-emerald-500', 
+            bgAlpha: 'bg-emerald-500/10', 
+            glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+            mobileCard: 'bg-[#016e00]',
+            onMobile: 'text-white'
+        };
+        case 3: return { 
+            color: 'text-rose-500', 
+            border: 'border-rose-500', 
+            bg: 'bg-rose-500', 
+            bgAlpha: 'bg-rose-500/10', 
+            glow: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]',
+            mobileCard: 'bg-rose-900',
+            onMobile: 'text-white'
+        };
+        default: return { 
+            color: 'text-primary', 
+            border: 'border-primary', 
+            bg: 'bg-primary', 
+            bgAlpha: 'bg-primary/10', 
+            glow: 'shadow-[0_0_20px_rgba(57,255,20,0.3)]',
+            mobileCard: 'bg-[#016e00]',
+            onMobile: 'text-white'
+        };
     }
 });
 
@@ -197,15 +229,19 @@ function nextStep() { if (step.value < 3) step.value++; }
                 
                 <!-- On mobile, we wrap everything in a floating glass card -->
                 <div class="lg:col-span-7 block md:hidden">
-                    <div class="glass-panel p-6 space-y-10 shadow-2xl relative z-10">
+                    <div :class="[
+                        'p-6 space-y-10 shadow-2xl relative z-10 transition-all duration-1000',
+                        stepTheme.mobileCard,
+                        stepTheme.onMobile
+                    ]">
                         <!-- We will repeat the step content here but condensed for mobile -->
                         <!-- Header -->
                         <header class="space-y-2">
-                            <Link :href="route('shop')" class="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 font-bold">
+                            <Link :href="route('shop')" :class="['text-[8px] uppercase tracking-[0.2em] font-bold flex items-center gap-1 transition-colors', stepTheme.onMobile === 'text-white' ? 'text-white/60 hover:text-white' : 'text-on-surface-variant hover:text-primary']">
                                 <span class="material-symbols-outlined text-[10px]">arrow_back</span> Collection
                             </Link>
-                            <h1 class="font-headline text-2xl font-light tracking-tight text-on-surface">Secure Checkout</h1>
-                            <p class="text-on-surface-variant text-[9px] tracking-[0.15em] uppercase font-bold opacity-60">
+                            <h1 :class="['font-headline text-2xl font-light tracking-tight', stepTheme.onMobile]">Secure Checkout</h1>
+                            <p :class="['text-[9px] tracking-[0.15em] uppercase font-bold opacity-60', stepTheme.onMobile]">
                                 {{ step === 1 ? 'Contact' : step === 2 ? 'Shipping' : 'Payment' }} — Step {{ step }}/3
                             </p>
                         </header>
@@ -231,18 +267,18 @@ function nextStep() { if (step.value < 3) step.value++; }
 
                         <div class="dense-steps">
                              <!-- Order Summary Toggle for Mobile -->
-                             <div class="mb-6 p-4 bg-primary/5 border border-primary/20">
+                             <div :class="['mb-6 p-4 border transition-all duration-700', stepTheme.onMobile === 'text-white' ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/20']">
                                 <div class="flex justify-between items-center" @click="showMobileSummary = !showMobileSummary">
-                                    <span class="text-[9px] uppercase tracking-widest font-bold text-primary">Summary</span>
+                                    <span :class="['text-[9px] uppercase tracking-widest font-bold', stepTheme.onMobile === 'text-white' ? 'text-white' : 'text-primary']">Summary</span>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[10px] font-bold">{{ formatAmount(cart.totalPrice) }}</span>
-                                        <span class="material-symbols-outlined text-sm transition-transform" :class="showMobileSummary ? 'rotate-180' : ''">expand_more</span>
+                                        <span :class="['text-[10px] font-bold', stepTheme.onMobile]">{{ formatAmount(cart.totalPrice) }}</span>
+                                        <span :class="['material-symbols-outlined text-sm transition-transform', stepTheme.onMobile, showMobileSummary ? 'rotate-180' : '']">expand_more</span>
                                     </div>
                                 </div>
-                                <div v-if="showMobileSummary" class="mt-4 space-y-3 pt-4 border-t border-primary/10 transition-all animate-fade-up">
+                                <div v-if="showMobileSummary" class="mt-4 space-y-3 pt-4 border-t border-white/10 transition-all animate-fade-up">
                                     <div v-for="item in cart.items" :key="item.id" class="flex justify-between items-center text-[9px]">
-                                        <span class="text-on-surface-variant italic">{{ item.name }} (x{{ item.quantity }})</span>
-                                        <span class="font-bold">{{ formatAmount(item.price * item.quantity) }}</span>
+                                        <span :class="['italic opacity-70', stepTheme.onMobile]">{{ item.name }} (x{{ item.quantity }})</span>
+                                        <span :class="['font-bold', stepTheme.onMobile]">{{ formatAmount(item.price * item.quantity) }}</span>
                                     </div>
                                 </div>
                              </div>
@@ -251,19 +287,19 @@ function nextStep() { if (step.value < 3) step.value++; }
                             <section v-if="step === 1" class="space-y-6 animate-fade-up">
                                 <div class="grid grid-cols-1 gap-5">
                                     <div class="space-y-1.5">
-                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Email</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Email</label>
                                         <input v-model="form.email" type="email" placeholder="your@email.com"
-                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Phone</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Phone</label>
                                         <input v-model="form.phone" type="tel" placeholder="+254 7XX..."
-                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Full Name</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Full Name</label>
                                         <input v-model="form.full_name" type="text" placeholder="Legal Name"
-                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
                                     </div>
                                 </div>
                                 <button @click="nextStep"
@@ -280,14 +316,14 @@ function nextStep() { if (step.value < 3) step.value++; }
                             <section v-if="step === 2" class="space-y-6 animate-fade-up">
                                 <div class="grid grid-cols-1 gap-5">
                                     <div class="space-y-1.5">
-                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Address</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Address</label>
                                         <input v-model="form.address" type="text" placeholder="Building, Street"
-                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">City / Area</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">City / Area</label>
                                         <input v-model="form.city" type="text" placeholder="e.g. Kilimani, Nairobi"
-                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
                                     </div>
                                 </div>
                                 <button @click="nextStep"
