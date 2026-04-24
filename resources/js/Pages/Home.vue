@@ -81,7 +81,7 @@ onMounted(() => {
 
         <!-- 3. Categories -->
         <section class="relative py-16 md:py-24 overflow-hidden">
-            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" />
+            <SectionBackground video="/videos/category_loop.mp4" opacity="opacity-[0.05]" />
             <div class="relative z-10">
                 <CategoryGrid />
             </div>
@@ -108,7 +108,7 @@ onMounted(() => {
 
         <!-- 4. Studio Pulse (Minimalist Refinement) -->
         <section class="py-16 md:py-24 lg:py-40 bg-background border-b dark:border-white/5 border-black/5 reveal relative silk-reveal">
-            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" blur="blur-none" />
+            <SectionBackground video="/videos/studio_pulse.mp4" opacity="opacity-10" blur="blur-none" />
             <div class="max-w-screen-xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
@@ -145,7 +145,7 @@ onMounted(() => {
 
         <!-- 5. Featured Products -->
         <section class="py-16 md:py-32 lg:py-48 px-8 max-w-screen-2xl mx-auto anime-reveal relative bg-surface-container/50 overflow-hidden" data-stagger=".product-card-container">
-            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-40" :showScan="false" />
+            <SectionBackground video="/videos/products_loop.mp4" opacity="opacity-[0.05]" :showScan="false" />
             <div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-12 relative z-10">
                 <div class="space-y-6">
                     <div class="inline-flex items-center gap-3 text-primary font-sans tracking-[0.4em] text-[9px] font-medium uppercase">
@@ -207,7 +207,7 @@ onMounted(() => {
                     <div class="absolute inset-0 bg-primary/20 rounded-full blur-[120px] group-hover:bg-primary/30 transition-all duration-1000"></div>
                     <div class="relative z-10 w-full h-full aspect-square rounded-full border dark:border-white/10 border-black/10 overflow-hidden">
                         <img
-                            class="w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105 opacity-80"
+                            class="w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105"
                             src="/images/black_zip_up_hoodie_gray_bg.png"
                         />
                     </div>

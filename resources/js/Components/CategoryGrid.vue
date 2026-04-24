@@ -30,11 +30,6 @@ const getCategoryBanner = (category) => {
 
     return '/images/detailed_texture.png';
 };
-
-const getCategoryVideo = (category) => {
-    // For now, use the known existing asset as universal fallback
-    return '/videos/heritage_loop.mp4';
-};
 </script>
 
 <template>
@@ -63,18 +58,10 @@ const getCategoryVideo = (category) => {
             >
                 <img 
                     :alt="category.name" 
-                    class="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-1000 scale-100 group-hover:scale-105" 
+                    class="absolute inset-0 w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105" 
                     :src="getCategoryBanner(category)"
                 />
-                
-                <!-- Cinematic Card Motion -->
-                <video 
-                    autoplay muted loop playsinline
-                    class="absolute inset-0 w-full h-full object-cover brightness-110 opacity-0 group-hover:opacity-60 transition-opacity duration-1000 pointer-events-none"
-                    :src="getCategoryVideo(category)"
-                ></video>
-
-                <div class="absolute inset-0 bg-gradient-to-t from-background/40 via-background/10 to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
                     <h3 class="text-3xl font-headline font-light dark:text-white text-on-surface mb-3 uppercase tracking-tighter">{{ category.name }}_</h3>
                     <Link :href="route('shop', {category: category.slug})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
