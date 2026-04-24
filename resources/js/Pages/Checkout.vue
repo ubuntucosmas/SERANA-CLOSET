@@ -117,11 +117,11 @@ const steps = ['Contact', 'Shipping', 'Payment'];
         </div>
 
         <!-- ═══════════════ MAIN CHECKOUT ═══════════════ -->
-        <main v-else class="bg-background min-h-screen pt-20 pb-36">
+        <main v-else class="bg-background min-h-screen pt-20 pb-[200px] lg:pb-16">
             <div class="max-w-screen-xl mx-auto px-4 sm:px-8 lg:px-12">
 
                 <!-- PAGE TITLE -->
-                <div class="pt-6 pb-8 lg:pt-10 lg:pb-12">
+                <div class="pt-4 pb-5 lg:pt-10 lg:pb-12">
                     <Link :href="route('shop')" class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors font-bold mb-4">
                         <span class="material-symbols-outlined text-sm">arrow_back</span> Collection
                     </Link>
@@ -129,7 +129,7 @@ const steps = ['Contact', 'Shipping', 'Payment'];
                 </div>
 
                 <!-- PROGRESS BAR -->
-                <div class="flex items-center mb-8 lg:mb-12">
+                <div class="flex items-center mb-5 lg:mb-12">
                     <template v-for="(label, i) in steps" :key="i">
                         <div class="flex flex-col items-center gap-1">
                             <div class="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center border text-[10px] font-black transition-all duration-300 relative"
@@ -151,29 +151,29 @@ const steps = ['Contact', 'Shipping', 'Payment'];
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-16 items-start">
 
                     <!-- LEFT COLUMN -->
-                    <div class="lg:col-span-7 space-y-4 lg:space-y-6">
+                    <div class="lg:col-span-7 space-y-3 lg:space-y-6">
 
                         <!-- ▌STEP 1: Contact ▐ -->
-                        <div v-if="step === 1" class="animate-fade-up space-y-4">
+                        <div v-if="step === 1" class="animate-fade-up space-y-3">
                             <!-- Card -->
-                            <div class="bg-surface-container border border-outline-variant/30 p-6 lg:p-8 space-y-6">
-                                <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/20">
+                            <div class="bg-surface-container border border-outline-variant/30 p-4 lg:p-8 space-y-4">
+                                <div class="flex items-center gap-3 pb-3 border-b border-outline-variant/20">
                                     <div class="w-7 h-7 flex items-center justify-center border border-primary/40 text-[10px] font-black text-primary">01</div>
                                     <h2 class="font-headline text-base lg:text-lg font-semibold uppercase tracking-wide text-on-surface">Contact</h2>
                                 </div>
 
-                                <div class="space-y-5">
+                                <div class="space-y-4">
                                     <div class="space-y-1.5">
                                         <label class="text-[10px] uppercase tracking-widest font-bold text-primary">Full Name</label>
                                         <input v-model="form.full_name" type="text" autocomplete="name"
                                             placeholder="Your full name"
-                                            class="w-full bg-background border border-outline-variant/50 focus:border-primary py-3.5 px-4 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
+                                            class="w-full bg-background border border-outline-variant/50 focus:border-primary py-3 px-3 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
                                     </div>
                                     <div class="space-y-1.5">
                                         <label class="text-[10px] uppercase tracking-widest font-bold text-primary">Email Address</label>
                                         <input v-model="form.email" type="email" inputmode="email" autocomplete="email"
                                             placeholder="you@email.com"
-                                            class="w-full bg-background border border-outline-variant/50 focus:border-primary py-3.5 px-4 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
+                                            class="w-full bg-background border border-outline-variant/50 focus:border-primary py-3 px-3 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
                                     </div>
                                     <div class="space-y-1.5">
                                         <label class="text-[10px] uppercase tracking-widest font-bold text-primary">Phone Number</label>
@@ -181,7 +181,7 @@ const steps = ['Contact', 'Shipping', 'Payment'];
                                             <div class="flex items-center justify-center border border-outline-variant/50 px-3 text-on-surface-variant text-sm font-bold bg-surface-container flex-shrink-0">+254</div>
                                             <input v-model="form.phone" type="tel" inputmode="tel" autocomplete="tel"
                                                 placeholder="7XX XXX XXX"
-                                                class="flex-1 bg-background border border-outline-variant/50 focus:border-primary py-3.5 px-4 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
+                                                class="flex-1 bg-background border border-outline-variant/50 focus:border-primary py-3 px-3 text-on-surface text-sm focus:outline-none transition-all placeholder:text-on-surface-variant/30" />
                                         </div>
                                         <p class="text-[10px] text-on-surface-variant/50">Used for M-Pesa payment and delivery updates.</p>
                                     </div>
@@ -190,8 +190,8 @@ const steps = ['Contact', 'Shipping', 'Payment'];
                         </div>
 
                         <!-- ▌STEP 2: Shipping ▐ -->
-                        <div v-if="step === 2" class="animate-fade-up space-y-4">
-                            <div class="bg-surface-container border border-outline-variant/30 p-6 lg:p-8 space-y-6">
+                        <div v-if="step === 2" class="animate-fade-up space-y-3">
+                            <div class="bg-surface-container border border-outline-variant/30 p-4 lg:p-8 space-y-4">
                                 <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/20">
                                     <div class="w-7 h-7 flex items-center justify-center border border-primary/40 text-[10px] font-black text-primary">02</div>
                                     <h2 class="font-headline text-base lg:text-lg font-semibold uppercase tracking-wide text-on-surface">Delivery Address</h2>
@@ -247,8 +247,8 @@ const steps = ['Contact', 'Shipping', 'Payment'];
                         </div>
 
                         <!-- ▌STEP 3: Payment ▐ -->
-                        <div v-if="step === 3" class="animate-fade-up space-y-4">
-                            <div class="bg-surface-container border border-outline-variant/30 p-6 lg:p-8 space-y-5">
+                        <div v-if="step === 3" class="animate-fade-up space-y-3">
+                            <div class="bg-surface-container border border-outline-variant/30 p-4 lg:p-8 space-y-3">
                                 <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/20">
                                     <div class="w-7 h-7 flex items-center justify-center border border-primary/40 text-[10px] font-black text-primary">03</div>
                                     <h2 class="font-headline text-base lg:text-lg font-semibold uppercase tracking-wide text-on-surface">Payment Method</h2>
@@ -376,36 +376,32 @@ const steps = ['Contact', 'Shipping', 'Payment'];
             </div>
 
             <!-- ████ MOBILE STICKY BOTTOM CTA ████ -->
-            <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface-container border-t border-outline-variant/30 px-4 pt-3 pb-safe">
-                <!-- Step label -->
-                <p class="text-[9px] uppercase tracking-widest text-on-surface-variant font-black mb-2 text-center">
-                    Step {{ step }} of 3 — {{ steps[step-1] }}
+            <!-- Uses 'bottom-cta' style which accounts for browser chrome + safe area -->
+            <div class="lg:hidden fixed left-0 right-0 z-50 bg-surface-container border-t border-outline-variant/40 px-3 pt-2 bottom-cta">
+                <p class="text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold mb-1.5 text-center">
+                    Step {{ step }}/3 — {{ steps[step-1] }}
                 </p>
                 <div class="flex gap-2">
                     <button v-if="step > 1" @click="step--"
-                        class="w-12 h-14 flex items-center justify-center border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95 flex-shrink-0">
+                        class="w-11 h-12 flex items-center justify-center border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-all active:scale-95 flex-shrink-0">
                         <span class="material-symbols-outlined text-sm">arrow_back</span>
                     </button>
                     <button v-if="step < 3" @click="step++"
-                        class="flex-1 h-14 flex items-center justify-center gap-2 bg-primary text-black text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all">
-                        Continue
-                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        class="flex-1 h-12 flex items-center justify-center gap-2 bg-primary text-black text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all">
+                        Continue <span class="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
                     <button v-else @click="handlePayment" :disabled="isProcessing"
-                        class="flex-1 h-14 flex items-center justify-center gap-2 bg-primary text-black text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40">
+                        class="flex-1 h-12 flex items-center justify-center gap-2 bg-primary text-black text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40">
                         <template v-if="isProcessing">
                             <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
                             Processing…
                         </template>
                         <template v-else>
                             <span class="material-symbols-outlined text-sm">lock</span>
-                            Place Order
+                            Place Order — {{ formatAmount(cart.totalPrice, page.props) }}
                         </template>
                     </button>
                 </div>
-                <p v-if="step === 3" class="text-[9px] text-center text-on-surface-variant/40 italic mt-2 pb-1">
-                    Placing order agrees to our Terms of Service.
-                </p>
             </div>
         </main>
     </StorefrontLayout>
@@ -418,5 +414,14 @@ const steps = ['Contact', 'Shipping', 'Payment'];
 }
 .animate-fade-up { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-.pb-safe { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+
+/**
+ * Positions the bottom CTA above phone browser chrome (address bar + nav).
+ * env(safe-area-inset-bottom) handles iPhone notch/home indicator.
+ * The extra 60px covers Android Chrome bottom toolbar & iOS Safari bar.
+ */
+.bottom-cta {
+    bottom: max(60px, calc(60px + env(safe-area-inset-bottom)));
+    padding-bottom: 8px;
+}
 </style>
