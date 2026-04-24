@@ -10,6 +10,7 @@ import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 
 const page = usePage();
+const showMobileSummary = ref(false);
 const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=Hello%2C%20I've%20just%20placed%20order%20%23${orderId.value}%20and%20I'd%20like%20to%20complete%20payment.`);
 
 const cart = useCartStore();
@@ -130,7 +131,7 @@ function nextStep() { if (step.value < 3) step.value++; }
     <StorefrontLayout>
         <Head title="Secure Checkout — Serana Atelier" />
 
-        <main class="relative pt-32 pb-24 px-6 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
+        <main class="relative pt-24 md:pt-32 pb-12 md:pb-24 px-4 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
 
             <!-- Checkout DNA Background -->
             <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
@@ -183,12 +184,144 @@ function nextStep() { if (step.value < 3) step.value++; }
             </div>
 
             <!-- Main Checkout Flow -->
-            <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+            <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-16 items-start">
+                
+                <!-- On mobile, we wrap everything in a floating glass card -->
+                <div class="lg:col-span-7 block md:hidden">
+                    <div class="glass-panel p-6 space-y-10 shadow-2xl relative z-10">
+                        <!-- We will repeat the step content here but condensed for mobile -->
+                        <!-- Header -->
+                        <header class="space-y-2">
+                            <Link :href="route('shop')" class="text-[8px] uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 font-bold">
+                                <span class="material-symbols-outlined text-[10px]">arrow_back</span> Collection
+                            </Link>
+                            <h1 class="font-headline text-2xl font-light tracking-tight text-on-surface">Secure Checkout</h1>
+                            <p class="text-on-surface-variant text-[9px] tracking-[0.15em] uppercase font-bold opacity-60">
+                                {{ step === 1 ? 'Contact' : step === 2 ? 'Shipping' : 'Payment' }} — Step {{ step }}/3
+                            </p>
+                        </header>
 
-                <!-- ╔══════════════════════════════╗ -->
-                <!-- ║  LEFT: Checkout Steps        ║ -->
-                <!-- ╚══════════════════════════════╝ -->
-                <div class="lg:col-span-7 space-y-20">
+                        <!-- Step Indicator (Condensed) -->
+                        <div class="flex items-center gap-2">
+                            <template v-for="s in 3" :key="s">
+                                <div class="flex items-center gap-1 cursor-pointer" @click="step = s">
+                                    <div class="w-6 h-6 flex items-center justify-center border text-[9px] font-bold transition-all"
+                                        :class="step >= s ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant'">
+                                        {{ s }}
+                                    </div>
+                                </div>
+                                <div v-if="s < 3" class="flex-1 h-[1px] transition-colors"
+                                    :class="step > s ? 'bg-primary/50' : 'bg-outline-variant/50'"></div>
+                            </template>
+                        </div>
+
+                        <div class="dense-steps">
+                             <!-- Order Summary Toggle for Mobile -->
+                             <div class="mb-6 p-4 bg-primary/5 border border-primary/20">
+                                <div class="flex justify-between items-center" @click="showMobileSummary = !showMobileSummary">
+                                    <span class="text-[9px] uppercase tracking-widest font-bold text-primary">Summary</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] font-bold">{{ formatAmount(cart.totalPrice) }}</span>
+                                        <span class="material-symbols-outlined text-sm transition-transform" :class="showMobileSummary ? 'rotate-180' : ''">expand_more</span>
+                                    </div>
+                                </div>
+                                <div v-if="showMobileSummary" class="mt-4 space-y-3 pt-4 border-t border-primary/10 transition-all animate-fade-up">
+                                    <div v-for="item in cart.items" :key="item.id" class="flex justify-between items-center text-[9px]">
+                                        <span class="text-on-surface-variant italic">{{ item.name }} (x{{ item.quantity }})</span>
+                                        <span class="font-bold">{{ formatAmount(item.price * item.quantity) }}</span>
+                                    </div>
+                                </div>
+                             </div>
+
+                             <!-- STEP 1: Contact -->
+                            <section v-if="step === 1" class="space-y-6 animate-fade-up">
+                                <div class="grid grid-cols-1 gap-5">
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Email</label>
+                                        <input v-model="form.email" type="email" placeholder="your@email.com"
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Phone</label>
+                                        <input v-model="form.phone" type="tel" placeholder="+254 7XX..."
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Full Name</label>
+                                        <input v-model="form.full_name" type="text" placeholder="Legal Name"
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                    </div>
+                                </div>
+                                <button @click="nextStep"
+                                    class="w-full bg-primary text-black py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all active:scale-[0.98]">
+                                    Continue
+                                    <span class="material-symbols-outlined text-[10px] align-middle ml-1">arrow_forward</span>
+                                </button>
+                            </section>
+
+                            <!-- STEP 2: Shipping -->
+                            <section v-if="step === 2" class="space-y-6 animate-fade-up">
+                                <div class="grid grid-cols-1 gap-5">
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">Address</label>
+                                        <input v-model="form.address" type="text" placeholder="Building, Street"
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[8px] tracking-[0.1em] uppercase text-primary font-bold">City / Area</label>
+                                        <input v-model="form.city" type="text" placeholder="e.g. Kilimani, Nairobi"
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
+                                    </div>
+                                </div>
+                                <button @click="nextStep"
+                                    class="w-full bg-primary text-black py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all active:scale-[0.98]">
+                                    Choose Payment
+                                </button>
+                            </section>
+
+                            <!-- STEP 3: Payment -->
+                            <section v-if="step === 3" class="space-y-6 animate-fade-up">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div v-for="method in ['mpesa', 'card']" :key="method" 
+                                        @click="form.payment_method = method"
+                                        class="p-4 border transition-all cursor-pointer flex flex-col items-center gap-2"
+                                        :class="form.payment_method === method ? 'border-primary bg-primary/5' : 'border-outline-variant/30 opacity-50'">
+                                        <span class="material-symbols-outlined text-lg">{{ method === 'mpesa' ? 'smartphone' : 'credit_card' }}</span>
+                                        <span class="text-[8px] uppercase tracking-widest font-bold">{{ method === 'mpesa' ? 'M-Pesa' : 'Card' }}</span>
+                                    </div>
+                                </div>
+
+                                <div v-if="form.payment_method === 'mpesa'" class="bg-primary/5 p-4 space-y-2">
+                                     <p class="text-[8px] text-primary/80 uppercase tracking-widest font-bold">STK Protocol</p>
+                                     <p class="text-[9px] text-on-surface-variant leading-tight">Instant M-Pesa push will be sent to your phone for verification.</p>
+                                </div>
+
+                                <button @click="handlePayment" :disabled="isProcessing"
+                                    class="w-full bg-primary text-black py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all active:scale-[0.98] disabled:opacity-50">
+                                    {{ isProcessing ? 'Processing...' : 'Complete Payment' }}
+                                </button>
+                            </section>
+                        </div>
+
+                        <!-- Mobile Footer Trust Signals -->
+                        <div class="pt-6 border-t border-outline-variant/20 flex flex-wrap gap-x-4 gap-y-2">
+                             <div v-for="t in ['Secure SSL', 'Nairobi Delivery', '30-Day Guarantee']" :key="t" 
+                                class="flex items-center gap-1.5 opacity-40">
+                                <span class="material-symbols-outlined text-[10px]">verified</span>
+                                <span class="text-[8px] uppercase tracking-widest font-medium">{{ t }}</span>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Compact Mobile Assistance -->
+                    <div class="mt-4 p-4 glass-panel flex items-center gap-4">
+                        <span class="material-symbols-outlined text-primary text-xl">support_agent</span>
+                        <p class="text-[9px] text-on-surface-variant leading-tight">Need help? <span class="text-primary font-bold">Chat with a stylist</span></p>
+                    </div>
+                </div>
+
+                <!-- Desktop / Original View (Hidden on mobile) -->
+                <div class="hidden md:block lg:col-span-7 space-y-20">
 
                     <!-- Header -->
                     <header class="space-y-4">
@@ -393,7 +526,7 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- ╔══════════════════════════════╗ -->
                 <!-- ║  RIGHT: Order Summary        ║ -->
                 <!-- ╚══════════════════════════════╝ -->
-                <aside class="lg:col-span-5 lg:sticky lg:top-32 space-y-4 md:space-y-6">
+                <aside class="hidden md:block lg:col-span-5 lg:sticky lg:top-32 space-y-4 md:space-y-6">
                     <div class="bg-surface-container p-6 md:p-10 space-y-6 md:space-y-8 border border-outline-variant/30">
                         <h3 class="text-[10px] md:text-[11px] tracking-[0.2em] md:tracking-[0.3em] uppercase font-bold text-on-surface pb-4 md:pb-6 border-b border-outline-variant/30">Order Summary</h3>
 
