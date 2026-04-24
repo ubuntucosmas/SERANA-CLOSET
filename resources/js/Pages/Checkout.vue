@@ -127,43 +127,43 @@ function startPolling() {
 const stepTheme = computed(() => {
     switch (step.value) {
         case 1: return { 
-            color: 'text-blue-500', 
-            border: 'border-blue-500', 
-            bg: 'bg-blue-500', 
-            bgAlpha: 'bg-blue-500/10', 
-            glow: 'shadow-[0_0_30px_rgba(59,130,246,0.3)]',
+            color: 'text-blue-800', 
+            border: 'border-blue-900/50', 
+            bg: 'bg-blue-900', 
+            bgAlpha: 'bg-blue-900/10', 
+            glow: 'shadow-[0_0_20px_rgba(30,58,138,0.2)]',
             mobileCard: 'bg-white/5',
-            mobileBorder: 'border-blue-500',
+            mobileBorder: 'border-blue-900/60',
             onMobile: 'text-on-surface'
         };
         case 2: return { 
-            color: 'text-emerald-500', 
-            border: 'border-emerald-500', 
-            bg: 'bg-emerald-500', 
-            bgAlpha: 'bg-emerald-500/10', 
-            glow: 'shadow-[0_0_30px_rgba(16,185,129,0.3)]',
+            color: 'text-emerald-800', 
+            border: 'border-emerald-900/50', 
+            bg: 'bg-emerald-900', 
+            bgAlpha: 'bg-emerald-900/10', 
+            glow: 'shadow-[0_0_20px_rgba(6,78,59,0.2)]',
             mobileCard: 'bg-white/5',
-            mobileBorder: 'border-emerald-500',
+            mobileBorder: 'border-emerald-900/60',
             onMobile: 'text-on-surface'
         };
         case 3: return { 
-            color: 'text-rose-500', 
-            border: 'border-rose-500', 
-            bg: 'bg-rose-500', 
-            bgAlpha: 'bg-rose-500/10', 
-            glow: 'shadow-[0_0_30px_rgba(244,63,94,0.3)]',
+            color: 'text-rose-800', 
+            border: 'border-rose-900/50', 
+            bg: 'bg-rose-900', 
+            bgAlpha: 'bg-rose-900/10', 
+            glow: 'shadow-[0_0_20px_rgba(136,19,55,0.2)]',
             mobileCard: 'bg-white/5',
-            mobileBorder: 'border-rose-500',
+            mobileBorder: 'border-rose-900/60',
             onMobile: 'text-on-surface'
         };
         default: return { 
             color: 'text-primary', 
-            border: 'border-primary', 
+            border: 'border-primary/50', 
             bg: 'bg-primary', 
             bgAlpha: 'bg-primary/10', 
-            glow: 'shadow-[0_0_30px_rgba(57,255,20,0.3)]',
+            glow: 'shadow-[0_0_20px_rgba(57,255,20,0.15)]',
             mobileCard: 'bg-white/5',
-            mobileBorder: 'border-primary',
+            mobileBorder: 'border-primary/60',
             onMobile: 'text-on-surface'
         };
     }
