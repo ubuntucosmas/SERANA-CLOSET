@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
+import SizingIntelligence from '@/Components/SizingIntelligence.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
@@ -22,7 +23,6 @@ const orderId = ref(null);
 const paidAmount = ref(0);
 const frozenItems = ref([]);
 const frozenTotal = ref(0);
-const orderSummaryOpen = ref(false);
 let pollingInterval = null;
 
 const form = ref({
@@ -122,364 +122,328 @@ function startPolling() {
 }
 
 function nextStep() { if (step.value < 3) step.value++; }
-function prevStep() { if (step.value > 1) step.value--; }
-
-/* Input / label shared classes */
-const inp = "w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 placeholder:italic text-base";
-const lbl = "block text-[10px] tracking-[0.2em] uppercase text-primary font-bold mb-2";
 </script>
 
 <template>
     <StorefrontLayout>
         <Head title="Secure Checkout — Serana Atelier" />
 
-        <!-- ─── STK Phase (full screen on mobile) ─── -->
-        <div v-if="step === 4 && !isPaid" class="min-h-screen pt-24 pb-32 px-4 sm:px-8 max-w-2xl mx-auto bg-background">
-            <Link :href="route('checkout')" class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors font-bold mb-8">
-                <span class="material-symbols-outlined text-sm">arrow_back</span> Back
-            </Link>
-            <MpesaStkPanel :amount="cart.totalPrice" :phone="form.phone" :isProcessing="isProcessing" :isWaiting="isWaitingForStk"
-                @pay="initiateMpesaStk" @cancel="step = 3; isWaitingForStk = false" />
-        </div>
+        <main class="pt-32 pb-24 px-6 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
 
-        <!-- ─── Success: M-Pesa ─── -->
-        <div v-else-if="isSuccess && form.payment_method === 'mpesa'" class="min-h-screen pt-24 pb-12 px-4 sm:px-8 max-w-2xl mx-auto bg-background">
-            <MpesaSuccessPanel :amount="paidAmount" :orderId="orderId" />
-        </div>
-
-        <!-- ─── Success: Pending ─── -->
-        <div v-else-if="isSuccess" class="min-h-screen pt-24 px-6 bg-background flex flex-col items-center justify-center text-center space-y-6 pb-32">
-            <div class="w-16 h-16 border border-primary/30 bg-primary/5 flex items-center justify-center">
-                <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1">check</span>
-            </div>
-            <h1 class="font-headline text-3xl font-light text-on-surface">Order Received</h1>
-            <p class="text-on-surface-variant text-sm max-w-sm">Order #{{ String(orderId).slice(-6) }} is registered. Complete payment to begin production.</p>
-            <a :href="whatsappUrl" target="_blank" class="bg-primary text-black py-4 px-8 text-[10px] uppercase tracking-[0.2em] font-bold hover:opacity-90 transition-all">
-                Complete via WhatsApp
-            </a>
-        </div>
-
-        <!-- ─────────────────────── MAIN FLOW ─────────────────────── -->
-        <main v-else class="pt-20 bg-background min-h-screen pb-32 lg:pb-16">
-
-            <!-- ══════ MOBILE ORDER SUMMARY PILL (top of screen) ══════ -->
-            <div class="lg:hidden sticky top-[64px] z-40 bg-surface-container border-b border-outline-variant/30 shadow-lg">
-                <button @click="orderSummaryOpen = !orderSummaryOpen"
-                    class="w-full flex items-center justify-between px-5 py-4">
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-primary text-base">shopping_bag</span>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-on-surface">
-                            Order Summary
-                        </span>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-primary">
-                            — {{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}
-                        </span>
-                    </div>
-                    <span class="material-symbols-outlined text-on-surface-variant transition-transform duration-300"
-                        :class="orderSummaryOpen ? 'rotate-180' : ''">expand_more</span>
-                </button>
-
-                <!-- Expanded summary -->
-                <div v-if="orderSummaryOpen" class="px-5 pb-5 space-y-4 border-t border-outline-variant/20 animate-fade-up">
-                    <div v-for="item in (isSuccess ? frozenItems : cart.items)" :key="item.id" class="flex items-center gap-4 py-3">
-                        <div class="w-14 h-20 bg-surface overflow-hidden flex-shrink-0 border border-outline-variant/20">
-                            <img :src="item.image" :alt="item.name" class="w-full h-full object-cover" />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-on-surface text-sm font-semibold truncate">{{ item.name }}</p>
-                            <p class="text-primary text-[10px] uppercase tracking-widest font-bold mt-0.5">Qty {{ item.quantity }}</p>
-                        </div>
-                        <span class="text-on-surface text-sm font-bold flex-shrink-0">{{ formatAmount(item.price * item.quantity, page.props) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center pt-3 border-t border-outline-variant/20">
-                        <span class="text-on-surface-variant text-sm">Total</span>
-                        <span class="text-primary font-black text-lg font-headline">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
-                    </div>
+            <!-- M-Pesa STK Phase -->
+            <div v-if="step === 4 && !isPaid" class="max-w-2xl mx-auto">
+                <div class="mb-10">
+                    <Link :href="route('checkout')" class="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 font-bold">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span> Return to Checkout
+                    </Link>
                 </div>
+                <MpesaStkPanel
+                    :amount="cart.totalPrice"
+                    :phone="form.phone"
+                    :isProcessing="isProcessing"
+                    :isWaiting="isWaitingForStk"
+                    @pay="initiateMpesaStk"
+                    @cancel="step = 3; isWaitingForStk = false"
+                />
             </div>
 
-            <!-- ══════ INNER GRID ══════ -->
-            <div class="max-w-screen-xl mx-auto px-4 sm:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start pt-8 lg:pt-16">
+            <!-- M-Pesa Success -->
+            <div v-else-if="isSuccess && form.payment_method === 'mpesa'" class="max-w-2xl mx-auto">
+                <MpesaSuccessPanel :amount="paidAmount" :orderId="orderId" />
+            </div>
 
-                <!-- ─── LEFT: Checkout steps ─── -->
-                <div class="lg:col-span-7 space-y-10 lg:space-y-16">
+            <!-- Non-Mpesa Success (Pending Payment) -->
+            <div v-else-if="isSuccess && form.payment_method !== 'mpesa'" class="max-w-2xl mx-auto text-center py-24 space-y-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 border border-primary/30 bg-primary/5 mb-4">
+                    <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1">check</span>
+                </div>
+                <h1 class="font-headline text-4xl font-light text-on-surface tracking-tight">Order Received</h1>
+                <p class="text-on-surface-variant text-sm tracking-wide">Order #{{ String(orderId).slice(-6) }} is registered. Complete payment to begin production.</p>
+                <a :href="whatsappUrl" target="_blank" class="inline-block bg-primary text-black py-4 px-10 text-[10px] uppercase tracking-[0.2em] font-bold hover:opacity-90 transition-all">
+                    Complete via WhatsApp
+                </a>
+            </div>
 
-                    <!-- Header (desktop only heading) -->
-                    <div class="space-y-3">
-                        <Link :href="route('shop')" class="hidden sm:flex items-center gap-2 text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors font-bold">
-                            <span class="material-symbols-outlined text-sm">arrow_back</span> Collection
+            <!-- Main Checkout Flow -->
+            <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+
+                <!-- ╔══════════════════════════════╗ -->
+                <!-- ║  LEFT: Checkout Steps        ║ -->
+                <!-- ╚══════════════════════════════╝ -->
+                <div class="lg:col-span-7 space-y-20">
+
+                    <!-- Header -->
+                    <header class="space-y-4">
+                        <Link :href="route('shop')" class="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 font-bold">
+                            <span class="material-symbols-outlined text-sm">arrow_back</span> Return to Collection
                         </Link>
-                        <h1 class="font-headline text-3xl sm:text-4xl font-light tracking-tight text-on-surface">Secure Checkout</h1>
-                    </div>
+                        <h1 class="font-headline text-4xl md:text-5xl font-light tracking-tight text-on-surface">Secure Checkout</h1>
+                        <p class="text-on-surface-variant text-[11px] tracking-[0.2em] uppercase font-bold">
+                            Step {{ step }} of 3 — {{ step === 1 ? 'Identification' : step === 2 ? 'Shipping Address' : 'Payment Method' }}
+                        </p>
+                    </header>
 
-                    <!-- Step Progress Bar -->
+                    <!-- Step Indicator -->
                     <div class="flex items-center">
                         <template v-for="s in 3" :key="s">
-                            <button @click="step = s" class="flex flex-col items-center gap-1.5 group focus:outline-none">
-                                <div class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border text-[11px] font-black transition-all duration-300"
-                                    :class="step >= s ? 'border-primary text-primary bg-primary/10' : 'border-outline-variant text-on-surface-variant'">
-                                    <span v-if="step > s" class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1">check</span>
-                                    <span v-else>{{ String(s).padStart(2,'0') }}</span>
+                            <div class="flex flex-col items-center gap-2 cursor-pointer" @click="step = s">
+                                <div class="w-8 h-8 flex items-center justify-center border text-[11px] font-bold transition-all"
+                                    :class="step >= s ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant'">
+                                    {{ String(s).padStart(2, '0') }}
                                 </div>
-                                <span class="hidden sm:block text-[9px] uppercase tracking-widest font-bold transition-colors"
+                                <span class="text-[9px] uppercase tracking-[0.2em] font-bold transition-colors"
                                     :class="step >= s ? 'text-primary' : 'text-on-surface-variant/40'">
                                     {{ s === 1 ? 'Contact' : s === 2 ? 'Shipping' : 'Payment' }}
                                 </span>
-                            </button>
-                            <div v-if="s < 3" class="flex-1 h-px mx-2 sm:mx-3 mt-0 sm:mt-[-10px] transition-colors duration-300"
-                                :class="step > s ? 'bg-primary/60' : 'bg-outline-variant/40'"></div>
+                            </div>
+                            <div v-if="s < 3" class="w-16 h-px mx-2 mt-[-14px] transition-colors"
+                                :class="step > s ? 'bg-primary/50' : 'bg-outline-variant/50'"></div>
                         </template>
                     </div>
 
                     <!-- ── STEP 1: Contact ── -->
-                    <section v-if="step === 1" class="space-y-8 animate-fade-up">
-                        <div class="flex items-center gap-3">
-                            <span class="w-7 h-7 flex items-center justify-center border border-outline-variant text-[10px] font-bold text-on-surface-variant">01</span>
-                            <h2 class="font-headline text-lg font-light uppercase tracking-wide text-on-surface">Contact Information</h2>
+                    <section v-if="step === 1" class="space-y-10 animate-fade-up">
+                        <div class="flex items-center gap-4">
+                            <span class="w-8 h-8 flex items-center justify-center border border-outline-variant text-[11px] font-bold text-on-surface-variant">01</span>
+                            <h2 class="font-headline text-xl font-light tracking-tight uppercase text-on-surface">Contact Information</h2>
                         </div>
-
-                        <div class="space-y-7">
-                            <div class="space-y-1">
-                                <label :class="lbl">Email Address</label>
-                                <input v-model="form.email" type="email" inputmode="email" placeholder="your@email.com" :class="inp" />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">Email Address</label>
+                                <input v-model="form.email" type="email" placeholder="your@email.com"
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 placeholder:italic text-sm" />
                             </div>
-                            <div class="space-y-1">
-                                <label :class="lbl">Phone Number</label>
-                                <input v-model="form.phone" type="tel" inputmode="tel" placeholder="+254 7XX XXX XXX" :class="inp" />
+                            <div class="space-y-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">Phone Number</label>
+                                <input v-model="form.phone" type="tel" placeholder="+254 7XX XXX XXX"
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 text-sm" />
                             </div>
-                            <div class="space-y-1">
-                                <label :class="lbl">Full Name</label>
-                                <input v-model="form.full_name" type="text" autocomplete="name" placeholder="As on your ID" :class="inp" />
+                            <div class="space-y-2 md:col-span-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">Full Legal Name</label>
+                                <input v-model="form.full_name" type="text" placeholder="As it appears on your ID"
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 placeholder:italic text-sm" />
                             </div>
                         </div>
-
-                        <!-- Mobile: next button is just here; desktop: sticky CTA at bottom also works -->
-                        <button @click="nextStep" class="hidden lg:flex w-full items-center justify-center gap-2 border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary py-5 text-[10px] uppercase tracking-[0.3em] font-black transition-all">
-                            Continue to Shipping <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        <button @click="nextStep"
+                            class="w-full border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-300">
+                            Continue to Shipping
+                            <span class="material-symbols-outlined text-sm align-middle ml-2">arrow_forward</span>
                         </button>
                     </section>
 
                     <!-- ── STEP 2: Shipping ── -->
-                    <section v-if="step === 2" class="space-y-8 animate-fade-up">
-                        <div class="flex items-center gap-3">
-                            <span class="w-7 h-7 flex items-center justify-center border border-outline-variant text-[10px] font-bold text-on-surface-variant">02</span>
-                            <h2 class="font-headline text-lg font-light uppercase tracking-wide text-on-surface">Delivery Address</h2>
+                    <section v-if="step === 2" class="space-y-10 animate-fade-up">
+                        <div class="flex items-center gap-4">
+                            <span class="w-8 h-8 flex items-center justify-center border border-outline-variant text-[11px] font-bold text-on-surface-variant">02</span>
+                            <h2 class="font-headline text-xl font-light tracking-tight uppercase text-on-surface">Shipping Address</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-2 md:col-span-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">Street Address</label>
+                                <input v-model="form.address" type="text" placeholder="House, street, apartment..."
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 placeholder:italic text-sm" />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">City</label>
+                                <input v-model="form.city" type="text" placeholder="Nairobi"
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 text-sm" />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">Country</label>
+                                <select v-model="form.country"
+                                    class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all appearance-none cursor-pointer text-sm">
+                                    <option class="bg-surface text-on-surface">Kenya</option>
+                                    <option class="bg-surface text-on-surface">United Kingdom</option>
+                                    <option class="bg-surface text-on-surface">France</option>
+                                    <option class="bg-surface text-on-surface">United States</option>
+                                    <option class="bg-surface text-on-surface">United Arab Emirates</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <div class="space-y-7">
-                            <div class="space-y-1">
-                                <label :class="lbl">Street Address</label>
-                                <input v-model="form.address" type="text" autocomplete="street-address" placeholder="House, street, apartment..." :class="inp" />
-                            </div>
-                            <div class="grid grid-cols-2 gap-6">
-                                <div class="space-y-1">
-                                    <label :class="lbl">City</label>
-                                    <input v-model="form.city" type="text" autocomplete="address-level2" placeholder="Nairobi" :class="inp" />
-                                </div>
-                                <div class="space-y-1">
-                                    <label :class="lbl">Country</label>
-                                    <select v-model="form.country" class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all appearance-none cursor-pointer text-base">
-                                        <option class="bg-surface text-on-surface">Kenya</option>
-                                        <option class="bg-surface text-on-surface">United Kingdom</option>
-                                        <option class="bg-surface text-on-surface">France</option>
-                                        <option class="bg-surface text-on-surface">United States</option>
-                                        <option class="bg-surface text-on-surface">UAE</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sizing (collapsible on mobile) -->
-                        <details class="group">
-                            <summary class="flex items-center gap-3 cursor-pointer list-none select-none py-4 border-t border-outline-variant/20">
+                        <!-- Optional Precision Sizing -->
+                        <div class="space-y-6 pt-8 border-t border-outline-variant/20">
+                            <div class="flex items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-sm">straighten</span>
-                                <span class="text-[10px] uppercase tracking-widest font-black text-on-surface-variant group-open:text-primary transition-colors">Precision Sizing <span class="text-primary">(Optional)</span></span>
-                                <span class="material-symbols-outlined text-on-surface-variant text-sm ml-auto group-open:rotate-180 transition-transform">expand_more</span>
-                            </summary>
-                            <div class="grid grid-cols-2 gap-6 pt-4">
-                                <div v-for="field in ['height_cm','bust_cm','waist_cm','hips_cm']" :key="field" class="space-y-1">
-                                    <label :class="lbl">{{ field.replace('_cm','') }} (cm)</label>
-                                    <input v-model="form[field]" type="number" inputmode="numeric"
-                                        :placeholder="field === 'height_cm' ? '168' : field === 'bust_cm' ? '90' : field === 'waist_cm' ? '74' : '96'"
-                                        :class="inp" />
+                                <div>
+                                    <h3 class="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface">Precision Sizing <span class="text-primary">(Optional)</span></h3>
+                                    <p class="text-[10px] text-on-surface-variant mt-0.5">All measurements in centimetres.</p>
                                 </div>
                             </div>
-                        </details>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div v-for="field in ['height_cm','bust_cm','waist_cm','hips_cm']" :key="field" class="space-y-2">
+                                    <label class="block text-[10px] tracking-[0.2em] uppercase text-primary font-bold">{{ field.replace('_cm','') }}</label>
+                                    <input v-model="form[field]" type="number"
+                                        :placeholder="field === 'height_cm' ? '168' : field === 'bust_cm' ? '90' : field === 'waist_cm' ? '74' : '96'"
+                                        class="w-full bg-transparent border-b border-outline-variant py-4 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/30 text-sm" />
+                                </div>
+                            </div>
+                        </div>
 
-                        <button @click="nextStep" class="hidden lg:flex w-full items-center justify-center gap-2 border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary py-5 text-[10px] uppercase tracking-[0.3em] font-black transition-all">
-                            Continue to Payment <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        <button @click="nextStep"
+                            class="w-full border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-300">
+                            Continue to Payment
+                            <span class="material-symbols-outlined text-sm align-middle ml-2">arrow_forward</span>
                         </button>
                     </section>
 
                     <!-- ── STEP 3: Payment ── -->
-                    <section v-if="step === 3" class="space-y-8 animate-fade-up">
-                        <div class="flex items-center gap-3">
-                            <span class="w-7 h-7 flex items-center justify-center border border-outline-variant text-[10px] font-bold text-on-surface-variant">03</span>
-                            <h2 class="font-headline text-lg font-light uppercase tracking-wide text-on-surface">Payment Method</h2>
+                    <section v-if="step === 3" class="space-y-10 animate-fade-up">
+                        <div class="flex items-center gap-4">
+                            <span class="w-8 h-8 flex items-center justify-center border border-outline-variant text-[11px] font-bold text-on-surface-variant">03</span>
+                            <h2 class="font-headline text-xl font-light tracking-tight uppercase text-on-surface">Payment Method</h2>
                         </div>
 
                         <div class="space-y-3">
                             <!-- M-Pesa -->
-                            <label @click="form.payment_method = 'mpesa'"
-                                class="flex items-center justify-between p-5 border cursor-pointer transition-all active:scale-[0.98]"
-                                :class="form.payment_method === 'mpesa' ? 'border-primary bg-primary/5' : 'border-outline-variant'">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                            <div @click="form.payment_method = 'mpesa'"
+                                class="border p-6 transition-all cursor-pointer flex items-center justify-between group"
+                                :class="form.payment_method === 'mpesa' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-primary/30 hover:bg-surface-container'">
+                                <div class="flex items-center gap-5">
+                                    <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
                                         :class="form.payment_method === 'mpesa' ? 'border-primary' : 'border-outline-variant'">
-                                        <div v-if="form.payment_method === 'mpesa'" class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                                        <div v-if="form.payment_method === 'mpesa'" class="w-2 h-2 rounded-full bg-primary"></div>
                                     </div>
-                                    <div>
-                                        <p class="text-on-surface font-bold text-sm">M-Pesa</p>
-                                        <p class="text-on-surface-variant text-[10px]">Kenya Mobile Money</p>
-                                    </div>
+                                    <span class="text-sm font-bold tracking-wide text-on-surface">M-Pesa <span class="text-on-surface-variant font-normal">(Kenya Mobile Money)</span></span>
                                 </div>
-                                <div class="w-12 h-7 bg-[#4DB53C] flex items-center justify-center text-[7px] font-black text-white italic">M-PESA</div>
-                            </label>
+                                <div class="w-12 h-7 bg-[#4DB53C] flex items-center justify-center text-[7px] font-black text-white italic tracking-wide">M-PESA</div>
+                            </div>
 
                             <!-- Card -->
-                            <label @click="form.payment_method = 'card'"
-                                class="flex items-center justify-between p-5 border cursor-pointer transition-all active:scale-[0.98]"
-                                :class="form.payment_method === 'card' ? 'border-primary bg-primary/5' : 'border-outline-variant'">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                            <div @click="form.payment_method = 'card'"
+                                class="border p-6 transition-all cursor-pointer flex items-center justify-between"
+                                :class="form.payment_method === 'card' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-primary/30 hover:bg-surface-container'">
+                                <div class="flex items-center gap-5">
+                                    <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
                                         :class="form.payment_method === 'card' ? 'border-primary' : 'border-outline-variant'">
-                                        <div v-if="form.payment_method === 'card'" class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                                        <div v-if="form.payment_method === 'card'" class="w-2 h-2 rounded-full bg-primary"></div>
                                     </div>
-                                    <div>
-                                        <p class="text-on-surface font-bold text-sm">Credit / Debit Card</p>
-                                        <p class="text-on-surface-variant text-[10px]">Visa, Mastercard</p>
-                                    </div>
+                                    <span class="text-sm font-bold tracking-wide text-on-surface">Credit or Debit Card</span>
                                 </div>
                                 <span class="material-symbols-outlined text-on-surface-variant">credit_card</span>
-                            </label>
+                            </div>
 
                             <!-- PayPal -->
-                            <label @click="form.payment_method = 'paypal'"
-                                class="flex items-center justify-between p-5 border cursor-pointer transition-all active:scale-[0.98]"
-                                :class="form.payment_method === 'paypal' ? 'border-primary bg-primary/5' : 'border-outline-variant'">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                            <div @click="form.payment_method = 'paypal'"
+                                class="border p-6 transition-all cursor-pointer flex items-center justify-between"
+                                :class="form.payment_method === 'paypal' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-primary/30 hover:bg-surface-container'">
+                                <div class="flex items-center gap-5">
+                                    <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
                                         :class="form.payment_method === 'paypal' ? 'border-primary' : 'border-outline-variant'">
-                                        <div v-if="form.payment_method === 'paypal'" class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                                        <div v-if="form.payment_method === 'paypal'" class="w-2 h-2 rounded-full bg-primary"></div>
                                     </div>
-                                    <div>
-                                        <p class="text-on-surface font-bold text-sm">PayPal Express</p>
-                                        <p class="text-on-surface-variant text-[10px]">Fast checkout</p>
-                                    </div>
+                                    <span class="text-sm font-bold tracking-wide text-on-surface">PayPal Express</span>
                                 </div>
-                                <span class="material-symbols-outlined text-[#003087]">account_balance_wallet</span>
-                            </label>
+                                <span class="material-symbols-outlined text-primary/60">account_balance_wallet</span>
+                            </div>
                         </div>
 
-                        <!-- Desktop CTA -->
+                        <!-- CTA -->
                         <button @click="handlePayment" :disabled="isProcessing"
-                            class="hidden lg:flex w-full items-center justify-center gap-2 bg-primary text-black py-5 text-[10px] uppercase tracking-[0.3em] font-black transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40">
-                            <span class="material-symbols-outlined text-sm">lock</span>
-                            <span v-if="!isProcessing">Place Order — {{ formatAmount(cart.totalPrice, page.props) }}</span>
-                            <span v-else>Processing…</span>
+                            class="w-full py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-300 disabled:opacity-50 mt-4"
+                            :class="isProcessing ? 'bg-surface-container text-on-surface-variant cursor-not-allowed' : 'bg-primary text-black hover:opacity-90 active:scale-[0.98]'">
+                            <span v-if="!isProcessing" class="flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">lock</span>
+                                Complete Bespoke Order
+                            </span>
+                            <span v-else class="flex items-center justify-center gap-3">
+                                <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+                                </svg>
+                                Processing Order...
+                            </span>
                         </button>
-
-                        <p class="hidden lg:block text-center text-[10px] text-on-surface-variant/50 italic">
-                            By placing this order you agree to our <a href="#" class="underline underline-offset-4 hover:text-primary">Terms of Service</a>.
+                        <p class="text-center text-[10px] text-on-surface-variant italic">
+                            By placing an order, you agree to our <a href="#" class="underline underline-offset-4 hover:text-primary transition-colors">Terms of Service</a>.
                         </p>
                     </section>
 
-                    <!-- Trust signals -->
-                    <div class="flex flex-wrap gap-6 pt-6 border-t border-outline-variant/20">
-                        <div v-for="t in [{icon:'verified_user',text:'SSL Secured'},{icon:'local_shipping',text:'Priority Delivery'},{icon:'policy',text:'30-Day Guarantee'}]" :key="t.icon"
-                            class="flex items-center gap-2 text-on-surface-variant text-[10px] tracking-widest uppercase font-medium">
-                            <span class="material-symbols-outlined text-sm text-primary/50">{{ t.icon }}</span>{{ t.text }}
+                    <!-- Trust Signals -->
+                    <div class="flex flex-wrap items-center gap-8 pt-8 border-t border-outline-variant/20">
+                        <div v-for="trust in [
+                            { icon: 'verified_user', text: 'Secure SSL Encryption' },
+                            { icon: 'local_shipping', text: 'Priority Nairobi Delivery' },
+                            { icon: 'policy', text: '30-Day Bespoke Guarantee' }
+                        ]" :key="trust.icon" class="flex items-center gap-2 text-on-surface-variant text-[10px] tracking-[0.15em] uppercase font-medium">
+                            <span class="material-symbols-outlined text-sm text-primary/60">{{ trust.icon }}</span>
+                            {{ trust.text }}
                         </div>
                     </div>
                 </div>
 
-                <!-- ─── RIGHT: Desktop Order Summary ─── -->
-                <aside class="hidden lg:block lg:col-span-5 lg:sticky lg:top-32 space-y-5">
-                    <div class="bg-surface-container border border-outline-variant/30 p-8 space-y-8">
-                        <h3 class="text-[11px] tracking-[0.3em] uppercase font-bold text-on-surface pb-5 border-b border-outline-variant/20">Order Summary</h3>
-                        <div class="space-y-5 max-h-64 overflow-y-auto no-scrollbar">
-                            <div v-for="item in (isSuccess ? frozenItems : cart.items)" :key="item.id" class="flex gap-4">
-                                <div class="w-16 aspect-[3/4] bg-surface overflow-hidden flex-shrink-0 border border-outline-variant/20">
+                <!-- ╔══════════════════════════════╗ -->
+                <!-- ║  RIGHT: Order Summary        ║ -->
+                <!-- ╚══════════════════════════════╝ -->
+                <aside class="lg:col-span-5 lg:sticky lg:top-32 space-y-6">
+                    <div class="bg-surface-container p-10 space-y-8 border border-outline-variant/30">
+                        <h3 class="text-[11px] tracking-[0.3em] uppercase font-bold text-on-surface pb-6 border-b border-outline-variant/30">Order Summary</h3>
+
+                        <!-- Items -->
+                        <div class="space-y-6 max-h-72 overflow-y-auto pr-2 no-scrollbar">
+                            <div v-if="(isSuccess ? frozenItems : cart.items).length === 0" class="text-center py-8 text-on-surface-variant text-sm italic">
+                                No items.
+                            </div>
+                            <div v-for="item in (isSuccess ? frozenItems : cart.items)" :key="item.id" class="flex gap-5">
+                                <div class="w-20 aspect-[3/4] bg-surface overflow-hidden flex-shrink-0 border border-outline-variant/20">
                                     <img :src="item.image" :alt="item.name" class="w-full h-full object-cover" />
                                 </div>
-                                <div class="flex flex-col justify-between py-0.5">
-                                    <div>
-                                        <h4 class="font-headline text-sm font-semibold text-on-surface leading-snug">{{ item.name }}</h4>
-                                        <p class="text-[10px] text-primary uppercase tracking-widest font-bold mt-0.5">Qty: {{ item.quantity }}</p>
+                                <div class="flex flex-col justify-between py-1">
+                                    <div class="space-y-0.5">
+                                        <h4 class="font-headline text-sm font-semibold tracking-tight text-on-surface leading-snug">{{ item.name }}</h4>
+                                        <p class="text-[10px] tracking-widest text-primary uppercase font-semibold">Qty: {{ item.quantity }}</p>
                                     </div>
-                                    <p class="text-sm font-bold text-on-surface">{{ formatAmount(item.price * item.quantity, page.props) }}</p>
+                                    <p class="text-sm font-bold tracking-wider text-on-surface">{{ formatAmount(item.price * item.quantity, page.props) }}</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="space-y-3 pt-5 border-t border-outline-variant/20">
+
+                        <!-- Financials -->
+                        <div class="space-y-4 pt-6 border-t border-outline-variant/30">
                             <div class="flex justify-between text-sm">
-                                <span class="text-on-surface-variant">Subtotal</span>
+                                <span class="text-on-surface-variant tracking-wide font-medium">Subtotal</span>
                                 <span class="font-semibold text-on-surface">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
                             </div>
                             <div class="flex justify-between text-sm">
-                                <span class="text-on-surface-variant">Shipping</span>
+                                <span class="text-on-surface-variant tracking-wide font-medium">Shipping</span>
                                 <span class="text-primary font-semibold">Complimentary</span>
                             </div>
-                            <div class="flex justify-between items-baseline pt-4 border-t border-outline-variant/10">
-                                <span class="font-headline uppercase text-on-surface tracking-wide font-light">Total</span>
+                            <div class="flex justify-between items-baseline pt-6 border-t border-outline-variant/20">
+                                <span class="font-headline text-base font-light uppercase tracking-wider text-on-surface">Total</span>
                                 <span class="font-headline text-2xl font-bold text-primary">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
                             </div>
                         </div>
+
+                        <!-- Place Order CTA (mirrors Step 3) -->
+                        <button v-if="step === 3" @click="handlePayment" :disabled="isProcessing"
+                            class="w-full bg-primary text-black py-5 text-[10px] uppercase tracking-[0.3em] font-bold hover:opacity-90 active:scale-[0.98] transition-all duration-300 disabled:opacity-50">
+                            Place Order
+                        </button>
+
+                        <p class="text-center text-[10px] text-on-surface-variant/50 italic">
+                            Exclusively crafted in Nairobi's finest atelier.
+                        </p>
                     </div>
 
-                    <div class="p-6 border border-outline-variant/30 flex items-center gap-5 bg-surface-container hover:border-primary/30 transition-colors">
-                        <span class="material-symbols-outlined text-primary text-2xl flex-shrink-0">support_agent</span>
-                        <div>
-                            <p class="text-[11px] font-bold tracking-widest uppercase text-on-surface">Need Help?</p>
-                            <p class="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">Chat with a Serana stylist.</p>
+                    <!-- Assistance Card -->
+                    <div class="p-8 border border-outline-variant/30 flex items-center gap-6 bg-surface-container hover:border-primary/30 transition-colors">
+                        <span class="material-symbols-outlined text-primary text-3xl flex-shrink-0">support_agent</span>
+                        <div class="space-y-1">
+                            <p class="text-[11px] font-bold tracking-widest uppercase text-on-surface">Need Assistance?</p>
+                            <p class="text-[11px] text-on-surface-variant leading-relaxed">Chat with a Serana stylist for sizing advice and custom consultations.</p>
                         </div>
                     </div>
                 </aside>
             </div>
         </main>
-
-        <!-- ██████ MOBILE STICKY BOTTOM CTA ██████ -->
-        <div v-if="!isSuccess && step !== 4" class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface-container border-t border-outline-variant/30 px-4 py-4 space-y-2 safe-bottom">
-            <!-- Amount mini bar -->
-            <div class="flex justify-between items-center text-[11px] text-on-surface-variant uppercase tracking-widest font-bold px-1">
-                <span>{{ step === 1 ? 'Step 1 — Contact' : step === 2 ? 'Step 2 — Shipping' : 'Step 3 — Payment' }}</span>
-                <span class="text-primary">{{ formatAmount(cart.totalPrice, page.props) }}</span>
-            </div>
-
-            <!-- Navigation buttons -->
-            <div class="flex gap-3">
-                <button v-if="step > 1" @click="prevStep"
-                    class="w-14 flex items-center justify-center border border-outline-variant text-on-surface-variant py-4 hover:border-primary transition-all active:scale-95">
-                    <span class="material-symbols-outlined text-sm">arrow_back</span>
-                </button>
-                <!-- Continue / Place Order -->
-                <button v-if="step < 3" @click="nextStep"
-                    class="flex-1 flex items-center justify-center gap-2 bg-primary text-black py-4 text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all">
-                    Continue <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-                <button v-else @click="handlePayment" :disabled="isProcessing"
-                    class="flex-1 flex items-center justify-center gap-2 bg-primary text-black py-4 text-[11px] uppercase tracking-widest font-black hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40">
-                    <span class="material-symbols-outlined text-sm">lock</span>
-                    <span v-if="!isProcessing">Place Order</span>
-                    <span v-else class="flex items-center gap-2">
-                        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
-                        </svg>
-                        Processing…
-                    </span>
-                </button>
-            </div>
-        </div>
     </StorefrontLayout>
 </template>
 
 <style scoped>
 @keyframes fade-up {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-up { animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-.safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 </style>
