@@ -24,34 +24,46 @@ class MpesaController extends Controller
      */
     public function initiate(Request $request)
     {
-        $validated = $request->validate([
-            'order_id' => 'required',
-            'phone' => 'required|string',
-            'amount' => 'required|numeric'
-        ]);
-
-        $order = CustomOrder::find($validated['order_id']);
-        if (!$order) return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
-
-        $result = $this->mpesaService->initiateStkPush(
-            $validated['phone'],
-            $validated['amount'],
-            "ORDER-{$order->id}",
-            "Payment for Serana Brief #{$order->id}"
-        );
-
-        if ($result['success']) {
-            $checkoutID = $result['data']['CheckoutRequestID'];
-            $order->update(['mpesa_checkout_id' => $checkoutID]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'STK Push initiated. Check your phone.',
-                'CheckoutRequestID' => $checkoutID
+        try {
+            $validated = $request->validate([
+                'order_id' => 'required',
+                'phone' => 'required|string',
+                'amount' => 'required|numeric'
             ]);
-        }
 
-        return response()->json($result, 400);
+            $order = CustomOrder::find($validated['order_id']);
+            if (!$order) return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+
+            $result = $this->mpesaService->initiateStkPush(
+                $validated['phone'],
+                $validated['amount'],
+                "ORDER-{$order->id}",
+                "Payment for Serana Brief #{$order->id}"
+            );
+
+            if ($result['success']) {
+                $checkoutID = $result['data']['CheckoutRequestID'];
+                $order->update(['mpesa_checkout_id' => $checkoutID]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'STK Push initiated. Check your phone.',
+                    'CheckoutRequestID' => $checkoutID
+                ]);
+            }
+
+            return response()->json($result, 400);
+
+        } catch (\Exception $e) {
+            Log::error("M-Pesa Initiation Exception: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'An internal server error occurred during payment initiation.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
