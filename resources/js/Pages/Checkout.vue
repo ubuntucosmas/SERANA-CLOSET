@@ -131,36 +131,40 @@ const stepTheme = computed(() => {
             border: 'border-blue-500', 
             bg: 'bg-blue-500', 
             bgAlpha: 'bg-blue-500/10', 
-            glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
-            mobileCard: 'bg-blue-900/60',
-            onMobile: 'text-white'
+            glow: 'shadow-[0_0_30px_rgba(59,130,246,0.3)]',
+            mobileCard: 'bg-white/5',
+            mobileBorder: 'border-blue-500',
+            onMobile: 'text-on-surface'
         };
         case 2: return { 
             color: 'text-emerald-500', 
             border: 'border-emerald-500', 
             bg: 'bg-emerald-500', 
             bgAlpha: 'bg-emerald-500/10', 
-            glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-            mobileCard: 'bg-[#016e00]/60',
-            onMobile: 'text-white'
+            glow: 'shadow-[0_0_30px_rgba(16,185,129,0.3)]',
+            mobileCard: 'bg-white/5',
+            mobileBorder: 'border-emerald-500',
+            onMobile: 'text-on-surface'
         };
         case 3: return { 
             color: 'text-rose-500', 
             border: 'border-rose-500', 
             bg: 'bg-rose-500', 
             bgAlpha: 'bg-rose-500/10', 
-            glow: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]',
-            mobileCard: 'bg-rose-900/60',
-            onMobile: 'text-white'
+            glow: 'shadow-[0_0_30px_rgba(244,63,94,0.3)]',
+            mobileCard: 'bg-white/5',
+            mobileBorder: 'border-rose-500',
+            onMobile: 'text-on-surface'
         };
         default: return { 
             color: 'text-primary', 
             border: 'border-primary', 
             bg: 'bg-primary', 
             bgAlpha: 'bg-primary/10', 
-            glow: 'shadow-[0_0_20px_rgba(57,255,20,0.3)]',
-            mobileCard: 'bg-[#016e00]/60',
-            onMobile: 'text-white'
+            glow: 'shadow-[0_0_30px_rgba(57,255,20,0.3)]',
+            mobileCard: 'bg-white/5',
+            mobileBorder: 'border-primary',
+            onMobile: 'text-on-surface'
         };
     }
 });
@@ -230,9 +234,10 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- On mobile, we wrap everything in a floating glass card -->
                 <div class="lg:col-span-7 block md:hidden">
                     <div :class="[
-                        'p-6 space-y-10 shadow-2xl relative z-10 transition-all duration-1000 backdrop-blur-xl border border-white/10',
+                        'p-6 space-y-10 relative z-10 transition-all duration-1000 backdrop-blur-xl border-2',
                         stepTheme.mobileCard,
-                        stepTheme.onMobile
+                        stepTheme.mobileBorder,
+                        stepTheme.glow
                     ]">
                         <!-- We will repeat the step content here but condensed for mobile -->
                         <!-- Header -->
@@ -287,19 +292,19 @@ function nextStep() { if (step.value < 3) step.value++; }
                             <section v-if="step === 1" class="space-y-6 animate-fade-up">
                                 <div class="grid grid-cols-1 gap-5">
                                     <div class="space-y-1.5">
-                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Email</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', step === 1 ? 'text-blue-500' : 'text-primary']">Email</label>
                                         <input v-model="form.email" type="email" placeholder="your@email.com"
-                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Phone</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', step === 1 ? 'text-blue-500' : 'text-primary']">Phone</label>
                                         <input v-model="form.phone" type="tel" placeholder="+254 7XX..."
-                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', stepTheme.onMobile === 'text-white' ? 'text-white/60' : 'text-primary']">Full Name</label>
+                                        <label :class="['block text-[8px] tracking-[0.1em] uppercase font-bold', step === 1 ? 'text-blue-500' : 'text-primary']">Full Name</label>
                                         <input v-model="form.full_name" type="text" placeholder="Legal Name"
-                                            :class="['w-full bg-transparent border-b border-white/20 py-2 px-0 focus:border-white focus:outline-none transition-all placeholder:text-white/20 text-xs', stepTheme.onMobile]" />
+                                            class="w-full bg-transparent border-b border-outline-variant/30 py-2 px-0 text-on-surface focus:border-primary focus:outline-none transition-all placeholder:text-on-surface-variant/20 text-xs" />
                                     </div>
                                 </div>
                                 <button @click="nextStep"
