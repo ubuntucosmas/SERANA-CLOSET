@@ -141,16 +141,6 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- Ambient glow orbs -->
                 <div class="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] bg-primary/10 rounded-full blur-[120px] animate-orb-1"></div>
                 <div class="absolute bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] bg-primary/8 rounded-full blur-[100px] animate-orb-2"></div>
-                <!-- Floating security symbols -->
-                <div class="absolute top-[15%] right-[8%] floating-symbol" style="animation-delay:0s">
-                    <span class="material-symbols-outlined text-primary/10 text-6xl" style="font-variation-settings:'FILL' 1">lock</span>
-                </div>
-                <div class="absolute top-[55%] left-[5%] floating-symbol" style="animation-delay:2s">
-                    <span class="material-symbols-outlined text-primary/10 text-4xl" style="font-variation-settings:'FILL' 1">verified_user</span>
-                </div>
-                <div class="absolute bottom-[20%] right-[12%] floating-symbol" style="animation-delay:1.5s">
-                    <span class="material-symbols-outlined text-primary/5 text-5xl">encrypted</span>
-                </div>
             </div>
 
             <!-- M-Pesa STK Phase -->
@@ -488,13 +478,6 @@ function nextStep() { if (step.value < 3) step.value++; }
     );
 }
 
-.floating-symbol {
-    animation: float-y 6s ease-in-out infinite;
-}
-@keyframes float-y {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-16px); }
-}
 
 @keyframes orb-pulse-1 {
     0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.6; }
