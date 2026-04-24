@@ -393,62 +393,62 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- ╔══════════════════════════════╗ -->
                 <!-- ║  RIGHT: Order Summary        ║ -->
                 <!-- ╚══════════════════════════════╝ -->
-                <aside class="lg:col-span-5 lg:sticky lg:top-32 space-y-6">
-                    <div class="bg-surface-container p-10 space-y-8 border border-outline-variant/30">
-                        <h3 class="text-[11px] tracking-[0.3em] uppercase font-bold text-on-surface pb-6 border-b border-outline-variant/30">Order Summary</h3>
+                <aside class="lg:col-span-5 lg:sticky lg:top-32 space-y-4 md:space-y-6">
+                    <div class="bg-surface-container p-6 md:p-10 space-y-6 md:space-y-8 border border-outline-variant/30">
+                        <h3 class="text-[10px] md:text-[11px] tracking-[0.2em] md:tracking-[0.3em] uppercase font-bold text-on-surface pb-4 md:pb-6 border-b border-outline-variant/30">Order Summary</h3>
 
                         <!-- Items -->
-                        <div class="space-y-6 max-h-72 overflow-y-auto pr-2 no-scrollbar">
-                            <div v-if="(isSuccess ? frozenItems : cart.items).length === 0" class="text-center py-8 text-on-surface-variant text-sm italic">
+                        <div class="space-y-4 md:space-y-6 max-h-60 md:max-h-72 overflow-y-auto pr-2 no-scrollbar">
+                            <div v-if="(isSuccess ? frozenItems : cart.items).length === 0" class="text-center py-6 text-on-surface-variant text-xs italic">
                                 No items.
                             </div>
-                            <div v-for="item in (isSuccess ? frozenItems : cart.items)" :key="item.id" class="flex gap-5">
-                                <div class="w-20 aspect-[3/4] bg-surface overflow-hidden flex-shrink-0 border border-outline-variant/20">
+                            <div v-for="item in (isSuccess ? frozenItems : cart.items)" :key="item.id" class="flex gap-4 md:gap-5">
+                                <div class="w-16 md:w-20 aspect-[3/4] bg-surface overflow-hidden flex-shrink-0 border border-outline-variant/20">
                                     <img :src="item.image" :alt="item.name" class="w-full h-full object-cover" />
                                 </div>
-                                <div class="flex flex-col justify-between py-1">
+                                <div class="flex flex-col justify-between py-0.5 md:py-1">
                                     <div class="space-y-0.5">
-                                        <h4 class="font-headline text-sm font-semibold tracking-tight text-on-surface leading-snug">{{ item.name }}</h4>
-                                        <p class="text-[10px] tracking-widest text-primary uppercase font-semibold">Qty: {{ item.quantity }}</p>
+                                        <h4 class="font-headline text-xs md:text-sm font-semibold tracking-tight text-on-surface leading-snug">{{ item.name }}</h4>
+                                        <p class="text-[9px] md:text-[10px] tracking-widest text-primary uppercase font-semibold">Qty: {{ item.quantity }}</p>
                                     </div>
-                                    <p class="text-sm font-bold tracking-wider text-on-surface">{{ formatAmount(item.price * item.quantity, page.props) }}</p>
+                                    <p class="text-xs md:text-sm font-bold tracking-wider text-on-surface">{{ formatAmount(item.price * item.quantity, page.props) }}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Financials -->
-                        <div class="space-y-4 pt-6 border-t border-outline-variant/30">
-                            <div class="flex justify-between text-sm">
+                        <!-- Totals -->
+                        <div class="space-y-3 md:space-y-4 pt-4 md:pt-6 border-t border-outline-variant/30">
+                            <div class="flex justify-between text-xs md:text-sm">
                                 <span class="text-on-surface-variant tracking-wide font-medium">Subtotal</span>
                                 <span class="font-semibold text-on-surface">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
                             </div>
-                            <div class="flex justify-between text-sm">
+                            <div class="flex justify-between text-xs md:text-sm">
                                 <span class="text-on-surface-variant tracking-wide font-medium">Shipping</span>
                                 <span class="text-primary font-semibold">Complimentary</span>
                             </div>
-                            <div class="flex justify-between items-baseline pt-6 border-t border-outline-variant/20">
-                                <span class="font-headline text-base font-light uppercase tracking-wider text-on-surface">Total</span>
-                                <span class="font-headline text-2xl font-bold text-primary">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
+                            <div class="flex justify-between items-baseline pt-4 md:pt-6 border-t border-outline-variant/20">
+                                <span class="font-headline text-sm md:text-base font-light uppercase tracking-wider text-on-surface">Total</span>
+                                <span class="font-headline text-xl md:text-2xl font-bold text-primary">{{ formatAmount(isSuccess ? frozenTotal : cart.totalPrice, page.props) }}</span>
                             </div>
                         </div>
 
                         <!-- Place Order CTA (mirrors Step 3) -->
                         <button v-if="step === 3" @click="handlePayment" :disabled="isProcessing"
-                            class="w-full bg-primary text-black py-5 text-[10px] uppercase tracking-[0.3em] font-bold hover:opacity-90 active:scale-[0.98] transition-all duration-300 disabled:opacity-50">
+                            class="w-full bg-primary text-black py-4 md:py-5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] md:tracking-[0.3em] font-bold hover:opacity-90 active:scale-[0.98] transition-all duration-300 disabled:opacity-50">
                             Place Order
                         </button>
 
-                        <p class="text-center text-[10px] text-on-surface-variant/50 italic">
+                        <p class="text-center text-[9px] md:text-[10px] text-on-surface-variant/50 italic">
                             Exclusively crafted in Nairobi's finest atelier.
                         </p>
                     </div>
 
                     <!-- Assistance Card -->
-                    <div class="p-8 border border-outline-variant/30 flex items-center gap-6 bg-surface-container hover:border-primary/30 transition-colors">
-                        <span class="material-symbols-outlined text-primary text-3xl flex-shrink-0">support_agent</span>
-                        <div class="space-y-1">
-                            <p class="text-[11px] font-bold tracking-widest uppercase text-on-surface">Need Assistance?</p>
-                            <p class="text-[11px] text-on-surface-variant leading-relaxed">Chat with a Serana stylist for sizing advice and custom consultations.</p>
+                    <div class="p-6 md:p-8 border border-outline-variant/30 flex items-center gap-4 md:gap-6 bg-surface-container hover:border-primary/30 transition-colors">
+                        <span class="material-symbols-outlined text-primary text-2xl md:text-3xl flex-shrink-0">support_agent</span>
+                        <div class="space-y-0.5 md:space-y-1">
+                            <p class="text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-on-surface">Need Assistance?</p>
+                            <p class="text-[10px] md:text-[11px] text-on-surface-variant leading-relaxed">Chat with a Serana stylist for sizing advisory.</p>
                         </div>
                     </div>
                 </aside>
