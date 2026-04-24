@@ -21,6 +21,7 @@ const isSuccess = ref(false);
 const isPaid = ref(false);
 const orderId = ref(null);
 const activeField = ref(null);
+const paidAmount = ref(0);
 let pollingInterval = null;
 
 const form = ref({
@@ -95,6 +96,7 @@ async function initiateMpesaStk(data) {
             window.dispatchEvent(new CustomEvent('serana-toast', {
                 detail: { message: 'STK Push sent to your phone.', type: 'info' }
             }));
+            isWaitingForStk.value = true;
             startPolling();
         }
     } catch (err) {
@@ -127,6 +129,7 @@ function startPolling() {
                 isPaid.value = true;
                 isWaitingForStk.value = false;
                 isSuccess.value = true;
+                paidAmount.value = cart.totalPrice;
                 cart.clearBag();
                 
                 window.dispatchEvent(new CustomEvent('serana-toast', {
@@ -317,6 +320,7 @@ function nextStep() {
                                 :amount="cart.totalPrice" 
                                 :phone="form.phone"
                                 :isProcessing="isProcessing"
+                                :isWaiting="isWaitingForStk"
                                 @pay="initiateMpesaStk"
                                 @cancel="step = 3; isWaitingForStk = false"
                             />
@@ -340,7 +344,7 @@ function nextStep() {
                         <!-- Success State (M-Pesa) -->
                         <div v-if="isSuccess && form.payment_method === 'mpesa'" class="reveal">
                             <MpesaSuccessPanel 
-                                :amount="cart.totalPrice" 
+                                :amount="paidAmount" 
                                 :orderId="orderId"
                             />
                         </div>

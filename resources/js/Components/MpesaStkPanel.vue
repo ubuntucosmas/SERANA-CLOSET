@@ -1,145 +1,246 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 
 const props = defineProps({
     amount: { type: [Number, String], required: true },
     phone: { type: String, default: '' },
-    isProcessing: { type: Boolean, default: false }
+    isProcessing: { type: Boolean, default: false },
+    isWaiting: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['pay', 'cancel']);
 
+// Phase: 'idle' | 'processing' | 'waiting'
+const phase = ref('idle');
 const phoneNumber = ref(props.phone.replace('+254', '').trim());
+const pulseStep = ref(0);
+
+let pulseTimer = null;
+
+watch(() => props.isProcessing, (val) => {
+    if (val) phase.value = 'processing';
+});
+
+watch(() => props.isWaiting, (val) => {
+    if (val) {
+        phase.value = 'waiting';
+        startPulse();
+    }
+});
+
+function startPulse() {
+    pulseTimer = setInterval(() => {
+        pulseStep.value = (pulseStep.value + 1) % 4;
+    }, 800);
+}
+
+onUnmounted(() => clearInterval(pulseTimer));
 
 function handleSubmit() {
-    emit('pay', {
-        amount: props.amount,
-        phone: phoneNumber.value
-    });
+    if (!phoneNumber.value) return;
+    emit('pay', { amount: props.amount, phone: phoneNumber.value });
 }
+
+const trustPoints = [
+    { icon: 'enhanced_encryption', text: '256-bit SSL Encryption' },
+    { icon: 'verified_user', text: 'PCI DSS Compliant' },
+    { icon: 'shield', text: 'Safaricom Daraja Certified' },
+    { icon: 'fingerprint', text: 'PIN-Secured Transaction' },
+];
+
+const steps = [
+    { label: 'Request Sent', sub: 'Secure channel established' },
+    { label: 'Check Your Phone', sub: 'M-PESA prompt delivered' },
+    { label: 'Enter Your PIN', sub: 'Authorize with your secret PIN' },
+    { label: 'Confirming', sub: 'Verifying with Safaricom...' },
+];
 </script>
 
 <template>
-    <div class="mpesa-atelier bg-[#f8faf8] dark:bg-[#191c1b] text-[#191c1b] dark:text-[#f8faf8] font-body selection:bg-[#4fb33f]/30 rounded-3xl overflow-hidden shadow-2xl transition-all duration-700">
-        <!-- Content Container -->
-        <div class="p-8 md:p-12">
-            <!-- Editorial Header -->
-            <div class="mb-12 max-w-2xl">
-                <h1 class="font-headline text-4xl font-extrabold tracking-tight text-[#016e00] dark:text-[#4fb33f] mb-4 leading-tight">Secure Payment<br/>Authorization</h1>
-                <p class="text-[#3f4a3b] dark:text-[#becab6] text-sm leading-relaxed">Initiate an instant M-PESA transaction. Your funds will be moved securely via STK Push technology directly from your mobile device.</p>
+    <!-- PHASE: IDLE — the main input form -->
+    <div v-if="phase === 'idle'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
+        <!-- Scanning line -->
+        <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4fb33f]/60 to-transparent animate-scan-x z-10"></div>
+
+        <!-- Header -->
+        <div class="relative p-8 border-b border-white/5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="relative w-12 h-12 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-[#4fb33f]/20 rounded-xl animate-pulse"></div>
+                        <span class="material-symbols-outlined text-[#4fb33f] text-2xl relative z-10">smartphone</span>
+                    </div>
+                    <div>
+                        <h2 class="text-white font-headline font-black text-lg tracking-tight">M-PESA Secure Payment</h2>
+                        <p class="text-[10px] text-[#4fb33f] uppercase tracking-[0.3em] mt-0.5 font-black">Daraja API · Encrypted Channel</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-[#4fb33f] animate-pulse"></div>
+                    <span class="text-[9px] text-white/30 uppercase tracking-widest font-black">Live</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount Display -->
+        <div class="p-8 border-b border-white/5">
+            <p class="text-[9px] text-white/30 uppercase tracking-[0.4em] font-black mb-4">Order Value</p>
+            <div class="flex items-baseline gap-3">
+                <span class="text-white/30 font-headline text-xl font-bold">KSh</span>
+                <span class="text-white font-headline font-black text-6xl tracking-tighter leading-none">{{ Number(amount).toLocaleString() }}</span>
+            </div>
+            <p class="text-[9px] text-white/20 mt-3 font-mono uppercase tracking-widest">Serana Atelier · Premium Delivery Included</p>
+        </div>
+
+        <!-- Phone Input -->
+        <div class="p-8 space-y-6">
+            <div>
+                <label class="block text-[9px] text-white/30 uppercase tracking-[0.4em] font-black mb-4">M-PESA Registered Number</label>
+                <div class="flex gap-3">
+                    <div class="w-20 flex items-center justify-center bg-[#4fb33f]/10 border border-[#4fb33f]/20 rounded-xl text-[#4fb33f] font-mono font-bold text-sm">+254</div>
+                    <input
+                        v-model="phoneNumber"
+                        type="tel"
+                        placeholder="7XX XXX XXX"
+                        class="flex-1 bg-white/5 border border-white/10 hover:border-[#4fb33f]/30 focus:border-[#4fb33f]/60 focus:ring-0 rounded-xl px-5 py-4 text-white font-mono text-lg placeholder:text-white/20 transition-all outline-none"
+                        @keydown.enter="handleSubmit"
+                    />
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-                <!-- Left: Payment Form -->
-                <section class="lg:col-span-7 bg-white dark:bg-[#1d211d] p-8 rounded-xl shadow-[0_24px_48px_-12px_rgba(25,28,27,0.04)] ring-1 ring-black/5 dark:ring-white/5">
-                    <div class="flex items-center gap-3 mb-10">
-                        <div class="w-12 h-12 bg-[#016e00]/10 rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[#016e00] dark:text-[#4fb33f]">account_balance_wallet</span>
+            <!-- Trust Badges -->
+            <div class="grid grid-cols-2 gap-2">
+                <div v-for="trust in trustPoints" :key="trust.icon"
+                    class="flex items-center gap-2 p-3 bg-white/[0.02] border border-white/5 rounded-lg">
+                    <span class="material-symbols-outlined text-[#4fb33f] text-sm opacity-60">{{ trust.icon }}</span>
+                    <span class="text-[9px] font-black text-white/20 uppercase tracking-widest leading-tight">{{ trust.text }}</span>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <button
+                @click="handleSubmit"
+                :disabled="!phoneNumber || isProcessing"
+                class="w-full relative overflow-hidden group py-5 rounded-2xl font-headline font-black text-sm uppercase tracking-[0.2em] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                :class="phoneNumber ? 'bg-[#4fb33f] text-black shadow-[0_0_40px_rgba(79,179,63,0.4)] hover:shadow-[0_0_60px_rgba(79,179,63,0.6)] hover:scale-[1.02]' : 'bg-white/10 text-white/40'"
+            >
+                <span class="relative z-10 flex items-center justify-center gap-3">
+                    <span class="material-symbols-outlined text-lg">lock</span>
+                    Authorize Secure Payment
+                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                </span>
+                <div v-if="phoneNumber" class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            </button>
+
+            <!-- Cancel -->
+            <button @click="$emit('cancel')" class="w-full text-center text-[10px] uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors py-2 font-black">
+                ← Change Payment Method
+            </button>
+        </div>
+    </div>
+
+    <!-- PHASE: PROCESSING — request is being sent -->
+    <div v-else-if="phase === 'processing'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center py-20 px-10 text-center min-h-[400px]">
+        <div class="absolute inset-0 bg-[#4fb33f]/3 animate-pulse"></div>
+
+        <!-- Animated Spinner -->
+        <div class="relative w-24 h-24 mb-8">
+            <div class="absolute inset-0 border-2 border-[#4fb33f]/20 rounded-full"></div>
+            <div class="absolute inset-0 border-t-2 border-[#4fb33f] rounded-full animate-spin"></div>
+            <div class="absolute inset-3 border-t border-[#4fb33f]/40 rounded-full animate-spin" style="animation-duration:1.5s;animation-direction:reverse"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="material-symbols-outlined text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">lock</span>
+            </div>
+        </div>
+
+        <h3 class="text-white font-headline font-black text-2xl mb-3">Initiating Secure Session</h3>
+        <p class="text-white/40 text-sm font-medium max-w-xs leading-relaxed">Establishing encrypted channel with Safaricom Daraja API. This takes a moment.</p>
+
+        <!-- Animated Dots -->
+        <div class="flex gap-2 mt-8">
+            <div class="w-2 h-2 rounded-full bg-[#4fb33f] animate-bounce" style="animation-delay:0ms"></div>
+            <div class="w-2 h-2 rounded-full bg-[#4fb33f] animate-bounce" style="animation-delay:200ms"></div>
+            <div class="w-2 h-2 rounded-full bg-[#4fb33f] animate-bounce" style="animation-delay:400ms"></div>
+        </div>
+    </div>
+
+    <!-- PHASE: WAITING — STK dispatched, user needs to check phone -->
+    <div v-else-if="phase === 'waiting'" class="stk-panel relative overflow-hidden rounded-3xl border border-[#4fb33f]/30 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_0_80px_rgba(79,179,63,0.15)]">
+        <!-- Top scanning line - green -->
+        <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4fb33f] to-transparent animate-scan-x z-10"></div>
+
+        <!-- Success Header -->
+        <div class="relative p-8 border-b border-[#4fb33f]/10 text-center">
+            <!-- Pulsing phone graphic -->
+            <div class="relative inline-flex items-center justify-center">
+                <div class="absolute w-20 h-20 border border-[#4fb33f]/20 rounded-full animate-ping"></div>
+                <div class="absolute w-28 h-28 border border-[#4fb33f]/10 rounded-full animate-ping" style="animation-duration:2s"></div>
+                <div class="relative w-16 h-16 bg-[#4fb33f]/15 border border-[#4fb33f]/30 rounded-full flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[#4fb33f] text-3xl" style="font-variation-settings:'FILL' 1">smartphone</span>
+                </div>
+            </div>
+
+            <h2 class="text-white font-headline font-black text-2xl mt-6 mb-2">Check Your Phone!</h2>
+            <p class="text-[#4fb33f] text-sm font-black uppercase tracking-widest">M-PESA PIN Prompt Incoming</p>
+        </div>
+
+        <!-- Body -->
+        <div class="p-8 space-y-8">
+            <!-- Amount reminder -->
+            <div class="flex justify-between items-center p-5 bg-[#4fb33f]/5 border border-[#4fb33f]/15 rounded-2xl">
+                <div>
+                    <p class="text-[9px] text-white/30 uppercase tracking-widest font-black mb-1">Authorization Required</p>
+                    <p class="text-white font-headline font-black text-2xl">KSh {{ Number(amount).toLocaleString() }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] text-white/30 uppercase tracking-widest font-black mb-1">To</p>
+                    <p class="text-white/80 font-black text-sm">Serana Atelier</p>
+                </div>
+            </div>
+
+            <!-- Step Progress -->
+            <div class="space-y-4">
+                <p class="text-[9px] text-white/20 uppercase tracking-[0.4em] font-black">Transaction Pipeline</p>
+                <div class="space-y-3">
+                    <div v-for="(step, i) in steps" :key="i" class="flex items-center gap-4 group">
+                        <!-- Step indicator -->
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500"
+                            :class="i < pulseStep ? 'bg-[#4fb33f] shadow-[0_0_15px_rgba(79,179,63,0.5)]' : i === pulseStep ? 'bg-[#4fb33f]/20 border-2 border-[#4fb33f] animate-pulse' : 'bg-white/5 border border-white/10'">
+                            <span v-if="i < pulseStep" class="material-symbols-outlined text-black text-sm">check</span>
+                            <span v-else class="text-[10px] font-black" :class="i === pulseStep ? 'text-[#4fb33f]' : 'text-white/20'">{{ i + 1 }}</span>
                         </div>
-                        <div>
-                            <h2 class="font-headline text-lg font-bold">M-PESA Credentials</h2>
-                            <p class="text-[10px] text-[#3f4a3b] dark:text-[#becab6] uppercase tracking-widest font-black">Secure STK Protocol</p>
+                        <!-- Step text -->
+                        <div class="transition-all duration-500" :class="i <= pulseStep ? 'opacity-100' : 'opacity-30'">
+                            <p class="text-white font-black text-sm" :class="i === pulseStep ? 'text-[#4fb33f]' : ''">{{ step.label }}</p>
+                            <p class="text-white/30 text-[10px] mt-0.5">{{ step.sub }}</p>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <form @submit.prevent="handleSubmit" class="space-y-8">
-                        <!-- Amount (Read Only for Checkout) -->
-                        <div class="group">
-                            <label class="block text-[10px] font-bold uppercase tracking-widest text-[#3f4a3b] dark:text-[#becab6] mb-3 ml-1">Payment Amount</label>
-                            <div class="relative">
-                                <span class="absolute left-6 top-1/2 -translate-y-1/2 font-headline font-bold text-xl text-[#3f4a3b]/40">KES</span>
-                                <div class="w-full pl-20 pr-6 py-5 bg-[#f2f4f2] dark:bg-[#191c1b] rounded-xl font-headline text-3xl font-extrabold text-[#191c1b] dark:text-white flex items-center">
-                                    {{ Number(amount).toLocaleString() }}
-                                </div>
-                            </div>
-                        </div>
+            <!-- Instructional Callout -->
+            <div class="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex gap-4">
+                <span class="material-symbols-outlined text-amber-400 flex-shrink-0 mt-0.5" style="font-variation-settings:'FILL' 1">info</span>
+                <div class="text-[11px] text-white/40 leading-relaxed">
+                    A <strong class="text-white/70">Safaricom M-PESA notification</strong> has been sent to your phone. Open it, enter your <strong class="text-white/70">M-PESA PIN</strong>, and your order will be confirmed instantly.
+                </div>
+            </div>
 
-                        <!-- Phone Number -->
-                        <div class="group">
-                            <label class="block text-[10px] font-bold uppercase tracking-widest text-[#3f4a3b] dark:text-[#becab6] mb-3 ml-1">Phone Number</label>
-                            <div class="flex gap-4">
-                                <div class="w-24 px-4 py-4 bg-[#f2f4f2] dark:bg-[#191c1b] rounded-xl flex items-center justify-center font-body font-bold text-[#191c1b] dark:text-white border border-transparent">
-                                    +254
-                                </div>
-                                <input v-model="phoneNumber" 
-                                       type="tel" 
-                                       placeholder="700 000 000"
-                                       class="flex-1 px-6 py-4 bg-[#f2f4f2] dark:bg-[#191c1b] border-none rounded-xl font-body text-lg font-medium text-[#191c1b] dark:text-white focus:ring-1 focus:ring-[#016e00] focus:bg-white dark:focus:bg-black transition-all placeholder:text-[#becab6]/50" />
-                            </div>
-                        </div>
-
-                        <!-- CTA -->
-                        <button :disabled="isProcessing"
-                                class="w-full bg-[#016e00] hover:bg-[#028a00] text-white font-headline text-lg font-bold py-5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3 shadow-lg shadow-[#016e00]/20 disabled:opacity-50 disabled:grayscale">
-                            <span>{{ isProcessing ? 'Initializing...' : 'Pay with M-PESA' }}</span>
-                            <span v-if="!isProcessing" class="material-symbols-outlined">arrow_forward</span>
-                            <div v-else class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        </button>
-                    </form>
-
-                    <!-- Trust Bar -->
-                    <div class="mt-8 flex items-center justify-center gap-4 py-4 border-t border-[#f2f4f2] dark:border-white/5">
-                        <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter text-[#3f4a3b]/40">
-                            <span class="material-symbols-outlined text-[14px]">lock</span>
-                            <span>Encrypted</span>
-                        </div>
-                        <div class="w-1 h-1 bg-[#becab6] rounded-full"></div>
-                        <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter text-[#3f4a3b]/40">
-                            <span class="material-symbols-outlined text-[14px]">verified_user</span>
-                            <span>PCI DSS</span>
-                        </div>
-                        <div class="w-1 h-1 bg-[#becab6] rounded-full"></div>
-                        <button @click="$emit('cancel')" class="text-[10px] font-bold uppercase tracking-widest text-[#ab2a65] hover:underline transition-all">
-                            Change Method
-                        </button>
-                    </div>
-                </section>
-
-                <!-- Right: Process Info -->
-                <aside class="lg:col-span-5 space-y-6">
-                    <div class="bg-[#f2f4f2] dark:bg-[#1d211d] p-8 rounded-xl ring-1 ring-black/5 dark:ring-white/5">
-                        <h3 class="font-headline text-lg font-bold mb-6">How it works</h3>
-                        <div class="space-y-8">
-                            <div class="flex gap-6 group">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#016e00] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-[#016e00]/20">1</div>
-                                <div>
-                                    <p class="font-bold text-sm mb-1">Initiate Request</p>
-                                    <p class="text-[11px] text-[#3f4a3b] dark:text-[#becab6] leading-relaxed">Fill in your M-PESA number and click 'Pay' to trigger the secure request.</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-6 group">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#016e00] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-[#016e00]/20">2</div>
-                                <div>
-                                    <p class="font-bold text-sm mb-1">Check Your Phone</p>
-                                    <p class="text-[11px] text-[#3f4a3b] dark:text-[#becab6] leading-relaxed">A prompt will automatically appear on your phone asking for your M-PESA PIN.</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-6 group">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#016e00] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-[#016e00]/20">3</div>
-                                <div>
-                                    <p class="font-bold text-sm mb-1">Confirm Transaction</p>
-                                    <p class="text-[11px] text-[#3f4a3b] dark:text-[#becab6] leading-relaxed">Enter your PIN to authorize. You will receive a confirmation instantly.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Graphic Card -->
-                    <div class="relative overflow-hidden bg-[#016e00] rounded-xl h-48 flex items-center justify-center p-8 text-center group">
-                        <div class="absolute inset-0 bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuCmf5J7gIg1XObGEUmXMcWbj8FANTbx60Pxvs2ooXG32EpRFsgjf93l9R53TBRcQfqv9DpsHKUh6wzViRU1dRV2eFFJH5jsz9T0EV5QSqLEV8nCDMLoXngUoN9a0GwugkDnQtjR-5sv7VwVtxta3m8C4sIfmz2qQO9fEzHkheNDAJdAbS-HcggJ_loZo7sJRmmH_dEjgBMLK0PmSgDFLTWMQlF6hhV-W7mM17bJK0CGWaoQzZDukgVFPK2Nse-i8P2arsVEbdmPHi0')] bg-cover bg-center opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-[2000ms]"></div>
-                        <div class="relative z-10">
-                            <span class="material-symbols-outlined text-white text-4xl mb-3" style="font-variation-settings: 'FILL' 1;">security</span>
-                            <h4 class="text-white font-headline text-lg font-bold">Safe & Seamless</h4>
-                            <p class="text-white/60 text-[10px] uppercase tracking-widest mt-1 font-black">Financial Atelier Protocol</p>
-                        </div>
-                    </div>
-                </aside>
+            <!-- Polling indicator -->
+            <div class="flex items-center justify-center gap-3">
+                <div class="w-1.5 h-1.5 rounded-full bg-[#4fb33f] animate-pulse"></div>
+                <p class="text-[10px] text-white/20 uppercase tracking-widest font-black">Listening for confirmation...</p>
+                <div class="w-1.5 h-1.5 rounded-full bg-[#4fb33f] animate-pulse" style="animation-delay:500ms"></div>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.font-headline { font-family: 'Manrope', sans-serif; }
-.font-body { font-family: 'Inter', sans-serif; }
+@keyframes scan-x {
+    0% { transform: translateX(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+.animate-scan-x { animation: scan-x 3s ease-in-out infinite; }
 </style>
