@@ -128,7 +128,28 @@ function nextStep() { if (step.value < 3) step.value++; }
     <StorefrontLayout>
         <Head title="Secure Checkout — Serana Atelier" />
 
-        <main class="pt-32 pb-24 px-6 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
+        <main class="relative pt-32 pb-24 px-6 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
+
+            <!-- Checkout DNA Background -->
+            <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+                <!-- Background image -->
+                <img src="/images/checkout_bg.png" alt="" class="absolute inset-0 w-full h-full object-cover opacity-[0.15]" />
+                <!-- Dark overlay so content stays readable -->
+                <div class="absolute inset-0 bg-background/70"></div>
+                <!-- Ambient glow orbs -->
+                <div class="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] bg-primary/10 rounded-full blur-[120px] animate-orb-1"></div>
+                <div class="absolute bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] bg-primary/8 rounded-full blur-[100px] animate-orb-2"></div>
+                <!-- Floating security symbols -->
+                <div class="absolute top-[15%] right-[8%] floating-symbol" style="animation-delay:0s">
+                    <span class="material-symbols-outlined text-primary/10 text-6xl" style="font-variation-settings:'FILL' 1">lock</span>
+                </div>
+                <div class="absolute top-[55%] left-[5%] floating-symbol" style="animation-delay:2s">
+                    <span class="material-symbols-outlined text-primary/10 text-4xl" style="font-variation-settings:'FILL' 1">verified_user</span>
+                </div>
+                <div class="absolute bottom-[20%] right-[12%] floating-symbol" style="animation-delay:1.5s">
+                    <span class="material-symbols-outlined text-primary/5 text-5xl">encrypted</span>
+                </div>
+            </div>
 
             <!-- M-Pesa STK Phase -->
             <div v-if="step === 4 && !isPaid" class="max-w-2xl mx-auto">
@@ -149,7 +170,7 @@ function nextStep() { if (step.value < 3) step.value++; }
 
             <!-- M-Pesa Success -->
             <div v-else-if="isSuccess && form.payment_method === 'mpesa'" class="max-w-2xl mx-auto">
-                <MpesaSuccessPanel :amount="paidAmount" :orderId="orderId" />
+                <MpesaSuccessPanel :amount="paidAmount" :orderId="orderId" :items="frozenItems" />
             </div>
 
             <!-- Non-Mpesa Success (Pending Payment) -->
@@ -446,4 +467,41 @@ function nextStep() { if (step.value < 3) step.value++; }
 }
 .animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Checkout DNA Background */
+/* .checkout-grid removed — using image instead */
+
+.scan-lines {
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(185, 195, 255, 0.3) 3px,
+        rgba(185, 195, 255, 0.3) 4px
+    );
+}
+
+.floating-symbol {
+    animation: float-y 6s ease-in-out infinite;
+}
+@keyframes float-y {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-16px); }
+}
+
+@keyframes orb-pulse-1 {
+    0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.6; }
+    50% { transform: scale(1.15) translate(2%, 3%); opacity: 0.9; }
+}
+@keyframes orb-pulse-2 {
+    0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.5; }
+    50% { transform: scale(1.1) translate(-3%, -2%); opacity: 0.8; }
+}
+@keyframes orb-pulse-3 {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+}
+.animate-orb-1 { animation: orb-pulse-1 12s ease-in-out infinite; }
+.animate-orb-2 { animation: orb-pulse-2 15s ease-in-out infinite; }
+.animate-orb-3 { animation: orb-pulse-3 9s ease-in-out infinite; }
 </style>

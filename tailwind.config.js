@@ -31,9 +31,9 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Satoshi", ...defaultTheme.fontFamily.sans],
-                "body": ["Satoshi", ...defaultTheme.fontFamily.sans],
-                "label": ["Satoshi", ...defaultTheme.fontFamily.sans]
+                "headline": ["Noto Serif", ...defaultTheme.fontFamily.serif],
+                "body": ["Manrope", ...defaultTheme.fontFamily.sans],
+                "label": ["Manrope", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
                 "DEFAULT": "0px",
