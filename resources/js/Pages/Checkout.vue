@@ -132,7 +132,7 @@ const stepTheme = computed(() => {
             bg: 'bg-blue-500', 
             bgAlpha: 'bg-blue-500/10', 
             glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
-            mobileCard: 'bg-blue-900',
+            mobileCard: 'bg-blue-900/60',
             onMobile: 'text-white'
         };
         case 2: return { 
@@ -141,7 +141,7 @@ const stepTheme = computed(() => {
             bg: 'bg-emerald-500', 
             bgAlpha: 'bg-emerald-500/10', 
             glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-            mobileCard: 'bg-[#016e00]',
+            mobileCard: 'bg-[#016e00]/60',
             onMobile: 'text-white'
         };
         case 3: return { 
@@ -150,7 +150,7 @@ const stepTheme = computed(() => {
             bg: 'bg-rose-500', 
             bgAlpha: 'bg-rose-500/10', 
             glow: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]',
-            mobileCard: 'bg-rose-900',
+            mobileCard: 'bg-rose-900/60',
             onMobile: 'text-white'
         };
         default: return { 
@@ -159,7 +159,7 @@ const stepTheme = computed(() => {
             bg: 'bg-primary', 
             bgAlpha: 'bg-primary/10', 
             glow: 'shadow-[0_0_20px_rgba(57,255,20,0.3)]',
-            mobileCard: 'bg-[#016e00]',
+            mobileCard: 'bg-[#016e00]/60',
             onMobile: 'text-white'
         };
     }
@@ -230,7 +230,7 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- On mobile, we wrap everything in a floating glass card -->
                 <div class="lg:col-span-7 block md:hidden">
                     <div :class="[
-                        'p-6 space-y-10 shadow-2xl relative z-10 transition-all duration-1000',
+                        'p-6 space-y-10 shadow-2xl relative z-10 transition-all duration-1000 backdrop-blur-xl border border-white/10',
                         stepTheme.mobileCard,
                         stepTheme.onMobile
                     ]">
