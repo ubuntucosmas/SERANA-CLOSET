@@ -58,7 +58,15 @@ function editProduct(product) {
     productForm.batch_limit = product.batch_limit;
     productForm.image = null; 
     productForm.secondary_image_1 = null;
+    productForm.secondary_image_1 = null;
     productForm.secondary_image_2 = null;
+    
+    productForm.specifications = product.specifications || {
+        batch_name: 'Active Batch #01',
+        fabric_weight: '450GSM Heavyweight Cotton Fleece',
+        weight_index: 85,
+        tech_specs: ['', '', '', '']
+    };
     
     productPreview.value = product.image_url;
     secondaryPreview1.value = product.secondary_image_urls?.[0] || null;
@@ -90,7 +98,13 @@ const productForm = useForm({
 	secondary_image_2: null,
 	in_stock: true,
 	is_customizable: false,
-	batch_limit: null
+	batch_limit: null,
+    specifications: {
+        batch_name: 'Active Batch #01',
+        fabric_weight: '450GSM Heavyweight Cotton Fleece',
+        weight_index: 85,
+        tech_specs: ['', '', '', '']
+    }
 });
 
 const isEditingProduct = ref(false);
@@ -114,6 +128,15 @@ const galleryForm = useForm({
 
 const isEditingGallery = ref(false);
 const showAddGalleryModal = ref(false);
+
+const categoryForm = useForm({
+    id: null,
+    name: '',
+    description: ''
+});
+
+const isEditingCategory = ref(false);
+const showAddCategoryModal = ref(false);
 
 const themeForm = useForm({
     key: '',
@@ -358,6 +381,79 @@ function submitGallery() {
     }
 }
 
+function submitCategory() {
+    if (isEditingCategory.value) {
+        categoryForm.transform((data) => ({
+            ...data,
+            _method: 'PUT',
+        })).post(route('admin.catalog.update_category', categoryForm.id), {
+            onSuccess: () => {
+                showAddCategoryModal.value = false;
+                isEditingCategory.value = false;
+                categoryForm.reset();
+            }
+        });
+    } else {
+        categoryForm.post(route('admin.catalog.store_category'), {
+            onSuccess: () => {
+                showAddCategoryModal.value = false;
+                categoryForm.reset();
+            }
+        });
+    }
+}
+
+function editCategory(cat) {
+    isEditingCategory.value = true;
+    categoryForm.id = cat.id;
+    categoryForm.name = cat.name;
+    categoryForm.description = cat.description;
+    showAddCategoryModal.value = true;
+}
+
+function deleteCategory(id) {
+    if (confirm('Permanently remove this collection segment? All associated pieces must be reassigned first.')) {
+        router.delete(route('admin.catalog.destroy_category', id), {
+            preserveScroll: true
+        });
+    }
+}
+
+function updateCategoryBanner(category, file) {
+    if (!file) return;
+    
+    // We use a manual router.post here to support file uploads with _method: PUT shortcut if needed
+    // but our CatalogController@updateCategory is already set up to handle this
+    router.post(route('admin.catalog.update_category', category.id), {
+        _method: 'PUT',
+        banner: file,
+        name: category.name, // Keep existing name
+        description: category.description // Keep existing description
+    }, {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            console.log(`[Serana] Banner updated for segment: ${category.name}`);
+        }
+    });
+}
+
+function deleteCategoryBanner(category) {
+    if (confirm(`Are you sure you want to remove the banner for "${category.name}"? This segment will revert to the brand default.`)) {
+        router.post(route('admin.catalog.update_category', category.id), {
+            _method: 'PUT',
+            remove_banner: true,
+            name: category.name,
+            description: category.description
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                console.log(`[Serana] Banner reset for segment: ${category.name}`);
+            }
+        });
+    }
+}
+
 function deleteGallery(id) {
 	if (confirm('Remove this showcase from the Circle (Unpublish)?')) {
 	    router.delete(route('admin.gallery.destroy', id), {
@@ -530,10 +626,10 @@ function getAllOrderImages(order) {
                     {{ currentTab === 'catalog' ? 'New Product' : (currentTab === 'gallery' ? 'Add Showcase' : 'Create New Line') }}
                 </button>
                 <div class="space-y-2">
-                    <a class="group flex items-center gap-3 px-4 py-2 text-[#5f5e5e]" href="#">
+                    <Link class="group flex items-center gap-3 px-4 py-2 text-[#5f5e5e] hover:text-[#390908] transition-colors" :href="route('home')">
                         <span class="material-symbols-outlined text-[18px]">help_outline</span>
-                        <span class="font-body tracking-wider uppercase text-[10px]">Support</span>
-                    </a>
+                        <span class="font-body tracking-wider uppercase text-[10px]">Back to Shop</span>
+                    </Link>
                     <Link :href="route('logout')" method="post" as="button" class="group flex items-center gap-3 px-4 py-2 text-[#5f5e5e] w-full text-left">
                         <span class="material-symbols-outlined text-[18px]">logout</span>
                         <span class="font-body tracking-wider uppercase text-[10px]">Sign Out</span>
@@ -549,7 +645,9 @@ function getAllOrderImages(order) {
             <header class="w-full sticky top-0 z-40 bg-[#fcf9f4]/90 backdrop-blur-md flex justify-between items-center px-8 py-4 border-b border-[#f0ede8]">
                 <div class="flex items-center gap-8">
                     <button @click="menuOpen = !menuOpen" class="lg:hidden material-symbols-outlined text-[#390908]">menu</button>
-                    <h1 class="text-2xl font-headline italic text-[#390908]">Serana Closet</h1>
+                    <Link :href="route('home')" class="flex items-center gap-4 group">
+                        <h1 class="text-2xl font-headline italic text-[#390908] group-hover:opacity-60 transition-opacity">Serana Closet</h1>
+                    </Link>
                     <div class="hidden md:flex relative w-72">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5f5e5e] text-lg">search</span>
                         <input class="w-full pl-10 pr-4 py-2 bg-[#f0ede8] border-none text-sm font-body rounded-full focus:ring-1 focus:ring-[#390908]" placeholder="Search archive..." type="text"/>
@@ -784,11 +882,13 @@ function getAllOrderImages(order) {
                         <div class="col-span-3 text-right">
                             <div class="flex flex-col items-end gap-4">
                                 <p class="font-headline text-2xl text-[#390908]">{{ formatAmount(product.price, page.props) }}</p>
-                                <div class="flex gap-4">
+                                <div v-if="!showArchivedProducts" class="flex gap-4">
                                     <button @click="editProduct(product)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] text-xl transition-colors">edit_note</button>
-                                    <button @click="deleteProduct(product.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] text-xl transition-colors">
-                                        {{ showArchivedProducts ? 'restore_from_trash' : 'archive' }}
-                                    </button>
+                                    <button @click="deleteProduct(product.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] text-xl transition-colors">archive</button>
+                                </div>
+                                <div v-else class="flex gap-4">
+                                    <button @click="restoreProduct(product.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] text-xl transition-colors">restore_from_trash</button>
+                                    <button @click="forceDeleteProduct(product.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] text-xl transition-colors">delete_forever</button>
                                 </div>
                             </div>
                         </div>
@@ -905,7 +1005,10 @@ function getAllOrderImages(order) {
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <!-- Main Logo -->
                     <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
-                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Main Logo</label>
+                        <div class="mb-6">
+                            <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold block">Main Logo</label>
+                            <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic opacity-60">Primary identity displayed across the global header and storefront footer.</p>
+                        </div>
                         <div class="h-56 bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
                             <img v-if="$page.props.theme_settings.site_logo" :src="$page.props.theme_settings.site_logo" class="max-h-28 object-contain grayscale group-hover:grayscale-0 transition-all duration-700">
                             <h1 v-else class="font-headline text-2xl text-[#390908] opacity-20 italic">No Logo Set</h1>
@@ -918,8 +1021,11 @@ function getAllOrderImages(order) {
                     </div>
 
                     <!-- Site Icon / Favicon -->
-                    <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
-                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Site Icon</label>
+                     <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                        <div class="mb-6">
+                            <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold block">Site Icon</label>
+                            <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic opacity-60">Compact brand mark for browser tabs, mobile shortcuts, and favicons.</p>
+                        </div>
                         <div class="h-56 bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-lg relative group flex items-center justify-center overflow-hidden">
                             <img v-if="$page.props.theme_settings.site_favicon" :src="$page.props.theme_settings.site_favicon" class="w-16 h-16 object-contain grayscale group-hover:grayscale-0 transition-all duration-700">
                             <span v-else class="material-symbols-outlined text-6xl text-[#390908] opacity-10">fingerprint</span>
@@ -932,10 +1038,13 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <!-- Row 3: Hero Background -->
+                 <!-- Row 3: Main Stage Hero -->
                 <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
-                    <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Homepage Hero</label>
-                    <div class="aspect-[21/6] bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-xl relative group overflow-hidden flex items-center justify-center">
+                    <div class="mb-6">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold block">Main Stage Hero Background</label>
+                        <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic opacity-60">The primary opening backdrop for the Serana storefront. High-impact cinematic imagery recommended.</p>
+                    </div>
+                    <div class="aspect-[21/7] bg-[#fcf9f4] border border-dashed border-[#d8c1bf] rounded-xl relative group overflow-hidden flex items-center justify-center">
                         <img v-if="$page.props.theme_settings.hero_bg" :src="$page.props.theme_settings.hero_bg" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]">
                         <span v-else class="material-symbols-outlined text-6xl text-[#390908] opacity-10">panorama</span>
                         <div class="absolute inset-0 bg-[#390908]/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-4 backdrop-blur-sm">
@@ -946,35 +1055,61 @@ function getAllOrderImages(order) {
                     </div>
                 </div>
 
-                <!-- Row 4: Page Banners (Category Backgrounds) -->
+                 <!-- Row 4: Page Banners (Category Backgrounds) -->
                 <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
-                    <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold mb-6 block">Page Banners</label>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div v-for="cat in [
-                            { key: 'cat_men_bg', label: 'Menswear Page' },
-                            { key: 'cat_women_bg', label: 'Womenswear Page' },
-                            { key: 'cat_acc_bg', label: 'Studio / Accessories' },
-                        ]" :key="cat.key" class="space-y-3">
-                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">{{ cat.label }}</label>
+                    <div class="mb-8">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold block">Collection Banners</label>
+                        <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic opacity-60">Contextual backgrounds displayed at the top of individual collection pages (Shop Section).</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <div v-for="cat in categories" :key="cat.id" class="space-y-3">
+                            <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">{{ cat.name }} Banner</label>
                             <div class="aspect-[3/4] bg-[#fcf9f4] border border-[#f0ede8] rounded-lg relative group overflow-hidden flex items-center justify-center">
-                                <img v-if="$page.props.theme_settings[cat.key]" :src="$page.props.theme_settings[cat.key]" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]">
+                                <img v-if="cat.banner_url" :src="cat.banner_url" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]">
                                 <span v-else class="material-symbols-outlined text-4xl text-[#390908] opacity-10">image</span>
                                 <div class="absolute inset-0 bg-[#390908]/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 text-center backdrop-blur-sm">
-                                    <input :id="`banner-${cat.key}`" type="file" @input="updateThemeAsset(cat.key, $event.target.files[0])" class="hidden">
-                                    <label :for="`banner-${cat.key}`" class="px-5 py-2 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Update Banner</label>
-                                    <button v-if="$page.props.theme_settings[cat.key]" @click="deleteThemeAsset(cat.key)" class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">Remove</button>
+                                    <input :id="`banner-${cat.id}`" type="file" @input="updateCategoryBanner(cat, $event.target.files[0])" class="hidden">
+                                    <label :for="`banner-${cat.id}`" class="px-5 py-2 bg-white text-[#390908] text-[9px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Update Banner</label>
+                                    <button v-if="cat.banner_url" @click="deleteCategoryBanner(cat)" 
+                                            class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">
+                                        Remove
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Row 5: Editorial Focal Points -->
+                 <!-- Row 5: Editorial Curation & Floating Details -->
                 <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
-                    <div class="flex items-center justify-between mb-8">
-                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Editorial Curation</label>
+                    <div class="mb-8">
+                        <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold block">Editorial Curation Suite</label>
+                        <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic opacity-60">Manage your "Main Story" focal points and the asymmetrical floating details that define the Home experience.</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+                        <!-- Slot 0: Hero Detail Shot (Floating) -->
+                        <div class="space-y-6">
+                            <div class="aspect-[4/5] bg-[#fcf9f4] border border-[#f0ede8] rounded-xl relative group overflow-hidden flex items-center justify-center luxury-shadow">
+                                <img v-if="$page.props.theme_settings.hero_detail_bg" :src="$page.props.theme_settings.hero_detail_bg" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000">
+                                <div v-else class="text-center opacity-10">
+                                    <span class="material-symbols-outlined text-6xl">texture</span>
+                                </div>
+                                <div class="absolute inset-0 bg-[#390908]/90 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 backdrop-blur-md">
+                                    <input id="hero-detail-up" type="file" @input="updateThemeAsset('hero_detail_bg', $event.target.files[0])" class="hidden">
+                                    <label for="hero-detail-up" class="px-6 py-2 bg-white text-[#390908] text-[8px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Upload Detail Shot</label>
+                                    <button v-if="$page.props.theme_settings.hero_detail_bg" @click="deleteThemeAsset('hero_detail_bg')" 
+                                            class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-[0.2em]">Hero Detail Shot</label>
+                                <p class="text-[8px] text-[#5f5e5e] opacity-50 uppercase tracking-widest">Floating Editorial Asset</p>
+                            </div>
+                        </div>
+
+                        <!-- Slots 1-3: Focal Points -->
                         <div v-for="i in [1, 2, 3]" :key="i" class="space-y-6">
                             <div class="aspect-[4/5] bg-[#fcf9f4] border border-[#f0ede8] rounded-xl relative group overflow-hidden flex items-center justify-center luxury-shadow">
                                 <img v-if="$page.props.theme_settings[`focal_${i}_bg`]" :src="$page.props.theme_settings[`focal_${i}_bg`]" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000">
@@ -984,6 +1119,10 @@ function getAllOrderImages(order) {
                                 <div class="absolute inset-0 bg-[#390908]/90 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 backdrop-blur-md">
                                     <input :id="`focal-up-${i}`" type="file" @input="updateThemeAsset(`focal_${i}_bg`, $event.target.files[0])" class="hidden">
                                     <label :for="`focal-up-${i}`" class="px-6 py-2 bg-white text-[#390908] text-[8px] font-bold uppercase tracking-widest cursor-pointer rounded-lg">Replace Media</label>
+                                    <button v-if="$page.props.theme_settings[`focal_${i}_bg`]" @click="deleteThemeAsset(`focal_${i}_bg`)" 
+                                            class="text-white text-[9px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">
+                                        Remove
+                                    </button>
                                 </div>
                             </div>
                             <div class="space-y-3">
@@ -995,6 +1134,33 @@ function getAllOrderImages(order) {
                                     <button @click="updateThemeAsset(`focal_${i}_label`, siteInfoForm.settings[`focal_${i}_label`])" 
                                             class="material-symbols-outlined text-[#390908] hover:scale-110 transition-transform">check_circle</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 6: Collections Registry (Categories) -->
+                <div class="bg-[#f6f3ee] p-10 rounded-xl luxury-shadow border border-[#f0ede8]">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <label class="text-[10px] uppercase tracking-widest text-[#5f5e5e] font-bold">Collections Registry</label>
+                            <p class="text-[10px] text-[#5f5e5e] font-body mt-1 italic">Manage the brand's core segments and shop categories.</p>
+                        </div>
+                        <button @click="isEditingCategory = false; categoryForm.reset(); showAddCategoryModal = true"
+                                class="px-6 py-2 bg-[#390908] text-white text-[9px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-all">
+                            New Category
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div v-for="cat in categories" :key="cat.id" 
+                             class="p-4 px-6 bg-[#fcf9f4] border border-[#f0ede8] rounded-xl flex items-center justify-between group hover:border-[#390908]/20 transition-all">
+                            <div>
+                                <h4 class="font-headline text-lg text-[#390908]">{{ cat.name }}</h4>
+                                <p class="text-[9px] text-[#5f5e5e] uppercase tracking-widest font-bold mt-1">Ref: SEC-{{ String(cat.id).padStart(3, '0') }}</p>
+                            </div>
+                            <div class="flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @click="editCategory(cat)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#390908] text-xl transition-transform hover:scale-110">edit_note</button>
+                                <button @click="deleteCategory(cat.id)" class="material-symbols-outlined text-[#5f5e5e] hover:text-[#ba1a1a] text-xl transition-transform hover:scale-110">delete</button>
                             </div>
                         </div>
                     </div>
@@ -1172,9 +1338,34 @@ function getAllOrderImages(order) {
                                 <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                              </select>
                         </div>
-                        <div class="col-span-2 space-y-2">
+                        <div class="col-span-2 space-y-4">
                              <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Description</label>
-                             <textarea v-model="productForm.description" rows="3" class="w-full bg-[#f6f3ee] rounded-lg p-6 text-sm font-body outline-none focus:ring-1 focus:ring-[#390908] transition-all"></textarea>
+                             <textarea v-model="productForm.description" rows="2" class="w-full bg-[#f6f3ee] rounded-lg p-6 text-sm font-body outline-none focus:ring-1 focus:ring-[#390908] transition-all"></textarea>
+                        </div>
+
+                        <!-- Technical Specs (De-hardcoding layer) -->
+                        <div class="col-span-2 mt-4 pt-8 border-t border-[#f0ede8]">
+                            <p class="text-[10px] text-[#390908] tracking-[0.4em] uppercase font-bold mb-8">Technical Specs</p>
+                            <div class="grid grid-cols-2 gap-8">
+                                <div class="space-y-2">
+                                     <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Batch Name</label>
+                                     <input v-model="productForm.specifications.batch_name" placeholder="e.g. Active Batch #04" class="w-full bg-transparent border-b border-[#d8c1bf] py-2 text-sm font-headline text-[#390908] focus:border-[#390908] outline-none" />
+                                </div>
+                                <div class="space-y-2">
+                                     <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Fabric Weight</label>
+                                     <input v-model="productForm.specifications.fabric_weight" placeholder="e.g. 450GSM Cotton" class="w-full bg-transparent border-b border-[#d8c1bf] py-2 text-sm font-headline text-[#390908] focus:border-[#390908] outline-none" />
+                                </div>
+                                <div class="space-y-2">
+                                     <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Weight Level (0-100)</label>
+                                     <input v-model="productForm.specifications.weight_index" type="number" class="w-full bg-transparent border-b border-[#d8c1bf] py-2 text-sm font-headline text-[#390908] focus:border-[#390908] outline-none" />
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-8 mt-6">
+                                <div v-for="i in 4" :key="i" class="space-y-1">
+                                    <label class="text-[8px] text-[#5f5e5e] font-bold uppercase tracking-widest">Detail #0{{ i }}</label>
+                                    <input v-model="productForm.specifications.tech_specs[i-1]" placeholder="Technical detail..." class="w-full bg-transparent border-b border-[#f0ede8] py-1 text-xs font-body text-[#390908]/60 focus:border-[#390908] outline-none" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <button @click="submitProduct" :disabled="productForm.processing" class="w-full py-6 mt-12 bg-[#390908] text-white rounded-lg text-[10px] font-bold uppercase tracking-[0.4em] hover:opacity-90 active:scale-[0.99] transition-all">
@@ -1253,6 +1444,32 @@ function getAllOrderImages(order) {
                         </label>
                         <img v-if="galleryForm.image" :src="getObjectURL(galleryForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
                         <img v-else-if="galleryPreview" :src="galleryPreview" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Modal: Collection Management -->
+        <div v-if="showAddCategoryModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-xl bg-[#390908]/20">
+            <div @click="showAddCategoryModal = false" class="absolute inset-0"></div>
+            <div class="relative w-full max-w-xl bg-[#fcf9f4] rounded-2xl shadow-2xl overflow-hidden animate-in border border-[#f0ede8]">
+                <div class="p-10 lg:p-14">
+                    <h2 class="font-headline text-4xl text-[#390908] italic mb-10">{{ isEditingCategory ? 'Update Collection' : 'New Collection Segment' }}</h2>
+                    <div class="space-y-8">
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Category Name</label>
+                             <input v-model="categoryForm.name" class="w-full bg-transparent border-b border-[#d8c1bf] py-4 text-xl font-headline text-[#390908] focus:border-[#390908] outline-none transition-colors" placeholder="e.g. Corporate Wear" />
+                        </div>
+                        <div class="space-y-2">
+                             <label class="text-[9px] text-[#5f5e5e] font-bold uppercase tracking-widest">Description (Optional)</label>
+                             <textarea v-model="categoryForm.description" rows="3" class="w-full bg-[#f6f3ee] rounded-lg p-6 text-sm font-body outline-none focus:ring-1 focus:ring-[#390908] transition-all" placeholder="Briefly describe this collection's aesthetic..."></textarea>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mt-12">
+                        <button @click="showAddCategoryModal = false" class="flex-1 py-5 bg-[#ebe8e3] text-[#5f5e5e] rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-[#e5e2dd] transition-all">Cancel</button>
+                        <button @click="submitCategory" :disabled="categoryForm.processing" class="flex-[2] py-5 bg-[#390908] text-white rounded-lg text-[10px] font-bold uppercase tracking-[0.4em] hover:opacity-90 active:scale-[0.99] transition-all">
+                            {{ categoryForm.processing ? 'PROCESSING...' : 'Verify Segment' }}
+                        </button>
                     </div>
                 </div>
             </div>

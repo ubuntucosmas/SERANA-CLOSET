@@ -11,8 +11,8 @@ const dynamicBackgrounds = computed(() => {
         '/images/black_cloth_texture.png',
         '/images/black_zip_up_hoodie_gray_bg.png'
     ];
-    if (page.props.theme_settings.home_hero_bg) {
-        list.unshift(page.props.theme_settings.home_hero_bg);
+    if (page.props.theme_settings.hero_bg) {
+        list.unshift(page.props.theme_settings.hero_bg);
     }
     return list;
 });
@@ -26,8 +26,8 @@ const focalImages = computed(() => {
 
     const dynamic = [];
     for (let i = 1; i <= 3; i++) {
-        const src = page.props.theme_settings[`hero_focal_${i}`];
-        const label = page.props.theme_settings[`hero_focal_label_${i}`];
+        const src = page.props.theme_settings[`focal_${i}_bg`];
+        const label = page.props.theme_settings[`focal_${i}_label`];
         if (src) {
             dynamic.push({ src, label: label || 'Featured Collection' });
         }

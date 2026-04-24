@@ -30,7 +30,13 @@ export const useCartStore = defineStore('cart', () => {
             }
         }
 
-        const existing = items.value.find(item => item.id === product.id);
+        const existing = items.value.find(item => {
+            if (item.id !== product.id) return false;
+            // If it's a set, ensure sizes match for incrementing
+            if (product.options && JSON.stringify(item.options) !== JSON.stringify(product.options)) return false;
+            return true;
+        });
+
         const price = typeof product.price === 'string'
             ? parseFloat(product.price.replace(/[^0-9.]/g, ''))
             : parseFloat(product.price);
@@ -53,7 +59,8 @@ export const useCartStore = defineStore('cart', () => {
                 image: product.image_url || '/images/hero_editorial.png',
                 quantity: 1,
                 slug: product.slug,
-                is_bespoke: product.is_customizable || false
+                is_bespoke: product.is_customizable || false,
+                options: product.options || null
             });
         }
 

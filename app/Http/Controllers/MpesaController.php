@@ -3,14 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomOrder;
+use App\Services\MpesaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class MpesaController extends Controller
 {
+    protected $mpesaService;
+
+    public function __construct(MpesaService $mpesaService)
+    {
+        $this->mpesaService = $mpesaService;
+    }
+
     /**
      * Initiate STK Push
-     * Placeholder for Daraja API integration.
+     * Logic: 1. Validate request
+     *        2. Call MpesaService to dispatch the STK push
+     *        3. Return the CheckoutRequestID for frontend tracking
      */
     public function initiate(Request $request)
     {
@@ -20,67 +30,79 @@ class MpesaController extends Controller
             'amount' => 'required|numeric'
         ]);
 
-        try {
-            // M-Pesa Integration Logic would go here
-            // 1. Generate Access Token
-            // 2. Prepare STK Push Payload
-            // 3. Send Request to Safaricom
-            
-            Log::info("M-Pesa STK Initiated for Order #{$validated['order_id']} | Phone: {$validated['phone']}");
+        $order = CustomOrder::find($validated['order_id']);
+        if (!$order) return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+
+        $result = $this->mpesaService->initiateStkPush(
+            $validated['phone'],
+            $validated['amount'],
+            "ORDER-{$order->id}",
+            "Payment for Serana Brief #{$order->id}"
+        );
+
+        if ($result['success']) {
+            $checkoutID = $result['data']['CheckoutRequestID'];
+            $order->update(['mpesa_checkout_id' => $checkoutID]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'STK Push initiated. Check your phone.',
-                'CheckoutRequestID' => 'ws_CO_20042026_MOCK_' . rand(1000, 9999)
+                'CheckoutRequestID' => $checkoutID
             ]);
-
-        } catch (\Exception $e) {
-            Log::error("M-Pesa Initiation Failed: " . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to initiate M-Pesa payment. Please try again.'
-            ], 500);
         }
+
+        return response()->json($result, 400);
+    }
+
+    /**
+     * M-Pesa Callback
+     * Safaricom sends the final transaction result here asynchronously.
+     */
+    public function callback(Request $request)
+    {
+        $payload = $request->all();
+        Log::info("M-Pesa Callback Data", $payload);
+
+        $stkCallback = $payload['Body']['stkCallback'];
+        $resultCode = $stkCallback['ResultCode'];
+        $checkoutRequestID = $stkCallback['CheckoutRequestID'];
+
+        $order = CustomOrder::where('mpesa_checkout_id', $checkoutRequestID)->first();
+
+        if ($order) {
+            if ($resultCode == 0) {
+                // SUCCESS
+                $order->update([
+                    'is_paid' => true,
+                    'status' => 'Paid'
+                ]);
+                Log::info("M-Pesa Payment Successful for Order #{$order->id}");
+            } else {
+                // FAILED / CANCELLED
+                $order->update(['status' => 'Payment Failed']);
+                Log::warning("M-Pesa Payment Failed for Order #{$order->id}. Code: $resultCode");
+            }
+        } else {
+            Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");
+        }
+        
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
     /**
      * Query STK Push Status
-     * Polled by the frontend to check if payment is complete.
+     * Frontend polls this to see if the database was updated by the callback.
      */
     public function status($orderId)
     {
         $order = CustomOrder::find($orderId);
 
-        if (!$order) {
-            return response()->json(['success' => false, 'message' => 'Order not found'], 404);
-        }
-
-        // SIM-MODE: For testing, we actually mark the order as paid in the database
-        // and return the success status.
-        $order->update([
-            'is_paid' => true,
-            'status' => 'Paid'
-        ]);
+        if (!$order) return response()->json(['success' => false, 'message' => 'Order not found'], 404);
 
         return response()->json([
             'success' => true,
-            'is_paid' => true,
-            'status' => 'Paid'
+            'is_paid' => $order->status === 'Paid' || $order->is_paid,
+            'status' => $order->status
         ]);
-    }
-
-    /**
-     * M-Pesa Callback
-     * Endpoint registered with Safaricom to receive transaction results.
-     */
-    public function callback(Request $request)
-    {
-        // 1. Parse JSON response from Safaricom
-        // 2. Identify the order via CheckoutRequestID or AccountReference
-        // 3. If ResultCode is 0, mark order as paid
-        
-        Log::info("M-Pesa Callback Received", $request->all());
-        
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 }

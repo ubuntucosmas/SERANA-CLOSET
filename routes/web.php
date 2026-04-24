@@ -33,6 +33,7 @@ Route::post('/checkout/process',   [CheckoutController::class, 'process'])->name
 // M-Pesa Secure Protocol Routes
 Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])->name('mpesa.stk');
 Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])->name('mpesa.status');
+Route::post('/payments/mpesa/callback', [MpesaController::class, 'callback'])->name('mpesa.callback');
 
 // Centralized Dashboard Redirect (Handles legacy Breeze redirects)
 Route::get('/dashboard', function () {
@@ -88,6 +89,8 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/catalog/product/{product}/restore', [App\Http\Controllers\Admin\CatalogController::class, 'restoreProduct'])->name('admin.catalog.restore_product')->withTrashed();
     Route::delete('/catalog/product/{product}/force', [App\Http\Controllers\Admin\CatalogController::class, 'forceDeleteProduct'])->name('admin.catalog.force_delete_product')->withTrashed();
     Route::post('/catalog/category', [App\Http\Controllers\Admin\CatalogController::class, 'storeCategory'])->name('admin.catalog.store_category');
+    Route::put('/catalog/category/{category}', [App\Http\Controllers\Admin\CatalogController::class, 'updateCategory'])->name('admin.catalog.update_category');
+    Route::delete('/catalog/category/{category}', [App\Http\Controllers\Admin\CatalogController::class, 'destroyCategory'])->name('admin.catalog.destroy_category');
 
     // Gallery Management
     Route::post('/gallery', [App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('admin.gallery.store');

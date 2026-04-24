@@ -21,24 +21,60 @@ const currentLayout = ref('grid');
 const showLogisticsOverlay = ref(false);
 
 // ── Cinematic Background System ──────────────────────────────────────────────
-const bgImages = [
-    '/images/white_hoodie_silver_zipper.png',
-    '/images/black_white_hoodies_showcase.png',
-    '/images/beige_contrast_set.png',
-    '/images/navy_contrast_set.png',
-    '/images/black_zip_up_hoodie_gray_bg.png',
-    '/images/ready_to_wear_rack.png',
-    '/images/category_ladies.png',
-    '/images/hero_editorial.png',
-    '/images/detailed_texture.png',
-    '/images/black_cloth_texture.png',
-];
+const bgImages = computed(() => {
+    const list = [
+        '/images/white_hoodie_silver_zipper.png',
+        '/images/black_white_hoodies_showcase.png',
+        '/images/beige_contrast_set.png',
+        '/images/navy_contrast_set.png',
+        '/images/black_zip_up_hoodie_gray_bg.png',
+        '/images/ready_to_wear_rack.png',
+        '/images/category_ladies.png',
+        '/images/hero_editorial.png'
+    ];
 
-const slotA = ref(bgImages[0]);
-const slotB = ref(bgImages[1]);
+    const activeSlug = props.filters?.category;
+    const activeCategory = (props.categories || []).find(c => c.slug === activeSlug);
+
+    // 1. Prioritize Direct Category Table Banner
+    if (activeCategory?.banner_url) {
+        return [activeCategory.banner_url, ...list];
+    }
+
+    // 2. Fallback to Legacy Theme Settings Mapping
+    const categoryBannerMap = {
+        'mens-collection': 'cat_men_bg',
+        'ladies-wear': 'cat_women_bg',
+        'accessories': 'cat_acc_bg',
+        'kids-collection': 'cat_kids_bg',
+        'casual-collection': 'cat_casual_bg',
+        'hoodies': 'cat_hoodies_bg',
+        'dresses': 'cat_dresses_bg',
+        'corporate-wear': 'cat_corporate_bg'
+    };
+
+    const bannerKey = categoryBannerMap[activeSlug];
+    const customBanner = bannerKey ? page.props.theme_settings[bannerKey] : null;
+
+    if (customBanner) {
+        return [customBanner, ...list];
+    }
+
+    return list;
+});
+
+const slotA = ref(bgImages.value[0]);
+const slotB = ref(bgImages.value[1]);
 const showA = ref(true);
 let bgInterval = null;
 let bgIndex = ref(1);
+
+watch(() => bgImages.value, (newList) => {
+    slotA.value = newList[0];
+    slotB.value = newList[1] || newList[0];
+    bgIndex.value = 1;
+    showA.value = true;
+});
 
 onMounted(() => {
     bgInterval = setInterval(() => {

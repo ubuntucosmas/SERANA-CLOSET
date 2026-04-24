@@ -11,6 +11,7 @@ class Product extends Model
     use SoftDeletes;
     protected $fillable = [
         'category_id',
+        'garment_type',
         'name',
         'slug',
         'description',
@@ -28,6 +29,7 @@ class Product extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'garment_type' => 'string',
         'is_customizable' => 'boolean',
         'in_stock' => 'boolean',
         'specifications' => 'array',

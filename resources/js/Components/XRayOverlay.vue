@@ -49,7 +49,7 @@ watch(() => props.active, runAnimation);
 
 <template>
     <div :class="[
-        'absolute inset-0 bg-background/70 backdrop-blur-md transition-all duration-700 pointer-events-none z-20 flex items-center justify-center overflow-hidden',
+        'absolute inset-0 bg-background/20 transition-all duration-700 pointer-events-none z-20 flex items-center justify-center overflow-hidden',
         active ? 'opacity-100' : 'opacity-0'
     ]">
         <!-- Technical Grid Background -->

@@ -43,4 +43,13 @@ return [
         'image_optimization' => env('SUPABASE_IMAGE_OPTIMIZATION', false),
     ],
 
+    'mpesa' => [
+        'env' => env('MPESA_ENV', 'sandbox'),
+        'key' => env('MPESA_CONSUMER_KEY'),
+        'secret' => env('MPESA_CONSUMER_SECRET'),
+        'shortcode' => env('MPESA_SHORTCODE'),
+        'passkey' => env('MPESA_PASSKEY'),
+        'callback_url' => env('MPESA_CALLBACK_URL'),
+    ],
+
 ];

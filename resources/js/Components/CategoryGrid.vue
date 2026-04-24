@@ -2,6 +2,34 @@
 import { Link, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
+
+const getCategoryBanner = (category) => {
+    if (category.banner_url) return category.banner_url;
+
+    const slug = category.slug;
+    const categoryBannerMap = {
+        'mens-collection': 'cat_men_bg',
+        'ladies-wear': 'cat_women_bg',
+        'accessories': 'cat_acc_bg',
+        'kids-collection': 'cat_kids_bg',
+        'casual-collection': 'cat_casual_bg',
+        'hoodies': 'cat_hoodies_bg',
+        'dresses': 'cat_dresses_bg',
+        'corporate-wear': 'cat_corporate_bg'
+    };
+
+    const bannerKey = categoryBannerMap[slug];
+    const legacyBanner = bannerKey ? page.props.theme_settings[bannerKey] : null;
+
+    if (legacyBanner) return legacyBanner;
+
+    // Fallback based on common keywords if no specific banner exists
+    if (slug.includes('men')) return page.props.theme_settings.cat_men_bg || '/images/navy_contrast_set.png';
+    if (slug.includes('women') || slug.includes('ladies') || slug.includes('dresses')) return page.props.theme_settings.cat_women_bg || '/images/hero_editorial.png';
+    if (slug.includes('kids')) return page.props.theme_settings.cat_kids_bg || '/images/ready_to_wear_rack.png';
+
+    return '/images/detailed_texture.png';
+};
 </script>
 
 <template>
@@ -23,81 +51,20 @@ const page = usePage();
         <!-- Strategic 6-Chapter Archive Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             
-            <!-- 01: Dresses -->
-            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
+            <!-- Dynamic Category Cards -->
+            <article v-for="category in ($page.props.categories || [])" 
+                :key="category.id"
+                class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal"
+            >
                 <img 
-                    alt="Dresses" 
+                    :alt="category.name" 
                     class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="page.props.theme_settings.cat_women_bg || '/images/hero_editorial.png'"
+                    :src="getCategoryBanner(category)"
                 />
                 <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Dresses_</h3>
-                    <Link :href="route('shop', {category: 'dresses'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                    </Link>
-                </div>
-            </article>
-
-            <!-- 02: Hoodies -->
-            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
-                <img 
-                    alt="Hoodies" 
-                    class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="page.props.theme_settings.cat_men_bg || '/images/navy_contrast_set.png'"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Hoodies_</h3>
-                    <Link :href="route('shop', {category: 'hoodies'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                    </Link>
-                </div>
-            </article>
-
-            <!-- 03: Corporate -->
-            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
-                <img 
-                    alt="Corporate" 
-                    class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="page.props.theme_settings.cat_acc_bg || '/images/detailed_texture.png'"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Corporate_</h3>
-                    <Link :href="route('shop', {category: 'corporate-wear'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                    </Link>
-                </div>
-            </article>
-
-            <!-- 04: Casual -->
-            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
-                <img 
-                    alt="Casual" 
-                    class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="page.props.theme_settings.cat_casual_bg || '/images/beige_contrast_set.png'"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Casual_</h3>
-                    <Link :href="route('shop', {category: 'casual-collection'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
-                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                    </Link>
-                </div>
-            </article>
-
-            <!-- 05: KIDS (Next Gen) -->
-            <article class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal">
-                <img 
-                    alt="Kids" 
-                    class="absolute inset-0 w-full h-full object-cover grayscale opacity-40 group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="page.props.theme_settings.cat_kids_bg || '/images/ready_to_wear_rack.png'"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">Kids_</h3>
-                    <Link :href="route('shop', {category: 'kids-collection'})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
+                    <h3 class="text-3xl font-headline font-medium dark:text-white text-on-surface mb-3 uppercase tracking-tighter">{{ category.name }}_</h3>
+                    <Link :href="route('shop', {category: category.slug})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
                         View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>

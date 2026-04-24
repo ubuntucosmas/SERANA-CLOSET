@@ -49,8 +49,34 @@ const navigateToSpecs = () => {
     router.visit(route('shop.show', props.product.slug));
 };
 
+const loupeStyle = ref({ opacity: 0, scale: 0.8 });
+
+const handleMouseMove = (e) => {
+    if (!isHovered.value || window.innerWidth < 768) return;
+    
+    const container = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - container.left;
+    const y = e.clientY - container.top;
+    
+    const zoom = 2.2; 
+    const size = 180;
+    
+    loupeStyle.value = {
+        opacity: 1,
+        transform: `scale(1)`,
+        left: `${x - size/2}px`,
+        top: `${y - size/2}px`,
+        backgroundImage: `url(${optimizedAllImages.value[currentIndex.value] || product.image_url})`,
+        backgroundSize: `${container.width * zoom}px ${container.height * zoom}px`,
+        backgroundPosition: `-${x * zoom - size/2}px -${y * zoom - size/2}px`,
+    };
+};
+
 const handleHover = (hovering) => {
     isHovered.value = hovering;
+    if (!hovering) {
+        loupeStyle.value = { opacity: 0, transform: 'scale(0.8)' };
+    }
     
     if (hovering && allImages.value.length > 1) {
         hoverInterval = setInterval(() => {
@@ -121,14 +147,29 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
         <div :class="[
             'overflow-hidden bg-transparent relative rounded-sm border dark:border-white/10 border-black/10 shadow-2xl transition-all duration-700',
             layout === 'editorial' ? 'h-full mb-0' : 'aspect-[3/4] mb-3 md:mb-6'
-        ]">
+        ]"
+        @mousemove="handleMouseMove"
+        >
             <img
                 class="product-img w-full h-full object-cover transition-all duration-700"
                 :src="optimizedAllImages[currentIndex] || product.optimized_image_url || '/images/placeholder.png'"
                 :alt="product.name"
                 loading="lazy"
-                :class="{ 'opacity-80': isHovered }"
             />
+
+            <!-- The Digital Loupe (Sensory Inspection) -->
+            <div 
+                v-if="isHovered"
+                class="hidden md:block pointer-events-none absolute w-[180px] h-[180px] rounded-full border border-primary/40 shadow-[0_0_30px_rgba(57,255,20,0.3)] z-[60] transition-opacity duration-300 overflow-hidden"
+                :style="loupeStyle"
+            >
+                <!-- Organic Crosshair -->
+                <div class="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+                    <div class="w-full h-[0.5px] bg-primary"></div>
+                    <div class="h-full w-[0.5px] bg-primary absolute"></div>
+                    <div class="w-4 h-4 rounded-full border border-primary"></div>
+                </div>
+            </div>
             
             <!-- Technical X-Ray Overlay - Hidden on Mobile -->
             <XRayOverlay :specs="product.specifications" :active="isHovered" class="hidden md:flex" />
@@ -138,24 +179,13 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 'overlay-content absolute inset-0 flex flex-col justify-end p-8 gap-4 z-30 pointer-events-none opacity-0 hidden md:flex',
                 layout === 'editorial' 
                     ? 'bg-gradient-to-t from-black via-black/80 to-transparent' 
-                    : 'bg-black/60 backdrop-blur-md'
+                    : 'bg-transparent'
             ]">
                 
                 <div v-if="layout === 'editorial'" class="space-y-3 mb-6">
                     <p class="text-primary font-headline text-[11px] font-medium tracking-[0.3em] uppercase">{{ product.category?.name || 'Collection' }}</p>
                     <h3 class="text-5xl lg:text-7xl font-headline font-medium dark:text-white text-on-surface leading-none drop-shadow-2xl">{{ product.name }}</h3>
                     <p class="text-3xl font-headline font-medium dark:text-white text-on-surface">{{ formatAmount(product.price, page.props) }}</p>
-                </div>
-
-                <div class="flex flex-col gap-4 pointer-events-auto">
-                    <button 
-                        @click.stop="cart.addItem(product)"
-                        class="w-full bg-primary text-black py-5 text-[12px] font-headline font-medium tracking-[0.2em] shadow-[0_0_25px_rgba(57, 255, 20,0.4)] flex items-center justify-center gap-3 rounded-sm hover:scale-105 active:scale-95 transition-all"
-                    >
-                        <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
-                        Add to bag
-                    </button>
-                    <!-- Link removed as card is now clickable -->
                 </div>
             </div>
 
@@ -205,14 +235,35 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             </div>
         </div>
 
-        <!-- Desktop Grid Info (Hidden on Mobile) -->
-        <div v-if="layout === 'grid'" class="hidden md:block mt-4 px-1">
-            <div class="flex flex-col mb-3">
-                <h3 class="font-headline text-xl font-medium dark:text-white text-on-surface truncate group-hover:text-primary transition-colors text-glow-after">{{ product.name }}</h3>
-                <div class="flex justify-between items-center mt-1">
-                    <p class="dark:text-white/40 text-black/40 text-[11px] tracking-[0.2em] font-headline font-medium uppercase">{{ product.category?.name || 'Collection' }}</p>
-                    <span class="text-primary font-headline font-black text-lg luminous-glow shrink-0">{{ formatAmount(product.price, page.props) }}</span>
+        <!-- Desktop Action Panel (Outside Image, prevents Loupe obstruction) -->
+        <div class="hidden md:block mt-6 px-1">
+            <div :class="[
+                'flex flex-col gap-4 transform transition-all duration-500',
+                isHovered ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-80'
+            ]">
+                <div class="flex justify-between items-start">
+                    <div class="flex flex-col">
+                        <h3 :class="[
+                            'font-headline text-xl font-medium dark:text-white text-on-surface transition-colors',
+                            isHovered ? 'text-primary drop-shadow-[0_0_10px_rgba(57,255,20,0.3)]' : ''
+                        ]">{{ product.name }}</h3>
+                        <div class="flex items-center gap-3 mt-1">
+                            <p class="dark:text-white/30 text-black/30 text-[10px] tracking-[0.2em] font-headline font-medium uppercase font-black">{{ product.category?.name || 'Collection' }}</p>
+                            <span v-if="product.garment_type === 'set'" class="text-primary text-[8px] font-black tracking-widest border border-primary/20 px-2 py-0.5 rounded-full">// FULL SET</span>
+                            <span v-else class="text-white/20 text-[8px] font-black tracking-widest border border-white/5 px-2 py-0.5 rounded-full">// SINGLE</span>
+                        </div>
+                    </div>
+                    <span class="text-primary font-headline font-black text-2xl luminous-glow shrink-0">{{ formatAmount(product.price, page.props) }}</span>
                 </div>
+
+                <!-- Primary Purchase Action -->
+                <button 
+                    @click.stop="cart.addItem(product)"
+                    class="w-full py-5 bg-white/5 border border-white/10 text-white font-headline font-black text-[10px] tracking-[0.3em] uppercase rounded-sm hover:bg-primary hover:text-black hover:border-primary hover:shadow-[0_15px_30px_rgba(57,255,20,0.2)] transition-all flex items-center justify-center gap-3 group/btn"
+                >
+                    <span class="material-symbols-outlined text-[18px] group-hover/btn:scale-110 transition-transform">shopping_bag</span>
+                    Add to Bag
+                </button>
             </div>
         </div>
         <HandoffOverlay v-if="showHandoff && product" :show="showHandoff" :order-type="product.name" />

@@ -16,17 +16,26 @@ const whatsappUrl = computed(() => {
     const baseUrl = window.location.origin;
     const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
     
-    const message = `🏁 *NEW ORDER DETAILS* 🏁\n\n` +
+    let variantMetadata = '';
+    if (props.product.garment_type === 'set') {
+        variantMetadata = `• Configuration: FULL SET\n• Hoodie Size: ${selectedTopSize.value || 'Unselected'}\n• Jogger Size: ${selectedBottomSize.value || 'Unselected'}`;
+    } else if (props.product.garment_type === 'hoodie') {
+        variantMetadata = `• Configuration: SINGLE HOODIE\n• Size: ${selectedTopSize.value || 'Unselected'}`;
+    } else if (props.product.garment_type === 'jogger') {
+        variantMetadata = `• Configuration: SINGLE JOGGER\n• Size: ${selectedBottomSize.value || 'Unselected'}`;
+    }
+
+    const message = `🏁 *NEW ORDER ENQUIRY* 🏁\n\n` +
                     `*[ 01: ITEM ]*\n` +
                     `• Name: ${props.product.name}\n` +
-                    `• Collection: ${props.product.category?.name || 'Serana Archive'}\n` +
+                    `${variantMetadata}\n` +
                     `• Price: ${formatAmount(props.product.price, page.props)}\n\n` +
                     `*[ 02: REFERENCE ]*\n` +
                     `• URL: ${window.location.href}\n` +
                     `• Image: ${imageUrl}\n\n` +
                     `--------------------------\n` +
-                    `I'm interested in this item. Can you help me with the purchase?\n` +
-                    `Sent via Serana Closet.`;
+                    `I'm interested in this piece. Can you help me with the purchase?\n` +
+                    `Sent via Serana Studio.`;
 
     return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
 });
@@ -37,6 +46,54 @@ const rawurlencode = (str) => {
 
 const cart = useCartStore();
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
+
+// ── Jogger Set Configuration Engine ──────────────────────────────────────────
+const selectedTopSize = ref(null);
+const selectedBottomSize = ref(null);
+const activeComponent = ref(props.product.garment_type === 'jogger' ? 'joggers' : 'hoodie'); 
+
+const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+
+const addToBag = () => {
+    const isSet = props.product.garment_type === 'set';
+    const isHoodie = props.product.garment_type === 'hoodie';
+    const isJogger = props.product.garment_type === 'jogger';
+
+    if (isSet) {
+        if (!selectedTopSize.value || !selectedBottomSize.value) {
+            const missing = !selectedTopSize.value && !selectedBottomSize.value 
+                ? 'both hoodie & jogger sizes' 
+                : (!selectedTopSize.value ? 'hoodie size' : 'jogger size');
+                
+            window.dispatchEvent(new CustomEvent('serana-toast', {
+                detail: { message: `Please select ${missing} to add the set to your bag.`, type: 'error' }
+            }));
+            return;
+        }
+    } else if (isHoodie && !selectedTopSize.value) {
+        window.dispatchEvent(new CustomEvent('serana-toast', {
+            detail: { message: `Please select a size for your hoodie.`, type: 'error' }
+        }));
+        return;
+    } else if (isJogger && !selectedBottomSize.value) {
+        window.dispatchEvent(new CustomEvent('serana-toast', {
+            detail: { message: `Please select a size for your joggers.`, type: 'error' }
+        }));
+        return;
+    }
+    
+    // Create a specialized product object for the cart
+    const itemToBag = {
+        ...props.product,
+        name: isSet ? `${props.product.name} (Set)` : props.product.name,
+        options: {
+            top_size: isJogger ? null : selectedTopSize.value,
+            bottom_size: isHoodie ? null : selectedBottomSize.value
+        }
+    };
+    
+    cart.addItem(itemToBag);
+};
 
 const allImages = computed(() => {
     const images = [];
@@ -100,164 +157,168 @@ onUnmounted(() => {
     <StorefrontLayout>
         <Head :title="`${product.name} | Serana Closet`" />
 
-        <main class="pt-20 md:pt-32 pb-32 font-body text-on-surface">
-            <div class="max-w-[1440px] mx-auto px-0 md:px-16">
-                <!-- PDP Header Section: Editorial Asymmetry -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-0 md:gap-20 items-start">
+        <main class="pt-20 md:pt-24 lg:pt-32 pb-0 font-body text-on-surface bg-background">
+            <div class="max-w-[1920px] mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:h-[calc(100vh-128px)]">
                     
-                    <!-- Left: Editorial Gallery (Horizontal Slider) -->
-                    <div class="lg:col-span-7 relative group/slider">
-                        <!-- Scrollable Container -->
-                        <div ref="galleryRef" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar md:rounded-2xl border-b md:border border-black/5 dark:border-white/5 shadow-2xl bg-black scroll-smooth">
-                            <div v-for="(img, idx) in allImages" :key="idx" class="flex-none w-full snap-center aspect-[4/5] md:aspect-[2/3] overflow-hidden">
+                    <!-- Left: The Visual Axis (Atelier Gallery) -->
+                    <div class="lg:col-span-7 relative group/slider h-[60vh] lg:h-full bg-black overflow-hidden">
+                        <div ref="galleryRef" class="flex h-full overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth">
+                            <div v-for="(img, idx) in allImages" :key="idx" class="flex-none w-full snap-center h-full">
                                 <img :src="img" class="w-full h-full object-cover" />
                             </div>
                         </div>
 
-                        <!-- Directional Arrows (Overlaid on Image) -->
-                        <div v-if="allImages.length > 1" class="absolute inset-y-0 inset-x-0 pointer-events-none z-20 flex items-center justify-between px-4">
-                            <button @click="scrollGallery('prev')" class="pointer-events-auto w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:bg-black/40 transition-all duration-300">
-                                <span class="material-symbols-outlined text-xl md:text-2xl">chevron_left</span>
-                            </button>
-                            <button @click="scrollGallery('next')" class="pointer-events-auto w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:bg-black/40 transition-all duration-300">
-                                <span class="material-symbols-outlined text-xl md:text-2xl">chevron_right</span>
-                            </button>
-                        </div>
-
-                        <!-- Gallery Counter (Zen Indicator) -->
-                        <div v-if="allImages.length > 1" class="absolute bottom-10 right-10 z-20">
-                            <div class="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full">
-                                <span class="font-headline text-[10px] tracking-[0.4em] text-white font-bold opacity-80 italic">GALLERY_0{{ allImages.length }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Zen "Atelier Tag" (Mobile Header Overlay) -->
-                        <div class="md:hidden absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/95 via-black/40 to-transparent z-10 pointer-events-none">
-                            <div class="flex justify-between items-end">
-                                <div class="flex-1">
-                                    <p class="text-[7px] font-black tracking-[0.5em] text-primary uppercase mb-1.5 opacity-80">{{ product.category?.name || 'Archive' }}</p>
-                                    <h1 class="text-2xl font-headline font-black text-white uppercase tracking-tight leading-none drop-shadow-2xl">{{ product.name }}</h1>
+                        <!-- Zen Directives (Overlay) -->
+                        <div class="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-10">
+                            <div class="flex justify-between items-start">
+                                <div class="bg-primary text-black px-6 py-2 rounded-full font-black text-[10px] tracking-[0.2em] uppercase shadow-2xl pointer-events-auto">
+                                    {{ isSoldOut ? 'Archive Session' : (product.specifications?.batch_name || 'Active Batch #01') }}
                                 </div>
-                                <div class="flex flex-col items-end gap-1">
-                                    <span class="text-xl font-black text-primary luminous-glow leading-none">{{ formatAmount(product.price, page.props) }}</span>
-                                    <span class="text-[6px] text-white/40 uppercase tracking-widest">Inclusive of VAT</span>
+                                <div class="hidden lg:flex flex-col items-end gap-2 text-right">
+                                    <span class="text-white/20 font-headline text-[8px] tracking-[0.5em] uppercase">Drafting_ref_021</span>
+                                    <span class="text-white/40 font-headline text-[10px] tracking-[0.3em] uppercase">{{ product.name }} // Technical_Analysis</span>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Desktop Badges -->
-                        <div class="hidden md:flex absolute top-8 left-8 flex-col gap-2 z-10">
-                            <span class="bg-surface-container/80 backdrop-blur font-headline text-[11px] tracking-[0.15em] px-4 py-2 border dark:border-white/10 border-black/10 rounded-full inline-block w-fit font-black uppercase">
-                                {{ product.category?.name }}
-                            </span>
-                            <span v-if="product.is_customizable" class="bg-primary text-background font-headline text-[11px] tracking-[0.2em] px-4 py-2 rounded-full w-fit shadow-[0_0_20px_rgba(57, 255, 20,0.3)] font-black uppercase">
-                                Customizable
-                            </span>
+                            <div v-if="allImages.length > 1" class="flex justify-between items-center gap-4">
+                                <button @click="scrollGallery('prev')" class="pointer-events-auto w-14 h-14 rounded-full bg-black/20 backdrop-blur-3xl border border-white/10 flex items-center justify-center text-white/40 hover:text-primary transition-all">
+                                    <span class="material-symbols-outlined text-2xl">chevron_left</span>
+                                </button>
+                                
+                                <div class="flex gap-2">
+                                    <div v-for="(_, i) in allImages" :key="i" class="w-1 h-8 bg-white/10 rounded-full overflow-hidden">
+                                        <div class="w-full h-full bg-primary transition-transform duration-500" :style="{ transform: `translateY(${currentIndex === (allImages.length > 0 ? (Math.round(galleryRef?.scrollLeft / galleryRef?.clientWidth) || 0) : 0) ? '0' : '100%'})` }"></div>
+                                    </div>
+                                </div>
+
+                                <button @click="scrollGallery('next')" class="pointer-events-auto w-14 h-14 rounded-full bg-black/20 backdrop-blur-3xl border border-white/10 flex items-center justify-center text-white/40 hover:text-primary transition-all">
+                                    <span class="material-symbols-outlined text-2xl">chevron_right</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Right: Product Details & Purchase Sticky Panel -->
-                    <div class="lg:col-span-5 lg:sticky lg:top-32 space-y-10 px-8 md:px-0 mt-12 md:mt-0 pb-20 md:pb-0">
-                        <!-- Desktop Header (Hidden on Mobile) -->
-                        <div class="hidden md:block">
-                            <p class="font-headline text-[11px] tracking-[0.25em] text-primary mb-4 font-black uppercase">{{ product.category?.name }} core collection</p>
-                            <h2 class="font-headline text-5xl lg:text-7xl font-black leading-[0.9] dark:text-white text-on-surface mb-6 drop-shadow-md text-glow-after uppercase">
-                                {{ product.name }}
-                            </h2>
-                            <p class="font-headline text-3xl font-black text-primary luminous-glow">{{ formatAmount(product.price, page.props) }}</p>
-                        </div>
-
-                        <!-- Mobile Price/Status Bar -->
-                        <div class="md:hidden flex items-center justify-between mb-8 pb-6 border-b border-white/5">
-                            <div class="flex items-center gap-3">
-                                <span class="material-symbols-outlined text-primary text-[18px] animate-pulse">bolt</span>
-                                <span class="text-[10px] font-headline font-black tracking-[0.2em] text-[#9aff34] uppercase">
-                                    {{ Math.floor(Math.random() * 8) + 3 }} Viewing Live
-                                </span>
+                    <!-- Right: The Configuration Canvas (Atelier Workspace) -->
+                    <div class="lg:col-span-5 bg-surface border-l border-white/5 p-8 lg:p-16 flex flex-col overflow-y-auto no-scrollbar relative">
+                        
+                        <!-- Header: Blueprint Annotations -->
+                        <header class="mb-12 border-b border-white/5 pb-10">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <p class="text-primary font-black text-[9px] tracking-[0.5em] uppercase mb-3">{{ product.category?.name || 'ARTISAN COLLECTION' }}</p>
+                                    <h1 class="text-4xl lg:text-6xl font-black uppercase tracking-tighter leading-none dark:text-white text-on-surface">
+                                        {{ product.name }}<span class="text-primary">_</span>
+                                    </h1>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-3xl font-black text-primary luminous-glow leading-none">{{ formatAmount(product.price, page.props) }}</p>
+                                    <p class="text-[7px] text-white/30 uppercase tracking-widest mt-2">READY FOR ORDER</p>
+                                </div>
                             </div>
-                            <span v-if="isSoldOut" class="text-[9px] font-black text-error tracking-widest uppercase border border-error/30 px-3 py-1 bg-error/5">Sold Out edition</span>
-                        </div>
-
-                        <div class="space-y-6">
-                            <p class="text-on-surface-variant leading-relaxed font-body text-base md:text-lg opacity-80">
+                            <p class="text-on-surface-variant text-sm font-medium leading-relaxed max-w-md opacity-60">
                                 {{ product.description }}
                             </p>
-                        </div>
+                        </header>
 
-                        <!-- Technical Excellence: Garment Blueprint -->
-                        <div class="space-y-6">
-                            <div class="flex items-center gap-3 border-b dark:border-white/10 border-black/10 pb-4">
-                                <span class="material-symbols-outlined text-primary luminous-glow">architecture</span>
-                                <h3 class="font-headline text-[10px] tracking-[0.3em] font-black text-on-surface uppercase">Product Specifications_</h3>
-                            </div>
-                            
-                            <div class="relative p-6 md:p-8 bg-surface-container/30 border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group/blueprint">
-                                <div class="hidden md:block absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(circle, #99ff33 1px, transparent 1px); background-size: 20px 20px;"></div>
-                                
-                                <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                                    <div v-for="(value, label) in product.specifications" :key="label" class="space-y-1 md:space-y-1.5 border-l-2 border-primary/20 md:border-0 pl-4 md:pl-0">
-                                        <div class="flex items-center gap-2">
-                                            <!-- Desktop only indicator -->
-                                            <div class="hidden md:block h-[1px] w-3 bg-primary/40"></div>
-                                            <span class="text-[7px] font-black tracking-[0.4em] text-on-surface-variant uppercase whitespace-nowrap">{{ label.replace('_', ' ') }}</span>
+                        <!-- The Set Configuration Engine -->
+                        <div class="flex-grow space-y-12">
+                            <!-- Workspace Navigation (Upper/Lower Split) -->
+                            <div v-if="product.garment_type === 'set'" class="space-y-6">
+                                <label class="text-[8px] font-black uppercase tracking-[0.4em] text-white/20">SET PIECES</label>
+                                <div class="flex gap-4">
+                                    <button 
+                                        @click="activeComponent = 'hoodie'"
+                                        class="flex-1 flex flex-col p-6 rounded-sm border-2 transition-all group"
+                                        :class="activeComponent === 'hoodie' ? 'border-primary bg-primary/5' : 'border-white/5 border-white/5 hover:border-white/20'"
+                                    >
+                                        <span class="text-[8px] font-black uppercase tracking-widest mb-2" :class="activeComponent === 'hoodie' ? 'text-primary' : 'text-white/20'">PIECE 01</span>
+                                        <div class="flex justify-between items-end">
+                                            <span class="text-[11px] font-black uppercase tracking-widest font-headline">The Hoodie</span>
+                                            <span class="text-[9px] font-black text-primary" v-if="selectedTopSize">{{ selectedTopSize }}</span>
                                         </div>
-                                        <p class="text-[11px] md:text-[11px] font-headline dark:text-white text-on-surface md:pl-5 leading-tight">{{ value }}</p>
+                                    </button>
+                                    <button 
+                                        @click="activeComponent = 'joggers'"
+                                        class="flex-1 flex flex-col p-6 rounded-sm border-2 transition-all group"
+                                        :class="activeComponent === 'joggers' ? 'border-primary bg-primary/5' : 'border-white/5 border-white/5 hover:border-white/20'"
+                                    >
+                                        <span class="text-[8px] font-black uppercase tracking-widest mb-2" :class="activeComponent === 'joggers' ? 'text-primary' : 'text-white/20'">PIECE 02</span>
+                                        <div class="flex justify-between items-end">
+                                            <span class="text-[11px] font-black uppercase tracking-widest font-headline">The Joggers</span>
+                                            <span class="text-[9px] font-black text-primary" v-if="selectedBottomSize">{{ selectedBottomSize }}</span>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-else class="space-y-2">
+                                <p class="text-[8px] font-black uppercase tracking-[0.4em] text-primary">SINGLE GARMENT</p>
+                                <h3 class="text-[11px] font-black uppercase tracking-widest font-headline opacity-40">
+                                    {{ product.garment_type === 'hoodie' ? 'Piece 01: The Hoodie' : 'Piece 02: The Joggers' }}
+                                </h3>
+                            </div>
+
+                            <!-- Contextual Size Selector -->
+                            <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-[8px] font-black uppercase tracking-[0.4em] text-white/20">SELECT SIZE: {{ activeComponent }}</label>
+                                    <button class="text-[8px] font-black uppercase tracking-widest text-primary border-b border-primary/30">Size Guide</button>
+                                </div>
+                                <div class="grid grid-cols-5 gap-3">
+                                    <button 
+                                        v-for="size in sizes" :key="size"
+                                        @click="activeComponent === 'hoodie' ? selectedTopSize = size : selectedBottomSize = size"
+                                        class="py-4 border-2 rounded-sm text-[11px] font-black transition-all"
+                                        :class="[
+                                            (activeComponent === 'hoodie' ? selectedTopSize : selectedBottomSize) === size 
+                                                ? 'border-primary text-primary bg-primary/10 shadow-[0_0_15px_rgba(57,255,20,0.2)]' 
+                                                : 'border-white/5 text-white/40 hover:border-white/20'
+                                        ]"
+                                    >
+                                        {{ size }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Drafting Annotations (Technical Excellence) -->
+                            <div class="pt-8 border-t border-white/5 space-y-6">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-symbols-outlined text-primary text-sm">architecture</span>
+                                    <span class="text-[8px] font-black uppercase tracking-[0.4em] text-white/20">GARMENT DETAILS</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-8 text-[11px] opacity-80 font-medium">
+                                    <div v-for="(spec, idx) in (product.specifications?.tech_specs?.filter(s => s) || ['450GSM Cotton Fleece', 'Reinforced finish', 'Heavy-duty cuffs', 'Limited batch'])" :key="idx" class="space-y-2 border-l border-primary/20 pl-4 py-1">
+                                        <p class="text-[7px] font-black uppercase tracking-widest text-white/30">ITEM #0{{ idx + 1 }}</p>
+                                        <p>{{ spec }}</p>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Density Visualizer (Atelier Metric) -->
+                            <div class="p-6 bg-white/5 border border-white/5 rounded-sm animate-in fade-in slide-in-from-bottom-2 duration-1000">
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-[8px] font-black uppercase tracking-[0.4em] text-white/20">DENSITY LEVEL</span>
+                                    <span class="text-[10px] font-black text-primary">{{ product.specifications?.fabric_weight || 'HEAVYWEIGHT (450 GSM)' }}</span>
+                                </div>
+                                <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary shadow-[0_0_10px_rgba(57,255,20,0.5)]" :style="{ width: (product.specifications?.weight_index || 85) + '%' }"></div>
+                                </div>
+                                <p class="text-[8px] mt-3 text-white/30 uppercase tracking-widest">Optimized for structural integrity & thermal isolation</p>
+                            </div>
                         </div>
 
-                        <!-- Desktop Options Grid (Hidden on Mobile as it should be tailored via Chat) -->
-                        <div v-if="!product.is_customizable" class="hidden md:block space-y-6 pt-6 border-t dark:border-white/10 border-black/10">
-                            <div class="flex justify-between items-center">
-                                <span class="font-headline text-[11px] tracking-[0.2em] font-black dark:text-white text-on-surface uppercase">Select size</span>
-                                <button class="text-[10px] tracking-[0.15em] font-black text-primary border-b border-primary/30 hover:border-primary transition-all uppercase">Size guide</button>
-                            </div>
-                            <div class="grid grid-cols-4 gap-4">
-                                <button v-for="size in ['S', 'M', 'L', 'XL']" :key="size" class="py-4 bg-surface-container rounded-sm border dark:border-white/5 border-black/5 hover:border-primary text-[11px] font-headline font-black transition-all">{{ size }}</button>
-                            </div>
-                        </div>
-
-                        <!-- Desktop Purchase Actions (Hidden on Mobile Footer) -->
-                        <div class="hidden md:block space-y-4 pt-6">
+                        <!-- The Commission Action -->
+                        <div class="mt-12 pt-10 border-t border-white/10 flex flex-col gap-4">
                             <button 
-                                @click="cart.addItem(product)"
-                                class="w-full py-6 bg-primary text-black font-headline text-[12px] tracking-[0.3em] font-black flex items-center justify-center gap-3 rounded-sm hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(57, 255, 20,0.2)]"
+                                @click="addToBag"
+                                class="w-full py-6 bg-primary text-black font-black text-[12px] tracking-[0.4em] uppercase rounded-sm hover:scale-[1.01] active:scale-[0.98] transition-all shadow-[0_20px_40px_rgba(57,255,20,0.1)] flex items-center justify-center gap-3"
                             >
                                 <span class="material-symbols-outlined font-black">shopping_bag</span>
                                 Add to Bag
                             </button>
-                            
-                            <a :href="whatsappUrl" target="_blank" class="w-full py-6 bg-white/5 border border-white/10 dark:text-white text-on-surface hover:border-primary/50 font-headline text-[12px] tracking-[0.3em] font-black transition-all rounded-sm flex justify-center items-center gap-3 group">
-                                <span class="material-symbols-outlined text-stone-400 group-hover:text-primary transition-colors font-black">chat</span>
-                                Fast-Track Order
+                            <a :href="whatsappUrl" target="_blank" class="w-full py-5 border border-white/10 text-white/40 hover:text-white hover:border-primary/40 font-black text-[9px] tracking-[0.4em] uppercase rounded-sm transition-all text-center">
+                                Order via WhatsApp
                             </a>
-                        </div>
-                        
-                        <!-- Accordion Info -->
-                        <div class="pt-10 space-y-2">
-                            <details class="group bg-surface-container-low rounded-sm mb-2 overflow-hidden border border-outline-variant/10">
-                                <summary class="flex justify-between items-center cursor-pointer list-none p-6 font-headline text-[10px] tracking-[0.2em] font-black text-on-surface hover:text-primary transition-colors uppercase">
-                                    <span>Our Heritage & Quality</span>
-                                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-                                </summary>
-                                <div class="px-6 pb-6 pt-0 text-[12px] text-on-surface-variant leading-relaxed opacity-70">
-                                    Every garment is stitched inside our precision facility, merging classical tailoring principles with futuristic edge. This item requires meticulous fabrication resulting in uncompromising durability.
-                                </div>
-                            </details>
-                            
-                            <details class="group bg-surface-container-low rounded-sm overflow-hidden border border-outline-variant/10">
-                                <summary class="flex justify-between items-center cursor-pointer list-none p-6 font-headline text-[10px] tracking-[0.2em] font-black text-on-surface hover:text-primary transition-colors uppercase">
-                                    <span>Shipping & Delivery</span>
-                                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-                                </summary>
-                                <div class="px-6 pb-6 pt-0 text-[12px] text-on-surface-variant leading-relaxed opacity-70">
-                                    • Global fully-insured express shipping available.<br/>
-                                    • Ready-to-wear items dispatch in 48 hours.<br/>
-                                    • Custom pieces require a 14-21 day precision window.<br/>
-                                    • Priority tracking provided upon dispatch via the Serana Vault.<br/>
-                                </div>
-                            </details>
                         </div>
                     </div>
                 </div>

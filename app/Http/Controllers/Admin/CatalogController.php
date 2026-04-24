@@ -74,6 +74,7 @@ class CatalogController extends Controller
             'batch_limit' => 'nullable|integer',
             'batch_sold' => 'nullable|integer',
             'is_customizable' => 'boolean',
+            'specifications' => 'nullable|array',
         ]);
 
         if ($request->hasFile('image')) {
@@ -148,14 +149,57 @@ class CatalogController extends Controller
     public function storeCategory(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:categories',
+            'name' => 'required|string|max:255|unique:categories,name',
             'description' => 'nullable|string',
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
-
         Category::create($validated);
 
-        return back()->with('success', 'Category created.');
+        return back()->with('success', 'Collection segment created.');
+    }
+
+    public function updateCategory(Request $request, Category $category)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
+            'description' => 'nullable|string',
+            'banner' => 'nullable|image|max:5120', // Max 5MB
+        ]);
+
+        if ($request->hasFile('banner')) {
+            $targetDisk = config('filesystems.public_disk', 's3');
+            
+            // Delete old banner if exists (assuming it's a relative path now)
+            if ($category->getRawOriginal('banner_url')) {
+                Storage::disk($targetDisk)->delete($category->getRawOriginal('banner_url'));
+            }
+            
+            // Store on the configured public disk
+            $path = $request->file('banner')->store('collections', $targetDisk);
+            $validated['banner_url'] = $path; // Store the relative path, accessor handles the URL
+        } elseif ($request->boolean('remove_banner')) {
+            $targetDisk = config('filesystems.public_disk', 's3');
+            if ($category->getRawOriginal('banner_url')) {
+                Storage::disk($targetDisk)->delete($category->getRawOriginal('banner_url'));
+            }
+            $validated['banner_url'] = null;
+        }
+
+        $validated['slug'] = Str::slug($validated['name']);
+        $category->update($validated);
+
+        return back()->with('success', 'Collection segment updated.');
+    }
+
+    public function destroyCategory(Category $category)
+    {
+        // Check if category has products
+        if ($category->products()->count() > 0) {
+            return back()->with('error', 'Cannot delete a collection that contains active pieces. Please reassign the pieces first.');
+        }
+
+        $category->delete();
+        return back()->with('success', 'Collection segment removed.');
     }
 }
