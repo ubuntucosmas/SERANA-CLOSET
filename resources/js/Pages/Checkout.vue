@@ -124,6 +124,15 @@ function startPolling() {
     }, 5000);
 }
 
+const stepTheme = computed(() => {
+    switch (step.value) {
+        case 1: return { color: 'text-blue-500', border: 'border-blue-500', bg: 'bg-blue-500', bgAlpha: 'bg-blue-500/10', glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]' };
+        case 2: return { color: 'text-emerald-500', border: 'border-emerald-500', bg: 'bg-emerald-500', bgAlpha: 'bg-emerald-500/10', glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]' };
+        case 3: return { color: 'text-rose-500', border: 'border-rose-500', bg: 'bg-rose-500', bgAlpha: 'bg-rose-500/10', glow: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]' };
+        default: return { color: 'text-primary', border: 'border-primary', bg: 'bg-primary', bgAlpha: 'bg-primary/10', glow: 'shadow-[0_0_20px_rgba(57,255,20,0.3)]' };
+    }
+});
+
 function nextStep() { if (step.value < 3) step.value++; }
 </script>
 
@@ -138,10 +147,10 @@ function nextStep() { if (step.value < 3) step.value++; }
                 <!-- Background image -->
                 <img src="/images/checkout_bg.png" alt="" class="absolute inset-0 w-full h-full object-cover opacity-[0.15]" />
                 <!-- Dark overlay so content stays readable -->
-                <div class="absolute inset-0 bg-background/70"></div>
-                <!-- Ambient glow orbs -->
-                <div class="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] bg-primary/10 rounded-full blur-[120px] animate-orb-1"></div>
-                <div class="absolute bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] bg-primary/8 rounded-full blur-[100px] animate-orb-2"></div>
+                <div class="absolute inset-0 bg-background/60"></div>
+                <!-- Ambient glow orbs (Dynamic Color) -->
+                <div :class="['absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full blur-[120px] animate-orb-1 transition-all duration-1000', stepTheme.bgAlpha]"></div>
+                <div :class="['absolute bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] rounded-full blur-[100px] animate-orb-2 transition-all duration-1000', stepTheme.bgAlpha]"></div>
             </div>
 
             <!-- M-Pesa STK Phase -->
@@ -205,13 +214,18 @@ function nextStep() { if (step.value < 3) step.value++; }
                         <div class="flex items-center gap-2 mb-8">
                             <template v-for="s in 3" :key="s">
                                 <div class="flex items-center gap-1 cursor-pointer" @click="step = s">
-                                    <div class="w-6 h-6 flex items-center justify-center border text-[9px] font-bold transition-all"
-                                        :class="step >= s ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant'">
+                                    <div :class="[
+                                        'w-6 h-6 flex items-center justify-center border text-[9px] font-bold transition-all duration-700',
+                                        step === s ? `${stepTheme.border} ${stepTheme.color} ${stepTheme.bgAlpha}` : 
+                                        step > s ? 'border-primary text-primary opacity-40' : 'border-outline-variant text-on-surface-variant'
+                                    ]">
                                         {{ s }}
                                     </div>
                                 </div>
-                                <div v-if="s < 3" class="flex-1 h-[1px] transition-colors"
-                                    :class="step > s ? 'bg-primary/50' : 'bg-outline-variant/50'"></div>
+                                <div v-if="s < 3" :class="[
+                                    'flex-1 h-[1px] transition-all duration-700',
+                                    step > s ? 'bg-primary/50' : 'bg-outline-variant/50'
+                                ]"></div>
                             </template>
                         </div>
 
@@ -253,7 +267,10 @@ function nextStep() { if (step.value < 3) step.value++; }
                                     </div>
                                 </div>
                                 <button @click="nextStep"
-                                    class="w-full bg-primary text-black py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all active:scale-[0.98]">
+                                    :class="[
+                                        'w-full py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all duration-500 active:scale-[0.98]',
+                                        `${stepTheme.bg} text-black hover:brightness-110`
+                                    ]">
                                     Continue
                                     <span class="material-symbols-outlined text-[10px] align-middle ml-1">arrow_forward</span>
                                 </button>
@@ -297,7 +314,10 @@ function nextStep() { if (step.value < 3) step.value++; }
                                 </div>
 
                                 <button @click="handlePayment" :disabled="isProcessing"
-                                    class="w-full bg-primary text-black py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all active:scale-[0.98] disabled:opacity-50">
+                                    :class="[
+                                        'w-full py-4 text-[9px] uppercase tracking-[0.25em] font-bold transition-all duration-500 active:scale-[0.98] disabled:opacity-50',
+                                        `${stepTheme.bg} text-black hover:brightness-110`
+                                    ]">
                                     {{ isProcessing ? 'Processing...' : 'Complete Payment' }}
                                 </button>
                             </section>
@@ -338,17 +358,25 @@ function nextStep() { if (step.value < 3) step.value++; }
                     <div class="flex items-center">
                         <template v-for="s in 3" :key="s">
                             <div class="flex flex-col items-center gap-2 cursor-pointer" @click="step = s">
-                                <div class="w-8 h-8 flex items-center justify-center border text-[11px] font-bold transition-all"
-                                    :class="step >= s ? 'border-primary text-primary bg-primary/5' : 'border-outline-variant text-on-surface-variant'">
+                                <div :class="[
+                                    'w-8 h-8 flex items-center justify-center border text-[11px] font-bold transition-all duration-700',
+                                    step === s ? `${stepTheme.border} ${stepTheme.color} ${stepTheme.bgAlpha}` : 
+                                    step > s ? 'border-primary text-primary opacity-40' : 'border-outline-variant text-on-surface-variant'
+                                ]">
                                     {{ String(s).padStart(2, '0') }}
                                 </div>
-                                <span class="text-[9px] uppercase tracking-[0.2em] font-bold transition-colors"
-                                    :class="step >= s ? 'text-primary' : 'text-on-surface-variant/40'">
+                                <span :class="[
+                                    'text-[9px] uppercase tracking-[0.2em] font-bold transition-all duration-700',
+                                    step === s ? stepTheme.color : 
+                                    step > s ? 'text-primary opacity-40' : 'text-on-surface-variant/40'
+                                ]">
                                     {{ s === 1 ? 'Contact' : s === 2 ? 'Shipping' : 'Payment' }}
                                 </span>
                             </div>
-                            <div v-if="s < 3" class="w-16 h-px mx-2 mt-[-14px] transition-colors"
-                                :class="step > s ? 'bg-primary/50' : 'bg-outline-variant/50'"></div>
+                            <div v-if="s < 3" :class="[
+                                'w-16 h-px mx-2 mt-[-20px] transition-all duration-700',
+                                step > s ? 'bg-primary/50' : 'bg-outline-variant/50'
+                            ]"></div>
                         </template>
                     </div>
 
@@ -376,7 +404,10 @@ function nextStep() { if (step.value < 3) step.value++; }
                             </div>
                         </div>
                         <button @click="nextStep"
-                            class="w-full border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-300">
+                            :class="[
+                                'w-full border py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-500',
+                                `${stepTheme.border} ${stepTheme.bgAlpha} ${stepTheme.color} hover:brightness-125`
+                            ]">
                             Continue to Shipping
                             <span class="material-symbols-outlined text-sm align-middle ml-2">arrow_forward</span>
                         </button>
@@ -491,8 +522,10 @@ function nextStep() { if (step.value < 3) step.value++; }
 
                         <!-- CTA -->
                         <button @click="handlePayment" :disabled="isProcessing"
-                            class="w-full py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-300 disabled:opacity-50 mt-4"
-                            :class="isProcessing ? 'bg-surface-container text-on-surface-variant cursor-not-allowed' : 'bg-primary text-black hover:opacity-90 active:scale-[0.98]'">
+                            :class="[
+                                'w-full py-5 text-[10px] uppercase tracking-[0.3em] font-bold transition-all duration-500 disabled:opacity-50 mt-4',
+                                isProcessing ? 'bg-surface-container text-on-surface-variant cursor-not-allowed' : `${stepTheme.bg} text-black hover:opacity-90 active:scale-[0.98]`
+                            ]">
                             <span v-if="!isProcessing" class="flex items-center justify-center gap-2">
                                 <span class="material-symbols-outlined text-sm">lock</span>
                                 Complete Bespoke Order

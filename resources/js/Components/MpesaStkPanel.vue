@@ -58,7 +58,7 @@ const steps = [
 
 <template>
     <!-- PHASE: IDLE — the main input form -->
-    <div v-if="phase === 'idle'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
+    <div v-if="phase === 'idle'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a151f] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
         <!-- Scanning line -->
         <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4fb33f]/60 to-transparent animate-scan-x z-10"></div>
 
@@ -71,8 +71,8 @@ const steps = [
                         <span class="material-symbols-outlined text-[#4fb33f] text-2xl relative z-10">smartphone</span>
                     </div>
                     <div>
-                        <h2 class="text-white font-headline font-black text-lg tracking-tight">M-PESA Secure Payment</h2>
-                        <p class="text-[10px] text-[#4fb33f] uppercase tracking-[0.3em] mt-0.5 font-black">Daraja API · Encrypted Channel</p>
+                    <h2 class="text-white font-headline font-black text-lg tracking-tight">M-PESA Secure Payment</h2>
+                    <p class="text-[10px] text-blue-400 uppercase tracking-[0.3em] font-black">Daraja API · Encrypted Channel</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -165,18 +165,18 @@ const steps = [
     </div>
 
     <!-- PHASE: WAITING — STK dispatched, user needs to check phone -->
-    <div v-else-if="phase === 'waiting'" class="stk-panel relative overflow-hidden rounded-3xl border border-[#4fb33f]/30 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_0_80px_rgba(79,179,63,0.15)]">
-        <!-- Top scanning line - green -->
-        <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4fb33f] to-transparent animate-scan-x z-10"></div>
+    <div v-else-if="phase === 'waiting'" class="stk-panel relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-br from-[#1a0a0a] to-[#0d1f0d] shadow-[0_0_80px_rgba(225,29,72,0.2)]">
+        <!-- Top scanning line - Ruby -->
+        <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-rose-500 to-transparent animate-scan-x z-10"></div>
 
         <!-- Success Header -->
         <div class="relative p-8 border-b border-[#4fb33f]/10 text-center">
             <!-- Pulsing phone graphic -->
             <div class="relative inline-flex items-center justify-center">
-                <div class="absolute w-20 h-20 border border-[#4fb33f]/20 rounded-full animate-ping"></div>
-                <div class="absolute w-28 h-28 border border-[#4fb33f]/10 rounded-full animate-ping" style="animation-duration:2s"></div>
-                <div class="relative w-16 h-16 bg-[#4fb33f]/15 border border-[#4fb33f]/30 rounded-full flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[#4fb33f] text-3xl" style="font-variation-settings:'FILL' 1">smartphone</span>
+                <div class="absolute w-20 h-20 border border-rose-500/20 rounded-full animate-ping"></div>
+                <div class="absolute w-28 h-28 border border-rose-500/10 rounded-full animate-ping" style="animation-duration:2s"></div>
+                <div class="relative w-16 h-16 bg-rose-500/15 border border-rose-500/30 rounded-full flex items-center justify-center">
+                    <span class="material-symbols-outlined text-rose-500 text-3xl" style="font-variation-settings:'FILL' 1">smartphone</span>
                 </div>
             </div>
 

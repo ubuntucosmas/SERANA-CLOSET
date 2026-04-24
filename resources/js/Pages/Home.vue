@@ -81,7 +81,7 @@ onMounted(() => {
 
         <!-- 3. Categories -->
         <section class="relative py-16 md:py-24 overflow-hidden">
-            <SectionBackground video="/videos/category_loop.mp4" opacity="opacity-[0.05]" />
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" />
             <div class="relative z-10">
                 <CategoryGrid />
             </div>
@@ -89,7 +89,7 @@ onMounted(() => {
 
         <!-- 3. The Serana Standard -->
         <section class="py-16 md:py-24 bg-surface px-4 sm:px-8 silk-reveal relative overflow-hidden">
-            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-10" />
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" />
             <div class="max-w-screen-xl mx-auto">
                 <CraftsmanshipBlock 
                     subtitle="Our Quality Standard"
@@ -108,7 +108,7 @@ onMounted(() => {
 
         <!-- 4. Studio Pulse (Minimalist Refinement) -->
         <section class="py-16 md:py-24 lg:py-40 bg-background border-b dark:border-white/5 border-black/5 reveal relative silk-reveal">
-            <SectionBackground video="/videos/studio_pulse.mp4" opacity="opacity-10" blur="blur-none" />
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" />
             <div class="max-w-screen-xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
@@ -145,7 +145,7 @@ onMounted(() => {
 
         <!-- 5. Featured Products -->
         <section class="py-16 md:py-32 lg:py-48 px-8 max-w-screen-2xl mx-auto anime-reveal relative bg-surface-container/50 overflow-hidden" data-stagger=".product-card-container">
-            <SectionBackground video="/videos/products_loop.mp4" opacity="opacity-[0.05]" :showScan="false" />
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" :showScan="false" />
             <div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-12 relative z-10">
                 <div class="space-y-6">
                     <div class="inline-flex items-center gap-3 text-primary font-sans tracking-[0.4em] text-[9px] font-medium uppercase">

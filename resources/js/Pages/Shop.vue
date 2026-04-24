@@ -6,6 +6,7 @@ import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import ProductCard from '@/Components/ProductCard.vue';
 import XRayOverlay from '@/Components/XRayOverlay.vue';
+import SectionBackground from '@/Components/SectionBackground.vue';
 
 const props = defineProps({
     products: Array,
@@ -21,74 +22,7 @@ const currentLayout = ref('grid');
 const showLogisticsOverlay = ref(false);
 
 // ── Cinematic Background System ──────────────────────────────────────────────
-const bgImages = computed(() => {
-    const list = [
-        '/images/white_hoodie_silver_zipper.png',
-        '/images/black_white_hoodies_showcase.png',
-        '/images/beige_contrast_set.png',
-        '/images/navy_contrast_set.png',
-        '/images/black_zip_up_hoodie_gray_bg.png',
-        '/images/ready_to_wear_rack.png',
-        '/images/category_ladies.png',
-        '/images/hero_editorial.png'
-    ];
-
-    const activeSlug = props.filters?.category;
-    const activeCategory = (props.categories || []).find(c => c.slug === activeSlug);
-
-    // 1. Prioritize Direct Category Table Banner
-    if (activeCategory?.banner_url) {
-        return [activeCategory.banner_url, ...list];
-    }
-
-    // 2. Fallback to Legacy Theme Settings Mapping
-    const categoryBannerMap = {
-        'mens-collection': 'cat_men_bg',
-        'ladies-wear': 'cat_women_bg',
-        'accessories': 'cat_acc_bg',
-        'kids-collection': 'cat_kids_bg',
-        'casual-collection': 'cat_casual_bg',
-        'hoodies': 'cat_hoodies_bg',
-        'dresses': 'cat_dresses_bg',
-        'corporate-wear': 'cat_corporate_bg'
-    };
-
-    const bannerKey = categoryBannerMap[activeSlug];
-    const customBanner = bannerKey ? page.props.theme_settings[bannerKey] : null;
-
-    if (customBanner) {
-        return [customBanner, ...list];
-    }
-
-    return list;
-});
-
-const slotA = ref(bgImages.value[0]);
-const slotB = ref(bgImages.value[1]);
-const showA = ref(true);
-let bgInterval = null;
-let bgIndex = ref(1);
-
-watch(() => bgImages.value, (newList) => {
-    slotA.value = newList[0];
-    slotB.value = newList[1] || newList[0];
-    bgIndex.value = 1;
-    showA.value = true;
-});
-
-onMounted(() => {
-    bgInterval = setInterval(() => {
-        bgIndex.value = (bgIndex.value + 1) % bgImages.length;
-        if (showA.value) {
-            slotB.value = bgImages[bgIndex.value];
-            showA.value = false;
-        } else {
-            slotA.value = bgImages[bgIndex.value];
-            showA.value = true;
-        }
-    }, 7000);
-});
-onUnmounted(() => clearInterval(bgInterval));
+// Unified via SectionBackground.vue
 
 const filterByCategory = (slug) => {
     showLogisticsOverlay.value = false;
@@ -129,12 +63,8 @@ watch(showLogisticsOverlay, (val) => {
         </Head>
 
         <div class="relative min-h-screen bg-surface-container/30">
-            <!-- Cinematic Shifting Background -->
-            <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-                <img :src="slotA" class="absolute inset-0 w-full h-full object-cover scale-110 grayscale brightness-[0.3] blur-[2px] transition-opacity duration-[3000ms]" :class="showA ? 'opacity-30' : 'opacity-0'" alt="" />
-                <img :src="slotB" class="absolute inset-0 w-full h-full object-cover scale-110 grayscale brightness-[0.3] blur-[2px] transition-opacity duration-[3000ms]" :class="showA ? 'opacity-0' : 'opacity-30'" alt="" />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
-            </div>
+            <!-- Cinematic Video Background -->
+            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" blur="blur-sm" />
 
             <main class="relative z-10 pt-24 lg:pt-32 pb-48 max-w-screen-2xl mx-auto px-4 sm:px-8">
                 <header class="mb-12 lg:mb-20 reveal">
