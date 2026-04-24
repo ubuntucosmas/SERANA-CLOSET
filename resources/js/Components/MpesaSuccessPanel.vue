@@ -8,7 +8,7 @@ const props = defineProps({
     amount: { type: [Number, String], required: true },
     orderId: { type: [Number, String], required: true },
     items: { type: Array, default: () => [] },
-    transactionId: { type: String, default: 'RKH' + Math.random().toString(36).substring(2, 9).toUpperCase() },
+    transactionId: { type: String, required: true },
     date: { type: String, default: () => new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 });
 

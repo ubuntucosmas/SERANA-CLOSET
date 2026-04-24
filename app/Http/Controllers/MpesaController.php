@@ -84,11 +84,20 @@ class MpesaController extends Controller
         if ($order) {
             if ($resultCode == 0) {
                 // SUCCESS
+                $receiptNumber = null;
+                $items = $stkCallback['CallbackMetadata']['Item'] ?? [];
+                foreach ($items as $item) {
+                    if ($item['Name'] === 'MpesaReceiptNumber') {
+                        $receiptNumber = $item['Value'];
+                    }
+                }
+
                 $order->update([
                     'is_paid' => true,
-                    'status' => 'Paid'
+                    'status' => 'Paid',
+                    'mpesa_receipt_number' => $receiptNumber
                 ]);
-                Log::info("M-Pesa Payment Successful for Order #{$order->id}");
+                Log::info("M-Pesa Payment Successful for Order #{$order->id}. Receipt: $receiptNumber");
             } else {
                 // FAILED / CANCELLED
                 $order->update(['status' => 'Payment Failed']);
@@ -114,7 +123,8 @@ class MpesaController extends Controller
         return response()->json([
             'success' => true,
             'is_paid' => $order->status === 'Paid' || $order->is_paid,
-            'status' => $order->status
+            'status' => $order->status,
+            'transaction_id' => $order->mpesa_receipt_number
         ]);
     }
 }

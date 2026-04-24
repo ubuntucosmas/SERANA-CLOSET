@@ -21,6 +21,7 @@ const isSuccess = ref(false);
 const isPaid = ref(false);
 const orderId = ref(null);
 const paidAmount = ref(0);
+const safaricomTransactionId = ref(null);
 const frozenItems = ref([]);
 const frozenTotal = ref(0);
 let pollingInterval = null;
@@ -112,6 +113,7 @@ function startPolling() {
                 isWaitingForStk.value = false;
                 isSuccess.value = true;
                 paidAmount.value = cart.totalPrice;
+                safaricomTransactionId.value = response.data.transaction_id;
                 frozenItems.value = [...cart.items];
                 frozenTotal.value = cart.totalPrice;
                 cart.clearBag();
@@ -170,7 +172,12 @@ function nextStep() { if (step.value < 3) step.value++; }
 
             <!-- M-Pesa Success -->
             <div v-else-if="isSuccess && form.payment_method === 'mpesa'" class="max-w-2xl mx-auto">
-                <MpesaSuccessPanel :amount="paidAmount" :orderId="orderId" :items="frozenItems" />
+                <MpesaSuccessPanel 
+                    :amount="paidAmount" 
+                    :orderId="orderId" 
+                    :items="frozenItems" 
+                    :transactionId="safaricomTransactionId" 
+                />
             </div>
 
             <!-- Non-Mpesa Success (Pending Payment) -->
