@@ -7,6 +7,7 @@ use App\Http\Controllers\CircleController;
 use App\Http\Controllers\Admin\StudioController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MpesaController;
+use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -34,6 +35,9 @@ Route::post('/checkout/process',   [CheckoutController::class, 'process'])->name
 Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])->name('mpesa.stk');
 Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])->name('mpesa.status');
 Route::post('/payments/mpesa/callback', [MpesaController::class, 'callback'])->name('mpesa.callback');
+
+// Receipt Logic
+Route::get('/orders/{order}/receipt', [ReceiptController::class, 'download'])->name('orders.receipt');
 
 // Centralized Dashboard Redirect (Handles legacy Breeze redirects)
 Route::get('/dashboard', function () {
