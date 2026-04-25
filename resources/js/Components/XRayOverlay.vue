@@ -4,6 +4,7 @@ import { animate, stagger } from 'animejs';
 
 const props = defineProps({
     specs: { type: Object, default: () => ({}) },
+    productId: { type: [String, Number], default: '000' },
     active: { type: Boolean, default: false }
 });
 
@@ -62,27 +63,29 @@ watch(() => props.active, runAnimation);
 
         <!-- Technical Callouts -->
         <div ref="techPoints" class="relative w-full h-full p-8 font-headline">
-            <!-- Point 1: Stitching -->
-            <div class="tech-point absolute top-1/4 left-1/4 flex items-center gap-3 opacity-0">
-                <div class="relative flex h-3 w-3">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+            <!-- Dynamic Sensory Points -->
+            <template v-if="specs?.sensory_points?.length">
+                <div v-for="(point, idx) in specs.sensory_points" :key="idx" 
+                     class="tech-point absolute flex items-center gap-3 opacity-0 transition-all duration-700"
+                     :style="{ top: (point.y || (20 + idx * 15)) + '%', [idx % 2 === 0 ? 'left' : 'right']: (point.x || 20) + '%' }">
+                    <div class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                    </div>
+                    <div class="px-2.5 py-1.5 dark:bg-black/80 bg-white/80 border border-primary/30 rounded-full text-[7px] font-black tracking-[0.3em] uppercase dark:text-white text-on-surface backdrop-blur-xl shadow-2xl">
+                        {{ point.label }}
+                    </div>
                 </div>
-                <div class="px-2.5 py-1.5 dark:bg-black/60 bg-white/60 border border-primary/30 rounded-lg text-[7px] font-black tracking-[0.3em] uppercase dark:text-white text-on-surface backdrop-blur-xl shadow-2xl">
-                    12 CPI Precision
+            </template>
+            <template v-else>
+                <!-- Default Dynamic Point (Fallback to general metadata if no specific points) -->
+                <div class="tech-point absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 opacity-0">
+                    <div class="relative flex h-16 w-16 items-center justify-center">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/20 opacity-75"></span>
+                        <div class="z-10 text-[8px] font-black tracking-[0.4em] uppercase text-primary/40">Analyzing_DNA</div>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Point 2: Material -->
-            <div class="tech-point absolute bottom-1/3 right-1/4 flex items-center flex-row-reverse gap-3 opacity-0">
-                <div class="relative flex h-3 w-3">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                </div>
-                <div class="px-2.5 py-1.5 dark:bg-black/60 bg-white/60 border border-primary/30 rounded-lg text-[7px] font-black tracking-[0.3em] uppercase dark:text-white text-on-surface backdrop-blur-xl shadow-2xl">
-                    Mulberry Silk 100%
-                </div>
-            </div>
+            </template>
 
             <!-- Specs Overlay -->
             <div ref="specsList" class="absolute bottom-10 left-10 space-y-2">
@@ -95,8 +98,8 @@ watch(() => props.active, runAnimation);
 
             <!-- Serial Number -->
             <div class="absolute top-10 right-10 flex flex-col items-end gap-1">
-                <span class="text-primary/40 text-[6px] font-mono tracking-[0.4em] uppercase">Auth Password:</span>
-                <span class="dark:text-white/60 text-black/60 text-[8px] font-mono tracking-[0.2em]">SRN-{{ Math.random().toString(36).substr(2, 8).toUpperCase() }}</span>
+                <span class="text-primary/40 text-[6px] font-mono tracking-[0.4em] uppercase">Blueprint Auth:</span>
+                <span class="dark:text-white/60 text-black/60 text-[8px] font-mono tracking-[0.2em]">SRN-{{ String(productId).padStart(4, '0') }}-{{ Math.random().toString(36).substr(2, 4).toUpperCase() }}</span>
             </div>
         </div>
     </div>

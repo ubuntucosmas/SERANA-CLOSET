@@ -172,7 +172,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
             </div>
             
             <!-- Technical X-Ray Overlay - Hidden on Mobile -->
-            <XRayOverlay :specs="product.specifications" :active="isHovered" class="hidden md:flex" />
+            <XRayOverlay :specs="product.specifications" :productId="product.id" :active="isHovered" class="hidden md:flex" />
 
             <!-- Desktop Editorial/Grid Hover Overlay -->
             <div :class="[
