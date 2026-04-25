@@ -47,17 +47,37 @@ const rawurlencode = (str) => {
 const cart = useCartStore();
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
 
+// ── Data-Driven Configuration Elements ───────────────────────────────────────
+const uiElements = computed(() => props.product.specifications?.ui || {
+    steps: ['01_Consultation', '02_Selection', '03_Fitting'],
+    configuring_set_label: 'CONFIGURING SET PIECES',
+    icon_check: 'check_circle',
+    piece_1_label: 'PIECE 01',
+    piece_1_name: 'Hoodie',
+    piece_2_label: 'PIECE 02',
+    piece_2_name: 'Joggers',
+    size_prefix: 'SIZE:',
+    size_guide: 'Size Guide',
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    icon_bag: 'shopping_bag',
+    cta_primary: 'INITIATE_ORDER',
+    icon_chat: 'chat',
+    cta_secondary: 'CONSULT_ARTISAN'
+});
+
+const defaultSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+const sizes = computed(() => props.product.specifications?.ui?.sizes || props.product.specifications?.sizes || defaultSizes);
+
 // ── Jogger Set Configuration Engine ──────────────────────────────────────────
 const selectedTopSize = ref(null);
 const selectedBottomSize = ref(null);
-const activeComponent = ref(props.product.garment_type === 'jogger' ? 'joggers' : 'hoodie'); 
-
-const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+const activeComponent = ref(props.product.garment_type === 'jogger' ? 'joggers' : 'hoodie');
 
 const addToBag = () => {
     const isSet = props.product.garment_type === 'set';
     const isHoodie = props.product.garment_type === 'hoodie';
     const isJogger = props.product.garment_type === 'jogger';
+    const isGeneric = !isSet && !isHoodie && !isJogger;
 
     if (isSet) {
         if (!selectedTopSize.value || !selectedBottomSize.value) {
@@ -70,18 +90,30 @@ const addToBag = () => {
             }));
             return;
         }
-    } else if (isHoodie && !selectedTopSize.value) {
+    } else if ((isHoodie || isGeneric) && !selectedTopSize.value && activeComponent.value === 'hoodie') {
         window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `Please select a size for your hoodie.`, type: 'error' }
+            detail: { message: `Please select a size for your ${uiElements.value?.piece_1_name || 'piece'}.`, type: 'error' }
         }));
         return;
-    } else if (isJogger && !selectedBottomSize.value) {
+    } else if ((isJogger || isGeneric) && !selectedBottomSize.value && activeComponent.value === 'joggers') {
         window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `Please select a size for your joggers.`, type: 'error' }
+            detail: { message: `Please select a size for your ${uiElements.value?.piece_2_name || 'piece'}.`, type: 'error' }
         }));
         return;
     }
     
+    // Check local batch logic before adding
+    if (props.product.batch_limit) {
+        const available = props.product.batch_limit - (props.product.batch_sold || 0);
+        const currentQty = cart.items.find(item => item.id === props.product.id)?.quantity ?? 0;
+        if (currentQty >= available) {
+            window.dispatchEvent(new CustomEvent('serana-toast', {
+                detail: { message: `Batch extraction limit reached. No more stock available.`, type: 'error' }
+            }));
+            return;
+        }
+    }
+
     // Create a specialized product object for the cart
     const itemToBag = {
         ...props.product,
@@ -92,8 +124,16 @@ const addToBag = () => {
         }
     };
     
-    cart.addItem(itemToBag);
+    try {
+        cart.addItem(itemToBag);
+    } catch (e) {
+        console.error("Cart addition failed:", e);
+        window.dispatchEvent(new CustomEvent('serana-toast', {
+            detail: { message: `System Error: Unable to sequence item to cart.`, type: 'error' }
+        }));
+    }
 };
+
 
 const allImages = computed(() => {
     const images = [];
@@ -154,10 +194,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <StorefrontLayout>
+    <StorefrontLayout :hideMobileCard="true">
         <Head :title="`${product.name} | Serana Closet`" />
 
-        <main class="py-24 md:py-32 px-4 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
+        <main class="py-24 md:py-32 px-2 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
             <div class="w-full max-w-[1300px] mx-auto bg-surface border border-white/5 rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     
@@ -188,10 +228,10 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Right: The Configuration Canvas -->
-                    <div class="p-6 lg:p-10 flex flex-col justify-center space-y-6 relative border-l border-white/5 bg-surface-container/20">
+                    <div class="p-4 md:p-6 lg:p-10 flex flex-col justify-center space-y-6 relative border-l border-white/5 bg-surface-container/20">
                         
                         <!-- Header Card -->
-                        <header class="p-5 bg-white/5 border border-white/5 rounded-sm glass-panel">
+                        <header class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel">
                             <div class="flex justify-between items-center gap-4">
                                 <div class="space-y-0.5">
                                     <p class="text-primary font-bold text-[9px] tracking-[0.4em] uppercase opacity-60">{{ product.category?.name || 'PRIVATE COLLECTION' }}</p>
@@ -212,13 +252,13 @@ onUnmounted(() => {
                         </header>
 
                         <!-- Configuration Card: Garment Selection -->
-                        <div class="p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-6">
+                        <div class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-6">
                             <!-- Progress Stepper -->
                             <div class="space-y-2">
                                 <div class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-white/30 font-bold">
-                                    <span>01_Consultation</span>
-                                    <span class="text-primary">02_Selection</span>
-                                    <span>03_Fitting</span>
+                                    <span>{{ uiElements.steps[0] }}</span>
+                                    <span class="text-primary">{{ uiElements.steps[1] }}</span>
+                                    <span>{{ uiElements.steps[2] }}</span>
                                 </div>
                                 <div class="h-[1px] w-full bg-white/10 relative">
                                     <div class="absolute left-0 top-0 h-full w-1/2 bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
@@ -228,17 +268,17 @@ onUnmounted(() => {
 
                             <!-- Piece Selectors -->
                             <div v-if="product.garment_type === 'set'" class="space-y-3">
-                                <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">CONFIGURING SET PIECES</label>
+                                <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">{{ uiElements.configuring_set_label }}</label>
                                 <div class="flex gap-3">
                                     <button 
                                         @click="activeComponent = 'hoodie'"
                                         class="flex-1 flex flex-col p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
                                         :class="activeComponent === 'hoodie' ? 'border-primary/40 bg-primary/5' : 'hover:border-white/10'"
                                     >
-                                        <div v-if="activeComponent === 'hoodie'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">check_circle</span></div>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest mb-1" :class="activeComponent === 'hoodie' ? 'text-primary' : 'text-white/20'">PIECE 01</span>
+                                        <div v-if="activeComponent === 'hoodie'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest mb-1" :class="activeComponent === 'hoodie' ? 'text-primary' : 'text-white/20'">{{ uiElements.piece_1_label }}</span>
                                         <div class="flex justify-between items-end">
-                                            <span class="text-sm font-bold uppercase tracking-wide">Hoodie</span>
+                                            <span class="text-sm font-bold uppercase tracking-wide">{{ uiElements.piece_1_name }}</span>
                                             <span class="text-[11px] font-bold text-primary" v-if="selectedTopSize">{{ selectedTopSize }}</span>
                                         </div>
                                     </button>
@@ -247,10 +287,10 @@ onUnmounted(() => {
                                         class="flex-1 flex flex-col p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
                                         :class="activeComponent === 'joggers' ? 'border-primary/40 bg-primary/5' : 'hover:border-white/10'"
                                     >
-                                        <div v-if="activeComponent === 'joggers'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">check_circle</span></div>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest mb-1" :class="activeComponent === 'joggers' ? 'text-primary' : 'text-white/20'">PIECE 02</span>
+                                        <div v-if="activeComponent === 'joggers'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest mb-1" :class="activeComponent === 'joggers' ? 'text-primary' : 'text-white/20'">{{ uiElements.piece_2_label }}</span>
                                         <div class="flex justify-between items-end">
-                                            <span class="text-sm font-bold uppercase tracking-wide">Joggers</span>
+                                            <span class="text-sm font-bold uppercase tracking-wide">{{ uiElements.piece_2_name }}</span>
                                             <span class="text-[11px] font-bold text-primary" v-if="selectedBottomSize">{{ selectedBottomSize }}</span>
                                         </div>
                                     </button>
@@ -259,16 +299,18 @@ onUnmounted(() => {
                             <div v-else class="space-y-1">
                                 <p class="text-[8px] font-bold uppercase tracking-[0.4em] text-primary">SINGLE PIECE</p>
                                 <h3 class="text-sm font-bold uppercase tracking-wide opacity-60">
-                                    {{ product.garment_type === 'hoodie' ? 'Piece 01: Hoodie' : 'Piece 02: Joggers' }}
+                                    {{ product.garment_type === 'hoodie' ? `${uiElements.piece_1_label}: ${uiElements.piece_1_name}` : `${uiElements.piece_2_label}: ${uiElements.piece_2_name}` }}
                                 </h3>
                             </div>
                         </div>
 
                         <!-- Configuration Card: Sizing -->
-                        <div class="p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-4">
+                        <div class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-4">
                             <div class="flex justify-between items-center">
-                                <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">SIZE: {{ activeComponent }}</label>
-                                <button class="text-[8px] font-bold uppercase tracking-widest text-primary border-b border-primary/20 hover:border-primary transition-all">Size Guide</button>
+                                <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">
+                                    {{ uiElements.size_prefix || 'SIZE:' }} {{ activeComponent === 'hoodie' ? (uiElements.piece_1_name || 'Piece').toLowerCase() : (uiElements.piece_2_name || 'Piece').toLowerCase() }}
+                                </label>
+                                <button class="text-[8px] font-bold uppercase tracking-widest text-primary border-b border-primary/20 hover:border-primary transition-all">{{ uiElements.size_guide || 'Size Guide' }}</button>
                             </div>
                             <div class="grid grid-cols-5 gap-2">
                                 <button 
@@ -300,7 +342,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Metrics Card -->
-                        <div v-if="product.specifications?.fabric_weight" class="p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-3 animate-in fade-in duration-1000">
+                        <div v-if="product.specifications?.fabric_weight" class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-3 animate-in fade-in duration-1000">
                             <div class="flex justify-between items-center">
                                 <span class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">DENSITY_INDEX</span>
                                 <span class="text-[11px] font-bold text-primary">{{ product.specifications.fabric_weight }}</span>
@@ -317,12 +359,12 @@ onUnmounted(() => {
                                 @click="addToBag"
                                 class="w-full py-4 bg-blue-600 text-white font-bold text-xs tracking-[0.5em] uppercase rounded-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                             >
-                                <span class="material-symbols-outlined font-bold text-lg">shopping_bag</span>
-                                INITIATE_ORDER
+                                <span class="material-symbols-outlined font-bold text-lg">{{ uiElements.icon_bag }}</span>
+                                {{ uiElements.cta_primary }}
                             </button>
                             <a :href="whatsappUrl" target="_blank" class="w-full py-3.5 border border-white/5 bg-white/5 text-white/40 hover:text-white hover:border-primary/40 font-bold text-[9px] tracking-[0.5em] uppercase rounded-sm transition-all text-center flex items-center justify-center gap-2">
-                                <span class="material-symbols-outlined text-[16px]">chat</span>
-                                CONSULT_ARTISAN
+                                <span class="material-symbols-outlined text-[16px]">{{ uiElements.icon_chat }}</span>
+                                {{ uiElements.cta_secondary }}
                             </a>
                         </div>
                     </div>
