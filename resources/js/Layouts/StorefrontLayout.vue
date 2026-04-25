@@ -17,7 +17,7 @@
 
         <main class="flex-grow relative z-10">
             <transition name="fade" mode="out-in" appear>
-                <div :key="$page.url" :class="!hideMobileCard ? 'px-4 pt-16 pb-20 md:p-0 md:pt-0 md:pb-0' : ''">
+                <div :key="$page.url" :class="!hideMobileCard ? 'px-0 pt-16 pb-20 md:p-0 md:pt-0 md:pb-0' : ''">
                     <!-- Unified Responsive Wrapper (Prevents Vue Slot Event Hijacking) -->
                     <div :class="!hideMobileCard ? 'mobile-floating-card md:!bg-transparent md:!border-none md:!shadow-none md:!p-0 md:!m-0' : ''">
                         <slot />

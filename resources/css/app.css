@@ -189,13 +189,14 @@
     /* Global Mobile High-Density Card */
     @media (max-width: 767px) {
         .mobile-floating-card {
-            @apply glass-panel p-6 shadow-2xl relative z-10 mx-auto w-full max-w-md;
-            border-radius: 2rem !important;
-            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.08), 0 18px 36px -18px rgba(0, 0, 0, 0.1);
+            @apply glass-panel p-4 shadow-none relative z-10 w-full;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
         }
 
         .dark .mobile-floating-card {
-            box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.6);
+            box-shadow: none;
         }
 
         .dense-text {
