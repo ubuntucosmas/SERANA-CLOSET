@@ -49,20 +49,20 @@ const isSoldOut = computed(() => props.product.batch_limit && props.product.batc
 
 // ── Data-Driven Configuration Elements ───────────────────────────────────────
 const uiElements = computed(() => props.product.specifications?.ui || {
-    steps: ['01_Consultation', '02_Selection', '03_Fitting'],
-    configuring_set_label: 'CONFIGURING SET PIECES',
+    steps: ['1. Start', '2. Select', '3. Fit'],
+    configuring_set_label: 'CHOOSE YOUR PIECES',
     icon_check: 'check_circle',
-    piece_1_label: 'PIECE 01',
+    piece_1_label: 'ITEM 01',
     piece_1_name: 'Hoodie',
-    piece_2_label: 'PIECE 02',
+    piece_2_label: 'ITEM 02',
     piece_2_name: 'Joggers',
     size_prefix: 'SIZE:',
     size_guide: 'Size Guide',
     sizes: ['S', 'M', 'L', 'XL', 'XXL'],
     icon_bag: 'shopping_bag',
-    cta_primary: 'INITIATE_ORDER',
+    cta_primary: 'BUY NOW',
     icon_chat: 'chat',
-    cta_secondary: 'CONSULT_ARTISAN'
+    cta_secondary: 'CHAT WITH US'
 });
 
 const defaultSizes = ['S', 'M', 'L', 'XL', 'XXL'];
@@ -299,7 +299,7 @@ onUnmounted(() => {
                             <div v-else class="space-y-1">
                                 <p class="text-[8px] font-bold uppercase tracking-[0.4em] text-primary">SINGLE PIECE</p>
                                 <h3 class="text-sm font-bold uppercase tracking-wide opacity-60">
-                                    {{ product.garment_type === 'hoodie' ? `${uiElements.piece_1_label}: ${uiElements.piece_1_name}` : `${uiElements.piece_2_label}: ${uiElements.piece_2_name}` }}
+                                    {{ product.garment_type === 'hoodie' ? `ITEM 01: ${uiElements.piece_1_name}` : `ITEM 02: ${uiElements.piece_2_name}` }}
                                 </h3>
                             </div>
                         </div>
@@ -330,7 +330,7 @@ onUnmounted(() => {
                             <div v-if="product.specifications?.tech_specs?.length" class="pt-4 border-t border-white/5 space-y-3">
                                 <div class="flex items-center gap-2 opacity-30">
                                     <span class="material-symbols-outlined text-sm">architecture</span>
-                                    <span class="text-[7px] font-bold uppercase tracking-[0.4em]">TECHNICAL_MANIFEST</span>
+                                    <span class="text-[7px] font-bold uppercase tracking-[0.4em]">PRODUCT_SPECS</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4 text-[9px] text-white/50">
                                     <div v-for="(spec, idx) in product.specifications.tech_specs" :key="idx" class="flex gap-2 items-start">
@@ -344,7 +344,7 @@ onUnmounted(() => {
                         <!-- Metrics Card -->
                         <div v-if="product.specifications?.fabric_weight" class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-3 animate-in fade-in duration-1000">
                             <div class="flex justify-between items-center">
-                                <span class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">DENSITY_INDEX</span>
+                                <span class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">FABRIC_QUALITY</span>
                                 <span class="text-[11px] font-bold text-primary">{{ product.specifications.fabric_weight }}</span>
                             </div>
                             <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">

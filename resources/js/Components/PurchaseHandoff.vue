@@ -80,7 +80,7 @@ const goToWhatsApp = () => {
                     </div>
 
                     <p class="text-center text-[8px] font-sans font-medium uppercase tracking-[0.4em] dark:text-white/20 text-black/20">
-                        Nairobi · Atelier Standard · {{ new Date().getFullYear() }}
+                        Nairobi · Serana Standard · {{ new Date().getFullYear() }}
                     </p>
                 </div>
             </div>

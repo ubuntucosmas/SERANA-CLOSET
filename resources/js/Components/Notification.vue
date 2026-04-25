@@ -59,7 +59,7 @@ onMounted(() => {
                 <div class="flex-1">
                     <p class="text-[10px] font-headline uppercase tracking-widest font-black"
                        :class="type === 'success' ? 'text-primary' : 'text-red-400'">
-                        {{ type === 'success' ? 'Authority Confirmed' : 'Alert' }}
+                        {{ type === 'success' ? 'Success' : 'Alert' }}
                     </p>
                     <p class="text-xs dark:text-white text-on-surface font-medium leading-relaxed mt-0.5">
                         {{ message }}

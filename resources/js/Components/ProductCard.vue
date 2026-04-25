@@ -189,7 +189,7 @@ const isLimitedDrop = computed(() => props.product.batch_limit !== null && props
                 </div>
             </div>
 
-            <!-- Zen "Atelier Tag" (Fancy Mobile Info Overlay) -->
+            <!-- Zen "Product Tag" (Fancy Mobile Info Overlay) -->
             <div class="md:hidden absolute inset-x-0 bottom-0 p-4 z-40 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none pb-5">
                 <div class="flex flex-col gap-4 pointer-events-auto mt-8">
                     <!-- Action Icons (Floating Left & Right) -->

@@ -94,7 +94,7 @@ function subscribe() {
             <div class="md:col-span-1 space-y-8">
                 <h4 class="text-primary font-headline font-black text-[11px] tracking-[0.25em] mb-8">Inner circle</h4>
                 <div class="flex flex-col gap-6">
-                    <p class="text-[11px] dark:text-white text-on-surface font-headline tracking-[0.2em] leading-relaxed font-black">Join the archive registry for priority notifications on new limited batch drops.</p>
+                    <p class="text-[11px] dark:text-white text-on-surface font-headline tracking-[0.2em] leading-relaxed font-black">Join our newsletter for priority notifications on new limited batch drops.</p>
                     <form @submit.prevent="subscribe" class="flex gap-2">
                         <input v-model="form.email" type="email" placeholder="Your email" class="flex-grow dark:bg-white/5 dark:bg-black bg-white/5 dark:border-white/10 border-black/10 text-[11px] font-headline tracking-[0.2em] px-6 py-5 rounded-xl focus:border-primary/50 focus:ring-0 transition-all dark:text-white text-on-surface placeholder:text-on-surface-variant/30 font-black outline-none" required />
                         <button type="submit" :disabled="form.processing" class="bg-primary text-background px-4 py-4 rounded-xl hover:shadow-[0_0_20px_rgba(57, 255, 20,0.3)] transition-all flex items-center justify-center">
@@ -109,7 +109,7 @@ function subscribe() {
         <!-- Bottom Bar -->
         <div class="px-8 max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center border-t dark:border-white/5 border-black/5 pt-12 gap-8">
             <span class="dark:text-white text-on-surface text-[11px] font-headline tracking-[0.2em] font-black">
-                {{ $page.props.theme_settings.footer_copyright || `© ${year} Serana Closet. The digital atelier.` }}
+                {{ $page.props.theme_settings.footer_copyright || `© ${year} Serana Closet.` }}
                 <span class="mx-6 text-primary not-italic uppercase tracking-widest">IMENTI HOUSE 29 • Nairobi • Worldwide</span>
             </span>
             <div class="flex gap-10 items-center text-on-surface-variant opacity-30">

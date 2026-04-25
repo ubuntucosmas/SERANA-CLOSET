@@ -13,7 +13,7 @@
         <Notification />
         <PurchaseHandoff />
         <ConciergeButton />
-        <RegistryPath />
+        <SitePath />
 
         <main class="flex-grow relative z-10">
             <transition name="fade" mode="out-in" appear>
@@ -40,7 +40,7 @@ import SectionBackground from '@/Components/SectionBackground.vue';
 import PurchaseHandoff from '@/Components/PurchaseHandoff.vue';
 import ConciergeButton from '@/Components/ConciergeButton.vue';
 import CommandPortal from '@/Components/CommandPortal.vue';
-import RegistryPath from '@/Components/RegistryPath.vue';
+import SitePath from '@/Components/SitePath.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 
 const props = defineProps({

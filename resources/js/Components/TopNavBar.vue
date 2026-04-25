@@ -95,7 +95,7 @@
             <!-- 3. Right Vector: Absolute Actions (Registry & Settings) -->
             <div class="flex items-center gap-10 relative z-20">
                 <div class="hidden lg:flex items-center gap-6 pr-6 border-r dark:border-white/10 border-black/10">
-                    <button @click="openPortal" title="Neural Link (Cmd+K)" class="icon-btn !p-0 flex items-center gap-2 group">
+                    <button @click="openPortal" title="Search (Cmd+K)" class="icon-btn !p-0 flex items-center gap-2 group">
                         <span class="material-symbols-outlined !text-[22px] group-hover:text-primary transition-colors">terminal</span>
                         <span class="text-[9px] font-black tracking-widest opacity-20 group-hover:opacity-100 transition-all">CMD+K</span>
                     </button>

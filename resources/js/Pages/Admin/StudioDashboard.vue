@@ -586,7 +586,7 @@ function getAllOrderImages(order) {
 </style>
 
 <template>
-    <Head title="Serana Studio | The Atelier" />
+    <Head title="Serana Studio | Admin" />
 
     <div class="flex h-screen bg-[#020617] text-slate-200 font-body overflow-hidden selection:bg-blue-900 selection:text-white relative">
         
@@ -596,8 +596,8 @@ function getAllOrderImages(order) {
             menuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         ]">
             <div class="mb-12">
-                <h2 class="font-headline text-2xl text-white leading-tight italic">L'Atelier</h2>
-                <p class="font-body tracking-wider uppercase text-[10px] text-slate-500 mt-1">Studio Command Center</p>
+                <h2 class="font-headline text-2xl text-white leading-tight italic">Studio</h2>
+                <p class="font-body tracking-wider uppercase text-[10px] text-slate-500 mt-1">Admin Dashboard</p>
             </div>
             
             <nav class="flex-1 space-y-2">
@@ -726,7 +726,7 @@ function getAllOrderImages(order) {
                                         ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-900/30' 
                                         : 'bg-slate-800 text-slate-400 border-white/5 hover:border-blue-500/40 hover:text-white'
                                 ]">
-                            {{ showArchivedOrders ? 'Active Registry' : 'View Archive' }}
+                            {{ showArchivedOrders ? 'Active Orders' : 'View Archive' }}
                         </button>
                         <button class="p-3 bg-slate-800 text-slate-400 border border-white/5 hover:text-white transition-colors">
                             <span class="material-symbols-outlined text-xl">filter_list</span>
@@ -757,9 +757,9 @@ function getAllOrderImages(order) {
                     <div class="space-y-1 overflow-x-auto no-scrollbar pb-10">
                         <!-- Heading Row -->
                         <div class="grid grid-cols-12 min-w-[1000px] px-8 py-6 bg-slate-900/50 rounded-sm mb-4 border border-white/5">
-                            <div class="col-span-4 text-[10px] uppercase tracking-widest font-bold text-slate-500">Order Details</div>
+                            <div class="col-span-4 text-[10px] uppercase tracking-widest font-bold text-slate-500">Order Info</div>
                             <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-slate-500">Order ID</div>
-                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-slate-500">Progress</div>
+                            <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-slate-500">Production</div>
                             <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-slate-500">Status</div>
                             <div class="col-span-2 text-[10px] uppercase tracking-widest font-bold text-slate-500 text-right">Price</div>
                         </div>
@@ -801,7 +801,7 @@ function getAllOrderImages(order) {
                                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
                                         : 'bg-red-500/10 text-red-400 border-red-500/20'
                                 ]">
-                                    {{ order.is_paid ? 'SECURED_FUNDS' : 'UNSECURED' }}
+                                    {{ order.is_paid ? 'PAID' : 'UNPAID' }}
                                 </span>
                             </div>
 
@@ -890,7 +890,7 @@ function getAllOrderImages(order) {
                         <div class="col-span-2">
                             <div class="flex items-center gap-2">
                                 <span :class="['font-headline text-sm tracking-widest uppercase', product.in_stock ? 'text-emerald-400' : 'text-red-400']">
-                                    {{ product.in_stock ? 'READY_UNIT' : 'EXHAUSTED' }}
+                                    {{ product.in_stock ? 'IN STOCK' : 'SOLD OUT' }}
                                 </span>
                             </div>
                         </div>
@@ -991,10 +991,10 @@ function getAllOrderImages(order) {
                 <!-- Row 1: Site Info (Text Fields) -->
                 <div class="glass-panel p-10 rounded-sm border border-white/5 luxury-shadow shadow-slate-950/40">
                     <div class="flex items-center justify-between mb-10">
-                        <label class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-bold">Global Identity Matrix</label>
+                        <label class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-bold">Theme Settings</label>
                         <button @click="saveSiteInfo" :disabled="siteInfoForm.processing"
                                 class="px-10 py-3 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-blue-500 transition-all disabled:opacity-30 shadow-lg shadow-blue-900/30">
-                            {{ siteInfoForm.processing ? 'Syncing...' : 'Commit Sequence' }}
+                            {{ siteInfoForm.processing ? 'Saving...' : 'Save Changes' }}
                         </button>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -1011,7 +1011,7 @@ function getAllOrderImages(order) {
                                    placeholder="e.g. Bespoke Made With Love" />
                         </div>
                         <div class="space-y-3">
-                            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Comm. Protocol (WhatsApp)</label>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">WhatsApp Number</label>
                             <input v-model="siteInfoForm.settings.whatsapp_number"
                                    class="w-full bg-slate-950/50 border border-white/5 px-4 py-4 text-xl font-headline text-white focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-800"
                                    placeholder="e.g. 254712345678" />
@@ -1230,9 +1230,9 @@ function getAllOrderImages(order) {
                         </div>
                         <div>
                             <h1 class="font-headline text-3xl text-white italic leading-none">
-                                {{ selectedOrder?.deleted_at ? 'Archived Brief' : 'Order Details' }}
+                                {{ selectedOrder?.deleted_at ? 'Archived Order' : 'Order Info' }}
                             </h1>
-                            <p class="text-[10px] text-blue-400 tracking-[0.4em] uppercase font-bold mt-3">ID_DOC #{{ String(form.id).padStart(5, '0') }}</p>
+                            <p class="text-[10px] text-blue-400 tracking-[0.4em] uppercase font-bold mt-3">ORDER_ID #{{ String(form.id).padStart(5, '0') }}</p>
                         </div>
                     </div>
                     <div class="flex gap-2">
@@ -1252,7 +1252,7 @@ function getAllOrderImages(order) {
                         <p class="text-[10px] text-white font-bold uppercase tracking-widest">Active Sequence</p>
                     </div>
                     <button @click="copyOrderBrief" class="flex items-center gap-4 px-6 py-3 bg-slate-900 border border-white/5 rounded-sm group hover:bg-blue-600 transition-all duration-500">
-                        <span class="text-[10px] text-slate-400 group-hover:text-white tracking-widest font-bold uppercase">{{ showBriefNotification ? 'ID_SYNCED' : 'EXTRACT_BRIEF' }}</span>
+                        <span class="text-[10px] text-slate-400 group-hover:text-white tracking-widest font-bold uppercase">{{ showBriefNotification ? 'COPIED' : 'COPY BRIEF' }}</span>
                         <span class="material-symbols-outlined text-lg text-slate-500 group-hover:text-white">file_copy</span>
                     </button>
                 </div>
@@ -1266,7 +1266,7 @@ function getAllOrderImages(order) {
                          class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[3000ms]" />
                     <div v-else class="w-full h-full flex flex-col items-center justify-center text-slate-600">
                         <span class="material-symbols-outlined text-6xl opacity-20 mb-3">image_not_supported</span>
-                        <p class="text-[10px] tracking-[0.4em] uppercase font-bold">Registry Visual Empty</p>
+                        <p class="text-[10px] tracking-[0.4em] uppercase font-bold">No Image Available</p>
                     </div>
                 </div>
 
@@ -1274,7 +1274,7 @@ function getAllOrderImages(order) {
                 <div class="p-8 bg-slate-900/60 border border-white/5 rounded-sm">
                     <p class="text-[10px] text-blue-400 tracking-[0.4em] uppercase font-bold mb-10 flex items-center gap-4">
                         <span class="w-8 h-[1px] bg-blue-500/40"></span>
-                        Technical Metrics
+                        Product Specifications
                     </p>
                     <div class="grid grid-cols-2 gap-10">
                         <div v-for="m in [['BUST', selectedOrder?.bust_cm], ['WAIST', selectedOrder?.waist_cm], ['HIPS', selectedOrder?.hips_cm], ['FABRIC', selectedOrder?.fabric_preference || 'STND']]" :key="m[0]" class="space-y-2">
@@ -1289,9 +1289,9 @@ function getAllOrderImages(order) {
                     <div class="flex items-center justify-between">
                         <p class="text-[10px] text-blue-400 tracking-[0.4em] uppercase font-bold flex items-center gap-4">
                             <span class="w-8 h-[1px] bg-blue-500/40"></span>
-                            Visual Diagnostics
+                            Progress Photos
                         </p>
-                        <p v-if="progressSnapForm.processing" class="text-[10px] text-blue-400 font-bold animate-pulse uppercase tracking-[0.2em]">Syncing Matrix...</p>
+                        <p v-if="progressSnapForm.processing" class="text-[10px] text-blue-400 font-bold animate-pulse uppercase tracking-[0.2em]">Saving...</p>
                     </div>
 
                     <div class="grid grid-cols-4 gap-4">
@@ -1330,7 +1330,7 @@ function getAllOrderImages(order) {
             <div class="mt-auto pt-10 border-t border-white/5 animate-in">
                 <button @click="updateOrder" :disabled="form.processing"
                         class="w-full py-6 bg-blue-600 text-white rounded-sm text-[11px] font-bold uppercase tracking-[0.4em] hover:bg-blue-500 transition-all disabled:opacity-30 shadow-xl shadow-blue-900/20">
-                    {{ form.processing ? 'SYNCING_MATRIX...' : 'COMMIT_CHANGES' }}
+                    {{ form.processing ? 'SAVING...' : 'SAVE CHANGES' }}
                 </button>
             </div>
         </aside>
@@ -1340,10 +1340,10 @@ function getAllOrderImages(order) {
             <div @click="showAddProductModal = false" class="absolute inset-0"></div>
             <div class="relative w-full max-w-6xl bg-slate-950 border border-white/10 rounded-sm shadow-[0_0_100px_rgba(30,41,59,0.3)] flex flex-col md:flex-row overflow-hidden animate-in">
                 <div class="flex-1 p-10 lg:p-16 glass-panel">
-                    <h2 class="font-headline text-5xl text-white italic mb-16">{{ isEditingProduct ? 'Edit_Unit' : 'Initialize_Unit' }}</h2>
+                    <h2 class="font-headline text-5xl text-white italic mb-16">{{ isEditingProduct ? 'Edit Product' : 'Add New Product' }}</h2>
                     <div class="grid grid-cols-2 gap-10">
                         <div class="col-span-2 space-y-3">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Unit Designation</label>
+                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Product Name</label>
                              <input v-model="productForm.name" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-2xl font-headline text-white focus:border-blue-500/50 outline-none transition-all" />
                         </div>
                         <div class="space-y-3">
@@ -1351,7 +1351,7 @@ function getAllOrderImages(order) {
                              <input v-model="productForm.price" type="number" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-2xl font-headline text-white focus:border-blue-500/50 outline-none transition-all" />
                         </div>
                         <div class="space-y-3">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Sector Registry</label>
+                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Category</label>
                              <select v-model="productForm.category_id" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-400 focus:text-white outline-none cursor-pointer">
                                 <option v-for="cat in categories" :key="cat.id" :value="cat.id" class="bg-slate-950 text-white">{{ cat.name }}</option>
                              </select>
@@ -1387,7 +1387,7 @@ function getAllOrderImages(order) {
                         </div>
                     </div>
                     <button @click="submitProduct" :disabled="productForm.processing" class="w-full py-7 mt-16 bg-blue-600 text-white rounded-sm text-[11px] font-bold uppercase tracking-[0.5em] hover:bg-blue-500 transition-all shadow-2xl shadow-blue-900/40">
-                        {{ productForm.processing ? 'SYNCING_MATRIX...' : 'COMMIT_UNIT_TO_CORE' }}
+                        {{ productForm.processing ? 'SAVING...' : 'SAVE PRODUCT' }}
                     </button>
                 </div>
                 <div class="w-full md:w-5/12 bg-slate-900 border-l border-white/10 p-10 lg:p-16 flex flex-col justify-center space-y-10">

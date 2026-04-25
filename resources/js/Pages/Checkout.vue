@@ -174,7 +174,7 @@ function nextStep() { if (step.value < 3) step.value++; }
 
 <template>
     <StorefrontLayout hideMobileCard>
-        <Head title="Secure Checkout — Serana Atelier" />
+        <Head title="Secure Checkout — Serana" />
 
         <main class="relative pt-24 md:pt-32 pb-12 md:pb-24 px-4 md:px-12 max-w-screen-xl mx-auto min-h-screen bg-background">
 
@@ -646,7 +646,7 @@ function nextStep() { if (step.value < 3) step.value++; }
                         </button>
 
                         <p class="text-center text-[9px] md:text-[10px] text-on-surface-variant/50 italic">
-                            Exclusively crafted in Nairobi's finest atelier.
+                            Exclusively crafted in Nairobi.
                         </p>
                     </div>
 
