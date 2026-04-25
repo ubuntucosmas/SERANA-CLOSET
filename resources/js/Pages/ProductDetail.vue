@@ -197,8 +197,8 @@ onUnmounted(() => {
     <StorefrontLayout :hideMobileCard="true">
         <Head :title="`${product.name} | Serana Closet`" />
 
-        <main class="py-24 md:py-32 px-2 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
-            <div class="w-full max-w-[1300px] mx-auto bg-surface border border-white/5 rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
+        <main class="py-24 md:py-32 px-0 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
+            <div class="w-full max-w-[1300px] mx-auto bg-surface border-y md:border border-white/5 rounded-none md:rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     
                     <!-- Left: The Visual Axis (Atelier Gallery) -->
@@ -228,10 +228,10 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Right: The Configuration Canvas -->
-                    <div class="p-4 md:p-6 lg:p-10 flex flex-col justify-center space-y-6 relative border-l border-white/5 bg-surface-container/20">
+                    <div class="p-4 md:p-6 lg:p-10 flex flex-col justify-center space-y-4 md:space-y-6 relative border-t lg:border-t-0 lg:border-l border-white/5 bg-surface-container/20">
                         
                         <!-- Header Card -->
-                        <header class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel">
+                        <header class="p-3 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel">
                             <div class="flex justify-between items-center gap-4">
                                 <div class="space-y-0.5">
                                     <p class="text-primary font-bold text-[9px] tracking-[0.4em] uppercase opacity-60">{{ product.category?.name || 'PRIVATE COLLECTION' }}</p>
@@ -252,7 +252,7 @@ onUnmounted(() => {
                         </header>
 
                         <!-- Configuration Card: Garment Selection -->
-                        <div class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-6">
+                        <div class="p-3 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-5 md:space-y-6">
                             <!-- Progress Stepper -->
                             <div class="space-y-2">
                                 <div class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-white/30 font-bold">
@@ -269,10 +269,10 @@ onUnmounted(() => {
                             <!-- Piece Selectors -->
                             <div v-if="product.garment_type === 'set'" class="space-y-3">
                                 <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">{{ uiElements.configuring_set_label }}</label>
-                                <div class="flex gap-3">
+                                <div class="flex gap-2 md:gap-3">
                                     <button 
                                         @click="activeComponent = 'hoodie'"
-                                        class="flex-1 flex flex-col p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
+                                        class="flex-1 flex flex-col p-3 md:p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
                                         :class="activeComponent === 'hoodie' ? 'border-primary/40 bg-primary/5' : 'hover:border-white/10'"
                                     >
                                         <div v-if="activeComponent === 'hoodie'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
@@ -284,7 +284,7 @@ onUnmounted(() => {
                                     </button>
                                     <button 
                                         @click="activeComponent = 'joggers'"
-                                        class="flex-1 flex flex-col p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
+                                        class="flex-1 flex flex-col p-3 md:p-4 bg-slate-950/20 border border-white/5 transition-all group relative overflow-hidden"
                                         :class="activeComponent === 'joggers' ? 'border-primary/40 bg-primary/5' : 'hover:border-white/10'"
                                     >
                                         <div v-if="activeComponent === 'joggers'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
@@ -305,7 +305,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Configuration Card: Sizing -->
-                        <div class="p-4 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-4">
+                        <div class="p-3 md:p-5 bg-white/5 border border-white/5 rounded-sm glass-panel space-y-3 md:space-y-4">
                             <div class="flex justify-between items-center">
                                 <label class="text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">
                                     {{ uiElements.size_prefix || 'SIZE:' }} {{ activeComponent === 'hoodie' ? (uiElements.piece_1_name || 'Piece').toLowerCase() : (uiElements.piece_2_name || 'Piece').toLowerCase() }}
