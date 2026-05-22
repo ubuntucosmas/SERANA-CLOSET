@@ -1335,94 +1335,92 @@ function getAllOrderImages(order) {
             </div>
         </aside>
 
-        <!-- Product Modal: The Boutique Curator -->
-        <div v-if="showAddProductModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-3xl bg-slate-950/40">
-            <div @click="showAddProductModal = false" class="absolute inset-0"></div>
-            <div class="relative w-full max-w-6xl bg-slate-950 border border-white/10 rounded-sm shadow-[0_0_100px_rgba(30,41,59,0.3)] flex flex-col md:flex-row overflow-hidden animate-in">
-                <div class="flex-1 p-10 lg:p-16 glass-panel">
-                    <h2 class="font-headline text-5xl text-white italic mb-16">{{ isEditingProduct ? 'Edit Product' : 'Add New Product' }}</h2>
-                    <div class="grid grid-cols-2 gap-10">
-                        <div class="col-span-2 space-y-3">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Product Name</label>
-                             <input v-model="productForm.name" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-2xl font-headline text-white focus:border-blue-500/50 outline-none transition-all" />
-                        </div>
-                        <div class="space-y-3">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Valuation (KES)</label>
-                             <input v-model="productForm.price" type="number" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-2xl font-headline text-white focus:border-blue-500/50 outline-none transition-all" />
-                        </div>
-                        <div class="space-y-3">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Category</label>
-                             <select v-model="productForm.category_id" class="w-full bg-slate-900 border border-white/5 py-5 px-6 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-400 focus:text-white outline-none cursor-pointer">
-                                <option v-for="cat in categories" :key="cat.id" :value="cat.id" class="bg-slate-950 text-white">{{ cat.name }}</option>
-                             </select>
-                        </div>
-                        <div class="col-span-2 space-y-4">
-                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Curation Brief</label>
-                             <textarea v-model="productForm.description" rows="3" class="w-full bg-slate-900 border border-white/5 rounded-sm py-6 px-8 text-sm font-body text-slate-400 focus:border-blue-500/50 transition-all placeholder:text-slate-800"></textarea>
-                        </div>
-
-                        <!-- Technical Specs -->
-                        <div class="col-span-2 mt-6 pt-10 border-t border-white/10">
-                            <p class="text-[11px] text-blue-400 tracking-[0.4em] uppercase font-bold mb-10">Technical Specifications Matrix</p>
-                            <div class="grid grid-cols-2 gap-10">
-                                <div class="space-y-3">
-                                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Batch Designation</label>
-                                     <input v-model="productForm.specifications.batch_name" placeholder="e.g. Active Batch #04" class="w-full bg-slate-900 border border-white/5 py-3 px-4 text-sm font-headline text-white focus:border-blue-500/50 outline-none" />
-                                </div>
-                                <div class="space-y-3">
-                                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Fibre Density</label>
-                                     <input v-model="productForm.specifications.fabric_weight" placeholder="e.g. 450GSM Cotton" class="w-full bg-slate-900 border border-white/5 py-3 px-4 text-sm font-headline text-white focus:border-blue-500/50 outline-none" />
-                                </div>
-                                <div class="space-y-3">
-                                     <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Mass Index (0-100)</label>
-                                     <input v-model="productForm.specifications.weight_index" type="number" class="w-full bg-slate-900 border border-white/5 py-3 px-4 text-sm font-headline text-white focus:border-blue-500/50 outline-none" />
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-8 mt-10">
-                                <div v-for="i in 4" :key="i" class="space-y-2">
-                                    <label class="text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">Metric #0{{ i }}</label>
-                                    <input v-model="productForm.specifications.tech_specs[i-1]" placeholder="Technical data literal..." class="w-full bg-transparent border-b border-white/10 py-2 text-xs font-body text-slate-400 focus:border-blue-500/80 outline-none" />
-                                </div>
-                            </div>
-                        </div>
+<!-- Product Modal: Minimalist Form -->
+        <div v-if="showAddProductModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-2xl bg-slate-950/60" @click="showAddProductModal = false">
+            <div class="relative w-full max-w-5xl bg-slate-950/95 border border-white/10 rounded-lg shadow-2xl flex flex-col lg:flex-row overflow-hidden animate-in pointer-events-auto" @click.stop>
+                
+                <!-- Form Section -->
+                <div class="flex-1 p-12 lg:p-16">
+                    <div class="flex items-center justify-between mb-12">
+                        <h2 class="font-headline text-4xl text-white italic">{{ isEditingProduct ? 'Edit Product' : 'New Product' }}</h2>
+                        <button @click="showAddProductModal = false" class="w-10 h-10 rounded-full border border-white/10 hover:bg-white/5 text-slate-500 hover:text-white transition-all flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">close</span>
+                        </button>
                     </div>
-                    <button @click="submitProduct" :disabled="productForm.processing" class="w-full py-7 mt-16 bg-blue-600 text-white rounded-sm text-[11px] font-bold uppercase tracking-[0.5em] hover:bg-blue-500 transition-all shadow-2xl shadow-blue-900/40">
-                        {{ productForm.processing ? 'SAVING...' : 'SAVE PRODUCT' }}
-                    </button>
-                </div>
-                <div class="w-full md:w-5/12 bg-slate-900 border-l border-white/10 p-10 lg:p-16 flex flex-col justify-center space-y-10">
-                    <label class="text-[11px] uppercase tracking-[0.4em] text-slate-500 font-bold">Media Repository</label>
                     
-                    <!-- Main Product Image -->
-                    <div class="aspect-[4/3] bg-slate-950 border border-dashed border-white/10 rounded-sm relative group flex items-center justify-center overflow-hidden transition-all hover:border-blue-500/30">
+                    <div class="space-y-8">
+                        <!-- Core Fields -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-3">
+                                <label class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Product Name</label>
+                                <input v-model="productForm.name" class="w-full bg-slate-900/50 border border-white/5 rounded-md px-5 py-4 text-lg font-headline text-white focus:border-blue-500/50 focus:outline-none transition-all" placeholder="Enter product name" />
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <label class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Price (KES)</label>
+                                <input v-model="productForm.price" type="number" class="w-full bg-slate-900/50 border border-white/5 rounded-md px-5 py-4 text-lg font-mono text-blue-400 focus:border-blue-500/50 focus:outline-none transition-all" placeholder="0" />
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Category</label>
+                            <select v-model="productForm.category_id" class="w-full bg-slate-900/50 border border-white/5 rounded-md px-5 py-4 text-base font-body text-slate-300 focus:border-blue-500/50 focus:outline-none cursor-pointer appearance-none">
+                                <option v-for="cat in categories" :key="cat.id" :value="cat.id" class="bg-slate-950">{{ cat.name }}</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Description</label>
+                            <textarea v-model="productForm.description" rows="3" class="w-full bg-slate-900/50 border border-white/5 rounded-md px-5 py-4 text-sm font-body text-slate-400 focus:border-blue-500/50 focus:outline-none resize-none transition-all" placeholder="Product description..."></textarea>
+                        </div>
+
+                        <!-- Toggles -->
+                        <div class="flex gap-8">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input v-model="productForm.in_stock" type="checkbox" class="w-5 h-5 rounded border border-white/20 bg-slate-900 checked:bg-blue-600 checked:border-blue-600 focus:outline-none" />
+                                <span class="text-sm text-slate-300 font-body">In Stock</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input v-model="productForm.is_customizable" type="checkbox" class="w-5 h-5 rounded border border-white/20 bg-slate-900 checked:bg-blue-600 checked:border-blue-600 focus:outline-none" />
+                                <span class="text-sm text-slate-300 font-body">Customizable</span>
+                            </label>
+                        </div>
+
+                        <button @click="submitProduct" :disabled="productForm.processing" class="w-full py-4 bg-blue-600 text-white rounded-md text-sm font-semibold uppercase tracking-wider hover:bg-blue-500 transition-all disabled:opacity-50">
+                            {{ productForm.processing ? 'Saving...' : 'Save Product' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Media Section -->
+                <div class="w-full lg:w-96 bg-slate-900/50 border-l border-white/5 p-10 lg:p-12 flex flex-col justify-center">
+                    <label class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-6 block">Product Images</label>
+                    
+                    <!-- Main Image -->
+                    <div class="aspect-[4/3] bg-slate-950 border-2 border-dashed border-white/10 rounded-lg relative group flex items-center justify-center overflow-hidden mb-6">
                         <input type="file" id="product-img" @input="productForm.image = $event.target.files[0]; productPreview = getObjectURL($event.target.files[0])" class="hidden" />
-                        <label for="product-img" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center p-12 group transition-all">
-                            <span class="material-symbols-outlined text-6xl text-slate-800 group-hover:text-blue-500 transition-colors mb-4">linked_camera</span>
-                            <p class="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em] group-hover:text-slate-400">Primary Signature Asset</p>
+                        <label for="product-img" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center text-center p-6 group">
+                            <span class="material-symbols-outlined text-5xl text-slate-700 group-hover:text-blue-500 transition-colors mb-3">add_photo_alternate</span>
+                            <p class="text-xs text-slate-600 font-medium">Primary Image</p>
                         </label>
-                        <img v-if="productForm.image" :src="getObjectURL(productForm.image)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]" />
-                        <img v-else-if="productPreview" :src="productPreview" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-[2000ms]" />
+                        <img v-if="productForm.image || productPreview" :src="productForm.image ? getObjectURL(productForm.image) : productPreview" class="absolute inset-0 w-full h-full object-cover transition-all duration-500" />
                     </div>
 
-                    <!-- Secondary Curations -->
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="aspect-square bg-slate-950 border border-dashed border-white/10 rounded-sm relative group flex items-center justify-center overflow-hidden transition-all hover:border-blue-500/30">
-                            <input type="file" id="sec-img-1" @input="productForm.secondary_image_1 = $event.target.files[0]; secondaryPreview1 = getObjectURL($event.target.files[0])" class="hidden" />
-                            <label for="sec-img-1" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center group">
-                                <span class="material-symbols-outlined text-3xl text-slate-800 group-hover:text-blue-500 transition-colors">add_photo_alternate</span>
-                                <p class="text-[8px] text-slate-600 font-bold uppercase tracking-widest mt-2">Matrix_A</p>
+                    <!-- Secondary Images -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="aspect-square bg-slate-950 border-2 border-dashed border-white/10 rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <input id="sec-img-1" type="file" @input="productForm.secondary_image_1 = $event.target.files[0]; secondaryPreview1 = getObjectURL($event.target.files[0])" class="hidden" />
+                            <label for="sec-img-1" class="absolute inset-0 cursor-pointer flex items-center justify-center text-center">
+                                <span class="material-symbols-outlined text-2xl text-slate-700 group-hover:text-blue-500 transition-colors">add</span>
                             </label>
-                            <img v-if="productForm.secondary_image_1" :src="getObjectURL(productForm.secondary_image_1)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                            <img v-else-if="secondaryPreview1" :src="secondaryPreview1" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                            <img v-if="productForm.secondary_image_1 || secondaryPreview1" :src="productForm.secondary_image_1 ? getObjectURL(productForm.secondary_image_1) : secondaryPreview1" class="absolute inset-0 w-full h-full object-cover transition-all duration-500" />
                         </div>
-                        <div class="aspect-square bg-slate-950 border border-dashed border-white/10 rounded-sm relative group flex items-center justify-center overflow-hidden transition-all hover:border-blue-500/30">
-                            <input type="file" id="sec-img-2" @input="productForm.secondary_image_2 = $event.target.files[0]; secondaryPreview2 = getObjectURL($event.target.files[0])" class="hidden" />
-                            <label for="sec-img-2" class="absolute inset-0 cursor-pointer flex flex-col items-center justify-center z-10 text-center group">
-                                <span class="material-symbols-outlined text-3xl text-slate-800 group-hover:text-blue-500 transition-colors">add_photo_alternate</span>
-                                <p class="text-[8px] text-slate-600 font-bold uppercase tracking-widest mt-2">Matrix_B</p>
+                        <div class="aspect-square bg-slate-950 border-2 border-dashed border-white/10 rounded-lg relative group flex items-center justify-center overflow-hidden">
+                            <input id="sec-img-2" type="file" @input="productForm.secondary_image_2 = $event.target.files[0]; secondaryPreview2 = getObjectURL($event.target.files[0])" class="hidden" />
+                            <label for="sec-img-2" class="absolute inset-0 cursor-pointer flex items-center justify-center text-center">
+                                <span class="material-symbols-outlined text-2xl text-slate-700 group-hover:text-blue-500 transition-colors">add</span>
                             </label>
-                            <img v-if="productForm.secondary_image_2" :src="getObjectURL(productForm.secondary_image_2)" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                            <img v-else-if="secondaryPreview2" :src="secondaryPreview2" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                            <img v-if="productForm.secondary_image_2 || secondaryPreview2" :src="productForm.secondary_image_2 ? getObjectURL(productForm.secondary_image_2) : secondaryPreview2" class="absolute inset-0 w-full h-full object-cover transition-all duration-500" />
                         </div>
                     </div>
                 </div>

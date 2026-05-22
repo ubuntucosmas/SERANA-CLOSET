@@ -64,7 +64,7 @@ watch(showLogisticsOverlay, (val) => {
 
         <div class="relative min-h-screen bg-surface-container/30">
             <!-- Cinematic Video Background -->
-            <SectionBackground video="/videos/heritage_loop.mp4" opacity="opacity-60" blur="blur-sm" />
+            <SectionBackground opacity="opacity-60" blur="blur-sm" />
 
             <main class="relative z-10 pt-24 lg:pt-32 pb-48 max-w-screen-2xl mx-auto px-4 sm:px-8">
                 <header class="mb-12 lg:mb-20 reveal">

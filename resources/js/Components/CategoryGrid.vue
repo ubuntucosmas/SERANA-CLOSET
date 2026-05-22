@@ -34,17 +34,10 @@ const getCategoryBanner = (category) => {
 
 <template>
     <section id="services" class="py-40 px-8 max-w-screen-2xl mx-auto">
-        <header class="mb-24 max-w-2xl silk-reveal">
-            <div class="flex items-center gap-4 mb-6">
-                <span class="w-12 h-px bg-primary/30"></span>
-                <span class="text-primary font-headline font-medium text-[10px] tracking-[0.4em]">The seasonal archive</span>
-            </div>
-            <h2 class="font-headline text-5xl md:text-7xl font-light dark:text-white text-on-surface tracking-tighter leading-[0.9] mb-8 uppercase">
-                Our <span class="dark:text-white/30 text-on-surface-variant">Collections_</span>
-            </h2>
-            <p class="dark:text-white/40 text-on-surface-variant font-sans text-[10px] md:text-xs max-w-lg font-light leading-loose uppercase tracking-[0.4em]">
-                A curated selection of tactical wardrobe solutions. Every piece is a commitment to precision, engineered for the absolute silhouette.
-            </p>
+<header class="mb-16 max-w-2xl">
+            <div class="slide-eyebrow mb-4">The Archive</div>
+            <h2 class="slide-title font-light tracking-tighter leading-[0.9]">Collections_</h2>
+            <p class="slide-desc mt-4 max-w-lg">Curated selections of crafted garments.</p>
         </header>
 
         <!-- Catalog Simplified Grid -->
@@ -53,8 +46,8 @@ const getCategoryBanner = (category) => {
             
             <!-- Dynamic Category Cards -->
             <article v-for="category in ($page.props.categories || [])" 
-                :key="category.id"
-                class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative anime-reveal"
+                v-reveal
+                class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative"
             >
                 <img 
                     :alt="category.name" 
@@ -71,16 +64,12 @@ const getCategoryBanner = (category) => {
             </article>
 
             <!-- 06: Custom Story (CTA) -->
-            <article class="h-[450px] bg-background border border-primary/20 rounded-sm overflow-hidden group relative silk-reveal">
-                <div class="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-center items-start">
-                    <h3 class="text-4xl font-headline font-light dark:text-white text-on-surface mb-4 leading-tight uppercase tracking-tighter">Order <br/> <span class="text-primary tracking-[0.2em] font-medium">Custom_</span></h3>
-                    <p class="text-[11px] dark:text-white/40 text-on-surface-variant font-light mb-8 max-w-xs leading-relaxed uppercase tracking-[0.3em]">
-                        Hand-carved identities. Built from scratch for your architecture.
-                    </p>
-                    <Link :href="route('custom-order')" class="bg-primary text-background px-8 py-4 rounded-sm font-headline font-medium tracking-[0.4em] text-[10px] hover:scale-105 hover:bg-white transition-all uppercase">
-                        Get started_
-                    </Link>
+            <article class="bg-[#0a0a0b]/40 border border-[#57d5fc]/14 rounded-sm overflow-hidden reveal-stagger">
+                <div class="absolute inset-0 bg-[#57d5fc]/5"></div>
+                <div class="relative inset-0 p-10 flex flex-col justify-center items-start">
+                    <h3 class="text-4xl font-display font-light dark:text-white text-on-surface mb-4 leading-tight uppercase tracking-tighter">Order <br/> <span class="text-primary tracking-[0.2em] font-medium">Custom_</span></h3>
+                    <p class="text-xs dark:text-white/40 text-on-surface-variant font-light mb-8 max-w-xs leading-relaxed tracking-[0.2em]">Hand-carved identities.</p>
+                    <Link :href="route('custom-order')" class="btn-primary px-8 py-4">Get started_</Link>
                 </div>
             </article>
             

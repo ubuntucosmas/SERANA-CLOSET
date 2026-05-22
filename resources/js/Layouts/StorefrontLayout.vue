@@ -1,11 +1,8 @@
 <template>
     <div class="min-h-screen flex flex-col bg-background selection:bg-primary selection:text-background relative overflow-hidden">
-        <!-- Global Obsidian Base Layer -->
+        <!-- Global Background -->
         <SectionBackground class="fixed !z-[-1]" opacity="opacity-5" :showScan="false" />
         
-        <!-- Studio Grain - Tactile Texture Layer -->
-        <div class="studio-grain"></div>
-
         <TopNavBar />
         <CommandPortal ref="portalRef" />
         <MobileBottomNav />
@@ -16,9 +13,8 @@
         <SitePath />
 
         <main class="flex-grow relative z-10">
-            <transition name="fade" mode="out-in" appear>
+            <transition @enter="pageEnter" @leave="pageLeave" :css="false" mode="out-in" appear>
                 <div :key="$page.url" :class="!hideMobileCard ? 'px-0 pt-16 pb-20 md:p-0 md:pt-0 md:pb-0' : ''">
-                    <!-- Unified Responsive Wrapper (Prevents Vue Slot Event Hijacking) -->
                     <div :class="!hideMobileCard ? 'mobile-floating-card md:!bg-transparent md:!border-none md:!shadow-none md:!p-0 md:!m-0' : ''">
                         <slot />
                     </div>
@@ -41,7 +37,9 @@ import PurchaseHandoff from '@/Components/PurchaseHandoff.vue';
 import ConciergeButton from '@/Components/ConciergeButton.vue';
 import CommandPortal from '@/Components/CommandPortal.vue';
 import SitePath from '@/Components/SitePath.vue';
+import Notification from '@/Components/Notification.vue';
 import { useCartStore } from '@/Stores/useCartStore';
+import { animate, stagger } from 'animejs';
 
 const props = defineProps({
     hideMobileCard: { type: Boolean, default: false }
@@ -53,21 +51,41 @@ const portalRef = ref(null);
 onMounted(() => {
     // Cart self-initializes from localStorage in useCartStore.js
 });
+
+const pageEnter = (el, done) => {
+    // Main container slide up with bounce
+    animate(el, {
+        opacity: [0, 1],
+        translateY: ['-110%', 0],
+        easing: 'bounce.out',
+        duration: 1200,
+        onComplete: () => {
+            // Then animate text words with stagger
+            const splitElements = el.querySelectorAll('.split-text');
+            if (splitElements.length > 0) {
+                animate(splitElements, {
+                    opacity: [0, 1],
+                    translateY: [30, 0],
+                    delay: stagger(30, { start: 200 }),
+                    easing: 'easeOutCubic',
+                    duration: 600,
+                    onComplete: done
+                });
+            } else {
+                done();
+            }
+        }
+    });
+};
+
+const pageLeave = (el, done) => {
+    animate(el, {
+        opacity: [1, 0],
+        translateY: [0, 20],
+        easing: 'easeInExpo',
+        duration: 400,
+        onComplete: done
+    });
+};
 </script>
 
-<style>
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 0.5s ease, transform 0.5s ease;
-}
-
-.fade-enter-from {
-    opacity: 0;
-    transform: translateY(10px);
-}
-
-.fade-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
-</style>

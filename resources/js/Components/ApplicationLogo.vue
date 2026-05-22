@@ -22,10 +22,10 @@
 
         <!-- Serana Wordmark -->
         <div class="flex flex-col">
-            <h1 class="font-headline text-sm lg:text-2xl font-black tracking-[0.3em] dark:text-white text-on-surface leading-none uppercase">
+            <h1 class="font-headline text-base lg:text-4xl font-light tracking-[0.12em] dark:text-white text-on-surface leading-none uppercase">
                 {{ $page.props.theme_settings.site_headline || 'SERANA' }}
             </h1>
-            <span class="text-[6px] font-headline font-bold uppercase tracking-[0.6em] text-primary mt-0.5">
+            <span class="text-[8px] font-mono font-medium uppercase tracking-[0.3em] text-primary mt-1">
                 {{ $page.props.theme_settings.site_headline ? 'STUDIO' : 'CLOSET' }}
             </span>
         </div>

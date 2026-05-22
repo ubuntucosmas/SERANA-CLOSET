@@ -8,8 +8,10 @@ import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import { usePulseStore } from '@/Stores/usePulseStore';
 
 const page = usePage();
+const pulse = usePulseStore();
 const showMobileSummary = ref(false);
 const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}?text=Hello%2C%20I've%20just%20placed%20order%20%23${orderId.value}%20and%20I'd%20like%20to%20complete%20payment.`);
 
@@ -59,14 +61,14 @@ async function handlePayment() {
                 isSuccess.value = true;
                 cart.clearBag();
             }
-            window.dispatchEvent(new CustomEvent('serana-toast', { detail: { message: 'Order created successfully.', type: 'success' } }));
+            pulse.emit('Order created successfully.', 'success');
         }
     } catch (err) {
         console.error(err);
         if (err.response?.data?.errors) {
-            alert('Please check the form:\n' + Object.values(err.response.data.errors).map(e => e.join(', ')).join('\n'));
+            pulse.emit('Validation Error: Please check the form.', 'error');
         } else {
-            alert(err.response?.data?.message || 'Order processing failed.');
+            pulse.emit(err.response?.data?.message || 'Order processing failed.', 'error');
         }
     } finally {
         isProcessing.value = false;
@@ -82,13 +84,13 @@ async function initiateMpesaStk(data) {
             amount: data.amount
         });
         if (response.data.success) {
-            window.dispatchEvent(new CustomEvent('serana-toast', { detail: { message: 'STK Push sent to your phone.', type: 'info' } }));
+            pulse.emit('STK Push sent to your phone.', 'success');
             isWaitingForStk.value = true;
             startPolling();
         }
     } catch (err) {
         console.error(err);
-        alert('Failed to initiate M-Pesa payment. Please check your phone number and try again.');
+        pulse.emit('Failed to initiate M-Pesa payment.', 'error');
     } finally {
         isProcessing.value = false;
     }
@@ -103,7 +105,7 @@ function startPolling() {
         if (attempts > maxAttempts) {
             clearInterval(pollingInterval);
             isWaitingForStk.value = false;
-            alert('Payment verification timed out. Contact support with your Order ID.');
+            pulse.emit('Payment verification timed out. Contact support.', 'error');
             return;
         }
         try {
@@ -118,7 +120,7 @@ function startPolling() {
                 frozenItems.value = [...cart.items];
                 frozenTotal.value = cart.totalPrice;
                 cart.clearBag();
-                window.dispatchEvent(new CustomEvent('serana-toast', { detail: { message: 'Payment Verified! Your order is now in production.', type: 'success' } }));
+                pulse.emit('Payment Verified! Your order is now in production.', 'success');
             }
         } catch (err) { console.error('Polling error:', err); }
     }, 5000);

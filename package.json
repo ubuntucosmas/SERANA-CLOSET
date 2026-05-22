@@ -23,6 +23,7 @@
     "dependencies": {
         "@tailwindcss/container-queries": "^0.1.1",
         "animejs": "^4.3.6",
+        "gsap": "^3.15.0",
         "pinia": "^3.0.4"
     }
 }

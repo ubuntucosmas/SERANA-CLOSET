@@ -1,79 +1,122 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { watch, onMounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import { usePulseStore } from '@/Stores/usePulseStore';
+import { animate } from 'animejs';
 
 const page = usePage();
-const show = ref(false);
-const message = ref('');
-const type = ref('success');
+const pulse = usePulseStore();
 
-const hideTimeout = ref(null);
-
-function trigger(msg, t = 'success') {
-    message.value = msg;
-    type.value = t;
-    show.value = true;
-    
-    if (hideTimeout.value) clearTimeout(hideTimeout.value);
-    hideTimeout.value = setTimeout(() => {
-        show.value = false;
-    }, 5000);
-}
-
-// Watch for Inertia Flash messages
+// Watch for Inertia Flash messages and pipe them to Pulse
 watch(() => page.props.flash, (flash) => {
-    if (flash?.success) trigger(flash.success, 'success');
-    if (flash?.error) trigger(flash.error, 'error');
+    if (flash?.success) pulse.emit(flash.success, 'success');
+    if (flash?.error) pulse.emit(flash.error, 'error');
 }, { deep: true, immediate: true });
 
 onMounted(() => {
-    if (page.props.flash?.success) trigger(page.props.flash.success, 'success');
-    if (page.props.flash?.error) trigger(page.props.flash.error, 'error');
-
+    // Legacy support for custom event
     window.addEventListener('serana-toast', (e) => {
-        trigger(e.detail.message, e.detail.type || 'success');
+        pulse.emit(e.detail.message, e.detail.type || 'success');
     });
 });
+
+const enterAnimation = (el, done) => {
+    animate(el, {
+        translateX: [400, 0],
+        opacity: [0, 1],
+        easing: 'spring(1, 80, 10, 0)',
+        duration: 800,
+        onComplete: done
+    });
+    
+    // Glitch effect on entry
+    animate(el.querySelector('.glitch-overlay'), {
+        opacity: [0, 0.5, 0],
+        translateX: [-5, 5, 0],
+        duration: 200,
+        easing: 'easeInOutQuad'
+    });
+};
+
+const leaveAnimation = (el, done) => {
+    animate(el, {
+        translateX: [0, 400],
+        opacity: [1, 0],
+        easing: 'easeInOutExpo',
+        duration: 500,
+        onComplete: done
+    });
+};
 </script>
 
 <template>
-    <div class="fixed top-8 right-8 z-[200] pointer-events-none space-y-4">
-        <transition 
-            enter-active-class="transform transition ease-out duration-500" 
-            enter-from-class="translate-y-[-100%] opacity-0 scale-95" 
-            enter-to-class="translate-y-0 opacity-100 scale-100" 
-            leave-active-class="transition ease-in duration-300" 
-            leave-from-class="opacity-100 scale-100" 
-            leave-to-class="opacity-0 scale-95"
+    <div class="fixed top-8 right-8 z-[200] pointer-events-none flex flex-col gap-3 items-end">
+        <transition-group 
+            @enter="enterAnimation" 
+            @leave="leaveAnimation"
+            :css="false"
         >
-            <div v-if="show" 
-                 class="pointer-events-auto min-w-[320px] bg-surface-container/80 backdrop-blur-2xl border dark:border-white/10 border-black/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-4 group">
-                
-                <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                     :class="type === 'success' ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400'">
-                    <span class="material-symbols-outlined text-xl">
-                        {{ type === 'success' ? 'verified' : 'error' }}
-                    </span>
-                </div>
-                
-                <div class="flex-1">
-                    <p class="text-[10px] font-headline uppercase tracking-widest font-black"
-                       :class="type === 'success' ? 'text-primary' : 'text-red-400'">
-                        {{ type === 'success' ? 'Success' : 'Alert' }}
-                    </p>
-                    <p class="text-xs dark:text-white text-on-surface font-medium leading-relaxed mt-0.5">
-                        {{ message }}
-                    </p>
+            <div 
+                v-for="note in pulse.notifications" 
+                :key="note.id"
+                class="pointer-events-auto w-80 md:w-96 bg-surface/90 backdrop-blur-xl border border-white/5 p-4 rounded-sm shadow-[0_15px_40px_rgba(0,0,0,0.6)] relative overflow-hidden group"
+            >
+                <!-- Tech-Noir Scanner Element -->
+                <div class="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div class="scanner-line h-full w-[1px] bg-primary/20 absolute left-0 animate-scan"></div>
+                    <div class="glitch-overlay absolute inset-0 bg-primary/5 opacity-0"></div>
                 </div>
 
-                <button @click="show = false" class="text-on-surface-variant hover:dark:text-white text-on-surface transition-colors">
-                    <span class="material-symbols-outlined text-sm">close</span>
-                </button>
+                <div class="flex items-start gap-4 relative z-10">
+                    <div 
+                        class="w-10 h-10 shrink-0 border border-white/10 flex items-center justify-center bg-black/40"
+                        :class="note.type === 'success' ? 'text-primary' : 'text-red-500'"
+                    >
+                        <span class="material-symbols-outlined text-lg">
+                            {{ note.type === 'success' ? 'dynamic_feed' : 'warning' }}
+                        </span>
+                    </div>
+
+                    <div class="flex-1 space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[8px] font-bold tracking-[0.4em] uppercase" :class="note.type === 'success' ? 'text-primary' : 'text-red-500'">
+                                SYSTEM_LOG // {{ note.type === 'success' ? '001' : 'ERR' }}
+                            </span>
+                            <button @click="pulse.remove(note.id)" class="text-white/20 hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-white/80 font-medium leading-relaxed font-mono">
+                            {{ note.message }}
+                        </p>
+                    </div>
+                </div>
 
                 <!-- Luminous Progress Bar -->
-                <div class="absolute bottom-0 left-0 h-[1px] bg-primary transition-all duration-[5000ms] ease-linear"
-                     :style="{ width: show ? '100%' : '0%' }"></div>
+                <div class="absolute bottom-0 left-0 h-[1px] bg-primary/40 w-full origin-left animate-timer"></div>
             </div>
-        </transition>
+        </transition-group>
     </div>
 </template>
+
+<style scoped>
+@keyframes scan {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(384px); }
+}
+.animate-scan {
+    animation: scan 3s linear infinite;
+}
+
+@keyframes timer {
+    0% { transform: scaleX(1); }
+    100% { transform: scaleX(0); }
+}
+.animate-timer {
+    animation: timer 5s linear forwards;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+</style>

@@ -4,35 +4,82 @@
 
 @layer base {
     :root {
-        --background: #f0ede4;
-        /* Muted Parchment */
-        --on-background: #000000;
-        /* Absolute Ink */
-        --surface: #f8f5f0;
-        --on-surface: #000000;
-        --surface-container: #e6e0d5;
-        --on-surface-variant: #1a1a1a;
-        --primary: #af8d66;
-        --primary-alt: #212bab;
-        --outline-variant: #ded7cb;
-        --white: #ffffff;
-        --black: #000000;
+        /* WOODNORK Dark Luxury Palette — adapted for Serana Closet */
+        --bg-primary:       #0a0a0b;
+        --bg-glass:         rgba(10, 10, 11, 0.85);
+        --bg-card:          rgba(255, 255, 255, 0.04);
+        --bg-card-hover:    rgba(87, 213, 252, 0.06);
+
+        /* Legacy mappings for existing components */
+        --background:       #0a0a0b;
+        --on-background:    #e5e2e3;
+        --surface:          #131313;
+        --on-surface:       #e5e2e3;
+        --surface-container:#1c1b1b;
+        --on-surface-variant:#c5c5d4;
+
+        /* Text */
+        --text-primary:     #e5e2e3;
+        --text-muted:       rgba(229, 226, 227, 0.58);
+        --text-ghost:       rgba(229, 226, 227, 0.26);
+        --text-faint:       rgba(229, 226, 227, 0.17);
+
+        /* Accent — Electric Cyan (single accent rule) */
+        --accent:           #57d5fc;
+        --accent-rgb:       87, 213, 252;
+        --accent-hover:     #b6ebff;
+        --accent-glow:      rgba(87, 213, 252, 0.45);
+        --accent-glow-soft: rgba(87, 213, 252, 0.2);
+
+        /* Borders */
+        --border:           rgba(87, 213, 252, 0.14);
+        --border-mid:       rgba(87, 213, 252, 0.28);
+        --border-hover:     rgba(87, 213, 252, 0.50);
+        --border-active:    #57d5fc;
+
+        /* Legacy */
+        --primary:          #57d5fc;
+        --primary-alt:      #b6ebff;
+        --outline-variant:  #454652;
+
+        /* Fonts */
+        --font-display:     'Bodoni Moda', serif;
+        --font-body:        'Manrope', sans-serif;
+        --font-mono:        'JetBrains Mono', monospace;
+
+        /* Spacing */
+        --section-pad:      7vw;
+        --card-pad:         20px 16px;
+        --btn-pad:          13px 28px;
+
+        /* Radii — sharp luxury */
+        --radius-sm:        2px;
+        --radius-md:        4px;
+        --radius-lg:        6px;
+        --radius-round:     50%;
+
+        /* Easings */
+        --ease-snap:    cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+        --ease-quick:   0.22s;
+        --ease-mid:     0.35s;
+        --ease-slow:    0.5s;
 
         font-weight: 300;
-        /* Slim & Sharp */
         letter-spacing: 0.01em;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
 
     .dark {
-        --background: #050505;
-        --on-background: #e5e2e1;
+        /* All dark by default for luxury */
+        --background: #0a0a0b;
+        --on-background: #e5e2e3;
         --surface: #131313;
-        --on-surface: #e5e2e1;
+        --on-surface: #e5e2e3;
         --surface-container: #1c1b1b;
         --on-surface-variant: #c5c5d4;
-        --primary: #b9c3ff;
+        --primary: #57d5fc;
         --outline-variant: #454652;
     }
 
@@ -48,113 +95,78 @@
         transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
     }
 
-    /* Mobile-first High-Density Typography */
+    /* WOODNORK Typography System — Dark Luxury */
     body {
-        font-family: 'Manrope', sans-serif;
-        font-weight: 500;
-        /* Heavier for light mode clarity */
-        line-height: 1.6;
-        letter-spacing: -0.01em;
-        /* Tighter for clarity */
-        color: var(--on-surface);
-        background-color: var(--background);
+        font-family: var(--font-body);
+        font-weight: 400;
+        line-height: 1.82;
+        letter-spacing: 0.01em;
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
         font-size: 15px;
     }
 
     @media (min-width: 768px) {
         body {
             font-size: 16px;
-            line-height: 1.75;
-            letter-spacing: 0.02em;
+            line-height: 1.82;
+            letter-spacing: 0.01em;
         }
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-        font-family: 'Noto Serif', serif;
-        font-weight: 600;
+    /* Slide / Display titles — Bodoni only for drama */
+    .slide-title,
+    h1, h2 {
+        font-family: var(--font-display);
+        font-weight: 700;
+        line-height: 1.07;
         letter-spacing: -0.02em;
-        /* Tighter for mobile */
+        color: var(--text-primary);
+    }
+
+    h1 { font-size: clamp(1.9rem, 3.8vw, 3.8rem); }
+    h2 { font-size: clamp(1.6rem, 3vw, 2.8rem); }
+
+    h3, h4, h5, h6 {
+        font-family: var(--font-display);
+        font-weight: 600;
         line-height: 1.1;
     }
 
-    h1 {
-        font-size: clamp(1.75rem, 5vw, 3rem);
-    }
-
-    h2 {
-        font-size: clamp(1.5rem, 4vw, 2.25rem);
-    }
-
-    h3 {
-        font-size: clamp(1.25rem, 3vw, 1.75rem);
-    }
-
-    p {
-        font-family: 'Manrope', sans-serif;
+    /* Body copy */
+    p, .slide-desc {
+        font-family: var(--font-body);
         font-weight: 400;
-        line-height: 1.6;
+        font-size: clamp(.82rem, 1.1vw, .96rem);
+        color: var(--text-muted);
+        line-height: 1.82;
     }
 
-    @media (min-width: 768px) {
-
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6 {
-            letter-spacing: -0.01em;
-        }
-
-        p {
-            line-height: 1.75;
-        }
-    }
-
-    label,
-    small,
-    figcaption {
-        font-family: 'Manrope', sans-serif;
-        font-weight: 500;
-        letter-spacing: 0.05em;
-        /* Tighter than before for clarity on small screens */
-        font-size: 12px;
-    }
-
-    @media (min-width: 768px) {
-
-        label,
-        small,
-        figcaption {
-            letter-spacing: 0.08em;
-            font-size: inherit;
-        }
-    }
-
-    input,
-    textarea,
-    select {
-        font-family: 'Manrope', sans-serif;
+    /* Mono UI voice for labels, tags, nav, counters */
+    .mono, label, .tag, .eyebrow, button, .nav-text {
+        font-family: var(--font-mono);
         font-weight: 400;
-        font-size: 16px;
-        /* Prevent iPhone zoom on focus */
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+    }
+
+    /* Legacy high-density rules retained for mobile but using new vars */
+    label, small, figcaption {
+        font-family: var(--font-mono);
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        font-size: 11px;
+    }
+
+    input, textarea, select {
+        font-family: var(--font-body);
+        font-weight: 400;
     }
 
     button {
-        font-family: 'Manrope', sans-serif;
+        font-family: var(--font-mono);
         font-weight: 600;
-        letter-spacing: 0.04em;
-    }
-
-    @media (min-width: 768px) {
-        button {
-            letter-spacing: 0.08em;
-        }
+        letter-spacing: 0.08em;
     }
 
     * {
@@ -173,17 +185,6 @@
     .dark .glass-panel {
         background-color: rgba(0, 0, 0, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* Studio Grain Layer - Only visible in Light Mode */
-    .studio-grain {
-        @apply fixed inset-0 pointer-events-none opacity-[0.03] z-[1];
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    }
-
-    .dark .studio-grain {
-        @apply opacity-[0.01];
-        /* More subtle noise for dark mode */
     }
 
     /* Global Mobile High-Density Card */
@@ -214,13 +215,13 @@
         }
     }
 
-    .serif-text {
-        font-family: 'Noto Serif', serif;
+    .serif-text, .display-text {
+        font-family: var(--font-display);
+        font-weight: 700;
     }
 
     .text-muted {
-        color: var(--on-surface-variant);
-        opacity: 0.6;
+        color: var(--text-muted);
     }
 
     .border-subtle {
@@ -266,7 +267,218 @@
         font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
     }
 
-    .glow-indigo {
-        box-shadow: 0 0 40px rgba(138, 157, 255, 0.15);
+    .glow-indigo, .luminous-glow {
+        box-shadow: 0 0 40px var(--accent-glow);
+        text-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    /* ===================== WOODNORK UI COMPONENTS ===================== */
+
+    /* Glass Nav Button */
+    .nav-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-round);
+        border: 1px solid var(--border-mid);
+        background: var(--bg-glass);
+        backdrop-filter: blur(10px);
+        color: var(--accent);
+        transition: all var(--ease-quick);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .nav-btn:hover {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+        transform: translateY(-2px);
+    }
+
+    /* Glassmorphism Card */
+    .svc-card, .glass-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: var(--card-pad);
+        transition: border-color .3s, background .3s;
+    }
+    .svc-card:hover, .glass-card:hover {
+        border-color: var(--border-hover);
+        background: var(--bg-card-hover);
+    }
+
+    /* Primary Button (cyan fill) */
+    .btn-primary {
+        background: var(--accent);
+        color: var(--bg-primary);
+        padding: var(--btn-pad);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        transition: background .25s;
+        display: inline-block;
+        text-align: center;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    /* Outline Button */
+    .btn-outline {
+        border: 1px solid var(--border-hover);
+        color: var(--accent);
+        padding: var(--btn-pad);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
+        transition: border-color .25s, background .25s;
+        display: inline-block;
+    }
+    .btn-outline:hover {
+        border-color: var(--accent);
+        background: rgba(87, 213, 252, 0.06);
+    }
+
+    /* Mono Tag / Badge */
+    .tag {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        border: 1px solid var(--border-mid);
+        color: var(--accent);
+        padding: 4px 9px;
+        border-radius: var(--radius-sm);
+        display: inline-block;
+    }
+
+    /* Eyebrow label with accent line */
+    .slide-eyebrow {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: .26em;
+        text-transform: uppercase;
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .slide-eyebrow::before {
+        content: '';
+        width: 24px;
+        height: 1px;
+        background: var(--accent);
+    }
+
+    /* Active Thumbnail */
+    .gthumb {
+        border: 2px solid transparent;
+        opacity: 0.35;
+        transform: scale(0.92);
+        filter: grayscale(60%) brightness(0.8);
+        transition: all 0.5s var(--ease-spring);
+    }
+    .gthumb.active {
+        border-color: var(--accent);
+        opacity: 1;
+        transform: scale(1.05) translateY(-5px);
+        filter: none;
+        box-shadow: 0 10px 20px var(--accent-glow);
+    }
+    .gthumb:hover:not(.active) {
+        opacity: 0.8;
+        transform: scale(0.98) translateY(-2px);
+        filter: grayscale(20%) brightness(0.95);
+    }
+
+    /* Progress Bar */
+    .img-progress {
+        height: 2px;
+        background: rgba(255,255,255,.07);
+        border-radius: 1px;
+        overflow: hidden;
+    }
+    .img-progress-bar {
+        height: 100%;
+        background: var(--accent);
+        width: 0%;
+        border-radius: 1px;
+        transition: width 0.3s linear;
+    }
+
+    /* Text reveal animation for slow motion staggered entrance */
+    .text-reveal {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(30px);
+        transition: none;
+    }
+    .text-reveal.animate {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Split text container for word animation */
+    .split-text {
+        display: inline-block;
+    }
+    .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(229,226,227,.15);
+        transition: all .3s;
+    }
+    .dot.active {
+        background: var(--accent);
+        transform: scale(1.7);
+    }
+
+    /* Company name lockup style */
+    .company-name {
+        font-family: var(--font-body);
+        font-size: clamp(1.4rem, 2.8vw, 2.6rem);
+        font-weight: 200;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        text-shadow: 0 0 40px var(--accent-glow), 0 0 80px var(--accent-glow-soft);
+    }
+
+    /* Cover hero title ultra light */
+    .cover .slide-title {
+        font-family: var(--font-body);
+        font-weight: 200;
+        font-size: clamp(2.8rem, 7vw, 6.5rem);
+    }
+
+    /* Full bleed slide bg overlay */
+    .slide-bg::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            135deg,
+            rgba(10, 10, 11, .97) 0%,
+            rgba(10, 10, 11, .80) 45%,
+            rgba(10, 10, 11, .55) 100%
+        ),
+        linear-gradient(0deg, rgba(10, 10, 11, .70) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    /* Left panel fade for split layouts */
+    .split-left {
+        background: linear-gradient(90deg, #0a0a0b 80%, rgba(10, 10, 11, 0) 100%);
+    }
+
+    /* Gallery nav hover zone */
+    .gallery-nav {
+        background: linear-gradient(90deg, rgba(10,10,11,.45) 0%, transparent 100%);
     }
 }

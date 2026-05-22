@@ -19,8 +19,8 @@
             <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
         @endif
         
-        <!-- Serana Brand Fonts — Atelier Edition -->
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+        <!-- Serana Brand Fonts — WOODNORK Dark Luxury System -->
+        <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400..900&family=Manrope:wght@200..800&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet" />
 
         <!-- Material Symbols (Icons) -->
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -29,8 +29,9 @@
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
+        <meta name="csrf-token" content="{{ csrf_token() }}">
     </head>
-    <body class="font-body font-light antialiased bg-[#050505] text-[#e5e2e1] selection:bg-[#B9C3FF]/20 selection:text-[#092484]">
+    <body class="font-body antialiased bg-[#0a0a0b] text-[#e5e2e3] selection:bg-[#57d5fc]/20 selection:text-[#0a0a0b]">
         @inertia
     </body>
 </html>

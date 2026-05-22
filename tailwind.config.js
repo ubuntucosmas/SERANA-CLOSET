@@ -31,9 +31,10 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Noto Serif", ...defaultTheme.fontFamily.serif],
+                "headline": ["Bodoni Moda", ...defaultTheme.fontFamily.serif],
                 "body": ["Manrope", ...defaultTheme.fontFamily.sans],
-                "label": ["Manrope", ...defaultTheme.fontFamily.sans]
+                "label": ["JetBrains Mono", ...defaultTheme.fontFamily.mono],
+                "mono": ["JetBrains Mono", ...defaultTheme.fontFamily.mono]
             },
             borderRadius: {
                 "DEFAULT": "0px",

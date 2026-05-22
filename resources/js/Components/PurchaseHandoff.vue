@@ -37,7 +37,7 @@ const goToWhatsApp = () => {
             <div class="absolute inset-0 bg-background/80 backdrop-blur-xl" @click="close"></div>
 
             <!-- Panel -->
-            <div class="relative w-full max-w-md bg-surface border border-primary/20 rounded-2xl shadow-2xl overflow-hidden anime-reveal">
+            <div v-reveal class="relative w-full max-w-md bg-surface border border-primary/20 rounded-2xl shadow-2xl overflow-hidden">
                 <div class="p-8 space-y-8">
                     <!-- Header -->
                     <div class="flex justify-between items-start">

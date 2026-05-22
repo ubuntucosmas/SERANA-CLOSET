@@ -58,29 +58,13 @@ onMounted(() => {
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-[100svh] lg:min-h-[750px] overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
-        
-        <!-- Refined Alternating Background Layer -->
+    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-screen overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
+        <!-- Background Image -->
         <div class="absolute inset-0 z-0 overflow-hidden">
             <transition name="fade-extreme">
-                <img 
-                    :key="dynamicBackgrounds[currentBgIndex]"
-                    :src="dynamicBackgrounds[currentBgIndex]" 
-                    class="absolute inset-0 w-full h-full object-cover scale-110 opacity-30 blur-[2px] grayscale brightness-50" 
-                    alt="Serana Studio Tectonic" 
-                />
+                <img :key="dynamicBackgrounds[currentBgIndex]" :src="dynamicBackgrounds[currentBgIndex]" class="absolute inset-0 w-full h-full object-cover scale-110 opacity-20 blur-[1px] grayscale" alt="Serana Studio" />
             </transition>
-
-            <!-- Soft gradient overlay -->
-            <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10"></div>
-
-            <!-- Subtle luxury tint -->
-            <div class="absolute inset-0 bg-[#0c2d48]/20 z-20"></div>
-
-            <!-- Elegant scan effect -->
-            <div class="absolute inset-0 pointer-events-none overflow-hidden z-30">
-                <div class="w-full h-[1px] bg-white/5 absolute top-0 animate-scan"></div>
-            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
         </div>
 
         <!-- Hero Content (Grid Layout) -->
@@ -108,10 +92,10 @@ onMounted(() => {
 
                     <!-- Actions -->
                     <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-4 lg:pt-6">
-                        <Link :href="route('custom-order')" class="flex-grow sm:flex-grow-0 text-center bg-primary text-background px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white transition-all duration-700 active:scale-95 shadow-[0_0_40_rgba(57,255,20,0.15)]">
+                        <Link :href="route('custom-order')" class="btn-primary flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
                             Start Order
                         </Link>
-                        <Link :href="route('shop')" class="flex-grow sm:flex-grow-0 text-center bg-white/5 backdrop-blur-3xl dark:text-white text-on-surface border dark:border-white/10 border-black/10 px-8 lg:px-14 py-5 lg:py-6 rounded-sm font-headline font-medium text-[10px] lg:text-[11px] tracking-[0.4em] hover:bg-white/10 transition-all duration-700 active:scale-95">
+                        <Link :href="route('shop')" class="btn-outline flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
                             Open Shop
                         </Link>
                     </div>

@@ -24,7 +24,7 @@
             font-weight: bold;
             letter-spacing: 5px;
             text-transform: uppercase;
-            color: #b9c3ff;
+            color: #57d5fc;
         }
         .receipt-title {
             font-size: 10px;
@@ -45,7 +45,7 @@
             font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 2px;
-            color: #b9c3ff;
+            color: #57d5fc;
             margin-bottom: 5px;
             font-weight: bold;
         }
@@ -65,7 +65,7 @@
             letter-spacing: 2px;
             border-bottom: 1px solid #333;
             padding: 10px 0;
-            color: #b9c3ff;
+            color: #57d5fc;
         }
         .table td {
             padding: 15px 0;
@@ -78,7 +78,7 @@
         .total-amount {
             font-size: 28px;
             font-weight: bold;
-            color: #b9c3ff;
+            color: #57d5fc;
             margin-top: 5px;
         }
         .mpesa-badge {

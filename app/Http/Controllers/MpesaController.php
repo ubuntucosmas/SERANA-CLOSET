@@ -69,11 +69,26 @@ class MpesaController extends Controller
     /**
      * M-Pesa Callback
      * Safaricom sends the final transaction result here asynchronously.
+     * Logic: 1. Log raw payload for audit
+     *        2. Identify order by CheckoutRequestID
+     *        3. Check for idempotency (prevent double processing)
+     *        4. Update order & dispatch event
      */
     public function callback(Request $request)
     {
         $payload = $request->all();
-        Log::info("M-Pesa Callback Data", $payload);
+        
+        // 1. Audit Trail
+        Log::info("M-Pesa Callback Received", [
+            'payload' => $payload,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        if (!isset($payload['Body']['stkCallback'])) {
+            Log::error("M-Pesa Callback: Malformed payload missing Body.stkCallback");
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
+        }
 
         $stkCallback = $payload['Body']['stkCallback'];
         $resultCode = $stkCallback['ResultCode'];
@@ -81,30 +96,43 @@ class MpesaController extends Controller
 
         $order = CustomOrder::where('mpesa_checkout_id', $checkoutRequestID)->first();
 
-        if ($order) {
-            if ($resultCode == 0) {
-                // SUCCESS
-                $receiptNumber = null;
-                $items = $stkCallback['CallbackMetadata']['Item'] ?? [];
-                foreach ($items as $item) {
-                    if ($item['Name'] === 'MpesaReceiptNumber') {
-                        $receiptNumber = $item['Value'];
-                    }
-                }
-
-                $order->update([
-                    'is_paid' => true,
-                    'status' => 'Paid',
-                    'mpesa_receipt_number' => $receiptNumber
-                ]);
-                Log::info("M-Pesa Payment Successful for Order #{$order->id}. Receipt: $receiptNumber");
-            } else {
-                // FAILED / CANCELLED
-                $order->update(['status' => 'Payment Failed']);
-                Log::warning("M-Pesa Payment Failed for Order #{$order->id}. Code: $resultCode");
-            }
-        } else {
+        if (!$order) {
             Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Order Not Found']);
+        }
+
+        // 2. Idempotency Check
+        if ($order->is_paid || $order->status === 'Paid') {
+            Log::info("M-Pesa Callback: Order #{$order->id} already processed. Skipping.");
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already Processed']);
+        }
+
+        // 3. Process Result
+        if ($resultCode == 0) {
+            // SUCCESS
+            $receiptNumber = null;
+            $items = $stkCallback['CallbackMetadata']['Item'] ?? [];
+            foreach ($items as $item) {
+                if ($item['Name'] === 'MpesaReceiptNumber') {
+                    $receiptNumber = $item['Value'];
+                }
+            }
+
+            $order->update([
+                'is_paid' => true,
+                'status' => 'Paid',
+                'mpesa_receipt_number' => $receiptNumber
+            ]);
+
+            Log::info("M-Pesa Payment Successful for Order #{$order->id}. Receipt: $receiptNumber");
+            
+            // 4. Dispatch Event for downstream logic (Notifications, Studio Pulse, etc.)
+            event(new \App\Events\MpesaWebhookHandled($order, $payload));
+
+        } else {
+            // FAILED / CANCELLED (Codes like 1032 are common for user cancellation)
+            $order->update(['status' => 'Payment Failed']);
+            Log::warning("M-Pesa Payment Failed for Order #{$order->id}. Code: $resultCode");
         }
         
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);

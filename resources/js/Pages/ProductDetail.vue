@@ -5,44 +5,24 @@ import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { useCurrency } from '@/Composables/useCurrency';
 
+import { useWhatsApp } from '@/Composables/useWhatsApp';
+import { usePulseStore } from '@/Stores/usePulseStore';
+
 const page = usePage();
 const { formatAmount } = useCurrency();
+const { getWhatsAppUrl } = useWhatsApp();
+const pulse = usePulseStore();
 
 const props = defineProps({
     product: Object
 });
 
 const whatsappUrl = computed(() => {
-    const baseUrl = window.location.origin;
-    const imageUrl = props.product.image_url.startsWith('http') ? props.product.image_url : `${baseUrl}/${props.product.image_url.replace(/^\//, '')}`;
-    
-    let variantMetadata = '';
-    if (props.product.garment_type === 'set') {
-        variantMetadata = `• Configuration: FULL SET\n• Hoodie Size: ${selectedTopSize.value || 'Unselected'}\n• Jogger Size: ${selectedBottomSize.value || 'Unselected'}`;
-    } else if (props.product.garment_type === 'hoodie') {
-        variantMetadata = `• Configuration: SINGLE HOODIE\n• Size: ${selectedTopSize.value || 'Unselected'}`;
-    } else if (props.product.garment_type === 'jogger') {
-        variantMetadata = `• Configuration: SINGLE JOGGER\n• Size: ${selectedBottomSize.value || 'Unselected'}`;
-    }
-
-    const message = `🏁 *NEW ORDER ENQUIRY* 🏁\n\n` +
-                    `*[ 01: ITEM ]*\n` +
-                    `• Name: ${props.product.name}\n` +
-                    `${variantMetadata}\n` +
-                    `• Price: ${formatAmount(props.product.price, page.props)}\n\n` +
-                    `*[ 02: REFERENCE ]*\n` +
-                    `• URL: ${window.location.href}\n` +
-                    `• Image: ${imageUrl}\n\n` +
-                    `--------------------------\n` +
-                    `I'm interested in this piece. Can you help me with the purchase?\n` +
-                    `Sent via Serana Studio.`;
-
-    return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
+    return getWhatsAppUrl(props.product, {
+        topSize: selectedTopSize.value,
+        bottomSize: selectedBottomSize.value
+    }, page.props);
 });
-
-const rawurlencode = (str) => {
-    return encodeURIComponent(str).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-};
 
 const cart = useCartStore();
 const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
@@ -85,20 +65,14 @@ const addToBag = () => {
                 ? 'both hoodie & jogger sizes' 
                 : (!selectedTopSize.value ? 'hoodie size' : 'jogger size');
                 
-            window.dispatchEvent(new CustomEvent('serana-toast', {
-                detail: { message: `Please select ${missing} to add the set to your bag.`, type: 'error' }
-            }));
+            pulse.emit(`Please select ${missing} to add the set to your bag.`, 'error');
             return;
         }
     } else if ((isHoodie || isGeneric) && !selectedTopSize.value && activeComponent.value === 'hoodie') {
-        window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `Please select a size for your ${uiElements.value?.piece_1_name || 'piece'}.`, type: 'error' }
-        }));
+        pulse.emit(`Please select a size for your ${uiElements.value?.piece_1_name || 'piece'}.`, 'error');
         return;
     } else if ((isJogger || isGeneric) && !selectedBottomSize.value && activeComponent.value === 'joggers') {
-        window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `Please select a size for your ${uiElements.value?.piece_2_name || 'piece'}.`, type: 'error' }
-        }));
+        pulse.emit(`Please select a size for your ${uiElements.value?.piece_2_name || 'piece'}.`, 'error');
         return;
     }
     
@@ -107,9 +81,7 @@ const addToBag = () => {
         const available = props.product.batch_limit - (props.product.batch_sold || 0);
         const currentQty = cart.items.find(item => item.id === props.product.id)?.quantity ?? 0;
         if (currentQty >= available) {
-            window.dispatchEvent(new CustomEvent('serana-toast', {
-                detail: { message: `Batch extraction limit reached. No more stock available.`, type: 'error' }
-            }));
+            pulse.emit(`Batch extraction limit reached. No more stock available.`, 'error');
             return;
         }
     }
@@ -128,9 +100,7 @@ const addToBag = () => {
         cart.addItem(itemToBag);
     } catch (e) {
         console.error("Cart addition failed:", e);
-        window.dispatchEvent(new CustomEvent('serana-toast', {
-            detail: { message: `System Error: Unable to sequence item to cart.`, type: 'error' }
-        }));
+        pulse.emit(`System Error: Unable to sequence item to cart.`, 'error');
     }
 };
 

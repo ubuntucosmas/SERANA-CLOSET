@@ -1,14 +1,14 @@
 <template>
-    <nav
-        class="fixed top-0 w-full z-50 transition-all duration-300"
-        :class="scrolled ? 'bg-background/95 backdrop-blur-3xl shadow-2xl border-b border-black/5 dark:border-white/5' : 'bg-transparent pt-4'"
-    >
-        <div class="flex items-center justify-between px-4 py-2 md:py-4 lg:px-12 w-full max-w-[1920px] mx-auto relative h-full">
+<nav
+    class="fixed top-0 w-full z-50 transition-all duration-300"
+    :class="scrolled ? 'bg-background/95 backdrop-blur-3xl shadow-[0_4px_6px_-1px_rgb(0 0 0 / 0.1),0_2px_4px_-1px_rgb(0 0 0 / 0.06)] border-b border-black/5 dark:border-white/5' : 'bg-transparent pt-10'"
+>
+    <div class="flex items-center justify-between px-8 py-8 md:py-10 lg:px-16 w-full max-w-[2200px] mx-auto relative h-full">
 
             <!-- 1. Left Vector: Brand & Pulse -->
             <div class="flex items-center gap-10 relative z-20">
-                <Link :href="route('home')" class="flex-shrink-0">
-                    <ApplicationLogo class="[&_h1]:text-2xl md:[&_h1]:text-3xl" />
+<Link :href="route('home')" class="flex-shrink-0">
+                     <ApplicationLogo class="[&_h1]:text-3xl md:[&_h1]:text-4xl" />
                 </Link>
             </div>
 
@@ -27,7 +27,7 @@
                         <span class="material-symbols-outlined text-[12px] opacity-40 group-hover:rotate-180 transition-transform duration-300">keyboard_arrow_down</span>
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[580px]">
-                        <div class="dark:bg-black/80 bg-background/95 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
+                        <div class="bg-[#0a0a0b]/95 backdrop-blur-3xl border border-[#57d5fc]/14 rounded-[6px] shadow-2xl p-10 grid grid-cols-2 gap-10">
                             <div class="space-y-6">
                                 <div>
                                     <h4 class="font-headline text-[13px] text-primary tracking-[0.4em] font-medium mb-3">Browse the shop</h4>
@@ -54,27 +54,20 @@
 
                 <!-- Custom Order Dropdown -->
                 <div class="group relative">
-                    <Link :href="route('custom-order')"
-                        class="nav-link flex items-center gap-2" :class="{ 'active': isActive('custom-order*') }">
+<Link :href="route('custom-order')" class="nav-link flex items-center gap-2" :class="{ 'active': isActive('custom-order*') }">
                         Custom
-                        <span class="relative flex h-1.5 w-1.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
-                        </span>
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[500px]">
-                        <div class="dark:bg-black/80 bg-background/95 backdrop-blur-3xl border dark:border-white/10 border-black/10 rounded-2xl shadow-2xl p-10 grid grid-cols-2 gap-10">
-                            <div class="aspect-[3/4] bg-transparent border dark:border-white/5 border-black/5 rounded-sm p-1 overflow-hidden border dark:border-white/5 border-black/5">
+                        <div class="bg-[#0a0a0b]/95 backdrop-blur-3xl border border-[#57d5fc]/14 rounded-[6px] shadow-2xl p-10 grid grid-cols-2 gap-10">
+                            <div class="aspect-[3/4] bg-transparent rounded-sm overflow-hidden">
                                 <img src="/images/detailed_texture.png" class="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-1000" alt="Custom Order" />
                             </div>
                             <div class="space-y-6 flex flex-col justify-center">
-                                <span class="text-[9px] font-medium tracking-[0.4em] text-primary">Made to order</span>
+                                <span class="text-[9px] font-mono font-medium tracking-[0.4em] text-primary">Made to order</span>
                                 <div>
-                                    <h4 class="font-headline text-[13px] dark:text-white text-on-surface tracking-[0.3em] mb-3">Start your order</h4>
+                                    <h4 class="font-display text-[13px] dark:text-white text-on-surface tracking-[0.3em] mb-3">Start your order</h4>
                                     <p class="font-body text-[12px] dark:text-white/40 text-black/40 leading-relaxed opacity-80 mb-6">Made for you. Built to your exact measurements.</p>
-                                    <Link :href="route('custom-order')" class="bg-primary text-black font-headline text-[10px] tracking-[0.4em] font-medium px-6 py-4 rounded-xl hover:bg-white transition-all flex items-center gap-2 w-fit">
-                                    Get started
-                                    </Link>
+                                    <Link :href="route('custom-order')" class="btn-primary px-6 py-4">Get started</Link>
                                 </div>
                             </div>
                         </div>
@@ -183,9 +176,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="postcss">
-/* Nav link base */
+/* Nav link base — WOODNORK mono UI voice for nav */
 .nav-link {
-    @apply relative font-headline font-medium text-[16px] tracking-[0.2em] transition-all duration-300 dark:text-white text-on-surface hover:text-primary py-1;
+    @apply relative font-mono font-medium text-[13px] tracking-[0.28em] transition-all duration-300 dark:text-white text-on-surface hover:text-primary py-1.5 uppercase;
 }
 
 /* Premium active indicator (dot or line) */
@@ -202,9 +195,17 @@ onUnmounted(() => {
     @apply w-full opacity-100;
 }
 
+/* Dropdowns use glass per WOODNORK */
+.dropdown {
+    background: rgba(10,10,11,0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(87,213,252,0.14);
+    border-radius: 6px;
+}
+
 /* Dropdown sub-link */
 .dropdown-link {
-    @apply block font-headline font-medium text-[13px] tracking-widest dark:text-white/40 text-black/40 hover:text-primary transition-colors;
+    @apply block font-mono font-medium text-[11px] tracking-[0.22em] dark:text-white/60 text-black/60 hover:text-primary transition-colors uppercase;
 }
 
 /* Icon button */
@@ -214,7 +215,7 @@ onUnmounted(() => {
 
 /* Mobile menu link */
 .mobile-link {
-    @apply block font-headline font-medium text-sm tracking-[0.2em] dark:text-white text-on-surface hover:text-primary py-2.5 transition-colors border-b dark:border-white/5 border-black/5;
+    @apply block font-mono font-medium text-xs tracking-[0.26em] dark:text-white text-on-surface hover:text-primary py-2.5 transition-colors border-b dark:border-white/5 border-black/5 uppercase;
 }
 
 /* Pulse slide transition */
