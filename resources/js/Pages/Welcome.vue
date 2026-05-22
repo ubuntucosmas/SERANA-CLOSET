@@ -363,11 +363,6 @@ function handleImageError() {
                                         href="https://laravel.com/docs/sanctum"
                                         class="rounded-sm underline hover:text-black focus:outline-none focus-visible:ring-1 focus-visible:ring-[#FF2D20] dark:hover:dark:text-white text-on-surface"
                                         >Sanctum</a
-                                    >,
-                                    <a
-                                        href="https://laravel.com/docs/telescope"
-                                        class="rounded-sm underline hover:text-black focus:outline-none focus-visible:ring-1 focus-visible:ring-[#FF2D20] dark:hover:dark:text-white text-on-surface"
-                                        >Telescope</a
                                     >, and more.
                                 </p>
                             </div>
