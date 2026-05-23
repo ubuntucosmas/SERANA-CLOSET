@@ -104,7 +104,7 @@ onMounted(() => {
                 <!-- Asymmetrical Cinematic Imagery (Right) -->
                 <div class="lg:col-span-6 relative h-full min-h-[300px] lg:min-h-[500px] flex items-center justify-center lg:justify-end z-10 w-full group/hero reveal-hero-item">
                     <!-- Alternating Primary Main Image -->
-                    <div class="relative w-full max-w-[280px] lg:max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] lg:shadow-[0_60px_150px_rgba(0,0,0,1)] border dark:border-white/5 border-black/5 z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-6 lg:translate-y-12 bg-transparent">
+                    <div class="relative w-full max-w-[280px] lg:max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] lg:shadow-[0_60px_150px_rgba(0,0,0,1)] z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-6 lg:translate-y-12 bg-transparent">
                         <transition name="fade-mid" mode="out-in">
                             <img 
                                 :key="focalImages[currentFocalIndex].src" 
@@ -126,7 +126,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Secondary Floating Details Image - Hidden on mobile for Zen -->
-                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-primary/40 z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
+                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
                         <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
                     </div>
                 </div>

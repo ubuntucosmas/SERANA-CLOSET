@@ -8,7 +8,6 @@
         <MobileBottomNav />
         <CartDrawer />
         <Notification />
-        <PurchaseHandoff />
         <ConciergeButton />
         <SitePath />
 
@@ -33,7 +32,6 @@ import AppFooter from '@/Components/Footer.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
-import PurchaseHandoff from '@/Components/PurchaseHandoff.vue';
 import ConciergeButton from '@/Components/ConciergeButton.vue';
 import CommandPortal from '@/Components/CommandPortal.vue';
 import SitePath from '@/Components/SitePath.vue';

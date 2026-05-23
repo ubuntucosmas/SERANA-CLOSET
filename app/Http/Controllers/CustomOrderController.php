@@ -98,7 +98,6 @@ class CustomOrderController extends Controller
             // This string is formatted for high readability on small mobile screens
             // used by production teams and clients.
             $storePhone = config('services.whatsapp.number');
-            $targetDisk = config('filesystems.public_disk');
             
             $message = "✨ *SERANA DIGITAL ATELIER | PRODUCTION BRIEF* ✨\n";
             $message .= "Order ID: #{$order->id} | Protocol: V4.2\n";
@@ -141,8 +140,10 @@ class CustomOrderController extends Controller
                 $message .= "\n🖼️ *[ INSPIRATION ARCHIVE ]*\n";
                 $message .= "• Total Assets: " . count($imagePaths) . "\n";
                 foreach($imagePaths as $index => $path) {
-                    // Use dynamic disk URL (Handles S3/Local automatically)
-                    $url = \Illuminate\Support\Facades\Storage::disk($targetDisk)->url($path);
+                    // Brilliant & reliable: Always build full absolute URL from APP_URL + storage path
+                    // This guarantees the links open from WhatsApp on any device (mobile/desktop)
+                    $cleanPath = ltrim($path, '/');
+                    $url = rtrim(config('app.url'), '/') . '/storage/' . $cleanPath;
                     $message .= "• Asset " . ($index + 1) . ": " . $url . "\n";
                 }
             }

@@ -4,7 +4,6 @@ import { ref, computed, watch } from 'vue';
 export const useCartStore = defineStore('cart', () => {
     const items = ref([]);
     const isOpen = ref(false);
-    const showHandoff = ref(false);
 
     // Persist to LocalStorage for a "Locked-In" experience
     if (typeof window !== 'undefined') {
@@ -65,7 +64,6 @@ export const useCartStore = defineStore('cart', () => {
         }
 
         isOpen.value = true; // Auto-reveal the bag for momentum
-        showHandoff.value = true; // Trigger the cinematic handoff overlay
     }
 
     function removeItem(id) {
@@ -93,7 +91,6 @@ export const useCartStore = defineStore('cart', () => {
     return {
         items,
         isOpen,
-        showHandoff,
         totalItems,
         totalPrice,
         addItem,
