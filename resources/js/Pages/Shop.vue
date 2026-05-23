@@ -67,17 +67,22 @@ watch(showLogisticsOverlay, (val) => {
             <SectionBackground opacity="opacity-60" blur="blur-sm" />
 
             <main class="relative z-10 pt-24 lg:pt-32 pb-48 max-w-screen-2xl mx-auto px-4 sm:px-8">
-                <header class="mb-12 lg:mb-20 reveal">
-                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-10">
+<header class="mb-8 lg:mb-12 reveal">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
-                            <h1 class="text-5xl lg:text-9xl dark:text-white text-on-surface font-light tracking-tighter leading-none">
-                                <span class="text-primary font-medium">Studio</span><br/>Collection_
+                            <h1 class="text-3xl lg:text-5xl dark:text-white text-on-surface font-light tracking-tighter leading-tight">
+                                <span class="text-primary font-medium">Studio</span> <span class="text-white/60 font-light">Collection_</span>
                             </h1>
-                            <p class="mt-6 text-[11px] uppercase tracking-[0.4em] dark:text-white/30 text-black/30 hidden md:block">Engineered for timeless confidence.</p>
+                            <p class="mt-2 text-[10px] uppercase tracking-[0.3em] dark:text-white/30 text-black/30 hidden md:block">Engineered for confidence.</p>
                         </div>
                         
-                        <!-- Desktop Logistics Row -->
-                        <div class="hidden md:flex items-center gap-6">
+                        <!-- Desktop Controls -->
+                        <div class="hidden md:flex items-center gap-4">
+                            <!-- Search Button with Magnifying Glass -->
+                            <button class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-primary hover:bg-primary hover:text-black hover:border-primary transition-all group">
+                                <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">search</span>
+                            </button>
+
                             <div class="relative group">
                                 <button @click="showSortMenu = !showSortMenu" class="px-8 py-4 bg-white/5 border border-white/10 rounded-sm flex items-center gap-4 hover:border-primary transition-all group">
                                     <span class="text-[10px] uppercase font-black tracking-widest opacity-40">Sort_by:</span>
@@ -102,9 +107,21 @@ watch(showLogisticsOverlay, (val) => {
                         <div class="sticky top-40 space-y-16">
                             <section>
                                 <h3 class="text-[10px] font-black tracking-[0.3em] mb-8 uppercase text-primary border-b border-white/10 pb-4">Categories_</h3>
-                                <div class="flex flex-col gap-6">
-                                    <button @click="filterByCategory('all')" class="text-left text-[14px] uppercase tracking-widest transition-all" :class="!filters.category || filters.category === 'all' ? 'text-white font-black pl-4 border-l-2 border-primary' : 'text-white/30 hover:text-white'">All Collections</button>
-                                    <button v-for="category in categories" :key="category.id" @click="filterByCategory(category.slug)" class="text-left text-[14px] uppercase tracking-widest transition-all" :class="filters.category === category.slug ? 'text-white font-black pl-4 border-l-2 border-primary' : 'text-white/30 hover:text-white'">{{ category.name }}</button>
+                                <div class="flex flex-col gap-3">
+                                    <button @click="filterByCategory('all')" 
+                                        class="group flex items-center gap-3 px-4 py-3 rounded-sm border text-left transition-all"
+                                        :class="!filters.category || filters.category === 'all' ? 'bg-primary/10 border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white'">
+                                        <span class="material-symbols-outlined text-sm">category</span>
+                                        <span class="text-[14px] uppercase tracking-widest">All Collections</span>
+                                        <span v-if="!filters.category || filters.category === 'all'" class="ml-auto w-2 h-2 bg-primary rounded-full"></span>
+                                    </button>
+                                    <button v-for="category in categories" :key="category.id" @click="filterByCategory(category.slug)" 
+                                        class="group flex items-center gap-3 px-4 py-3 rounded-sm border text-left transition-all"
+                                        :class="filters.category === category.slug ? 'bg-primary/10 border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white'">
+                                        <span class="material-symbols-outlined text-sm">folder</span>
+                                        <span class="text-[14px] uppercase tracking-widest">{{ category.name }}</span>
+                                        <span v-if="filters.category === category.slug" class="ml-auto w-2 h-2 bg-primary rounded-full"></span>
+                                    </button>
                                 </div>
                             </section>
                         </div>
@@ -112,9 +129,26 @@ watch(showLogisticsOverlay, (val) => {
 
                     <!-- Main Grid -->
                     <div class="flex-1">
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 class="text-2xl font-light text-white uppercase tracking-tighter">
+                                    {{ activeCategory ? activeCategory.name : 'All Pieces' }}
+                                </h2>
+                                <p class="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+                                    {{ products.length }} {{ products.length === 1 ? 'piece' : 'pieces' }} available
+                                </p>
+                            </div>
+                            <button @click="filterByCategory('all')" v-if="activeCategory" class="text-[10px] text-primary uppercase tracking-widest font-black hover:underline">
+                                Clear Filter
+                            </button>
+                        </div>
+                        
                         <div v-if="products.length === 0" class="flex flex-col items-center justify-center py-48 text-center">
+                            <div class="w-24 h-24 border-2 border-white/10 rounded-full flex items-center justify-center mb-8">
+                                <span class="material-symbols-outlined text-4xl text-white/20">search_off</span>
+                            </div>
                             <h3 class="text-4xl font-light dark:text-white text-on-surface uppercase tracking-tighter mb-8">No pieces found_</h3>
-                            <button @click="filterByCategory('all')" class="text-[10px] font-black uppercase tracking-[0.5em] text-primary border-b border-primary/40 pb-2">Reset Studio_</button>
+                            <button @click="filterByCategory('all')" class="text-[10px] font-black uppercase tracking-[0.5em] text-primary border-b border-primary/40 pb-2 hover:border-primary transition-all">Reset Studio_</button>
                         </div>
 
                         <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-8 gap-y-12 md:gap-y-20">
@@ -160,17 +194,19 @@ watch(showLogisticsOverlay, (val) => {
                                 <div class="grid grid-cols-1 gap-3">
                                     <button 
                                         @click="filterByCategory('all')" 
-                                        class="text-left px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
+                                        class="flex items-center gap-3 px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
                                         :class="!filters.category || filters.category === 'all' ? 'bg-primary text-black border-primary font-black' : 'bg-white/5 text-white/40 border-white/5'"
                                     >
+                                        <span class="material-symbols-outlined text-sm">category</span>
                                         All Collections
                                     </button>
                                     <button 
                                         v-for="category in categories" :key="category.id" 
                                         @click="filterByCategory(category.slug)" 
-                                        class="text-left px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
+                                        class="flex items-center gap-3 px-5 py-3 border rounded-sm text-[11px] uppercase tracking-widest transition-all"
                                         :class="filters.category === category.slug ? 'bg-primary text-black border-primary font-black' : 'bg-white/5 text-white/40 border-white/5'"
                                     >
+                                        <span class="material-symbols-outlined text-sm">folder</span>
                                         {{ category.name }}
                                     </button>
                                 </div>
