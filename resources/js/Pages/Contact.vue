@@ -38,8 +38,8 @@
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Electronic Dispatch</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">For press, collaborations, and formal archival inquiries.</p>
-                                <a href="mailto:studio@seranacloset.com" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">
-                                    studio@seranacloset.com
+                                <a :href="`mailto:${contactEmail}`" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">
+                                    {{ contactEmail }}
                                 </a>
                             </div>
                         </div>
@@ -52,7 +52,7 @@
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Nairobi Studio</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">By Appointment Only. Experience the Serana Standard in person.</p>
                                 <p class="text-on-surface font-headline text-sm font-bold tracking-wider opacity-60">
-                                    IMENTI HOUSE 29 • Nairobi • Kenya
+                                    {{ contactAddress }}
                                 </p>
                             </div>
                         </div>
@@ -123,6 +123,10 @@ import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 
 const page = usePage();
 const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
+
+// Admin-managed contact details, with sensible fallbacks.
+const contactEmail = computed(() => page.props.theme_settings?.contact_email || 'studio@seranacloset.com');
+const contactAddress = computed(() => page.props.theme_settings?.contact_address || 'IMENTI HOUSE 29 • Nairobi • Kenya');
 
 const isSubmitting = ref(false);
 const form = reactive({

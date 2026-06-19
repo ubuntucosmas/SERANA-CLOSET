@@ -78,6 +78,47 @@ const focals = [1, 2, 3];
             </div>
         </section>
 
+        <!-- Contact & social -->
+        <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-6">
+            <h2 class="text-white font-headline text-xl mb-1">Contact & social</h2>
+            <p class="text-slate-500 text-sm mb-6">Shown on your Contact page and in the footer. Leave a link blank to hide that icon.</p>
+
+            <div class="grid sm:grid-cols-2 gap-5">
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Contact email</span>
+                    <input v-model="form.settings.contact_email" type="email" placeholder="e.g. hello@yourstore.com"
+                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Address / location</span>
+                    <input v-model="form.settings.contact_address" placeholder="e.g. Imenti House, Nairobi, Kenya"
+                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Instagram link</span>
+                    <input v-model="form.settings.instagram_url" placeholder="https://instagram.com/yourstore"
+                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">TikTok link</span>
+                    <input v-model="form.settings.tiktok_url" placeholder="https://tiktok.com/@yourstore"
+                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Facebook link</span>
+                    <input v-model="form.settings.facebook_url" placeholder="https://facebook.com/yourstore"
+                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button @click="emit('save')" :disabled="form.processing"
+                    class="px-7 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm hover:brightness-105 disabled:opacity-40 transition-all">
+                    {{ form.processing ? 'Saving…' : 'Save changes' }}
+                </button>
+            </div>
+        </section>
+
         <!-- Branding -->
         <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-6">
             <h2 class="text-white font-headline text-xl mb-1">Branding</h2>

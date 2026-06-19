@@ -229,6 +229,11 @@ const siteInfoForm = useForm({
         focal_1_label: page.props.theme_settings?.focal_1_label ?? '',
         focal_2_label: page.props.theme_settings?.focal_2_label ?? '',
         focal_3_label: page.props.theme_settings?.focal_3_label ?? '',
+        contact_email: page.props.theme_settings?.contact_email ?? '',
+        contact_address: page.props.theme_settings?.contact_address ?? '',
+        instagram_url: page.props.theme_settings?.instagram_url ?? '',
+        tiktok_url: page.props.theme_settings?.tiktok_url ?? '',
+        facebook_url: page.props.theme_settings?.facebook_url ?? '',
     },
 });
 function saveSiteInfo() { siteInfoForm.post(route('admin.theme.bulk_update'), { preserveScroll: true }); }
