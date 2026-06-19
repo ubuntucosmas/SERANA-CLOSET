@@ -65,6 +65,12 @@ return [
         // How long checkout holds limited-batch stock for an unpaid order before
         // the reservation expires and the stock is returned to the pool.
         'reservation_minutes' => (int) env('MPESA_RESERVATION_MINUTES', 15),
+
+        // Safaricom spike-arrests the STK Query endpoint (~5 req/min, no burst).
+        // The reconcile job spaces its per-order queries by this many seconds so
+        // later orders in the loop aren't rejected with a SpikeArrestViolation and
+        // silently skipped. Set to 0 in tests to keep them fast.
+        'query_spacing_seconds' => (int) env('MPESA_QUERY_SPACING_SECONDS', 13),
     ],
 
 ];

@@ -162,4 +162,26 @@ class StockReservationTest extends TestCase
         $this->assertSame('Paid', $fresh->status);
         $this->assertSame(1, $product->fresh()->batch_sold);
     }
+
+    public function test_reconciliation_retries_through_spike_arrest_throttle(): void
+    {
+        // Daraja spike-arrests the query endpoint; a paid order must not be
+        // skipped just because the first query was rate-limited.
+        Event::fake();
+        Http::fake([
+            '*oauth/v1/generate*' => Http::response(['access_token' => 'fake']),
+            '*stkpushquery/v1/query*' => Http::sequence()
+                ->push(['fault' => ['detail' => ['errorcode' => 'policies.ratelimit.SpikeArrestViolation']]], 429)
+                ->push(['ResultCode' => '0', 'ResultDesc' => 'Success'], 200),
+        ]);
+
+        $product = $this->product(limit: 3, sold: 0, price: 5000);
+        $order = $this->orderHolding($product, qty: 1, overrides: [
+            'created_at' => now()->subMinutes(10),
+        ]);
+
+        $this->artisan('mpesa:reconcile')->assertSuccessful();
+
+        $this->assertTrue($order->fresh()->is_paid);
+    }
 }
