@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -29,17 +30,31 @@ class MpesaService
     }
 
     /**
-     * Step 1: Authentication
-     * Generates an OAuth2 access token valid for 3600 seconds.
+     * Step 1: Authentication — OAuth2 access token (valid 3600s on Daraja).
+     *
+     * The token is CACHED for its lifetime. Safaricom rate-limits token
+     * generation, so requesting a fresh one on every call (the reconcile job
+     * loops over many orders) trips the limit and returns intermittent
+     * "Failed to authenticate" errors — silently stranding paid orders. We
+     * cache only on success (never cache a null) so transient failures retry.
      */
     public function getAccessToken()
     {
+        $cacheKey = 'mpesa_access_token_' . md5($this->consumerKey . '|' . $this->baseUrl);
+
+        if ($cached = Cache::get($cacheKey)) {
+            return $cached;
+        }
+
         try {
             $response = Http::withBasicAuth($this->consumerKey, $this->consumerSecret)
                 ->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials");
 
-            if ($response->successful()) {
-                return $response->json()['access_token'];
+            if ($response->successful() && ($token = $response->json('access_token'))) {
+                // Expire a minute early to avoid using a token that lapses mid-request.
+                $ttl = max(60, (int) ($response->json('expires_in') ?? 3600) - 60);
+                Cache::put($cacheKey, $token, now()->addSeconds($ttl));
+                return $token;
             }
 
             Log::error("Mpesa Access Token Error: " . $response->body());
@@ -82,10 +97,7 @@ class MpesaService
         ];
 
         try {
-            $response = Http::withToken($token)
-                ->post("{$this->baseUrl}/mpesa/stkpush/v1/query", $payload); // Wait, stkpush usually has a different endpoint
-
-            // Correction: Real Daraja endpoint for Lipa Na M-Pesa Online
+            // Daraja "Lipa Na M-Pesa Online" STK push endpoint.
             $response = Http::withToken($token)
                 ->post("{$this->baseUrl}/mpesa/stkpush/v1/processrequest", $payload);
 
@@ -101,6 +113,41 @@ class MpesaService
 
         } catch (\Exception $e) {
             Log::error("Mpesa STK Push Exception: " . $e->getMessage());
+            return ['success' => false, 'message' => 'An unexpected error occurred.'];
+        }
+    }
+
+    /**
+     * STK Push Query — authoritatively resolves a transaction's final state when
+     * the async callback never arrived. Used by the reconciliation job.
+     *
+     * Returns ['success' => bool, 'data' => [...]] where data['ResultCode'] is:
+     *   "0"    => paid
+     *   others => failed/cancelled/timed-out (e.g. 1032 cancelled, 1037 timeout)
+     *   while still pending, Daraja returns a non-success body we leave untouched.
+     */
+    public function queryStkStatus($checkoutRequestId)
+    {
+        $token = $this->getAccessToken();
+        if (!$token) return ['success' => false, 'message' => 'Failed to authenticate with M-Pesa.'];
+
+        $timestamp = now()->format('YmdHis');
+        $password = base64_encode($this->shortcode . $this->passkey . $timestamp);
+
+        $payload = [
+            'BusinessShortCode' => $this->shortcode,
+            'Password' => $password,
+            'Timestamp' => $timestamp,
+            'CheckoutRequestID' => $checkoutRequestId,
+        ];
+
+        try {
+            $response = Http::withToken($token)
+                ->post("{$this->baseUrl}/mpesa/stkpushquery/v1/query", $payload);
+
+            return ['success' => $response->successful(), 'data' => $response->json()];
+        } catch (\Exception $e) {
+            Log::error("Mpesa STK Query Exception: " . $e->getMessage());
             return ['success' => false, 'message' => 'An unexpected error occurred.'];
         }
     }

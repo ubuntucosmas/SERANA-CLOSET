@@ -115,7 +115,7 @@
             </td>
             <td class="col" style="text-align: right;">
                 <div class="label">Invoice Details</div>
-                <div class="value">Reference: ORD-{{ strtoupper(substr($order->id, 0, 8)) }}</div>
+                <div class="value">Reference: {{ $order->cipher ?? ('ORD-' . strtoupper(substr($order->id, 0, 8))) }}</div>
                 <div class="value">Issued: {{ $date }}</div>
                 <div class="value">Status: PAID</div>
             </td>
@@ -164,6 +164,12 @@
             </tr>
         </table>
     </div>
+
+    @if(!empty($order->cipher))
+        <div class="footer" style="margin-bottom: 4px;">
+            Track your order at {{ rtrim(config('app.url'), '/') }}/track &bull; Reference {{ $order->cipher }}
+        </div>
+    @endif
 
     <div class="footer">
         Serana Atelier &copy; {{ date('Y') }} &bull; Nairobi, Kenya &bull; Concierge: +254 712 345678

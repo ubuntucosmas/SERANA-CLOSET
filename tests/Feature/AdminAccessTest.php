@@ -8,10 +8,12 @@ use Tests\TestCase;
 
 class AdminAccessTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_admin_can_access_studio()
     {
-        $admin = User::where('role', 'admin')->first();
-        
+        $admin = User::factory()->create(['role' => 'admin']);
+
         $response = $this->actingAs($admin)->get('/studio');
 
         $response->assertStatus(200);

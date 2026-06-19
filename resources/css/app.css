@@ -4,48 +4,47 @@
 
 @layer base {
     :root {
-        /* WOODNORK Dark Luxury Palette — adapted for Serana Closet */
-        --bg-primary:       #0a0a0b;
-        --bg-glass:         rgba(10, 10, 11, 0.85);
-        --bg-card:          rgba(255, 255, 255, 0.04);
-        --bg-card-hover:    rgba(87, 213, 252, 0.06);
+        /* Serana — LIGHT palette ("Studio White"). .dark block overrides for dark. */
+        --bg-primary:       #f5f5f3;
+        --bg-glass:         rgba(245, 245, 243, 0.85);
+        --bg-card:          rgba(0, 0, 0, 0.03);
+        --bg-card-hover:    rgba(11, 125, 163, 0.06);
 
-        /* Legacy mappings for existing components */
-        --background:       #0a0a0b;
-        --on-background:    #e5e2e3;
-        --surface:          #131313;
-        --on-surface:       #e5e2e3;
-        --surface-container:#1c1b1b;
-        --on-surface-variant:#c5c5d4;
+        --background:       #f5f5f3;
+        --on-background:    #17171a;
+        --surface:          #ffffff;
+        --on-surface:       #17171a;
+        --surface-container:#ececea;
+        --on-surface-variant:#5a5a62;
 
         /* Text */
-        --text-primary:     #e5e2e3;
-        --text-muted:       rgba(229, 226, 227, 0.58);
-        --text-ghost:       rgba(229, 226, 227, 0.26);
-        --text-faint:       rgba(229, 226, 227, 0.17);
+        --text-primary:     #17171a;
+        --text-muted:       rgba(23, 23, 26, 0.62);
+        --text-ghost:       rgba(23, 23, 26, 0.34);
+        --text-faint:       rgba(23, 23, 26, 0.16);
 
-        /* Accent — Electric Cyan (single accent rule) */
-        --accent:           #57d5fc;
-        --accent-rgb:       87, 213, 252;
-        --accent-hover:     #b6ebff;
-        --accent-glow:      rgba(87, 213, 252, 0.45);
-        --accent-glow-soft: rgba(87, 213, 252, 0.2);
+        /* Accent — cyan, darkened for legible contrast on light */
+        --accent:           #0b7da3;
+        --accent-rgb:       11, 125, 163;
+        --accent-hover:     #096b8c;
+        --accent-glow:      rgba(11, 125, 163, 0.16);
+        --accent-glow-soft: rgba(11, 125, 163, 0.07);
 
         /* Borders */
-        --border:           rgba(87, 213, 252, 0.14);
-        --border-mid:       rgba(87, 213, 252, 0.28);
-        --border-hover:     rgba(87, 213, 252, 0.50);
-        --border-active:    #57d5fc;
+        --border:           rgba(0, 0, 0, 0.10);
+        --border-mid:       rgba(0, 0, 0, 0.16);
+        --border-hover:     rgba(11, 125, 163, 0.45);
+        --border-active:    #0b7da3;
 
         /* Legacy */
-        --primary:          #57d5fc;
-        --primary-alt:      #b6ebff;
-        --outline-variant:  #454652;
+        --primary:          #0b7da3;
+        --primary-alt:      #096b8c;
+        --outline-variant:  #cfcfca;
 
-        /* Fonts */
-        --font-display:     'Bodoni Moda', serif;
+        /* Fonts — slim editorial: Cormorant headings, Manrope everywhere else */
+        --font-display:     'Cormorant Garamond', serif;
         --font-body:        'Manrope', sans-serif;
-        --font-mono:        'JetBrains Mono', monospace;
+        --font-mono:        'Manrope', sans-serif;
 
         /* Spacing */
         --section-pad:      7vw;
@@ -72,15 +71,38 @@
     }
 
     .dark {
-        /* All dark by default for luxury */
-        --background: #0a0a0b;
-        --on-background: #e5e2e3;
-        --surface: #131313;
-        --on-surface: #e5e2e3;
+        /* Serana — DARK palette (Tech-Noir). Complete mirror of :root. */
+        --bg-primary:       #0a0a0b;
+        --bg-glass:         rgba(10, 10, 11, 0.85);
+        --bg-card:          rgba(255, 255, 255, 0.04);
+        --bg-card-hover:    rgba(87, 213, 252, 0.06);
+
+        --background:       #0a0a0b;
+        --on-background:    #e5e2e3;
+        --surface:          #131313;
+        --on-surface:       #e5e2e3;
         --surface-container: #1c1b1b;
         --on-surface-variant: #c5c5d4;
-        --primary: #57d5fc;
-        --outline-variant: #454652;
+
+        --text-primary:     #e5e2e3;
+        --text-muted:       rgba(229, 226, 227, 0.58);
+        --text-ghost:       rgba(229, 226, 227, 0.26);
+        --text-faint:       rgba(229, 226, 227, 0.17);
+
+        --accent:           #57d5fc;
+        --accent-rgb:       87, 213, 252;
+        --accent-hover:     #b6ebff;
+        --accent-glow:      rgba(87, 213, 252, 0.40);
+        --accent-glow-soft: rgba(87, 213, 252, 0.18);
+
+        --border:           rgba(87, 213, 252, 0.14);
+        --border-mid:       rgba(87, 213, 252, 0.28);
+        --border-hover:     rgba(87, 213, 252, 0.50);
+        --border-active:    #57d5fc;
+
+        --primary:          #57d5fc;
+        --primary-alt:      #b6ebff;
+        --outline-variant:  #454652;
     }
 
     .dark body {
@@ -114,23 +136,24 @@
         }
     }
 
-    /* Slide / Display titles — Bodoni only for drama */
+    /* Slide / Display titles — Cormorant serif */
     .slide-title,
     h1, h2 {
         font-family: var(--font-display);
-        font-weight: 700;
-        line-height: 1.07;
-        letter-spacing: -0.02em;
+        font-weight: 600;
+        line-height: 1.05;
+        letter-spacing: -0.005em;
         color: var(--text-primary);
     }
 
-    h1 { font-size: clamp(1.9rem, 3.8vw, 3.8rem); }
-    h2 { font-size: clamp(1.6rem, 3vw, 2.8rem); }
+    /* Cormorant runs small/light, so the scale is bumped vs the old Bodoni. */
+    h1 { font-size: clamp(2.2rem, 4.2vw, 4.4rem); }
+    h2 { font-size: clamp(1.9rem, 3.4vw, 3.2rem); }
 
     h3, h4, h5, h6 {
         font-family: var(--font-display);
         font-weight: 600;
-        line-height: 1.1;
+        line-height: 1.12;
     }
 
     /* Body copy */
@@ -142,20 +165,18 @@
         line-height: 1.82;
     }
 
-    /* Mono UI voice for labels, tags, nav, counters */
+    /* Slim sans UI voice for labels, tags, nav, counters — mixed case */
     .mono, label, .tag, .eyebrow, .nav-text {
-        font-family: var(--font-mono);
-        font-weight: 400;
-        letter-spacing: 0.13em;
-        text-transform: uppercase;
+        font-family: var(--font-body);
+        font-weight: 500;
+        letter-spacing: 0.02em;
     }
 
-    /* Legacy high-density rules retained for mobile but using new vars */
     label, small, figcaption {
-        font-family: var(--font-mono);
-        font-weight: 400;
-        letter-spacing: 0.08em;
-        font-size: 11px;
+        font-family: var(--font-body);
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        font-size: 12px;
     }
 
     input, textarea, select {
@@ -164,10 +185,9 @@
     }
 
     button {
-        font-family: var(--font-mono);
+        font-family: var(--font-body);
         font-weight: 600;
-        letter-spacing: 0.08em;
-        /* text-transform intentionally omitted — use .uppercase class where needed */
+        letter-spacing: 0.01em;
     }
 
     * {
@@ -483,3 +503,78 @@
         background: linear-gradient(90deg, rgba(10,10,11,.45) 0%, transparent 100%);
     }
 }
+
+/* ============================================================================
+   LIGHT-MODE OVERRIDE LAYER ("Studio White")
+   The storefront is built dark-first with hardcoded white/black literals that
+   never adapt. These rules remap those literals to light-appropriate values —
+   but ONLY when .dark is absent, so dark mode is mathematically untouched.
+   Unlayered + scoped to html:not(.dark) so they win over Tailwind utilities.
+   ============================================================================ */
+
+/* Solid foreground/background literals */
+html:not(.dark) .text-white { color: var(--on-surface); }
+html:not(.dark) .bg-black { background-color: var(--surface); }
+
+/* White text with opacity → graded dark text */
+html:not(.dark) .text-white\/0  { color: rgba(23,23,26,0); }
+html:not(.dark) .text-white\/5  { color: rgba(23,23,26,.05); }
+html:not(.dark) .text-white\/10 { color: rgba(23,23,26,.12); }
+html:not(.dark) .text-white\/20 { color: rgba(23,23,26,.30); }
+html:not(.dark) .text-white\/30 { color: rgba(23,23,26,.42); }
+html:not(.dark) .text-white\/40 { color: rgba(23,23,26,.55); }
+html:not(.dark) .text-white\/50 { color: rgba(23,23,26,.62); }
+html:not(.dark) .text-white\/60 { color: rgba(23,23,26,.70); }
+html:not(.dark) .text-white\/70 { color: rgba(23,23,26,.78); }
+html:not(.dark) .text-white\/80 { color: rgba(23,23,26,.86); }
+
+/* White surface fills → subtle dark-on-light fills */
+html:not(.dark) .bg-white\/5  { background-color: rgba(0,0,0,.04); }
+html:not(.dark) .bg-white\/10 { background-color: rgba(0,0,0,.06); }
+html:not(.dark) .bg-white\/20 { background-color: rgba(0,0,0,.10); }
+html:not(.dark) .bg-white\/40 { background-color: rgba(0,0,0,.14); }
+html:not(.dark) .bg-white\/50 { background-color: rgba(0,0,0,.16); }
+html:not(.dark) .bg-white\/80 { background-color: rgba(0,0,0,.08); }
+
+/* White borders → dark hairlines */
+html:not(.dark) .border-white\/5  { border-color: rgba(0,0,0,.07); }
+html:not(.dark) .border-white\/10 { border-color: rgba(0,0,0,.11); }
+html:not(.dark) .border-white\/15 { border-color: rgba(0,0,0,.13); }
+html:not(.dark) .border-white\/20 { border-color: rgba(0,0,0,.16); }
+html:not(.dark) .border-white\/30 { border-color: rgba(0,0,0,.22); }
+html:not(.dark) .border-white\/40 { border-color: rgba(0,0,0,.26); }
+html:not(.dark) .border-white\/50 { border-color: rgba(0,0,0,.30); }
+
+/* Preserve hover feedback on interactive white-alpha surfaces/borders */
+html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,.06); }
+html:not(.dark) .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,.08); }
+html:not(.dark) .hover\:bg-white\/20:hover { background-color: rgba(0,0,0,.12); }
+html:not(.dark) .hover\:border-white\/10:hover { border-color: rgba(0,0,0,.16); }
+html:not(.dark) .hover\:border-white\/20:hover { border-color: rgba(0,0,0,.22); }
+html:not(.dark) .hover\:border-white\/30:hover { border-color: rgba(0,0,0,.26); }
+
+/* --- always-dark opt-out zones (payment panel, quick-view modal, hero over
+   video). These sit on a fixed dark backdrop in BOTH themes, so re-assert the
+   original white/black literals at higher specificity than the override above. */
+html:not(.dark) .always-dark .text-white { color: #fff; }
+html:not(.dark) .always-dark .text-white\/80 { color: rgba(255,255,255,.8); }
+html:not(.dark) .always-dark .text-white\/70 { color: rgba(255,255,255,.7); }
+html:not(.dark) .always-dark .text-white\/60 { color: rgba(255,255,255,.6); }
+html:not(.dark) .always-dark .text-white\/50 { color: rgba(255,255,255,.5); }
+html:not(.dark) .always-dark .text-white\/40 { color: rgba(255,255,255,.4); }
+html:not(.dark) .always-dark .text-white\/30 { color: rgba(255,255,255,.3); }
+html:not(.dark) .always-dark .text-white\/20 { color: rgba(255,255,255,.2); }
+html:not(.dark) .always-dark .text-white\/10 { color: rgba(255,255,255,.1); }
+html:not(.dark) .always-dark .bg-white\/5  { background-color: rgba(255,255,255,.05); }
+html:not(.dark) .always-dark .bg-white\/10 { background-color: rgba(255,255,255,.1); }
+html:not(.dark) .always-dark .bg-white\/20 { background-color: rgba(255,255,255,.2); }
+html:not(.dark) .always-dark .bg-white\/40 { background-color: rgba(255,255,255,.4); }
+html:not(.dark) .always-dark .border-white\/5  { border-color: rgba(255,255,255,.05); }
+html:not(.dark) .always-dark .border-white\/10 { border-color: rgba(255,255,255,.1); }
+html:not(.dark) .always-dark .border-white\/20 { border-color: rgba(255,255,255,.2); }
+html:not(.dark) .always-dark .hover\:bg-white\/10:hover { background-color: rgba(255,255,255,.1); }
+
+/* Cinematic dark video/texture background is for Tech-Noir; in Studio White keep
+   it a whisper and drop its dark scrim so it doesn't muddy the light page. */
+html:not(.dark) .section-bg { opacity: 0.12; }
+html:not(.dark) .section-bg-scrim { display: none; }

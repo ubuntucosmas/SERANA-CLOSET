@@ -1,14 +1,14 @@
 <template>
-    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+    <div class="section-bg absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
         <!-- Subtle texture -->
-        <img 
-            :src="texture" 
-            class="absolute inset-0 w-full h-full object-cover grayscale brightness-50" 
+        <img
+            :src="texture"
+            class="absolute inset-0 w-full h-full object-cover grayscale brightness-50"
             :class="[opacity, blur]"
             alt="Background texture"
         />
         <!-- Simple gradient -->
-        <div class="absolute inset-0 bg-gradient-to-b from-[#0a0a0b]/80 via-transparent to-[#0a0a0b]/80 z-10"></div>
+        <div class="section-bg-scrim absolute inset-0 bg-gradient-to-b from-[#0a0a0b]/80 via-transparent to-[#0a0a0b]/80 z-10"></div>
     </div>
 </template>
 

@@ -26,13 +26,13 @@ function getGridClass(index) {
             <meta name="description" content="Witness the Serana Standard in the real world. A curated gallery of our most striking commissions and global client features.">
         </Head>
 
-        <main class="pt-32 pb-24 bg-surface/5">
-            <div class="max-w-[1600px] mx-auto px-8 lg:px-16">
+        <main class="pt-8 md:pt-32 pb-24 bg-surface/5">
+            <div class="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12">
                 
                 <!-- Editorial Header -->
                 <div class="max-w-3xl mb-24 reveal">
                     <div class="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/30 mb-6 w-fit">
-                        <span class="text-[9px] font-medium tracking-[0.2em] text-primary">Social authority</span>
+                        <span class="text-[9px] font-medium tracking-wider text-primary">Social authority</span>
                     </div>
                     <h1 class="font-headline text-5xl lg:text-7xl font-medium dark:text-white text-on-surface leading-[1.1] mb-8">
                         The Serana <span class="text-primary luminous-glow">Circle.</span>
@@ -51,10 +51,11 @@ function getGridClass(index) {
                         :class="getGridClass(index)"
                     >
                         <!-- Image -->
-                        <img 
-                            :src="item.image_url" 
-                            :alt="item.client_name" 
+                        <img
+                            :src="item.image_url || '/images/hero_editorial.png'"
+                            :alt="item.client_name"
                             class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-100"
+                            @error="(e) => { if (!e.target.src.endsWith('/images/hero_editorial.png')) e.target.src = '/images/hero_editorial.png'; }"
                         />
 
                         <!-- Overlay info -->
@@ -102,12 +103,12 @@ function getGridClass(index) {
                         </p>
                         
                         <div v-if="!$page.props.auth?.user">
-                            <Link :href="route('login')" class="inline-flex items-center gap-4 bg-white/10 border dark:border-white/20 border-black/20 dark:text-white text-on-surface px-10 py-5 rounded-sm font-headline text-xs tracking-[0.2em] font-medium hover:bg-white hover:text-black transition-all shadow-none">
+                            <Link :href="route('login')" class="inline-flex items-center gap-4 bg-white/10 border dark:border-white/20 border-black/20 dark:text-white text-on-surface px-10 py-5 rounded-sm font-headline text-xs tracking-wider font-medium hover:bg-white hover:text-black transition-all shadow-none">
                                 Join the vault to invite <span class="material-symbols-outlined text-sm">arrow_forward</span>
                             </Link>
                         </div>
                         <div v-else>
-                            <Link :href="route('profile.designs')" class="inline-flex items-center gap-4 bg-transparent border border-primary/50 text-primary px-10 py-5 rounded-sm font-headline text-xs tracking-[0.2em] font-medium hover:bg-primary hover:text-black transition-all">
+                            <Link :href="route('profile.designs')" class="inline-flex items-center gap-4 bg-transparent border border-primary/50 text-primary px-10 py-5 rounded-sm font-headline text-xs tracking-wider font-medium hover:bg-primary hover:text-black transition-all">
                                 Generate invitation code <span class="material-symbols-outlined text-sm">qr_code_2</span>
                             </Link>
                         </div>

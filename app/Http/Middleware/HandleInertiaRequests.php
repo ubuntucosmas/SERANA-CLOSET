@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use App\Models\ThemeSetting;
+use App\Support\WhatsApp;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -47,7 +48,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
-            'whatsapp_number' => fn () => ThemeSetting::get('whatsapp_number', config('services.whatsapp.number')),
+            'whatsapp_number' => fn () => WhatsApp::normalizeNumber(
+                ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
+            ),
             'theme_settings' => fn () => ThemeSetting::all()->mapWithKeys(function ($item) {
                 return [$item->key => ThemeSetting::get($item->key)];
             })->all(),

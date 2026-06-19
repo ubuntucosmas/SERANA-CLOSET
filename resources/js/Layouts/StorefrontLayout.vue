@@ -37,7 +37,7 @@ import CommandPortal from '@/Components/CommandPortal.vue';
 import SitePath from '@/Components/SitePath.vue';
 import Notification from '@/Components/Notification.vue';
 import { useCartStore } from '@/Stores/useCartStore';
-import { animate, stagger } from 'animejs';
+import { animate } from 'animejs';
 
 const props = defineProps({
     hideMobileCard: { type: Boolean, default: false }
@@ -50,39 +50,38 @@ onMounted(() => {
     // Cart self-initializes from localStorage in useCartStore.js
 });
 
+const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Editorial restraint: a quiet fade + a few px of rise. No bounce, no slide.
 const pageEnter = (el, done) => {
-    // Main container slide up with bounce
+    if (prefersReducedMotion) {
+        el.style.opacity = '1';
+        done();
+        return;
+    }
     animate(el, {
         opacity: [0, 1],
-        translateY: ['-110%', 0],
-        easing: 'bounce.out',
-        duration: 1200,
-        onComplete: () => {
-            // Then animate text words with stagger
-            const splitElements = el.querySelectorAll('.split-text');
-            if (splitElements.length > 0) {
-                animate(splitElements, {
-                    opacity: [0, 1],
-                    translateY: [30, 0],
-                    delay: stagger(30, { start: 200 }),
-                    easing: 'easeOutCubic',
-                    duration: 600,
-                    onComplete: done
-                });
-            } else {
-                done();
-            }
-        }
+        translateY: [12, 0],
+        easing: 'easeOutQuad',
+        duration: 420,
+        onComplete: done,
     });
 };
 
 const pageLeave = (el, done) => {
+    if (prefersReducedMotion) {
+        done();
+        return;
+    }
     animate(el, {
         opacity: [1, 0],
-        translateY: [0, 20],
-        easing: 'easeInExpo',
-        duration: 400,
-        onComplete: done
+        translateY: [0, 6],
+        easing: 'easeInQuad',
+        duration: 220,
+        onComplete: done,
     });
 };
 </script>

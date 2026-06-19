@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomOrder;
 use App\Models\Product;
+use App\Models\ThemeSetting;
+use App\Support\WhatsApp;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -60,8 +62,9 @@ class CustomOrderController extends Controller
 
             $imagePaths = [];
             if ($request->hasFile('images')) {
+                $optimizer = app(\App\Services\ImageOptimizer::class);
                 foreach ($request->file('images') as $image) {
-                    $imagePaths[] = $image->store('inspiration_images', 'public');
+                    $imagePaths[] = $optimizer->store($image, 'inspiration_images');
                 }
             }
 
@@ -94,69 +97,19 @@ class CustomOrderController extends Controller
             // 1. Persist the Order to Database
             $order = CustomOrder::create($orderData);
 
-            // 2. Construct Elite Artisan Brief (WhatsApp Handoff)
-            // This string is formatted for high readability on small mobile screens
-            // used by production teams and clients.
-            $storePhone = config('services.whatsapp.number');
-            
-            $message = "✨ *SERANA DIGITAL ATELIER | PRODUCTION BRIEF* ✨\n";
-            $message .= "Order ID: #{$order->id} | Protocol: V4.2\n";
-            $message .= "------------------------------------------\n\n";
+            // 2. Build the atelier brief and the click-to-chat link to the
+            //    store number the admin configured in the studio dashboard
+            //    (falling back to the app default). The same string is what the
+            //    client previews and sends, so it reads warm yet stays scannable.
+            $message = $this->buildBrief($order, $validated, $priorityPass, $imagePaths);
 
-            $message .= "👤 *[ CLIENT IDENTITY ]*\n";
-            $message .= "• Name: {$order->full_name}\n";
-            $message .= "• WhatsApp: {$order->whatsapp_number}\n";
-            if ($validated['location']) {
-                $message .= "• Residence: {$validated['location']}\n";
-            }
-            
-            $message .= "\n👗 *[ GARMENT ARCHITECTURE ]*\n";
-            $message .= "• Style: " . strtoupper($order->type) . "\n";
-            if ($validated['occasion']) {
-                $message .= "• Context/Event: {$validated['occasion']}\n";
-            }
-            if ($validated['deadline']) {
-                $message .= "• Target Delivery: {$validated['deadline']}\n";
-            }
-
-            $message .= "\n📏 *[ PRECISION MEASUREMENTS ]*\n";
-            $message .= "• Full Height: " . ($validated['height_cm'] ?? 'N/A') . " cm\n";
-            $message .= "• Bust: " . ($order->bust_cm ?? 'N/A') . " cm\n";
-            $message .= "• Waist: " . ($order->waist_cm ?? 'N/A') . " cm\n";
-            $message .= "• Hips: " . ($order->hips_cm ?? 'N/A') . " cm\n";
-            $message .= "• Drape Length: " . ($order->length_cm ?? 'N/A') . " cm\n";
-
-            $message .= "\n🧵 *[ DESIGN SPECIFICATIONS ]*\n";
-            $message .= "• Fit Preference: " . ($validated['selected_fit'] ?? 'Regular') . "\n";
-            $message .= "• Fabric: " . ($order->fabric_preference ?? 'To be discussed') . "\n";
-            $message .= "• Color: " . ($validated['selected_color'] ?? 'To be discussed') . "\n";
-
-            if ($validated['notes']) {
-                $message .= "\n📝 *[ DESIGNER NOTES ]*\n";
-                $message .= "_{$validated['notes']}_\n";
-            }
-
-            if (count($imagePaths) > 0) {
-                $message .= "\n🖼️ *[ INSPIRATION ARCHIVE ]*\n";
-                $message .= "• Total Assets: " . count($imagePaths) . "\n";
-                foreach($imagePaths as $index => $path) {
-                    // Brilliant & reliable: Always build full absolute URL from APP_URL + storage path
-                    // This guarantees the links open from WhatsApp on any device (mobile/desktop)
-                    $cleanPath = ltrim($path, '/');
-                    $url = rtrim(config('app.url'), '/') . '/storage/' . $cleanPath;
-                    $message .= "• Asset " . ($index + 1) . ": " . $url . "\n";
-                }
-            }
-
-            $message .= "------------------------------------------\n";
-            $message .= "CONFIRM RECEIPT TO BEGIN TAILORING.";
-
-            // 3. Encode the message for safe URI transport
-            $whatsappUrl = "https://wa.me/{$storePhone}?text=" . rawurlencode($message);
+            $storePhone = ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'));
+            $whatsappUrl = WhatsApp::link($storePhone, $message);
 
             return response()->json([
                 'success' => true,
-                'whatsapp_url' => $whatsappUrl
+                'whatsapp_url' => $whatsappUrl,
+                'reference' => $order->cipher,
             ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("🚨 [CustomOrder_Fault] " . $e->getMessage(), [
@@ -169,10 +122,90 @@ class CustomOrderController extends Controller
                 'message' => 'The digital atelier is momentarily busy. Please try again.'
             ], 500);
         }
+    }
 
-        return response()->json([
-            'success' => true,
-            'whatsapp_url' => $whatsappUrl
-        ]);
+    /**
+     * Compose the WhatsApp commission brief.
+     *
+     * Formatted for a phone screen: WhatsApp *bold* headers, only the lines
+     * that carry real information (no walls of "N/A"), and a clear Priority
+     * Pass flag so the atelier never misses an expedited request. Optional
+     * sections collapse gracefully when the client leaves them blank.
+     */
+    private function buildBrief(CustomOrder $order, array $validated, bool $priorityPass, array $imagePaths): string
+    {
+        $rule = "──────────────────";
+        $lines = [];
+
+        $lines[] = "✨ *SERANA ATELIER*";
+        $lines[] = "_Bespoke Commission Brief_";
+        $lines[] = "Ref {$order->cipher} · Order #{$order->id}";
+        $lines[] = $rule;
+
+        // — Client —
+        $lines[] = "\n*Client*";
+        $lines[] = "• {$order->full_name}";
+        $lines[] = "• {$order->whatsapp_number}";
+        if (!empty($validated['location'])) {
+            $lines[] = "• {$validated['location']}";
+        }
+
+        // — The piece —
+        $lines[] = "\n*The Piece*";
+        $lines[] = "• " . strtoupper($order->type);
+        if (!empty($validated['occasion'])) {
+            $lines[] = "• Occasion · {$validated['occasion']}";
+        }
+        if (!empty($validated['deadline'])) {
+            $lines[] = "• Needed by · {$validated['deadline']}";
+        }
+        if ($priorityPass) {
+            $lines[] = "• ⚡ *Priority Pass* — expedited queue";
+        }
+
+        // — Measurements (only what was given) —
+        $measurements = array_filter([
+            'Height' => $validated['height_cm'] ?? null,
+            'Bust'   => $order->bust_cm,
+            'Waist'  => $order->waist_cm,
+            'Hips'   => $order->hips_cm,
+            'Length' => $order->length_cm,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $lines[] = "\n*Measurements*";
+        if (empty($measurements)) {
+            $lines[] = "_To be taken at the first fitting._";
+        } else {
+            foreach ($measurements as $label => $value) {
+                $lines[] = "• {$label} · {$value} cm";
+            }
+        }
+
+        // — Design —
+        $lines[] = "\n*Design*";
+        $lines[] = "• Fit · " . ($validated['selected_fit'] ?? 'Regular');
+        $lines[] = "• Fabric · " . ($order->fabric_preference ?: 'To be discussed');
+        $lines[] = "• Colour · " . ($validated['selected_color'] ?? 'To be discussed');
+
+        // — Notes —
+        if (!empty($validated['notes'])) {
+            $lines[] = "\n*Notes*";
+            $lines[] = "_{$validated['notes']}_";
+        }
+
+        // — References —
+        if (count($imagePaths) > 0) {
+            $lines[] = "\n*References* (" . count($imagePaths) . ")";
+            $base = rtrim(config('app.url'), '/');
+            foreach ($imagePaths as $index => $path) {
+                $url = $base . '/storage/' . ltrim($path, '/');
+                $lines[] = ($index + 1) . ". {$url}";
+            }
+        }
+
+        $lines[] = "\n" . $rule;
+        $lines[] = "Reply to confirm and we'll begin crafting. ✦";
+
+        return implode("\n", $lines);
     }
 }

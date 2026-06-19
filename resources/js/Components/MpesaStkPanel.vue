@@ -41,11 +41,13 @@ function handleSubmit() {
     emit('pay', { amount: props.amount, phone: phoneNumber.value });
 }
 
+// Only claims we can actually stand behind — M-Pesa handles funds/PIN on
+// Safaricom's side; we never see or store card/PIN data.
 const trustPoints = [
-    { icon: 'enhanced_encryption', text: '256-bit SSL Encryption' },
-    { icon: 'verified_user', text: 'PCI DSS Compliant' },
-    { icon: 'shield', text: 'Safaricom Daraja Certified' },
-    { icon: 'fingerprint', text: 'PIN-Secured Transaction' },
+    { icon: 'enhanced_encryption', text: 'Encrypted Connection' },
+    { icon: 'verified_user', text: 'Powered by Safaricom M-PESA' },
+    { icon: 'lock', text: 'We never see your PIN' },
+    { icon: 'fingerprint', text: 'PIN-Secured by M-PESA' },
 ];
 
 const steps = [
@@ -58,7 +60,7 @@ const steps = [
 
 <template>
     <!-- PHASE: IDLE — the main input form -->
-    <div v-if="phase === 'idle'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a151f] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
+    <div v-if="phase === 'idle'" class="stk-panel always-dark relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a151f] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
         <!-- Scanning line -->
         <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#4fb33f]/60 to-transparent animate-scan-x z-10"></div>
 
@@ -140,7 +142,7 @@ const steps = [
     </div>
 
     <!-- PHASE: PROCESSING — request is being sent -->
-    <div v-else-if="phase === 'processing'" class="stk-panel relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center py-20 px-10 text-center min-h-[400px]">
+    <div v-else-if="phase === 'processing'" class="stk-panel always-dark relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1a0a] to-[#0d1f0d] shadow-[0_60px_120px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center py-20 px-10 text-center min-h-[400px]">
         <div class="absolute inset-0 bg-[#4fb33f]/3 animate-pulse"></div>
 
         <!-- Animated Spinner -->
@@ -165,7 +167,7 @@ const steps = [
     </div>
 
     <!-- PHASE: WAITING — STK dispatched, user needs to check phone -->
-    <div v-else-if="phase === 'waiting'" class="stk-panel relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-br from-[#1a0a0a] to-[#0d1f0d] shadow-[0_0_80px_rgba(225,29,72,0.2)]">
+    <div v-else-if="phase === 'waiting'" class="stk-panel always-dark relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-br from-[#1a0a0a] to-[#0d1f0d] shadow-[0_0_80px_rgba(225,29,72,0.2)]">
         <!-- Top scanning line - Ruby -->
         <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-rose-500 to-transparent animate-scan-x z-10"></div>
 

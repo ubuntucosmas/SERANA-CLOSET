@@ -1,17 +1,28 @@
 <script setup>
 import { ref, reactive } from "vue";
-import { Head, usePage } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
-import { useCurrency } from "@/Composables/useCurrency";
 import SizingIntelligence from "@/Components/SizingIntelligence.vue";
 
-const page = usePage();
-const { formatAmount } = useCurrency();
+const props = defineProps({
+    baseProduct: { type: Object, default: null },
+    showcaseProducts: { type: Array, default: () => [] },
+});
 
 const isSubmitting = ref(false);
 const globalError = ref(null);
 const fileInput = ref(null);
 const activeField = ref(null);
+
+// Success state (shown after the brief is sent — survives popup blockers).
+const submitted = ref(false);
+const whatsappUrl = ref(null);
+const reference = ref(null);
+
+const fieldLabel = (key) => {
+    const base = key.replace("_cm", "");
+    return base.charAt(0).toUpperCase() + base.slice(1);
+};
 
 const measurementGuidance = {
     height_cm:
@@ -71,6 +82,15 @@ const form = reactive({
 });
 
 const validationErrors = ref({});
+
+// Pre-fill from a product the client arrived from (e.g. "Make this custom").
+if (props.baseProduct) {
+    form.notes = `Inspired by: ${props.baseProduct.name}`;
+    const match = outfitTypes.find(
+        (t) => t.toLowerCase() === String(props.baseProduct.garment_type || "").toLowerCase()
+    );
+    if (match) form.outfit_type = match;
+}
 
 function triggerFileInput() {
     fileInput.value?.click();
@@ -139,20 +159,21 @@ async function submitOrder() {
         );
 
         if (response.data.success && response.data.whatsapp_url) {
-            window.open(response.data.whatsapp_url, "_blank");
-            // Revoke all object URLs before clearing
+            whatsappUrl.value = response.data.whatsapp_url;
+            reference.value = response.data.reference;
+
+            // Free preview memory now that the files are uploaded.
             form.images.forEach((file) => {
                 try {
                     URL.revokeObjectURL(getObjectURL(file));
                 } catch (e) {}
             });
 
-            // Reset form
-            Object.keys(form).forEach((k) => {
-                if (Array.isArray(form[k])) form[k] = [];
-                else if (typeof form[k] === "boolean") form[k] = false;
-                else form[k] = "";
-            });
+            // Show the confirmation panel (works even if the popup is blocked),
+            // then optimistically try to open WhatsApp in a new tab.
+            submitted.value = true;
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            window.open(whatsappUrl.value, "_blank");
         }
     } catch (err) {
         globalError.value =
@@ -162,20 +183,35 @@ async function submitOrder() {
         isSubmitting.value = false;
     }
 }
+
+function resetForm() {
+    Object.keys(form).forEach((k) => {
+        if (Array.isArray(form[k])) form[k] = [];
+        else if (typeof form[k] === "boolean") form[k] = false;
+        else if (["bust_cm", "waist_cm", "hips_cm", "length_cm", "height_cm"].includes(k))
+            form[k] = null;
+        else form[k] = "";
+    });
+    validationErrors.value = {};
+    globalError.value = null;
+    whatsappUrl.value = null;
+    reference.value = null;
+    submitted.value = false;
+}
 </script>
 
 <template>
     <StorefrontLayout>
         <Head title="Private Commission | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pt-24 pb-20">
-            <div class="max-w-5xl mx-auto px-5 md:px-8 lg:px-10">
+        <div class="min-h-screen bg-background text-on-surface pt-8 md:pt-32 pb-24">
+            <div class="max-w-5xl mx-auto px-6 sm:px-8">
                 <!-- Modern Header -->
-                <div class="mb-12 text-center">
+                <div v-if="!submitted" class="mb-12 text-center">
                     <div
-                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-[4px] font-medium mb-5 rounded-sm"
+                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-wider font-medium mb-5 rounded-sm"
                     >
-                        PRIVATE COMMISSION
+                        Private Commission
                     </div>
                     <h1
                         class="text-6xl md:text-7xl font-light tracking-tighter leading-none"
@@ -191,15 +227,15 @@ async function submitOrder() {
                 </div>
 
                 <!-- The Form -->
-                <form @submit.prevent="submitOrder" class="space-y-7">
+                <form v-if="!submitted" @submit.prevent="submitOrder" class="space-y-7">
                     <!-- Your Details -->
                     <div
                         class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
                     >
                         <div
-                            class="text-xs tracking-[3px] text-primary mb-6 font-medium"
+                            class="text-xs tracking-wider text-primary mb-6 font-medium"
                         >
-                            01 — YOUR DETAILS
+                            01 — Your details
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -257,9 +293,9 @@ async function submitOrder() {
                         class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
                     >
                         <div
-                            class="text-xs tracking-[3px] text-primary mb-6 font-medium"
+                            class="text-xs tracking-wider text-primary mb-6 font-medium"
                         >
-                            02 — THE GARMENT
+                            02 — The garment
                         </div>
 
                         <div>
@@ -306,7 +342,7 @@ async function submitOrder() {
                                 <input
                                     v-model="form.deadline"
                                     type="date"
-                                    class="w-full bg-black border border-white/20 focus:border-[#57d5fc] px-5 py-4 rounded-xl text-white"
+                                    class="w-full bg-background border border-white/20 focus:border-primary px-5 py-4 rounded-xl text-white"
                                 />
                             </div>
                         </div>
@@ -319,9 +355,9 @@ async function submitOrder() {
                         <div class="flex items-center justify-between mb-6">
                             <div>
                                 <div
-                                    class="text-xs tracking-[3px] text-primary font-medium"
+                                    class="text-xs tracking-wider text-primary font-medium"
                                 >
-                                    03 — PRECISION MAPPING
+                                    03 — Precision mapping
                                 </div>
                                 <p class="text-on-surface-variant text-sm mt-1">
                                     Smart guidance for perfect bespoke fit
@@ -358,7 +394,7 @@ async function submitOrder() {
                                             placeholder="—"
                                             @focus="activeField = m[1]"
                                             @blur="activeField = null"
-                                            class="w-full bg-black border border-white/20 focus:border-[#57d5fc] px-3 py-2.5 rounded-lg text-sm text-center transition-all"
+                                            class="w-full bg-background border border-white/20 focus:border-primary px-3 py-2.5 rounded-lg text-sm text-center transition-all"
                                         />
                                     </div>
                                 </div>
@@ -371,12 +407,8 @@ async function submitOrder() {
                                     "
                                     class="mt-2.5 text-sm text-white/80 bg-black/30 px-3 py-2 rounded-lg"
                                 >
-                                    <span class="text-[#57d5fc] font-medium"
-                                        >{{
-                                            activeField
-                                                .replace("_cm", "")
-                                                .toUpperCase()
-                                        }}:</span
+                                    <span class="text-primary font-medium"
+                                        >{{ fieldLabel(activeField) }}:</span
                                     >
                                     {{ measurementGuidance[activeField] }}
                                 </div>
@@ -397,9 +429,9 @@ async function submitOrder() {
                         class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
                     >
                         <div
-                            class="text-xs tracking-[3px] text-primary mb-6 font-medium"
+                            class="text-xs tracking-wider text-primary mb-6 font-medium"
                         >
-                            04 — FABRIC & COLOUR
+                            04 — Fabric & colour
                         </div>
 
                         <div class="mb-8">
@@ -422,7 +454,7 @@ async function submitOrder() {
                                     "
                                 >
                                     <div
-                                        class="text-xs tracking-[2px] text-white/40 mb-1"
+                                        class="text-xs tracking-wider text-white/40 mb-1"
                                     >
                                         FABRIC
                                     </div>
@@ -466,9 +498,9 @@ async function submitOrder() {
                         class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
                     >
                         <div
-                            class="text-xs tracking-[3px] text-primary mb-6 font-medium"
+                            class="text-xs tracking-wider text-primary mb-6 font-medium"
                         >
-                            05 — INSPIRATION & NOTES
+                            05 — Inspiration & notes
                         </div>
 
                         <!-- Image Upload -->
@@ -534,7 +566,7 @@ async function submitOrder() {
                                 v-model="form.notes"
                                 rows="3"
                                 placeholder="Special requests, fit preferences, deadline pressure..."
-                                class="w-full bg-black border border-white/20 focus:border-[#57d5fc] px-4 py-3 rounded-xl text-sm resize-y"
+                                class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3 rounded-xl text-sm resize-y"
                             ></textarea>
                         </div>
                     </div>
@@ -567,12 +599,12 @@ async function submitOrder() {
                     <button
                         type="submit"
                         :disabled="isSubmitting"
-                        class="w-full py-6 bg-primary hover:bg-white text-black font-bold text-[11px] tracking-[3px] rounded-2xl transition-all disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.985]"
+                        class="w-full py-6 bg-primary hover:bg-on-surface text-background font-bold text-[11px] tracking-wider rounded-2xl transition-all disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.985]"
                     >
                         <span>{{
                             isSubmitting
-                                ? "SENDING TO THE ATELIER..."
-                                : "SEND BRIEF TO THE ATELIER"
+                                ? "Sending to the atelier…"
+                                : "Send brief to the atelier"
                         }}</span>
                         <span
                             v-if="!isSubmitting"
@@ -595,6 +627,50 @@ async function submitOrder() {
                         {{ globalError }}
                     </div>
                 </form>
+
+                <!-- Success / Brief Sent -->
+                <div v-else class="max-w-xl mx-auto text-center py-10">
+                    <div class="w-20 h-20 mx-auto flex items-center justify-center bg-[#4fb33f]/12 border border-[#4fb33f]/30 mb-8">
+                        <span class="material-symbols-outlined text-[#4fb33f] text-4xl" style="font-variation-settings:'FILL' 1">task_alt</span>
+                    </div>
+                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Your brief is ready.</h2>
+                    <p class="text-on-surface-variant leading-relaxed mb-10">
+                        We’ve opened WhatsApp so you can send your commission brief to the atelier.
+                        If it didn’t open automatically, tap the button below — then just hit send.
+                    </p>
+
+                    <a
+                        :href="whatsappUrl"
+                        target="_blank"
+                        rel="noopener"
+                        class="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-5 bg-[#4fb33f] text-black font-bold tracking-wide hover:bg-[#5cc94a] transition-all active:scale-[0.99] shadow-[0_20px_40px_-12px_rgba(79,179,63,0.5)]"
+                    >
+                        <span class="material-symbols-outlined">chat</span>
+                        Open WhatsApp &amp; send brief
+                    </a>
+
+                    <!-- Order reference + tracking -->
+                    <div v-if="reference" class="mt-10 bg-surface border border-white/10 rounded-2xl px-6 py-5 text-left">
+                        <div class="text-[10px] font-mono uppercase tracking-widest text-on-surface-variant">Your order reference</div>
+                        <div class="text-xl font-mono tracking-wider text-on-surface mt-1">{{ reference }}</div>
+                        <p class="text-sm text-on-surface-variant mt-3">
+                            Keep this safe. Track your commission's progress anytime with your
+                            reference and WhatsApp number —
+                            <a :href="route('track', { ref: reference })" class="text-primary hover:underline">track your order</a>.
+                        </p>
+                    </div>
+
+                    <div class="mt-8">
+                        <button
+                            type="button"
+                            @click="resetForm"
+                            class="text-sm text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-2"
+                        >
+                            <span class="material-symbols-outlined text-base">add</span>
+                            Start another commission
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </StorefrontLayout>

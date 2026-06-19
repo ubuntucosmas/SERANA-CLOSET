@@ -1,12 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { Head, Link, router, usePage } from "@inertiajs/vue3";
+import { ref, computed, watch } from "vue";
+import { Head, router, usePage } from "@inertiajs/vue3";
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
 
-import { useCartStore } from "@/Stores/useCartStore";
 import ProductCard from "@/Components/ProductCard.vue";
-import InfiniteHorizontalCarousel from "@/Components/InfiniteHorizontalCarousel.vue";
-import XRayOverlay from "@/Components/XRayOverlay.vue";
 import SectionBackground from "@/Components/SectionBackground.vue";
 
 const props = defineProps({
@@ -15,12 +12,10 @@ const props = defineProps({
     filters: Object,
 });
 
-const cart = useCartStore();
 const page = usePage();
 const whatsappUrl = computed(
     () => `https://wa.me/${page.props.whatsapp_number}`,
 );
-const currentLayout = ref("grid");
 
 const showLogisticsOverlay = ref(false);
 
@@ -49,15 +44,12 @@ const currentSortLabel = computed(
         "Newest Arrivals",
 );
 
+// Sort is applied client-side for instant feedback (the catalogue is already
+// loaded; no round-trip needed).
 const filterBySort = (value) => {
     currentSort.value = value;
     showSortMenu.value = false;
     showLogisticsOverlay.value = false;
-    router.get(
-        route("shop"),
-        { category: props.filters?.category, sort: value },
-        { preserveState: true, replace: true },
-    );
 };
 
 const activeCategory = computed(() => {
@@ -68,28 +60,41 @@ const activeCategory = computed(() => {
     );
 });
 
-// Group products by category for beautiful horizontal carousels
-const productsByCategory = computed(() => {
-    if (!props.products || props.products.length === 0) return [];
-
-    const groups = {};
-
-    props.products.forEach((product) => {
-        const catName = product.category?.name || "Uncategorized";
-        const catSlug = product.category?.slug || "uncategorized";
-
-        if (!groups[catSlug]) {
-            groups[catSlug] = {
-                name: catName,
-                slug: catSlug,
-                products: [],
-            };
-        }
-        groups[catSlug].products.push(product);
-    });
-
-    return Object.values(groups);
+// ── Sorted + paginated grid (replaces the old infinite carousel) ─────────────
+const sortedProducts = computed(() => {
+    const list = [...(props.products || [])];
+    switch (currentSort.value) {
+        case "price_asc":
+            return list.sort((a, b) => Number(a.price) - Number(b.price));
+        case "price_desc":
+            return list.sort((a, b) => Number(b.price) - Number(a.price));
+        case "newest":
+        default:
+            return list.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at),
+            );
+    }
 });
+
+const PAGE_SIZE = 12;
+const visibleCount = ref(PAGE_SIZE);
+const visibleProducts = computed(() =>
+    sortedProducts.value.slice(0, visibleCount.value),
+);
+const canLoadMore = computed(
+    () => visibleCount.value < sortedProducts.value.length,
+);
+const loadMore = () => {
+    visibleCount.value += PAGE_SIZE;
+};
+
+// Reset paging whenever the result set or ordering changes.
+watch(
+    [currentSort, () => props.products],
+    () => {
+        visibleCount.value = PAGE_SIZE;
+    },
+);
 
 // Prevent body scroll when overlay is open
 watch(showLogisticsOverlay, (val) => {
@@ -119,7 +124,7 @@ const toSentenceCase = (str) =>
             <SectionBackground opacity="opacity-60" blur="blur-sm" />
 
             <main
-                class="relative z-10 pt-24 lg:pt-32 pb-48 max-w-screen-2xl mx-auto px-4 sm:px-8"
+                class="relative z-10 pt-8 md:pt-32 pb-40 md:pb-32 max-w-screen-2xl mx-auto px-6 sm:px-8 lg:px-12"
             >
                 <header class="mb-8 lg:mb-12 reveal">
                     <div
@@ -137,7 +142,7 @@ const toSentenceCase = (str) =>
                                 >
                             </h1>
                             <p
-                                class="mt-2 text-[10px] tracking-[0.3em] dark:text-white/30 text-black/30 hidden md:block"
+                                class="mt-2 text-[10px] tracking-wider dark:text-white/30 text-black/30 hidden md:block"
                             >
                                 Engineered for confidence.
                             </p>
@@ -165,7 +170,7 @@ const toSentenceCase = (str) =>
                                         >Sort_by:</span
                                     >
                                     <span
-                                        class="text-[10px] font-black tracking-[0.2em] text-primary"
+                                        class="text-[10px] font-black tracking-wider text-primary"
                                         >{{ currentSortLabel }}</span
                                     >
                                     <span
@@ -270,7 +275,7 @@ const toSentenceCase = (str) =>
                     </aside>
 
                     <!-- Main Grid -->
-                    <div class="flex-1 min-w-0 overflow-hidden">
+                    <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between mb-8">
                             <div>
                                 <h2
@@ -327,33 +332,44 @@ const toSentenceCase = (str) =>
                             </h3>
                             <button
                                 @click="filterByCategory('all')"
-                                class="text-[10px] font-black tracking-[0.5em] text-primary border-b border-primary/40 pb-2 hover:border-primary transition-all"
+                                class="text-[10px] font-black tracking-wider text-primary border-b border-primary/40 pb-2 hover:border-primary transition-all"
                             >
                                 Reset Studio_
                             </button>
                         </div>
 
-                        <!-- Brilliant Horizontal Continuous Loop Carousels -->
-                        <div v-else-if="!activeCategory" class="space-y-20">
-                            <!-- When showing all: One elegant horizontal infinite carousel per category -->
-                            <InfiniteHorizontalCarousel
-                                v-for="group in productsByCategory"
-                                :key="group.slug"
-                                :products="group.products"
-                                :category-name="group.name"
-                                :category-slug="group.slug"
-                                :item-width="280"
-                            />
-                        </div>
+                        <!-- Professional responsive product grid -->
+                        <div v-else>
+                            <div
+                                class="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 gap-y-12 lg:gap-x-8 lg:gap-y-16"
+                            >
+                                <ProductCard
+                                    v-for="(product, i) in visibleProducts"
+                                    :key="product.id"
+                                    :product="product"
+                                    class="reveal-stagger"
+                                    :style="{ animationDelay: (i % 4) * 80 + 'ms' }"
+                                />
+                            </div>
 
-                        <div v-else class="mt-4">
-                            <!-- When filtered to one category: Full beautiful horizontal experience -->
-                            <InfiniteHorizontalCarousel
-                                :products="products"
-                                :category-name="activeCategory.name"
-                                :category-slug="activeCategory.slug"
-                                :item-width="300"
-                            />
+                            <!-- Load More (no infinite scroll) -->
+                            <div
+                                v-if="canLoadMore"
+                                class="flex flex-col items-center gap-4 mt-20"
+                            >
+                                <button
+                                    @click="loadMore"
+                                    class="group px-12 py-4 border border-white/15 rounded-sm text-[10px] font-black tracking-wider text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-all"
+                                >
+                                    Load more
+                                </button>
+                                <p
+                                    class="text-[9px] tracking-wider text-white/30"
+                                >
+                                    Showing {{ visibleProducts.length }} of
+                                    {{ sortedProducts.length }}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -365,7 +381,7 @@ const toSentenceCase = (str) =>
             >
                 <button
                     @click="showLogisticsOverlay = true"
-                    class="w-full bg-white text-black py-5 px-8 rounded-sm shadow-[0_30px_60px_rgba(0,0,0,0.5)] flex items-center justify-between group active:scale-95 transition-all"
+                    class="w-full bg-on-surface text-background py-5 px-8 rounded-sm shadow-[0_30px_60px_rgba(0,0,0,0.5)] flex items-center justify-between group active:scale-95 transition-all"
                 >
                     <div class="flex items-center gap-4">
                         <span
@@ -501,7 +517,7 @@ const toSentenceCase = (str) =>
                                         class="text-left px-5 py-3 border rounded-sm text-[10px] font-semibold tracking-normal transition-all"
                                         :class="
                                             currentSort === opt.value
-                                                ? 'bg-white text-black border-white'
+                                                ? 'bg-on-surface text-background border-white'
                                                 : 'bg-white/5 text-white/20 border-white/5'
                                         "
                                     >
@@ -513,7 +529,7 @@ const toSentenceCase = (str) =>
 
                         <div class="mt-auto pt-8 border-t border-white/5">
                             <p
-                                class="text-[8px] text-center dark:text-white/20 text-black/20 tracking-[0.3em]"
+                                class="text-[8px] text-center dark:text-white/20 text-black/20 tracking-wider"
                             >
                                 Serana Closet Studio Control v2.0
                             </p>

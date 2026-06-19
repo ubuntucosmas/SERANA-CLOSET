@@ -7,6 +7,7 @@ use App\Http\Controllers\CircleController;
 use App\Http\Controllers\Admin\StudioController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MpesaController;
+use App\Http\Controllers\OrderTrackingController;
 use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,22 +23,43 @@ Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('ho
 Route::get('/shop',                [ShopController::class, 'index'])->name('shop');
 Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.show');
 Route::get('/custom-order',        [CustomOrderController::class, 'index'])->name('custom-order');
-Route::post('/custom-orders',      [CustomOrderController::class, 'store'])->name('custom-orders.store');
+Route::post('/custom-orders',      [CustomOrderController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('custom-orders.store');
 Route::get('/about',               fn () => Inertia::render('About'))->name('about');
 Route::get('/the-circle',          [CircleController::class, 'index'])->name('circle');
 Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
 Route::get('/contact',             fn () => Inertia::render('Contact'))->name('contact');
 Route::get('/cart',                fn () => Inertia::render('Cart'))->name('cart');
 Route::get('/checkout',            [CheckoutController::class, 'index'])->name('checkout');
-Route::post('/checkout/process',   [CheckoutController::class, 'process'])->name('checkout.process');
+Route::post('/checkout/process',   [CheckoutController::class, 'process'])
+    ->middleware('throttle:20,1')
+    ->name('checkout.process');
+
+// Public order tracking (guest-friendly). Lookup is throttled and requires
+// reference + phone, so it can't be used to enumerate orders.
+Route::get('/track',         [OrderTrackingController::class, 'index'])->name('track');
+Route::post('/track/lookup', [OrderTrackingController::class, 'lookup'])
+    ->middleware('throttle:10,1')
+    ->name('track.lookup');
 
 // M-Pesa Secure Protocol Routes
-Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])->name('mpesa.stk');
+// Throttled: STK initiation sends a real (billable) M-Pesa prompt to a phone.
+Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])
+    ->middleware('throttle:6,1')
+    ->name('mpesa.stk');
 Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])->name('mpesa.status');
-Route::post('/payments/mpesa/callback', [MpesaController::class, 'callback'])->name('mpesa.callback');
+// Token-guarded callback: Safaricom posts to the URL we register, which embeds a
+// shared secret. See VerifyMpesaCallback middleware.
+Route::post('/payments/mpesa/callback/{token}', [MpesaController::class, 'callback'])
+    ->middleware('mpesa.callback')
+    ->name('mpesa.callback');
 
-// Receipt Logic
-Route::get('/orders/{order}/receipt', [ReceiptController::class, 'download'])->name('orders.receipt');
+// Receipt Logic — temporary signed URLs only (minted by MpesaController::status).
+// Prevents enumerating /orders/{id}/receipt to harvest customer PII.
+Route::get('/orders/{order}/receipt', [ReceiptController::class, 'download'])
+    ->middleware('signed')
+    ->name('orders.receipt');
 
 // Centralized Dashboard Redirect (Handles legacy Breeze redirects)
 Route::get('/dashboard', function () {
@@ -62,7 +84,7 @@ Route::middleware('auth')->group(function () {
     // Client Vault & Personal Archive
     Route::get('/my-vault', function () {
         return Inertia::render('Profile/DesignsVault', [
-            'orders' => auth()->user()->customOrders()->latest()->get(),
+            'orders' => auth()->user()->customOrders()->with('progressSnaps')->latest()->get(),
             'user' => auth()->user()
         ]);
     })->name('profile.designs');

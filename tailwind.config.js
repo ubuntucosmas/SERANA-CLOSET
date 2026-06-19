@@ -31,10 +31,11 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Bodoni Moda", ...defaultTheme.fontFamily.serif],
+                "headline": ["Cormorant Garamond", ...defaultTheme.fontFamily.serif],
                 "body": ["Manrope", ...defaultTheme.fontFamily.sans],
-                "label": ["JetBrains Mono", ...defaultTheme.fontFamily.mono],
-                "mono": ["JetBrains Mono", ...defaultTheme.fontFamily.mono]
+                // Labels/UI now use the slim sans (no more terminal monospace).
+                "label": ["Manrope", ...defaultTheme.fontFamily.sans],
+                "mono": ["Manrope", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
                 "DEFAULT": "0px",

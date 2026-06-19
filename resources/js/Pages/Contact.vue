@@ -5,7 +5,7 @@
             <meta name="description" content="Connect with the Serana Studio in Nairobi. Priority WhatsApp access, custom design inquiries, and support.">
         </Head>
 
-        <main class="pt-32 pb-24 px-6 max-w-screen-xl mx-auto font-body">
+        <main class="pt-8 md:pt-32 pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto font-body">
             <!-- Header Section -->
             <header class="mb-20 text-center reveal">
                 <h1 class="serif-text text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-light">The Studio <span class="text-primary luminous-glow">Connect</span></h1>
@@ -51,7 +51,7 @@
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Nairobi Studio</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">By Appointment Only. Experience the Serana Standard in person.</p>
-                                <p class="text-on-surface font-headline text-sm font-bold tracking-[0.2em] uppercase opacity-60">
+                                <p class="text-on-surface font-headline text-sm font-bold tracking-wider opacity-60">
                                     IMENTI HOUSE 29 • Nairobi • Kenya
                                 </p>
                             </div>
@@ -65,7 +65,7 @@
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                             </span>
-                            <span class="text-[11px] font-headline font-black tracking-[0.2em] text-primary">Live studio pulse</span>
+                            <span class="text-[11px] font-headline font-black tracking-wider text-primary">Live studio pulse</span>
                         </div>
                         <p class="text-sm text-white leading-relaxed font-light">
                             Our artisans are currently focused on **Batch #04**. Capacity at **85%**. Response times: approx **4 hours**.
@@ -77,7 +77,7 @@
                 <div class="glass-panel rounded-sm p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
                     <form @submit.prevent="submitForm" class="space-y-8">
                         <div class="space-y-3">
-                            <label class="text-[11px] font-headline tracking-[0.2em] text-primary font-black">Nature of inquiry</label>
+                            <label class="text-[11px] font-headline tracking-wider text-primary font-black">Nature of inquiry</label>
                             <select v-model="form.type" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl transition-all appearance-none outline-none">
                                 <option value="bespoke">Custom Order</option>
                                 <option value="batch">Limited Batch Drop Inquiry</option>
@@ -88,21 +88,21 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div class="space-y-3">
-                                <label class="text-[11px] font-headline tracking-[0.2em] text-on-surface-variant font-black">Your name</label>
+                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Your name</label>
                                 <input v-model="form.name" type="text" placeholder="John Doe" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
                             </div>
                             <div class="space-y-3">
-                                <label class="text-[11px] font-headline tracking-[0.2em] text-on-surface-variant font-black">Email address</label>
+                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Email address</label>
                                 <input v-model="form.email" type="email" placeholder="john@domain.com" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
                             </div>
                         </div>
 
                         <div class="space-y-3">
-                            <label class="text-[11px] font-headline tracking-[0.2em] text-on-surface-variant font-black">Message / specifications</label>
+                            <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Message / specifications</label>
                             <textarea v-model="form.message" rows="5" placeholder="Tell us about your requirements..." class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none resize-none transition-all placeholder:opacity-50" required></textarea>
                         </div>
 
-                        <button type="submit" :disabled="isSubmitting" class="w-full py-6 dark:bg-white dark:text-background bg-on-surface text-surface font-headline text-[12.5px] tracking-[0.3em] font-black rounded-xl hover:bg-primary hover:text-background transition-all shadow-2xl disabled:opacity-50">
+                        <button type="submit" :disabled="isSubmitting" class="w-full py-6 dark:bg-white dark:text-background bg-on-surface text-surface font-headline text-[12.5px] tracking-wider font-black rounded-xl hover:bg-primary hover:text-background transition-all shadow-2xl disabled:opacity-50">
                             {{ isSubmitting ? 'Transmitting...' : 'Dispatch message' }}
                         </button>
 

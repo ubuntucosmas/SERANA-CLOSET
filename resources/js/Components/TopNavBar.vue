@@ -27,10 +27,10 @@
                         <span class="material-symbols-outlined text-[12px] opacity-40 group-hover:rotate-180 transition-transform duration-300">keyboard_arrow_down</span>
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[580px]">
-                        <div class="bg-[#0a0a0b]/95 backdrop-blur-3xl border border-[#57d5fc]/14 rounded-[6px] shadow-2xl p-10 grid grid-cols-2 gap-10">
+                        <div class="bg-background/95 backdrop-blur-3xl border border-primary/15 shadow-2xl p-10 grid grid-cols-2 gap-10">
                             <div class="space-y-6">
                                 <div>
-                                    <h4 class="font-headline text-[13px] text-primary tracking-[0.4em] font-medium mb-3">Browse the shop</h4>
+                                    <h4 class="font-headline text-[13px] text-primary tracking-wider font-medium mb-3">Browse the shop</h4>
                                     <p class="font-body text-[12px] dark:text-white/40 text-black/40 leading-relaxed opacity-80">Our best pieces. Made to last. New items every season.</p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-x-8 gap-y-4">
@@ -41,7 +41,7 @@
                                         {{ cat.name }}
                                     </Link>
                                 </div>
-                                <Link :href="route('shop')" class="inline-flex items-center gap-2 text-[10px] font-headline font-medium text-primary hover:dark:text-white text-on-surface transition-colors tracking-[0.3em]">
+                                <Link :href="route('shop')" class="inline-flex items-center gap-2 text-[10px] font-headline font-medium text-primary hover:dark:text-white text-on-surface transition-colors tracking-wider">
                                     View all items_ <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                                 </Link>
                             </div>
@@ -58,14 +58,14 @@
                         Custom
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[500px]">
-                        <div class="bg-[#0a0a0b]/95 backdrop-blur-3xl border border-[#57d5fc]/14 rounded-[6px] shadow-2xl p-10 grid grid-cols-2 gap-10">
+                        <div class="bg-background/95 backdrop-blur-3xl border border-primary/15 shadow-2xl p-10 grid grid-cols-2 gap-10">
                             <div class="aspect-[3/4] bg-transparent rounded-sm overflow-hidden">
                                 <img src="/images/detailed_texture.png" class="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-1000" alt="Custom Order" />
                             </div>
                             <div class="space-y-6 flex flex-col justify-center">
-                                <span class="text-[9px] font-mono font-medium tracking-[0.4em] text-primary">Made to order</span>
+                                <span class="text-[9px] font-mono font-medium tracking-wider text-primary">Made to order</span>
                                 <div>
-                                    <h4 class="font-display text-[13px] dark:text-white text-on-surface tracking-[0.3em] mb-3">Start your order</h4>
+                                    <h4 class="font-display text-[13px] dark:text-white text-on-surface tracking-wider mb-3">Start your order</h4>
                                     <p class="font-body text-[12px] dark:text-white/40 text-black/40 leading-relaxed opacity-80 mb-6">Made for you. Built to your exact measurements.</p>
                                     <Link :href="route('custom-order')" class="btn-primary px-6 py-4">Get started</Link>
                                 </div>
@@ -82,6 +82,11 @@
                 <Link :href="route('circle')"
                     class="nav-link" :class="{ 'active': isActive('circle') }">
                     Community
+                </Link>
+
+                <Link :href="route('track')"
+                    class="nav-link" :class="{ 'active': isActive('track') }">
+                    Track Order
                 </Link>
             </div>
 
@@ -107,7 +112,7 @@
                     </button>
 
                     <template v-if="!$page.props.auth?.user">
-                        <button @click="showLogin = true" class="font-headline font-medium text-[10px] tracking-[0.3em] dark:text-white text-on-surface hover:text-primary transition-all pr-4">
+                        <button @click="showLogin = true" class="font-headline font-medium text-[10px] tracking-wider dark:text-white text-on-surface hover:text-primary transition-all pr-4">
                             Log in
                         </button>
                     </template>
@@ -178,7 +183,7 @@ onUnmounted(() => {
 <style scoped lang="postcss">
 /* Nav link base — WOODNORK mono UI voice for nav */
 .nav-link {
-    @apply relative font-mono font-medium text-[13px] tracking-[0.28em] transition-all duration-300 dark:text-white text-on-surface hover:text-primary py-1.5 uppercase;
+    @apply relative font-mono font-medium text-[13px] tracking-wider transition-all duration-300 dark:text-white text-on-surface hover:text-primary py-1.5;
 }
 
 /* Premium active indicator (dot or line) */
@@ -205,7 +210,7 @@ onUnmounted(() => {
 
 /* Dropdown sub-link */
 .dropdown-link {
-    @apply block font-mono font-medium text-[11px] tracking-[0.22em] dark:text-white/60 text-black/60 hover:text-primary transition-colors uppercase;
+    @apply block font-mono font-medium text-[11px] tracking-wider dark:text-white/60 text-black/60 hover:text-primary transition-colors;
 }
 
 /* Icon button */
@@ -215,7 +220,7 @@ onUnmounted(() => {
 
 /* Mobile menu link */
 .mobile-link {
-    @apply block font-mono font-medium text-xs tracking-[0.26em] dark:text-white text-on-surface hover:text-primary py-2.5 transition-colors border-b dark:border-white/5 border-black/5 uppercase;
+    @apply block font-mono font-medium text-xs tracking-wider dark:text-white text-on-surface hover:text-primary py-2.5 transition-colors border-b dark:border-white/5 border-black/5;
 }
 
 /* Pulse slide transition */

@@ -17,11 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->validateCsrfTokens(except: [
-            '/payments/mpesa/callback',
+            'payments/mpesa/callback/*',
         ]);
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'mpesa.callback' => \App\Http\Middleware\VerifyMpesaCallback::class,
         ]);
 
         $middleware->trustProxies(at: '*');

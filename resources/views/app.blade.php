@@ -4,6 +4,18 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
+        <!-- Apply saved theme before paint to avoid a light/dark flash -->
+        <script>
+            (function () {
+                try {
+                    var t = localStorage.getItem('serana-theme');
+                    var root = document.documentElement;
+                    if (t === 'light') root.classList.remove('dark');
+                    else root.classList.add('dark');
+                } catch (e) {}
+            })();
+        </script>
+
         <!-- SEO & Meta Tags -->
         <title inertia>{{ config('app.name', 'Serana Closet') }}</title>
         <meta name="description" content="Serana Closet: The Digital Atelier. Uncompromising craftsmanship merging traditional Kenyan tailoring with futuristic precision. Bespoke commissions and limited batch drops.">
@@ -20,7 +32,7 @@
         @endif
         
         <!-- Serana Brand Fonts — WOODNORK Dark Luxury System -->
-        <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400..900&family=Manrope:wght@200..800&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
 
         <!-- Material Symbols (Icons) -->
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -31,7 +43,7 @@
         @inertiaHead
         <meta name="csrf-token" content="{{ csrf_token() }}">
     </head>
-    <body class="font-body antialiased bg-[#0a0a0b] text-[#e5e2e3] selection:bg-[#57d5fc]/20 selection:text-[#0a0a0b]">
+    <body class="font-body antialiased bg-background text-on-surface selection:bg-primary/25 selection:text-background">
         @inertia
     </body>
 </html>

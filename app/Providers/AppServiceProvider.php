@@ -21,5 +21,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // SendOrderConfirmation listens for App\Events\MpesaWebhookHandled via
+        // Laravel's listener auto-discovery (app/Listeners) — no manual binding,
+        // which would double-register and send the receipt twice.
     }
 }

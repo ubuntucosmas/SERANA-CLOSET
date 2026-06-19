@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ThemeSetting;
+use App\Support\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -36,6 +37,12 @@ class ThemeController extends Controller
             $value = $path;
         }
 
+        // Store the store contact number in the canonical wa.me digit form so
+        // every click-to-chat link works regardless of how it was typed.
+        if ($key === 'whatsapp_number' && is_string($value)) {
+            $value = WhatsApp::normalizeNumber($value);
+        }
+
         ThemeSetting::set($key, $value);
 
         return back()->with('success', "Theme asset [$key] updated successfully.");
@@ -49,6 +56,9 @@ class ThemeController extends Controller
         $settings = $request->input('settings', []);
         
         foreach ($settings as $key => $value) {
+            if ($key === 'whatsapp_number' && is_string($value)) {
+                $value = WhatsApp::normalizeNumber($value);
+            }
             ThemeSetting::set($key, $value);
         }
 

@@ -117,6 +117,6 @@ const leaveAnimation = (el, done) => {
 }
 
 .font-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: 'Manrope', sans-serif;
 }
 </style>

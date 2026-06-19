@@ -54,6 +54,16 @@ const optimizedAllImages = computed(() => {
     return images.filter(Boolean);
 });
 
+// Gracefully degrade to a known placeholder if an image fails to load (e.g. a
+// dead storage host) instead of showing a broken-image icon.
+const FALLBACK_IMAGE = '/images/hero_editorial.png';
+const onImgError = (e) => {
+    const el = e?.target;
+    if (el && !el.src.endsWith(FALLBACK_IMAGE)) {
+        el.src = FALLBACK_IMAGE;
+    }
+};
+
 const navigateToSpecs = () => {
     router.visit(route('shop.show', props.product.slug));
 };
@@ -118,7 +128,7 @@ onUnmounted(() => {
 
 <template>
     <article
-        class="group relative transition-all duration-500 cursor-pointer bg-[#111114] p-3 lg:p-4 hover:bg-[#15151a] rounded-2xl border border-white/5 hover:border-primary/30 hover:shadow-[0_0_40px_rgba(87,213,252,0.07)] overflow-hidden flex flex-col h-full"
+        class="group relative transition-all duration-500 cursor-pointer bg-surface dark:bg-[#111114] p-3 lg:p-4 hover:bg-surface-container dark:hover:bg-[#15151a] rounded-2xl border border-white/5 hover:border-primary/30 hover:shadow-[0_0_40px_rgba(87,213,252,0.07)] overflow-hidden flex flex-col h-full"
         :class="[layout === 'editorial' ? 'min-h-[450px]' : 'min-h-[350px]']"
         @mouseenter="startAutoCycle"
         @mouseleave="stopAutoCycle"
@@ -131,28 +141,29 @@ onUnmounted(() => {
         ></div>
 
         <!-- Product Image Container -->
-        <div class="relative overflow-hidden mb-4 aspect-[4/5] bg-black rounded-xl shrink-0 z-10 border border-white/5">
+        <div class="always-dark relative overflow-hidden mb-4 aspect-[4/5] bg-black rounded-xl shrink-0 z-10 border border-white/5">
             <!-- Dynamic Image Scrubber -->
             <img
-                v-for="(imgSrc, i) in optimizedAllImages.length ? optimizedAllImages : ['/images/placeholder.png']"
+                v-for="(imgSrc, i) in optimizedAllImages.length ? optimizedAllImages : ['/images/hero_editorial.png']"
                 :key="i"
                 class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 transform group-hover:scale-105 transition-transform"
                 :class="i === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'"
                 :src="imgSrc"
                 :alt="product.name + (i > 0 ? ' view ' + (i + 1) : '')"
                 loading="lazy"
+                @error="onImgError"
             />
 
             <!-- Atelier-style Badge (Top Left) -->
             <div class="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <span v-if="!isSoldOut" class="bg-primary px-3 py-1.5 text-black text-[9px] font-bold tracking-[0.2em] uppercase flex items-center gap-1.5 shadow-lg">
+                <span v-if="!isSoldOut" class="bg-primary px-3 py-1.5 text-black text-[9px] font-bold tracking-wider flex items-center gap-1.5 shadow-lg">
                     <span class="relative flex h-1.5 w-1.5">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-60"></span>
                         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-black"></span>
                     </span>
                     In Stock
                 </span>
-                <span v-else class="bg-black/80 backdrop-blur-md border border-red-500/30 px-3 py-1.5 text-red-400 text-[9px] font-bold tracking-[0.2em] uppercase shadow-lg">
+                <span v-else class="bg-black/80 backdrop-blur-md border border-red-500/30 px-3 py-1.5 text-red-400 text-[9px] font-bold tracking-wider shadow-lg">
                     Sold Out
                 </span>
             </div>
@@ -189,7 +200,7 @@ onUnmounted(() => {
         <!-- Product Details -->
         <div class="flex flex-col flex-grow relative z-10 mt-1">
             <!-- Category Eyebrow -->
-            <p class="text-white/40 font-mono tracking-[0.2em] uppercase text-[8px] mb-1 truncate group-hover:text-primary/70 transition-colors">{{ product.category?.name || 'Collection' }}</p>
+            <p class="text-white/40 font-mono tracking-wider text-[8px] mb-1 truncate group-hover:text-primary/70 transition-colors">{{ product.category?.name || 'Collection' }}</p>
             
             <!-- Title -->
             <h2 class="text-base md:text-lg font-display text-white leading-tight line-clamp-2 tracking-tight">{{ product.name }}</h2>
@@ -197,7 +208,7 @@ onUnmounted(() => {
             <!-- Price Row -->
             <div class="mt-2 pt-2 border-t border-white/5 flex justify-between items-center group-hover:border-primary/20 transition-colors duration-300">
                 <span class="text-sm font-bold text-primary tracking-wide">{{ formatAmount(product.price, page.props) }}</span>
-                <span class="text-[8px] font-mono tracking-widest uppercase text-white/0 group-hover:text-primary transition-all duration-300 flex items-center gap-1 transform translate-x-2 group-hover:translate-x-0">
+                <span class="text-[8px] font-mono tracking-widest text-white/0 group-hover:text-primary transition-all duration-300 flex items-center gap-1 transform translate-x-2 group-hover:translate-x-0">
                     Discover <span class="material-symbols-outlined text-[10px]">arrow_forward</span>
                 </span>
             </div>
@@ -209,7 +220,7 @@ onUnmounted(() => {
                 <div v-if="showQuickView" class="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6" @click.self="showQuickView = false">
                     <div class="absolute inset-0 bg-black/90 backdrop-blur-md" @click="showQuickView = false"></div>
                     
-                    <div class="relative bg-[#111114] border border-white/10 rounded-2xl max-w-5xl w-full flex flex-col md:flex-row overflow-hidden shadow-2xl h-[90vh] md:h-[650px]">
+                    <div class="always-dark relative bg-[#111114] border border-white/10 rounded-2xl max-w-5xl w-full flex flex-col md:flex-row overflow-hidden shadow-2xl h-[90vh] md:h-[650px]">
                         <button @click="showQuickView = false" class="absolute top-4 right-4 z-50 text-white/40 hover:text-white bg-black/50 rounded-full p-2 backdrop-blur-md transition-colors hover:bg-white/10">
                             <span class="material-symbols-outlined text-lg">close</span>
                         </button>
@@ -220,10 +231,10 @@ onUnmounted(() => {
                              @mouseleave="isZooming = false; zoomStyle = { transformOrigin: 'center center' }"
                              @mousemove="handleZoomMove">
                              
-                            <img :src="optimizedAllImages[quickViewIndex]" :alt="product.name" 
+                            <img :src="optimizedAllImages[quickViewIndex]" :alt="product.name"
                                  class="w-full h-full object-cover transition-transform duration-200 ease-out"
                                  :class="isZooming ? 'scale-[2]' : 'scale-100'"
-                                 :style="zoomStyle" />
+                                 :style="zoomStyle" @error="onImgError" />
                                  
                             <!-- Image Navigation Arrows -->
                             <button v-if="optimizedAllImages.length > 1" @click.stop="quickViewIndex = (quickViewIndex - 1 + optimizedAllImages.length) % optimizedAllImages.length" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black/40 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md hover:bg-black/80">
@@ -236,7 +247,7 @@ onUnmounted(() => {
                         
                         <!-- Details Section -->
                         <div class="w-full md:w-[45%] p-6 md:p-10 flex flex-col h-full overflow-y-auto">
-                            <p class="text-white/40 font-mono tracking-[0.2em] uppercase text-[10px] mb-2">{{ product.category?.name || 'Collection' }}</p>
+                            <p class="text-white/40 font-mono tracking-wider text-[10px] mb-2">{{ product.category?.name || 'Collection' }}</p>
                             <h3 class="text-2xl md:text-3xl font-display text-white mb-4 leading-tight">{{ product.name }}</h3>
                             <p class="text-primary font-bold text-xl mb-6 tracking-wide">{{ formatAmount(product.price, page.props) }}</p>
                             
@@ -247,7 +258,7 @@ onUnmounted(() => {
                             
                             <!-- Thumbnails -->
                             <div v-if="optimizedAllImages.length > 1" class="mb-8">
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/30 mb-3">Gallery</p>
+                                <p class="text-[9px] font-mono tracking-widest text-white/30 mb-3">Gallery</p>
                                 <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                     <button v-for="(img, i) in optimizedAllImages" :key="i" 
                                             @click="quickViewIndex = i"
@@ -262,19 +273,19 @@ onUnmounted(() => {
                                 <button
                                     v-if="!isSoldOut"
                                     @click="addToCart"
-                                    class="w-full bg-primary text-black py-4 text-[11px] font-bold font-mono tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-white transition-all active:scale-95 rounded-sm shadow-lg shadow-primary/20"
+                                    class="w-full bg-primary text-black py-4 text-[11px] font-bold font-mono tracking-widest flex items-center justify-center gap-2 hover:bg-white transition-all active:scale-95 rounded-sm shadow-lg shadow-primary/20"
                                 >
                                     {{ addToCartAnimating ? 'Added to Bag' : 'Add to Bag' }}
                                     <span class="material-symbols-outlined text-[16px]">{{ addToCartAnimating ? 'check' : 'shopping_bag' }}</span>
                                 </button>
                                 <button
                                     v-else
-                                    class="w-full bg-white/5 text-white/30 py-4 text-[11px] font-bold font-mono tracking-widest uppercase flex items-center justify-center rounded-sm cursor-not-allowed border border-white/10"
+                                    class="w-full bg-white/5 text-white/30 py-4 text-[11px] font-bold font-mono tracking-widest flex items-center justify-center rounded-sm cursor-not-allowed border border-white/10"
                                 >
                                     Waitlist
                                 </button>
                                 
-                                <a :href="quickViewWhatsapp" target="_blank" class="w-full py-3 bg-transparent border border-white/10 text-white/60 font-bold uppercase tracking-widest text-[10px] rounded-sm flex items-center justify-center gap-2 hover:bg-white/5 hover:text-white transition-all">
+                                <a :href="quickViewWhatsapp" target="_blank" class="w-full py-3 bg-transparent border border-white/10 text-white/60 font-bold tracking-widest text-[10px] rounded-sm flex items-center justify-center gap-2 hover:bg-white/5 hover:text-white transition-all">
                                     <span class="material-symbols-outlined text-sm">whatsapp</span>
                                     Inquire via WhatsApp
                                 </a>

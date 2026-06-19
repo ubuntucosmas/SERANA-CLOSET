@@ -187,7 +187,7 @@ onMounted(() => {
                 <!-- Hero text -->
                 <div class="relative z-10 max-w-screen-xl mx-auto w-full">
                     <div
-                        class="flex items-center gap-4 text-primary font-headline tracking-[0.3em] text-[10.5px] font-medium mb-8 reveal-item opacity-0"
+                        class="flex items-center gap-4 text-primary font-headline tracking-wider text-[10.5px] font-medium mb-8 reveal-item opacity-0"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
                         Est. Nairobi ·
@@ -266,7 +266,7 @@ onMounted(() => {
                             >{{ stat.value }}</span
                         >
                         <span
-                            class="text-[10.5px] font-headline tracking-[0.25em] dark:text-white text-on-surface dark:text-white text-on-surface font-medium"
+                            class="text-[10.5px] font-headline tracking-wider dark:text-white text-on-surface dark:text-white text-on-surface font-medium"
                             >{{ stat.label }}</span
                         >
                     </div>
@@ -300,7 +300,7 @@ onMounted(() => {
                         class="absolute -bottom-6 -right-4 lg:-right-8 bg-transparent border-2 dark:border-primary/20 border-primary/10 rounded-sm px-8 py-5 backdrop-blur shadow-2xl"
                     >
                         <h1
-                            class="text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] uppercase"
+                            class="text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9]"
                         >
                             Building
                             <span class="text-primary font-medium"
@@ -309,7 +309,7 @@ onMounted(() => {
                             of Nairobi Fashion
                         </h1>
                         <p
-                            class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 uppercase tracking-[0.4em] font-medium leading-loose font-sans"
+                            class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 tracking-wider font-medium leading-loose font-sans"
                         >
                             Merging high-tech design with careful making. We are
                             a studio dedicated to the new generation of makers.
@@ -327,7 +327,7 @@ onMounted(() => {
                     class="order-1 lg:order-2 space-y-8 reveal-content opacity-0"
                 >
                     <div
-                        class="flex items-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-[0.25em]"
+                        class="flex items-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
                         Our custom story
@@ -387,7 +387,7 @@ onMounted(() => {
                 />
                 <div class="text-center mb-20">
                     <div
-                        class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-[0.25em] mb-6"
+                        class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider mb-6"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
                         What drives us
@@ -438,7 +438,7 @@ onMounted(() => {
                 <div class="max-w-screen-xl mx-auto px-8 py-24">
                     <div class="text-center mb-16">
                         <div
-                            class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-[0.25em] mb-8"
+                            class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider mb-8"
                         >
                             <span class="w-12 h-px bg-primary/40"></span>
                             The artisan process
@@ -499,14 +499,14 @@ onMounted(() => {
                     class="relative z-10 max-w-3xl mx-auto px-8 text-center space-y-8"
                 >
                     <div
-                        class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-[0.3em] reveal-item opacity-0"
+                        class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider reveal-item opacity-0"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
                         Ready for archive?
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
                     <h2
-                        class="text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter uppercase"
+                        class="text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter"
                     >
                         Our
                         <span class="dark:text-white text-on-surface/20"
@@ -514,7 +514,7 @@ onMounted(() => {
                         >
                     </h2>
                     <p
-                        class="text-sm dark:text-white/40 text-black/40 leading-loose font-sans uppercase tracking-widest text-[10px] font-medium"
+                        class="text-sm dark:text-white/40 text-black/40 leading-loose font-sans tracking-widest text-[10px] font-medium"
                     >
                         Serana Closet started as a small workshop in Nairobi.
                         Today, it is a high-tech studio where every piece is

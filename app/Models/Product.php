@@ -57,22 +57,13 @@ class Product extends Model
     }
 
     /**
-     * Supabase Image Intelligence: Serve optimized, resized WebP assets.
+     * Kept for frontend compatibility. Images are now optimized to WebP at upload
+     * time (see App\Services\ImageOptimizer), so the stored asset is already the
+     * optimized one — no runtime transform needed.
      */
     public function getOptimizedImageUrlAttribute()
     {
-        $url = $this->image_url;
-        
-        // Only attempt optimization if enabled and URL is from Supabase
-        if (!config('services.supabase.image_optimization', true) || 
-            !$url || 
-            str_contains($url, 'localhost') || 
-            !str_contains($url, 'supabase.co')) {
-            return $url;
-        }
-
-        // Supabase Transformation API: /render/image/public/
-        return str_replace('/object/public/', '/render/image/public/', $url) . '?width=1000&quality=80&format=webp';
+        return $this->image_url;
     }
 
     public function getSecondaryImageUrlsAttribute()
@@ -96,20 +87,37 @@ class Product extends Model
 
     public function getOptimizedSecondaryUrlsAttribute()
     {
-        return array_map(function($url) {
-            if (!config('services.supabase.image_optimization', true) || 
-                !$url || 
-                str_contains($url, 'localhost') || 
-                !str_contains($url, 'supabase.co')) {
-                return $url;
-            }
-            return str_replace('/object/public/', '/render/image/public/', $url) . '?width=800&quality=75&format=webp';
-        }, $this->secondary_image_urls);
+        // Already optimized at upload time; return the resolved URLs as-is.
+        return $this->secondary_image_urls;
     }
 
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function reservations()
+    {
+        return $this->hasMany(StockReservation::class);
+    }
+
+    /** Quantity currently held by unpaid, non-expired checkouts. */
+    public function reservedQuantity(): int
+    {
+        return (int) $this->reservations()->active()->sum('quantity');
+    }
+
+    /**
+     * Units a customer can still buy: batch cap minus sold minus active holds.
+     * Returns null for products without a batch limit (treated as unlimited).
+     */
+    public function availableStock(): ?int
+    {
+        if (!$this->batch_limit) {
+            return null;
+        }
+
+        return max(0, $this->batch_limit - (int) $this->batch_sold - $this->reservedQuantity());
     }
 
     /**

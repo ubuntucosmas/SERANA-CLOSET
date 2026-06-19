@@ -37,18 +37,12 @@ class GalleryImage extends Model
     }
 
     /**
-     * Supabase Image Intelligence optimization.
+     * Kept for frontend compatibility. Images are optimized to WebP at upload
+     * time (see App\Services\ImageOptimizer), so the stored asset is already
+     * optimized — no runtime transform needed.
      */
     public function getOptimizedImageUrlAttribute()
     {
-        $url = $this->image_url;
-        if (!config('services.supabase.image_optimization', true) || 
-            !$url || 
-            str_contains($url, 'localhost') || 
-            !str_contains($url, 'supabase.co')) {
-            return $url;
-        }
-
-        return str_replace('/object/public/', '/render/image/public/', $url) . '?width=1000&quality=80&format=webp';
+        return $this->image_url;
     }
 }

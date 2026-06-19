@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomOrder;
 use App\Models\Product;
+use App\Support\OrderStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -51,11 +52,11 @@ class CheckoutController extends Controller
                 ], 422);
             }
 
-            // Handle batch-limited products
+            // Handle batch-limited products (availability accounts for active holds)
             if ($product->batch_limit) {
-                $available = $product->batch_limit - $product->batch_sold;
+                $available = $product->availableStock();
                 $requested = $item['quantity'] ?? 1;
-                
+
                 if ($requested > $available) {
                     $stockErrors[] = "{$product->name} - only {$available} available (requested: {$requested})";
                 }
@@ -93,28 +94,31 @@ class CheckoutController extends Controller
         // Atomic order creation with stock decrement
         try {
             $order = DB::transaction(function () use ($validated, $userId, $calculatedTotal, $itemsWithSizing) {
-                // Decrement batch stock for each item with SHARED LOCK
+                $expiresAt = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+                $toReserve = [];
+
+                // Hold (not sell) batch stock for each item under a row lock so
+                // concurrent checkouts serialize on the product and can't oversell.
                 foreach ($validated['items'] as $item) {
-                    // SECURE LOCK: Use lockForUpdate to prevent race conditions during heavy traffic
                     $product = Product::where('id', $item['id'])->lockForUpdate()->first();
-                    
+
                     if ($product && $product->batch_limit) {
-                        // Double-check stock inside the lock
-                        $available = $product->batch_limit - $product->batch_sold;
-                        if (($item['quantity'] ?? 1) > $available) {
+                        $quantity = $item['quantity'] ?? 1;
+                        // Re-check availability inside the lock (sold + active holds).
+                        if ($quantity > $product->availableStock()) {
                             throw new \Exception("Stock level changed during processing for: {$product->name}");
                         }
-                        $product->increment('batch_sold', $item['quantity'] ?? 1);
+                        $toReserve[] = ['product_id' => $product->id, 'quantity' => $quantity];
                     }
                 }
 
                 // Create order - mark as pending payment (NOT paid yet)
-                return CustomOrder::create([
+                $order = CustomOrder::create([
                     'user_id'      => $userId,
                     'full_name'    => $validated['full_name'],
                     'email'        => $validated['email'],
                     'type'         => 'standard',
-                    'status'       => 'Pending Payment',
+                    'status'       => OrderStatus::PENDING_PAYMENT,
                     'price_quoted' => $calculatedTotal,
                     'address'      => $validated['address'],
                     'city'         => $validated['city'],
@@ -126,6 +130,18 @@ class CheckoutController extends Controller
                     'waist_cm' => $validated['waist_cm'] ?? null,
                     'hips_cm'  => $validated['hips_cm'] ?? null,
                 ]);
+
+                // Persist the holds now that we have an order id.
+                foreach ($toReserve as $reservation) {
+                    $order->stockReservations()->create([
+                        'product_id' => $reservation['product_id'],
+                        'quantity'   => $reservation['quantity'],
+                        'status'     => 'held',
+                        'expires_at' => $expiresAt,
+                    ]);
+                }
+
+                return $order;
             });
         } catch (\Exception $e) {
             // Log the error for Artisan inspection
@@ -140,6 +156,10 @@ class CheckoutController extends Controller
                 'message'  => 'Transaction security alert. Please refresh and try again.',
             ], 500);
         }
+
+        // Bind this order to the buyer's session so they (and only they) can poll
+        // its payment status and receive the signed receipt link — without login.
+        $request->session()->push('serana.order_ids', $order->id);
 
         return response()->json([
             'success'  => true,

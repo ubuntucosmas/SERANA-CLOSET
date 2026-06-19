@@ -39,8 +39,10 @@ return [
         'number' => env('WHATSAPP_NUMBER', '254741589200'),
     ],
 
-    'supabase' => [
-        'image_optimization' => env('SUPABASE_IMAGE_OPTIMIZATION', false),
+    'store' => [
+        // Where the owner's copy of every paid-order receipt is sent. Falls back
+        // to the mail "from" address when unset.
+        'notification_email' => env('STORE_NOTIFICATION_EMAIL'),
     ],
 
     'mpesa' => [
@@ -50,6 +52,19 @@ return [
         'shortcode' => env('MPESA_SHORTCODE'),
         'passkey' => env('MPESA_PASSKEY'),
         'callback_url' => env('MPESA_CALLBACK_URL'),
+
+        // High-entropy secret embedded in the callback URL path. Safaricom calls
+        // back to /payments/mpesa/callback/{token}; requests with the wrong token
+        // are rejected before any order is touched. Treat as a shared secret.
+        'callback_token' => env('MPESA_CALLBACK_TOKEN'),
+
+        // Optional production hardening: comma-separated source IPs/CIDRs allowed
+        // to hit the callback. Enforced only when MPESA_ENV=production and set.
+        'allowed_ips' => array_filter(array_map('trim', explode(',', (string) env('MPESA_ALLOWED_IPS', '')))),
+
+        // How long checkout holds limited-batch stock for an unpaid order before
+        // the reservation expires and the stock is returned to the pool.
+        'reservation_minutes' => (int) env('MPESA_RESERVATION_MINUTES', 15),
     ],
 
 ];

@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\GalleryImage;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class GalleryController extends Controller
 {
+    public function __construct(private ImageOptimizer $optimizer)
+    {
+    }
+
     public function update(Request $request, GalleryImage $image)
     {
         $validated = $request->validate([
@@ -19,11 +24,10 @@ class GalleryController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
             // Delete old image
-            Storage::disk($targetDisk)->delete($image->image_path);
-            
-            $validated['image_path'] = $request->file('image')->store('gallery', $targetDisk);
+            Storage::disk(config('filesystems.public_disk'))->delete($image->image_path);
+
+            $validated['image_path'] = $this->optimizer->store($request->file('image'), 'gallery');
         }
 
         $image->update($validated);
@@ -41,9 +45,8 @@ class GalleryController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = config('filesystems.public_disk');
-            $path = $request->file('image')->store('gallery', $targetDisk);
-            $validated['image_path'] = $path; // Store raw path; models resolve to full URL via dynamic disk logic
+            // Store optimized raw path; models resolve to full URL via dynamic disk logic.
+            $validated['image_path'] = $this->optimizer->store($request->file('image'), 'gallery');
         }
 
         GalleryImage::create($validated);
@@ -66,9 +69,8 @@ class GalleryController extends Controller
 
     public function forceDelete(GalleryImage $image)
     {
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
         // Permanent asset removal
-        Storage::disk($targetDisk)->delete($image->image_path);
+        Storage::disk(config('filesystems.public_disk'))->delete($image->image_path);
         
         $image->forceDelete();
 

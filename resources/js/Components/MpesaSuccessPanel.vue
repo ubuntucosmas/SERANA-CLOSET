@@ -9,13 +9,15 @@ const props = defineProps({
     orderId: { type: [Number, String], required: true },
     items: { type: Array, default: () => [] },
     transactionId: { type: String, required: true },
+    receiptUrl: { type: String, default: null },
+    reference: { type: String, default: null },
     date: { type: String, default: () => new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 });
 
 const { formatAmount } = useCurrency();
 
 function shareToWhatsApp() {
-    const orderRef = `ORD-${String(props.orderId).substring(0, 8).toUpperCase()}`;
+    const orderRef = props.reference || `ORD-${String(props.orderId).substring(0, 8).toUpperCase()}`;
     const baseUrl = window.location.origin;
     const productList = props.items.map(item => {
         const imgUrl = (item.image && item.image.startsWith('http')) 
@@ -41,7 +43,10 @@ function shareToWhatsApp() {
 }
 
 function downloadReceipt() {
-    window.location.href = route('orders.receipt', props.orderId);
+    // Signed, time-limited URL minted server-side after payment confirmation.
+    if (props.receiptUrl) {
+        window.location.href = props.receiptUrl;
+    }
 }
 </script>
 
@@ -132,10 +137,14 @@ function downloadReceipt() {
             </div>
 
             <!-- Footer Transparency Note -->
-            <div class="px-8 pb-8 text-center">
+            <div class="px-8 pb-8 text-center space-y-2">
+                <p v-if="reference" class="text-[#3f4a3b] dark:text-[#becab6] text-xs">
+                    Keep your reference <span class="font-mono font-bold tracking-wider">{{ reference }}</span> —
+                    <Link :href="route('track', { ref: reference })" class="text-[#016e00] dark:text-[#4fb33f] font-bold hover:underline">track your order</Link>
+                    anytime with it and your phone number.
+                </p>
                 <p class="text-[#3f4a3b] dark:text-[#becab6] text-[10px] font-bold uppercase tracking-widest opacity-60">
-                    Secure Protocol: 256-bit SSL encrypted. 
-                    Reference: ORD-{{ String(orderId).substring(0, 8).toUpperCase() }}
+                    Secure Protocol: 256-bit SSL encrypted.<span v-if="reference"> Reference: {{ reference }}</span>
                 </p>
             </div>
         </div>

@@ -56,19 +56,19 @@ const getCategoryBanner = (category) => {
                 />
                 <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
                 <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-light dark:text-white text-on-surface mb-3 uppercase tracking-tighter">{{ category.name }}_</h3>
-                    <Link :href="route('shop', {category: category.slug})" class="text-primary font-headline font-medium text-[9px] tracking-[0.3em] flex items-center gap-4 hover:translate-x-2 transition-transform uppercase">
+                    <h3 class="text-3xl font-headline font-light dark:text-white text-on-surface mb-3 tracking-tighter">{{ category.name }}_</h3>
+                    <Link :href="route('shop', {category: category.slug})" class="text-primary font-headline font-medium text-[9px] tracking-wider flex items-center gap-4 hover:translate-x-2 transition-transform">
                         View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                     </Link>
                 </div>
             </article>
 
             <!-- 06: Custom Story (CTA) -->
-            <article class="bg-[#0a0a0b]/40 border border-[#57d5fc]/14 rounded-sm overflow-hidden reveal-stagger">
-                <div class="absolute inset-0 bg-[#57d5fc]/5"></div>
+            <article class="bg-background/40 border border-primary/15 overflow-hidden reveal-stagger">
+                <div class="absolute inset-0 bg-primary/5"></div>
                 <div class="relative inset-0 p-10 flex flex-col justify-center items-start">
-                    <h3 class="text-4xl font-display font-light dark:text-white text-on-surface mb-4 leading-tight uppercase tracking-tighter">Order <br/> <span class="text-primary tracking-[0.2em] font-medium">Custom_</span></h3>
-                    <p class="text-xs dark:text-white/40 text-on-surface-variant font-light mb-8 max-w-xs leading-relaxed tracking-[0.2em]">Hand-carved identities.</p>
+                    <h3 class="text-4xl font-display font-light dark:text-white text-on-surface mb-4 leading-tight tracking-tighter">Order <br/> <span class="text-primary tracking-wider font-medium">Custom_</span></h3>
+                    <p class="text-xs dark:text-white/40 text-on-surface-variant font-light mb-8 max-w-xs leading-relaxed tracking-wider">Hand-carved identities.</p>
                     <Link :href="route('custom-order')" class="btn-primary px-8 py-4">Get started_</Link>
                 </div>
             </article>

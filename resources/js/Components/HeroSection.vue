@@ -58,7 +58,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-screen overflow-hidden bg-background px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
+    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-screen overflow-hidden bg-background always-dark px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
         <!-- Background Image -->
         <div class="absolute inset-0 z-0 overflow-hidden">
             <transition name="fade-extreme">

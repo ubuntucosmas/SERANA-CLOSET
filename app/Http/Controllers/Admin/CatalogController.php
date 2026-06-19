@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Storage;
 
 class CatalogController extends Controller
 {
+    public function __construct(private ImageOptimizer $optimizer)
+    {
+    }
+
     public function index()
     {
         return Inertia::render('Admin/StudioDashboard', [
@@ -37,19 +42,16 @@ class CatalogController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $targetDisk = config('filesystems.public_disk');
-            $path = $request->file('image')->store('products', $targetDisk);
-            $validated['image_path'] = $path;
+            $validated['image_path'] = $this->optimizer->store($request->file('image'), 'products');
         }
 
         // Handle up to 2 secondary images
         $secondaryPaths = [];
-        $targetDisk = config('filesystems.public_disk');
         if ($request->hasFile('secondary_image_1')) {
-            $secondaryPaths[] = $request->file('secondary_image_1')->store('products', $targetDisk);
+            $secondaryPaths[] = $this->optimizer->store($request->file('secondary_image_1'), 'products');
         }
         if ($request->hasFile('secondary_image_2')) {
-            $secondaryPaths[] = $request->file('secondary_image_2')->store('products', $targetDisk);
+            $secondaryPaths[] = $this->optimizer->store($request->file('secondary_image_2'), 'products');
         }
         
         if (!empty($secondaryPaths)) {
@@ -77,25 +79,24 @@ class CatalogController extends Controller
             'specifications' => 'nullable|array',
         ]);
 
+        $targetDisk = config('filesystems.public_disk');
         if ($request->hasFile('image')) {
-            $targetDisk = config('filesystems.public_disk');
             // Delete old primary image if it exists
             if ($product->image_path) {
                 Storage::disk($targetDisk)->delete($product->image_path);
             }
-            $validated['image_path'] = $request->file('image')->store('products', $targetDisk);
+            $validated['image_path'] = $this->optimizer->store($request->file('image'), 'products');
         }
 
         // Handle Secondary Image Replacements
         $secondaryImages = $product->secondary_images ?? [];
-        
-        $targetDisk = config('filesystems.public_disk');
+
         if ($request->hasFile('secondary_image_1')) {
             // Delete old slot 1 if it exists
             if (isset($secondaryImages[0])) {
                 Storage::disk($targetDisk)->delete($secondaryImages[0]);
             }
-            $secondaryImages[0] = $request->file('secondary_image_1')->store('products', $targetDisk);
+            $secondaryImages[0] = $this->optimizer->store($request->file('secondary_image_1'), 'products');
         }
 
         if ($request->hasFile('secondary_image_2')) {
@@ -103,7 +104,7 @@ class CatalogController extends Controller
             if (isset($secondaryImages[1])) {
                 Storage::disk($targetDisk)->delete($secondaryImages[1]);
             }
-            $secondaryImages[1] = $request->file('secondary_image_2')->store('products', $targetDisk);
+            $secondaryImages[1] = $this->optimizer->store($request->file('secondary_image_2'), 'products');
         }
 
         if (!empty($secondaryImages)) {
@@ -130,7 +131,7 @@ class CatalogController extends Controller
 
     public function forceDeleteProduct(Product $product)
     {
-        $targetDisk = env('FILESYSTEM_DISK_PUBLIC', 'public');
+        $targetDisk = config('filesystems.public_disk');
         // Permanent asset removal on force delete
         if ($product->image_path) {
             Storage::disk($targetDisk)->delete($product->image_path);
@@ -169,15 +170,14 @@ class CatalogController extends Controller
 
         if ($request->hasFile('banner')) {
             $targetDisk = config('filesystems.public_disk', 's3');
-            
+
             // Delete old banner if exists (assuming it's a relative path now)
             if ($category->getRawOriginal('banner_url')) {
                 Storage::disk($targetDisk)->delete($category->getRawOriginal('banner_url'));
             }
-            
-            // Store on the configured public disk
-            $path = $request->file('banner')->store('collections', $targetDisk);
-            $validated['banner_url'] = $path; // Store the relative path, accessor handles the URL
+
+            // Optimize + store on the configured public disk; accessor handles the URL.
+            $validated['banner_url'] = $this->optimizer->store($request->file('banner'), 'collections');
         } elseif ($request->boolean('remove_banner')) {
             $targetDisk = config('filesystems.public_disk', 's3');
             if ($category->getRawOriginal('banner_url')) {
