@@ -11,6 +11,7 @@ const props = defineProps({
     transactionId: { type: String, required: true },
     receiptUrl: { type: String, default: null },
     reference: { type: String, default: null },
+    email: { type: String, default: null },
     date: { type: String, default: () => new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 });
 
@@ -71,6 +72,20 @@ function downloadReceipt() {
 
             <!-- Transaction Details Bento Grid -->
             <div class="p-8 md:p-12 space-y-8">
+                <!-- Receipt Emailed Notice (only when we actually have an address) -->
+                <div v-if="email" class="flex items-start gap-4 bg-[#016e00]/5 dark:bg-[#4fb33f]/10 ring-1 ring-[#016e00]/15 dark:ring-[#4fb33f]/20 rounded-2xl p-5 md:p-6">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-[#016e00]/10 dark:bg-[#4fb33f]/15 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[#016e00] dark:text-[#4fb33f]" style="font-variation-settings: 'FILL' 1;">mark_email_read</span>
+                    </div>
+                    <div class="text-left">
+                        <span class="block font-headline font-bold text-[#191c1b] dark:text-white text-sm md:text-base mb-1">Receipt sent to your email</span>
+                        <p class="text-[#3f4a3b] dark:text-[#becab6] text-xs md:text-sm leading-relaxed">
+                            We've emailed your receipt and order details to <span class="font-semibold text-[#191c1b] dark:text-white break-all">{{ email }}</span>.
+                            Check your inbox (and spam) — it may take a minute to arrive.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Amount Highlight -->
                 <div class="bg-[#f2f4f2] dark:bg-[#191c1b] rounded-2xl p-6 md:p-8 text-center ring-1 ring-black/5 dark:ring-white/5">
                     <span class="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#3f4a3b] dark:text-[#becab6] mb-1">Transaction Amount</span>

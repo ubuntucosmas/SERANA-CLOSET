@@ -425,6 +425,7 @@ function startPolling() {
                                 :transactionId="safaricomTransactionId"
                                 :receiptUrl="receiptUrl"
                                 :reference="orderReference"
+                                :email="form.email"
                             />
                         </div>
                     </div>
