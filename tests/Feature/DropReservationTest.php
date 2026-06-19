@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\CustomOrder;
 use App\Models\Drop;
+use App\Models\User;
 use App\Services\OrderSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class DropReservationTest extends TestCase
@@ -53,6 +55,25 @@ class DropReservationTest extends TestCase
         ])->assertStatus(422);
 
         $this->assertSame(0, CustomOrder::count());
+    }
+
+    public function test_admin_can_create_a_drop_with_an_image(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $res = $this->actingAs($admin)->post(route('admin.drops.store'), [
+            'title' => 'Midnight Trench',
+            'description' => 'Heavy cotton trench.',
+            'price' => 8500,
+            'target_quantity' => 25,
+            'status' => 'live',
+            'image' => UploadedFile::fake()->image('concept.jpg'),
+        ]);
+
+        $res->assertRedirect();
+        $this->assertDatabaseHas('drops', ['title' => 'Midnight Trench', 'status' => 'live']);
+        // The uploaded file becomes image_path; the raw 'image' key is never a column.
+        $this->assertNotNull(Drop::first()->image_path);
     }
 
     public function test_paid_reservations_count_toward_the_drop(): void

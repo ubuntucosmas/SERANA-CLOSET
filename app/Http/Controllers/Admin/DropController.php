@@ -15,6 +15,7 @@ class DropController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateDrop($request);
+        unset($data['image']); // file handled separately; not a column
 
         if ($request->hasFile('image')) {
             $data['image_path'] = $this->optimizer->store($request->file('image'), 'drops');
@@ -28,6 +29,7 @@ class DropController extends Controller
     public function update(Request $request, Drop $drop)
     {
         $data = $this->validateDrop($request);
+        unset($data['image']); // file handled separately; not a column
 
         if ($request->hasFile('image')) {
             $data['image_path'] = $this->optimizer->store($request->file('image'), 'drops');
