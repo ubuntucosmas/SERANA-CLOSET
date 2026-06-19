@@ -29,7 +29,8 @@ const sections = [
     { id: 'home', label: 'Home', icon: 'home', primary: true },
     { id: 'orders', label: 'Orders', icon: 'receipt_long', primary: true },
     { id: 'products', label: 'Products', icon: 'inventory_2', primary: true },
-    { id: 'showcase', label: 'Showcase', icon: 'photo_library', primary: true },
+    { id: 'drops', label: 'Drops', icon: 'bolt', primary: true },
+    { id: 'showcase', label: 'Showcase', icon: 'photo_library', primary: false },
     { id: 'subscribers', label: 'Subscribers', icon: 'group', primary: false },
     { id: 'settings', label: 'Settings', icon: 'settings', primary: false },
 ];

@@ -19,6 +19,12 @@
                     Home
                 </Link>
 
+                <Link :href="route('drops')"
+                    class="nav-link flex items-center gap-1.5" :class="{ 'active': isActive('drops*') }">
+                    Drops
+                    <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                </Link>
+
                 <!-- Shop Dropdown -->
                 <div class="group relative">
                     <Link :href="route('shop')"

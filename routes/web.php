@@ -26,6 +26,13 @@ Route::get('/custom-order',        [CustomOrderController::class, 'index'])->nam
 Route::post('/custom-orders',      [CustomOrderController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('custom-orders.store');
+// Serana Drops — sell-then-make pre-orders. Reserving creates a CustomOrder
+// (type='drop') and then rides the standard M-Pesa STK flow.
+Route::get('/drops',                 [App\Http\Controllers\DropController::class, 'index'])->name('drops');
+Route::get('/drops/{drop}',          [App\Http\Controllers\DropController::class, 'show'])->name('drops.show');
+Route::post('/drops/{drop}/reserve', [App\Http\Controllers\DropController::class, 'reserve'])
+    ->middleware('throttle:20,1')
+    ->name('drops.reserve');
 Route::get('/about',               fn () => Inertia::render('About'))->name('about');
 Route::get('/the-circle',          [CircleController::class, 'index'])->name('circle');
 Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
@@ -124,6 +131,11 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::delete('/gallery/{image}', [App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('admin.gallery.destroy');
     Route::post('/gallery/{image}/restore', [App\Http\Controllers\Admin\GalleryController::class, 'restore'])->name('admin.gallery.restore')->withTrashed();
     Route::delete('/gallery/{image}/force', [App\Http\Controllers\Admin\GalleryController::class, 'forceDelete'])->name('admin.gallery.force_delete')->withTrashed();
+
+    // Drops Management
+    Route::post('/drops', [App\Http\Controllers\Admin\DropController::class, 'store'])->name('admin.drops.store');
+    Route::put('/drops/{drop:id}', [App\Http\Controllers\Admin\DropController::class, 'update'])->name('admin.drops.update');
+    Route::delete('/drops/{drop:id}', [App\Http\Controllers\Admin\DropController::class, 'destroy'])->name('admin.drops.destroy');
 
     // Theme & Asset Management
     Route::post('/theme/update', [App\Http\Controllers\Admin\ThemeController::class, 'update'])->name('admin.theme.update');

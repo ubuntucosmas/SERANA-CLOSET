@@ -15,6 +15,7 @@ use App\Models\GalleryImage;
 
 use App\Models\Lead;
 use App\Models\ThemeSetting;
+use App\Models\Drop;
 use App\Support\OrderStatus;
 use Carbon\Carbon;
 
@@ -66,6 +67,8 @@ class StudioController extends Controller
             'gallery'           => GalleryImage::latest()->get(),
             'archived_gallery'  => GalleryImage::onlyTrashed()->latest()->get(),
             'leads'             => Lead::latest()->get(),
+            'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
+                                        ->withCount('paidReservations')->latest()->get(),
         ]);
     }
 

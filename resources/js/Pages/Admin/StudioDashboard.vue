@@ -14,6 +14,7 @@ import ProductsPanel from './Partials/ProductsPanel.vue';
 import GalleryPanel from './Partials/GalleryPanel.vue';
 import SubscribersPanel from './Partials/SubscribersPanel.vue';
 import SettingsPanel from './Partials/SettingsPanel.vue';
+import DropsPanel from './Partials/DropsPanel.vue';
 
 const props = defineProps({
     stats: { type: Object, default: () => ({}) },
@@ -26,6 +27,7 @@ const props = defineProps({
     gallery: { type: Array, default: () => [] },
     archived_gallery: { type: Array, default: () => [] },
     leads: { type: Array, default: () => [] },
+    drops: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
 });
 
@@ -41,6 +43,7 @@ const HEAD = {
     home: ['Home', 'Your studio at a glance.'],
     orders: ['Orders', 'Track payment and production for every order.'],
     products: ['Products', "Manage what's for sale in your shop."],
+    drops: ['Drops', 'Sell-then-make pre-orders — produced only when enough are reserved.'],
     showcase: ['Showcase', 'The photo gallery shown to customers.'],
     subscribers: ['Subscribers', 'People on your newsletter list.'],
     settings: ['Settings', "Your store's name, contacts and images."],
@@ -219,6 +222,44 @@ function archiveGallery(id) { if (confirm('Archive this photo?')) router.delete(
 function restoreGallery(id) { router.post(route('admin.gallery.restore', id), {}, { preserveScroll: true }); }
 function forceDeleteGallery(id) { if (confirm('Permanently delete this photo?')) router.delete(route('admin.gallery.force_delete', id), { preserveScroll: true }); }
 
+/* ───────── Drops ───────── */
+const showDropModal = ref(false);
+const isEditingDrop = ref(false);
+const dropPreview = ref(null);
+const dropForm = useForm({
+    id: null, title: '', description: '', price: 0, target_quantity: 10,
+    ends_at: '', status: 'draft', image: null,
+});
+function addDrop() {
+    isEditingDrop.value = false;
+    dropForm.reset();
+    dropPreview.value = null;
+    showDropModal.value = true;
+}
+function editDrop(d) {
+    isEditingDrop.value = true;
+    dropForm.id = d.id;
+    dropForm.title = d.title;
+    dropForm.description = d.description;
+    dropForm.price = d.price;
+    dropForm.target_quantity = d.target_quantity;
+    // datetime-local wants "YYYY-MM-DDTHH:mm"
+    dropForm.ends_at = d.ends_at ? String(d.ends_at).slice(0, 16).replace(' ', 'T') : '';
+    dropForm.status = d.status;
+    dropForm.image = null;
+    dropPreview.value = d.image_url;
+    showDropModal.value = true;
+}
+function submitDrop() {
+    const done = () => { showDropModal.value = false; isEditingDrop.value = false; dropForm.reset(); dropPreview.value = null; };
+    if (isEditingDrop.value) {
+        dropForm.transform(d => ({ ...d, _method: 'PUT' })).post(route('admin.drops.update', dropForm.id), { onSuccess: done });
+    } else {
+        dropForm.post(route('admin.drops.store'), { onSuccess: done });
+    }
+}
+function archiveDrop(id) { if (confirm('Archive this drop?')) router.delete(route('admin.drops.destroy', id), { preserveScroll: true }); }
+
 /* ───────── Settings ───────── */
 const siteInfoForm = useForm({
     settings: {
@@ -255,11 +296,13 @@ function removeAsset(key) {
                 <button @click="addProduct" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Add product</button>
             </div>
             <button v-else-if="currentTab === 'showcase'" @click="addGallery" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Add photo</button>
+            <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New drop</button>
         </template>
 
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" @go="goTab" @openOrder="openOrder" />
         <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :archived="archived_orders" :selectedId="selectedOrder?.id" @select="openOrder" />
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
+        <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <SettingsPanel v-else-if="currentTab === 'settings'" :form="siteInfoForm" :categories="categories"
@@ -444,6 +487,61 @@ function removeAsset(key) {
                     <button v-if="isEditingCategory" @click="newCategory" class="px-4 py-2.5 rounded-xl bg-white/5 text-slate-300 text-sm">New</button>
                     <button @click="submitCategory" :disabled="categoryForm.processing" class="px-5 py-2.5 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ isEditingCategory ? 'Update' : 'Add' }}</button>
                 </div>
+            </div>
+        </div>
+    </Modal>
+
+    <!-- ───────── Drop form ───────── -->
+    <Modal :show="showDropModal" maxWidth="2xl" @close="showDropModal = false">
+        <div class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
+            <h3 class="text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit drop' : 'New drop' }}</h3>
+            <p class="text-slate-500 text-sm mb-5">Customers reserve and pay upfront; you produce once it hits the goal.</p>
+            <div class="space-y-4">
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Title</span>
+                    <input v-model="dropForm.title" placeholder="e.g. Midnight Trench" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    <span v-if="dropForm.errors.title" class="text-rose-400 text-xs">{{ dropForm.errors.title }}</span>
+                </label>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Description</span>
+                    <textarea v-model="dropForm.description" rows="3" placeholder="What is it, the fabric, the vibe…" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
+                </label>
+                <div class="grid sm:grid-cols-3 gap-4">
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Price (KSh)</span>
+                        <input v-model="dropForm.price" type="number" min="0" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    </label>
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Target pieces</span>
+                        <input v-model="dropForm.target_quantity" type="number" min="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    </label>
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Status</span>
+                        <select v-model="dropForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none">
+                            <option value="draft">Draft (hidden)</option>
+                            <option value="live">Live (taking reservations)</option>
+                            <option value="greenlit">Greenlit (in production)</option>
+                            <option value="fulfilled">Fulfilled (shipped)</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Reservation deadline (optional)</span>
+                    <input v-model="dropForm.ends_at" type="datetime-local" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                </label>
+                <div>
+                    <span class="block text-sm text-slate-300 mb-2">Concept image</span>
+                    <label class="block aspect-video rounded-xl bg-slate-950 border border-dashed border-white/10 overflow-hidden cursor-pointer grid place-items-center max-w-sm">
+                        <img v-if="dropPreview" :src="getObjectURL(dropPreview)" class="w-full h-full object-cover" />
+                        <span v-else class="material-symbols-outlined text-slate-700 text-3xl">add_photo_alternate</span>
+                        <input type="file" accept="image/*" class="hidden" @input="(e) => { const f = e.target.files[0]; if(f){ dropForm.image = f; dropPreview = f; } }" />
+                    </label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button @click="showDropModal = false" class="px-5 py-3 rounded-xl bg-white/5 text-slate-300 text-sm">Cancel</button>
+                <button @click="submitDrop" :disabled="dropForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ dropForm.processing ? 'Saving…' : 'Save drop' }}</button>
             </div>
         </div>
     </Modal>
