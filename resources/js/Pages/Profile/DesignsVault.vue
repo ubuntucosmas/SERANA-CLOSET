@@ -3,9 +3,7 @@ import { ref, onMounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { animate, stagger } from 'animejs';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
-import VaultSeal from '@/Components/VaultSeal.vue';
 
-const isUnlocked = ref(false);
 const vaultRoot = ref(null);
 
 const props = defineProps({
@@ -30,11 +28,9 @@ function getStatusIndex(status) {
     return statuses.findIndex(s => s.key === status);
 }
 
-// --- Animations ---
-function handleUnlocked() {
-    isUnlocked.value = true;
+// Reveal the vault contents on load (items start hidden via .reveal-item).
+onMounted(() => {
     setTimeout(() => {
-        // Double check selector exists to prevent "No target found"
         if (document.querySelector('.reveal-item')) {
             animate('.reveal-item', {
                 opacity: [0, 1],
@@ -45,7 +41,7 @@ function handleUnlocked() {
             });
         }
     }, 100);
-}
+});
 
 const getOrderThumbnails = (order) => {
     if (!order) return [];
@@ -60,9 +56,7 @@ const getOrderThumbnails = (order) => {
 <template>
     <Head title="My Designs Vault" />
 
-    <VaultSeal v-if="!isUnlocked" @unlocked="handleUnlocked" />
-
-    <StorefrontLayout :class="!isUnlocked ? 'hidden' : 'block'">
+    <StorefrontLayout>
         <main ref="vaultRoot" class="min-h-screen bg-background pt-32 pb-20 px-6 max-w-screen-xl mx-auto font-body">
             
             <!-- ═══ HEADER ═══ -->

@@ -49,13 +49,11 @@ function handleSubmit() {
     emit('pay', { amount: props.amount, phone: phoneNumber.value });
 }
 
-// Only claims we can actually stand behind — M-Pesa handles funds/PIN on
-// Safaricom's side; we never see or store card/PIN data.
+// Only claims we can actually stand behind — Safaricom handles funds and the
+// PIN entry on their side; we never see or store your PIN.
 const trustPoints = [
-    { icon: 'enhanced_encryption', text: 'Encrypted Connection' },
     { icon: 'verified_user', text: 'Powered by Safaricom M-PESA' },
-    { icon: 'lock', text: 'We never see your PIN' },
-    { icon: 'fingerprint', text: 'PIN-Secured by M-PESA' },
+    { icon: 'lock', text: 'Your PIN stays on your phone' },
 ];
 
 const steps = [
@@ -81,13 +79,9 @@ const steps = [
                         <span class="material-symbols-outlined text-[#4fb33f] text-2xl relative z-10">smartphone</span>
                     </div>
                     <div>
-                    <h2 class="text-white font-headline font-black text-lg tracking-tight">M-PESA Secure Payment</h2>
-                    <p class="text-[10px] text-blue-400 uppercase tracking-[0.3em] font-black">Daraja API · Encrypted Channel</p>
+                    <h2 class="text-white font-headline font-black text-lg tracking-tight">M-PESA Payment</h2>
+                    <p class="text-[10px] text-white/40 uppercase tracking-[0.3em] font-black">Pay securely with M-PESA</p>
                     </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-[#4fb33f] animate-pulse"></div>
-                    <span class="text-[9px] text-white/30 uppercase tracking-widest font-black">Live</span>
                 </div>
             </div>
         </div>
@@ -163,8 +157,8 @@ const steps = [
             </div>
         </div>
 
-        <h3 class="text-white font-headline font-medium text-2xl mb-3 uppercase tracking-tight">Initiating Secure Session</h3>
-        <p class="text-white/60 text-sm font-light max-w-xs leading-relaxed">Establishing encrypted channel with Safaricom Daraja API. This takes a moment.</p>
+        <h3 class="text-white font-headline font-medium text-2xl mb-3 uppercase tracking-tight">Sending Request</h3>
+        <p class="text-white/60 text-sm font-light max-w-xs leading-relaxed">Sending the M-PESA prompt to your phone. This takes a moment.</p>
 
         <!-- Animated Dots -->
         <div class="flex gap-2 mt-8">

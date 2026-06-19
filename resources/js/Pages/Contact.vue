@@ -65,10 +65,10 @@
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                             </span>
-                            <span class="text-[11px] font-headline font-black tracking-wider text-primary">Live studio pulse</span>
+                            <span class="text-[11px] font-headline font-black tracking-wider text-primary">Studio status</span>
                         </div>
                         <p class="text-sm text-white leading-relaxed font-light">
-                            Our artisans are currently focused on **Batch #04**. Capacity at **85%**. Response times: approx **4 hours**.
+                            Our atelier is open and taking new commissions. Send us a message and we'll get back to you as soon as we can.
                         </p>
                     </div>
                 </div>

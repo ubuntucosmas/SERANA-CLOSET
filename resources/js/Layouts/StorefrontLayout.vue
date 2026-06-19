@@ -4,11 +4,9 @@
         <SectionBackground class="fixed !z-[-1]" opacity="opacity-5" :showScan="false" />
         
         <TopNavBar />
-        <CommandPortal ref="portalRef" />
         <MobileBottomNav />
         <CartDrawer />
         <Notification />
-        <ConciergeButton />
         <SitePath />
 
         <main class="flex-grow relative z-10">
@@ -26,28 +24,18 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
 import TopNavBar from '@/Components/TopNavBar.vue';
 import AppFooter from '@/Components/Footer.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
-import ConciergeButton from '@/Components/ConciergeButton.vue';
-import CommandPortal from '@/Components/CommandPortal.vue';
 import SitePath from '@/Components/SitePath.vue';
 import Notification from '@/Components/Notification.vue';
-import { useCartStore } from '@/Stores/useCartStore';
 import { animate } from 'animejs';
 
-const props = defineProps({
+// Cart self-initializes from localStorage in useCartStore.js
+defineProps({
     hideMobileCard: { type: Boolean, default: false }
-});
-
-const cart = useCartStore();
-const portalRef = ref(null);
-
-onMounted(() => {
-    // Cart self-initializes from localStorage in useCartStore.js
 });
 
 const prefersReducedMotion =

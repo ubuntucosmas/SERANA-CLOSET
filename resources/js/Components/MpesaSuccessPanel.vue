@@ -1,7 +1,6 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
-import { computed } from 'vue';
 
 const page = usePage();
 const props = defineProps({
@@ -38,9 +37,9 @@ function shareToWhatsApp() {
                   `${productList}\n\n` +
                   `Please proceed with production allocation.`;
     
-    const whatsappNumber = page.props.whatsapp_number || '254712345678';
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    const whatsappNumber = page.props.whatsapp_number || '';
+    const base = whatsappNumber ? `https://wa.me/${whatsappNumber}` : 'https://wa.me/';
+    window.open(`${base}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
 function downloadReceipt() {
@@ -66,7 +65,7 @@ function downloadReceipt() {
                         <span class="material-symbols-outlined text-3xl md:text-4xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
                     </div>
                     <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight mb-1 md:mb-2 leading-tight uppercase">Payment Confirmed</h1>
-                    <p class="font-body opacity-90 text-sm md:text-lg tracking-[0.2em] uppercase font-black">Serana Protocol Success</p>
+                    <p class="font-body opacity-90 text-sm md:text-lg tracking-[0.2em] uppercase font-black">Thank you for your order</p>
                 </div>
             </div>
 
@@ -158,8 +157,8 @@ function downloadReceipt() {
                     <Link :href="route('track', { ref: reference })" class="text-[#016e00] dark:text-[#4fb33f] font-bold hover:underline">track your order</Link>
                     anytime with it and your phone number.
                 </p>
-                <p class="text-[#3f4a3b] dark:text-[#becab6] text-[10px] font-bold uppercase tracking-widest opacity-60">
-                    Secure Protocol: 256-bit SSL encrypted.<span v-if="reference"> Reference: {{ reference }}</span>
+                <p v-if="reference" class="text-[#3f4a3b] dark:text-[#becab6] text-[10px] font-bold uppercase tracking-widest opacity-60">
+                    Reference: {{ reference }}
                 </p>
             </div>
         </div>

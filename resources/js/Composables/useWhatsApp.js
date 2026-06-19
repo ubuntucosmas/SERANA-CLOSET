@@ -1,8 +1,5 @@
-import { computed } from 'vue';
-
 /**
- * Composable for generating algorithmic WhatsApp payloads for Serana Studio.
- * Bridges the gap between digital intent and artisan execution.
+ * Builds pre-filled WhatsApp click-to-chat links for product enquiries.
  */
 export function useWhatsApp() {
     
@@ -58,7 +55,8 @@ export function useWhatsApp() {
      */
     const getWhatsAppUrl = (product, options = {}, pageProps = {}) => {
         const message = generateProductMessage(product, options, pageProps);
-        const whatsappNumber = pageProps.whatsapp_number || '254000000000';
+        // Single managed source: the normalized store number shared from the server.
+        const whatsappNumber = pageProps.whatsapp_number || '';
         return `https://wa.me/${whatsappNumber}?text=${rawurlencode(message)}`;
     };
 

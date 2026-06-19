@@ -148,6 +148,7 @@ const siteInfoForm = useForm({
         site_name: '',
         site_tagline: '',
         whatsapp_number: '',
+        studio_capacity: '',
     }
 });
 
@@ -156,6 +157,7 @@ function initSiteInfo() {
     siteInfoForm.settings.site_name      = ts.site_name ?? '';
     siteInfoForm.settings.site_tagline   = ts.site_tagline ?? '';
     siteInfoForm.settings.whatsapp_number = ts.whatsapp_number ?? usePage().props.whatsapp_number ?? '';
+    siteInfoForm.settings.studio_capacity = ts.studio_capacity ?? '';
     siteInfoForm.settings.focal_1_label = ts.focal_1_label ?? '';
     siteInfoForm.settings.focal_2_label = ts.focal_2_label ?? '';
     siteInfoForm.settings.focal_3_label = ts.focal_3_label ?? '';
@@ -997,7 +999,7 @@ function getAllOrderImages(order) {
                             {{ siteInfoForm.processing ? 'Saving...' : 'Save Changes' }}
                         </button>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div class="space-y-3">
                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Platform ID</label>
                             <input v-model="siteInfoForm.settings.site_name"
@@ -1014,7 +1016,14 @@ function getAllOrderImages(order) {
                             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">WhatsApp Number</label>
                             <input v-model="siteInfoForm.settings.whatsapp_number"
                                    class="w-full bg-slate-950/50 border border-white/5 px-4 py-4 text-xl font-headline text-white focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-800"
-                                   placeholder="e.g. 254712345678" />
+                                   placeholder="e.g. 0712 345 678" />
+                        </div>
+                        <div class="space-y-3">
+                            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Studio Capacity (pieces)</label>
+                            <input v-model="siteInfoForm.settings.studio_capacity" type="number" min="1"
+                                   class="w-full bg-slate-950/50 border border-white/5 px-4 py-4 text-xl font-headline text-white focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-800"
+                                   placeholder="e.g. 20" />
+                            <p class="text-[10px] text-slate-600 italic">Concurrent pieces counted as a full studio — drives the load % on the home page.</p>
                         </div>
                     </div>
                 </div>

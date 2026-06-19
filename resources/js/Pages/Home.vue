@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { onMounted } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import HeroSection    from '@/Components/HeroSection.vue';
@@ -8,7 +8,6 @@ import ProductCard    from '@/Components/ProductCard.vue';
 import CollectionRibbon from '@/Components/CollectionRibbon.vue';
 import CraftsmanshipBlock from '@/Components/CraftsmanshipBlock.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
-import { animate, stagger } from 'animejs';
 
 const props = defineProps({
     featuredProducts: { type: Array, default: () => [] },
@@ -85,7 +84,7 @@ onMounted(() => {
             <div class="max-w-screen-xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
-                        <p class="text-[9px] font-headline font-medium tracking-wider text-primary">Live Studio Pulse</p>
+                        <p class="text-[9px] font-headline font-medium tracking-wider text-primary">Studio Status</p>
 <h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] ">
                              <span class="split-text">Our</span> <span class="split-text"><span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent font-medium">Collection</span></span>_
                          </h1>

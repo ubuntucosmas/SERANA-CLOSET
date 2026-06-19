@@ -15,9 +15,11 @@ class HomeController extends Controller
      */
     public function index()
     {
-        // Live studio metrics — active orders in progress
-        $studioLoad     = CustomOrder::whereIn('status', ['pending', 'in_progress'])->count();
-        $studioCapacity = min(100, (int) round(($studioLoad / max(1, 20)) * 100));
+        // Live studio metrics — active orders in progress. The capacity target
+        // (how many concurrent pieces the studio considers "full") is admin-managed.
+        $studioLoad      = CustomOrder::whereIn('status', ['pending', 'in_progress'])->count();
+        $capacityTarget  = max(1, (int) ThemeSetting::get('studio_capacity', 20));
+        $studioCapacity  = min(100, (int) round(($studioLoad / $capacityTarget) * 100));
 
         return Inertia::render('Home', [
             'featuredProducts' => Product::with('category')
