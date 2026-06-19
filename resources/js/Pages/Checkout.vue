@@ -5,7 +5,7 @@ import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 
@@ -17,6 +17,16 @@ const { formatAmount } = useCurrency();
 
 const isProcessing = ref(false);
 const isWaitingForStk = ref(false);
+// True only once the STK push has actually been dispatched. Kept separate from
+// isWaitingForStk (which opens the modal) so the panel gets a real transition to
+// its "check your phone" phase — otherwise it stalls on the initiating spinner.
+const stkSent = ref(false);
+// Explicit phase for the STK panel, derived from the request lifecycle.
+const stkPanelStatus = computed(() => {
+    if (stkSent.value) return 'waiting';
+    if (isProcessing.value) return 'processing';
+    return 'idle';
+});
 const isSuccess = ref(false);
 const isPaid = ref(false);
 // Shown when polling ends before the callback confirms — the payment may still
@@ -48,6 +58,7 @@ const form = ref({
 
 async function handlePayment() {
     isProcessing.value = true;
+    stkSent.value = false;
     try {
         const payload = { ...form.value, items: cart.items, total: cart.totalPrice };
         if (!payload.height_cm) delete payload.height_cm;
@@ -75,7 +86,9 @@ async function handlePayment() {
 
 async function initiateMpesaStk(data) {
     isProcessing.value = true;
+    stkSent.value = false;
     paymentPending.value = false;
+    isWaitingForStk.value = true; // keep the modal open across the request
     try {
         const response = await axios.post(route('mpesa.stk'), {
             order_id: orderId.value,
@@ -83,12 +96,14 @@ async function initiateMpesaStk(data) {
         });
         if (response.data.success) {
             pulse.emit('STK Push sent to your phone.', 'success');
-            isWaitingForStk.value = true;
+            stkSent.value = true; // advances the panel to "check your phone"
             startPolling();
+        } else {
+            pulse.emit(response.data.message || 'Failed to initiate M-Pesa payment.', 'error');
         }
     } catch (err) {
         console.error(err);
-        pulse.emit('Failed to initiate M-Pesa payment.', 'error');
+        pulse.emit(err.response?.data?.message || 'Failed to initiate M-Pesa payment.', 'error');
     } finally {
         isProcessing.value = false;
     }
@@ -97,6 +112,7 @@ async function initiateMpesaStk(data) {
 function closePaymentModal() {
     if (pollingInterval) clearInterval(pollingInterval);
     isWaitingForStk.value = false;
+    stkSent.value = false;
     isSuccess.value = false;
     paymentPending.value = false;
 }
@@ -124,6 +140,7 @@ function startPolling() {
         if (attempts > maxAttempts) {
             clearInterval(pollingInterval);
             isWaitingForStk.value = false;
+            stkSent.value = false;
             paymentPending.value = true;
             return;
         }
@@ -332,7 +349,7 @@ function startPolling() {
             <teleport to="body">
                 <transition name="pay-modal">
                     <div
-                        v-if="(isWaitingForStk && orderId && !isPaid) || isSuccess"
+                        v-if="((isWaitingForStk || paymentPending) && orderId && !isPaid) || isSuccess"
                         class="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6"
                     >
                         <!-- Backdrop -->
@@ -396,8 +413,7 @@ function startPolling() {
                                 v-else-if="!isPaid"
                                 :amount="cart.totalPrice"
                                 :phone="form.phone"
-                                :isProcessing="isProcessing"
-                                :isWaiting="isWaitingForStk"
+                                :status="stkPanelStatus"
                                 @pay="initiateMpesaStk"
                                 @cancel="closePaymentModal"
                             />

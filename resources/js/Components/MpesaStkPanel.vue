@@ -4,37 +4,45 @@ import { ref, watch, onUnmounted } from 'vue';
 const props = defineProps({
     amount: { type: [Number, String], required: true },
     phone: { type: String, default: '' },
-    isProcessing: { type: Boolean, default: false },
-    isWaiting: { type: Boolean, default: false }
+    // Controlled phase, owned by the parent: 'idle' | 'processing' | 'waiting'.
+    status: { type: String, default: 'idle' }
 });
 
 const emit = defineEmits(['pay', 'cancel']);
 
-// Phase: 'idle' | 'processing' | 'waiting'
-const phase = ref('idle');
+const phase = ref(props.status);
 const phoneNumber = ref(props.phone.replace('+254', '').trim());
 const pulseStep = ref(0);
 
 let pulseTimer = null;
 
-watch(() => props.isProcessing, (val) => {
-    if (val) phase.value = 'processing';
-});
-
-watch(() => props.isWaiting, (val) => {
-    if (val) {
-        phase.value = 'waiting';
+// Mirror the parent's status. Running the pulse animation only while waiting
+// avoids a stuck timer, and reflecting every change means the panel can fall
+// back to the form on failure instead of stranding on the spinner.
+watch(() => props.status, (val) => {
+    phase.value = val;
+    if (val === 'waiting') {
         startPulse();
+    } else {
+        stopPulse();
     }
-});
+}, { immediate: true });
 
 function startPulse() {
+    stopPulse();
     pulseTimer = setInterval(() => {
         pulseStep.value = (pulseStep.value + 1) % 4;
     }, 800);
 }
 
-onUnmounted(() => clearInterval(pulseTimer));
+function stopPulse() {
+    if (pulseTimer) {
+        clearInterval(pulseTimer);
+        pulseTimer = null;
+    }
+}
+
+onUnmounted(() => stopPulse());
 
 function handleSubmit() {
     if (!phoneNumber.value) return;
