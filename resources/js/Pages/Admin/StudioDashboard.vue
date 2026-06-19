@@ -3,7 +3,7 @@
   routes the active section to a presentational panel. Chrome lives in AdminShell.
 -->
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
 import AdminShell from '@/Layouts/AdminShell.vue';
@@ -34,29 +34,8 @@ const { formatAmount } = useCurrency();
 
 /* ───────── Navigation + lazy per-section loading ───────── */
 const currentTab = ref(props.active_tab);
-const loaded = ref(new Set(['home', 'settings']));
-const NEEDS = {
-    orders: ['orders', 'archived_orders'],
-    products: ['products', 'archived_products', 'categories'],
-    showcase: ['gallery', 'archived_gallery'],
-    subscribers: ['leads'],
-};
-function goTab(id) {
-    currentTab.value = id;
-    const need = NEEDS[id];
-    if (need && !loaded.value.has(id)) {
-        router.reload({ only: need, preserveScroll: true, onSuccess: () => loaded.value.add(id) });
-    }
-}
+function goTab(id) { currentTab.value = id; }
 watch(currentTab, () => { selectedOrder.value = null; });
-
-// Honor a deep-linked tab (?tab=…) by loading its data on first paint.
-onMounted(() => {
-    const need = NEEDS[currentTab.value];
-    if (need && !loaded.value.has(currentTab.value)) {
-        router.reload({ only: need, preserveScroll: true, onSuccess: () => loaded.value.add(currentTab.value) });
-    }
-});
 
 const HEAD = {
     home: ['Home', 'Your studio at a glance.'],
@@ -83,20 +62,10 @@ const progressSnapForm = useForm({ image: null, description: '' });
 const orderArchived = computed(() => props.archived_orders.some(o => o.id === selectedOrder.value?.id));
 
 function openOrder(orderOrId) {
-    // Accept an order object (from list) or an id (from overview).
-    let order = typeof orderOrId === 'object' ? orderOrId
+    // Accept an order object (from the list) or an id (from the Home shortcuts).
+    const order = typeof orderOrId === 'object' ? orderOrId
         : [...props.orders, ...props.archived_orders].find(o => o.id === orderOrId);
-    if (!order && typeof orderOrId !== 'object') {
-        // Order list may not be loaded yet (came from Home) — fetch then open.
-        router.reload({ only: ['orders', 'archived_orders'], preserveScroll: true, onSuccess: () => {
-            loaded.value.add('orders');
-            const found = [...props.orders, ...props.archived_orders].find(o => o.id === orderOrId);
-            if (found) bindOrder(found);
-        }});
-        currentTab.value = 'orders';
-        return;
-    }
-    bindOrder(order);
+    if (order) bindOrder(order);
 }
 function bindOrder(order) {
     selectedOrder.value = order;
@@ -212,6 +181,19 @@ function submitCategory() {
     }
 }
 function deleteCategory(id) { if (confirm('Remove this category? Reassign its products first.')) router.delete(route('admin.catalog.destroy_category', id), { preserveScroll: true }); }
+function updateCategoryBanner(cat, file) {
+    if (!file) return;
+    router.post(route('admin.catalog.update_category', cat.id),
+        { _method: 'PUT', banner: file, name: cat.name, description: cat.description },
+        { forceFormData: true, preserveScroll: true });
+}
+function removeCategoryBanner(cat) {
+    if (confirm(`Remove the banner image for "${cat.name}"?`)) {
+        router.post(route('admin.catalog.update_category', cat.id),
+            { _method: 'PUT', remove_banner: true, name: cat.name, description: cat.description },
+            { preserveScroll: true });
+    }
+}
 
 /* ───────── Gallery ───────── */
 const showGalleryModal = ref(false);
@@ -244,6 +226,9 @@ const siteInfoForm = useForm({
         site_tagline: page.props.theme_settings?.site_tagline ?? '',
         whatsapp_number: page.props.theme_settings?.whatsapp_number ?? page.props.whatsapp_number ?? '',
         studio_capacity: page.props.theme_settings?.studio_capacity ?? '',
+        focal_1_label: page.props.theme_settings?.focal_1_label ?? '',
+        focal_2_label: page.props.theme_settings?.focal_2_label ?? '',
+        focal_3_label: page.props.theme_settings?.focal_3_label ?? '',
     },
 });
 function saveSiteInfo() { siteInfoForm.post(route('admin.theme.bulk_update'), { preserveScroll: true }); }
@@ -272,7 +257,9 @@ function removeAsset(key) {
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
-        <SettingsPanel v-else-if="currentTab === 'settings'" :form="siteInfoForm" @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset" />
+        <SettingsPanel v-else-if="currentTab === 'settings'" :form="siteInfoForm" :categories="categories"
+            @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
+            @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
     </AdminShell>
 
     <!-- ───────── Order detail ───────── -->

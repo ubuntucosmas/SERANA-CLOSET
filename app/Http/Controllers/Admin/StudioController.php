@@ -52,20 +52,20 @@ class StudioController extends Controller
         ];
 
         return Inertia::render('Admin/StudioDashboard', [
-            // Always present.
             'stats'      => $stats,
             'attention'  => $attention,
             'active_tab' => $request->get('tab', 'home'),
 
-            // Loaded only when the matching tab is opened (partial reload `only:[...]`).
-            'orders'            => Inertia::optional(fn () => CustomOrder::with(['user', 'progressSnaps'])->latest()->get()),
-            'archived_orders'   => Inertia::optional(fn () => CustomOrder::onlyTrashed()->with(['user', 'progressSnaps'])->latest()->get()),
-            'products'          => Inertia::optional(fn () => Product::with('category')->latest()->get()),
-            'archived_products' => Inertia::optional(fn () => Product::onlyTrashed()->with('category')->latest()->get()),
-            'categories'        => Inertia::optional(fn () => Category::all()),
-            'gallery'           => Inertia::optional(fn () => GalleryImage::latest()->get()),
-            'archived_gallery'  => Inertia::optional(fn () => GalleryImage::onlyTrashed()->latest()->get()),
-            'leads'             => Inertia::optional(fn () => Lead::latest()->get()),
+            // Eager so every list stays in sync after a save/redirect. The dataset
+            // is boutique-sized; paginate here if a section ever grows large.
+            'orders'            => CustomOrder::with(['user', 'progressSnaps'])->latest()->get(),
+            'archived_orders'   => CustomOrder::onlyTrashed()->with(['user', 'progressSnaps'])->latest()->get(),
+            'products'          => Product::with('category')->latest()->get(),
+            'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
+            'categories'        => Category::all(),
+            'gallery'           => GalleryImage::latest()->get(),
+            'archived_gallery'  => GalleryImage::onlyTrashed()->latest()->get(),
+            'leads'             => Lead::latest()->get(),
         ]);
     }
 
