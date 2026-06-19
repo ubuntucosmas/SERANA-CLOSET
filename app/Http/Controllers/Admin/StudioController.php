@@ -15,36 +15,57 @@ use App\Models\GalleryImage;
 
 use App\Models\Lead;
 use App\Models\ThemeSetting;
+use App\Support\OrderStatus;
 use Carbon\Carbon;
 
 class StudioController extends Controller
 {
     public function index(Request $request)
     {
-        $total_revenue = CustomOrder::where('is_paid', true)->sum('price_quoted');
-        $active_orders = CustomOrder::whereNotIn('status', ['completed', 'shipped'])->count();
-        $total_leads   = Lead::count();
-        
-        // Simple growth metric (leads in last 7 days)
-        $recent_leads = Lead::where('created_at', '>=', Carbon::now()->subDays(7))->count();
+        $weekAgo = Carbon::now()->subDays(7);
+
+        // Production stages still being actively worked (not yet completed/shipped).
+        $activeStages = array_values(array_diff(
+            OrderStatus::PRODUCTION_STAGES,
+            OrderStatus::PRODUCTION_TERMINAL
+        ));
+
+        // Lightweight, always-present payload for the Home screen.
+        $stats = [
+            'new_orders_week'   => CustomOrder::where('created_at', '>=', $weekAgo)->count(),
+            'revenue_week'      => (float) CustomOrder::where('is_paid', true)
+                                        ->where('created_at', '>=', $weekAgo)->sum('price_quoted'),
+            'in_production'     => CustomOrder::whereIn('status', $activeStages)->count(),
+            'subscribers_total' => Lead::count(),
+        ];
+
+        $attention = [
+            'awaiting' => CustomOrder::where('status', OrderStatus::PENDING_PAYMENT)
+                ->where('is_paid', false)->latest()->take(5)->get()
+                ->map(fn ($o) => [
+                    'id'        => $o->id,
+                    'full_name' => $o->full_name,
+                    'amount'    => $o->price_quoted,
+                    'reference' => $o->cipher,
+                ]),
+            'low_stock' => Product::where('in_stock', false)->latest()->take(5)->get(['id', 'name']),
+        ];
 
         return Inertia::render('Admin/StudioDashboard', [
-            'orders' => CustomOrder::with(['user', 'progressSnaps'])->latest()->get(),
-            'archived_orders' => CustomOrder::onlyTrashed()->with(['user', 'progressSnaps'])->latest()->get(),
-            'products' => Product::with('category')->latest()->get(),
-            'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
-            'categories' => Category::all(),
-            'gallery' => GalleryImage::latest()->get(),
-            'archived_gallery' => GalleryImage::onlyTrashed()->latest()->get(),
-            'leads' => Lead::latest()->get(),
-            'stats' => [
-                'total_revenue' => $total_revenue,
-                'active_orders' => $active_orders,
-                'total_orders'  => CustomOrder::withTrashed()->count(),
-                'total_leads'   => $total_leads,
-                'recent_leads_growth' => $recent_leads
-            ],
-            'active_tab' => $request->get('tab', 'overview')
+            // Always present.
+            'stats'      => $stats,
+            'attention'  => $attention,
+            'active_tab' => $request->get('tab', 'home'),
+
+            // Loaded only when the matching tab is opened (partial reload `only:[...]`).
+            'orders'            => Inertia::optional(fn () => CustomOrder::with(['user', 'progressSnaps'])->latest()->get()),
+            'archived_orders'   => Inertia::optional(fn () => CustomOrder::onlyTrashed()->with(['user', 'progressSnaps'])->latest()->get()),
+            'products'          => Inertia::optional(fn () => Product::with('category')->latest()->get()),
+            'archived_products' => Inertia::optional(fn () => Product::onlyTrashed()->with('category')->latest()->get()),
+            'categories'        => Inertia::optional(fn () => Category::all()),
+            'gallery'           => Inertia::optional(fn () => GalleryImage::latest()->get()),
+            'archived_gallery'  => Inertia::optional(fn () => GalleryImage::onlyTrashed()->latest()->get()),
+            'leads'             => Inertia::optional(fn () => Lead::latest()->get()),
         ]);
     }
 

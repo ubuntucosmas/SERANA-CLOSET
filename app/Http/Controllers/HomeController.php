@@ -17,7 +17,11 @@ class HomeController extends Controller
     {
         // Live studio metrics — active orders in progress. The capacity target
         // (how many concurrent pieces the studio considers "full") is admin-managed.
-        $studioLoad      = CustomOrder::whereIn('status', ['pending', 'in_progress'])->count();
+        $activeStages    = array_values(array_diff(
+            \App\Support\OrderStatus::PRODUCTION_STAGES,
+            \App\Support\OrderStatus::PRODUCTION_TERMINAL
+        ));
+        $studioLoad      = CustomOrder::whereIn('status', $activeStages)->count();
         $capacityTarget  = max(1, (int) ThemeSetting::get('studio_capacity', 20));
         $studioCapacity  = min(100, (int) round(($studioLoad / $capacityTarget) * 100));
 
