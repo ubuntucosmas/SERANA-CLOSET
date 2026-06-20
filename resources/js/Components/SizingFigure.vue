@@ -17,6 +17,7 @@ const tips = {
     waist_cm: { label: 'Waist', text: 'Measure the narrowest part of your waist, usually just above the navel.' },
     hips_cm: { label: 'Hips', text: 'Measure around the widest part of your hips, about 20 cm below the waist.' },
     height_cm: { label: 'Height', text: 'Stand barefoot against a wall and measure from the top of your head to the floor.' },
+    length_cm: { label: 'Length', text: 'Decide how long you want the piece, then measure from the shoulder seam straight down.' },
 };
 
 const active = computed(() => props.activeField);
@@ -76,6 +77,12 @@ const fields = ['bust_cm', 'waist_cm', 'hips_cm', 'height_cm'];
                         <line x1="80" y1="8" x2="80" y2="135" stroke-width="1.6" stroke-dasharray="3 3" />
                         <line x1="77" y1="8" x2="83" y2="8" stroke-width="2" />
                         <line x1="77" y1="135" x2="83" y2="135" stroke-width="2" />
+                    </g>
+                    <!-- Length (shoulder seam straight down) -->
+                    <g v-else-if="active === 'length_cm'" class="band">
+                        <line x1="50" y1="33" x2="50" y2="128" stroke-width="1.6" stroke-dasharray="3 3" />
+                        <line x1="47" y1="33" x2="53" y2="33" stroke-width="2" />
+                        <line x1="47" y1="128" x2="53" y2="128" stroke-width="2" />
                     </g>
                 </g>
             </svg>

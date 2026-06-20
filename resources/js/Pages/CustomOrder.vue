@@ -2,7 +2,7 @@
 import { ref, reactive } from "vue";
 import { Head } from "@inertiajs/vue3";
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
-import SizingIntelligence from "@/Components/SizingIntelligence.vue";
+import SizingFigure from "@/Components/SizingFigure.vue";
 
 const props = defineProps({
     baseProduct: { type: Object, default: null },
@@ -19,23 +19,7 @@ const submitted = ref(false);
 const whatsappUrl = ref(null);
 const reference = ref(null);
 
-const fieldLabel = (key) => {
-    const base = key.replace("_cm", "");
-    return base.charAt(0).toUpperCase() + base.slice(1);
-};
-
-const measurementGuidance = {
-    height_cm:
-        "Stand straight, barefoot against a wall. Measure from the crown of your head straight down to the floor.",
-    bust_cm:
-        "Wrap the tape around the fullest part of your chest. Keep it parallel to the floor and breathe normally.",
-    waist_cm:
-        "Locate your natural waist (the narrowest point, usually above the navel) and measure around it.",
-    hips_cm:
-        "Measure around the widest part of your hips, approximately 20cm below the waistline.",
-    length_cm:
-        "Decide your preferred garment length and measure from the shoulder seam straight down to that point.",
-};
+// Measurement guidance now lives inside SizingFigure.
 
 const outfitTypes = [
     "Dress",
@@ -398,27 +382,14 @@ function resetForm() {
                                         />
                                     </div>
                                 </div>
-
-                                <!-- Live Guidance - Simple & Below Fields -->
-                                <div
-                                    v-if="
-                                        activeField &&
-                                        measurementGuidance[activeField]
-                                    "
-                                    class="mt-2.5 text-sm text-white/80 bg-black/30 px-3 py-2 rounded-lg"
-                                >
-                                    <span class="text-primary font-medium"
-                                        >{{ fieldLabel(activeField) }}:</span
-                                    >
-                                    {{ measurementGuidance[activeField] }}
-                                </div>
                             </div>
 
-                            <!-- Precision Mapping Visual (Simple Figure) -->
+                            <!-- Guided sizing figure -->
                             <div class="lg:col-span-7">
-                                <SizingIntelligence
+                                <SizingFigure
                                     :active-field="activeField"
                                     :measurements="form"
+                                    @pick="activeField = $event"
                                 />
                             </div>
                         </div>
