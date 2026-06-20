@@ -4,6 +4,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
+import SizingFigure from '@/Components/SizingFigure.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { usePulseStore } from '@/Stores/usePulseStore';
 
@@ -36,6 +37,7 @@ const step = ref('details');          // details | pay | done
 const stkStatus = ref('idle');        // idle | processing | waiting (for MpesaStkPanel)
 const form = ref({ full_name: '', phone: '', email: '', size: '', bust_cm: '', waist_cm: '', hips_cm: '', height_cm: '', fit_notes: '' });
 const offersSizes = computed(() => Array.isArray(props.drop.sizes) && props.drop.sizes.length > 0);
+const activeField = ref(null); // which measurement the figure should highlight
 const orderId = ref(null);
 const isPaid = ref(false);
 const reference = ref(null);
@@ -209,11 +211,16 @@ function startPolling() {
                             <!-- Measurements for a precise fit (optional but encouraged) -->
                             <div>
                                 <span class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Your measurements (cm) — for the best fit</span>
+                                <SizingFigure :activeField="activeField" :measurements="form" @pick="activeField = $event" class="mb-3" />
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    <input v-model="form.bust_cm" type="number" placeholder="Bust" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                                    <input v-model="form.waist_cm" type="number" placeholder="Waist" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                                    <input v-model="form.hips_cm" type="number" placeholder="Hips" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                                    <input v-model="form.height_cm" type="number" placeholder="Height" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                                    <input v-model="form.bust_cm" type="number" placeholder="Bust" @focus="activeField = 'bust_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'bust_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
+                                    <input v-model="form.waist_cm" type="number" placeholder="Waist" @focus="activeField = 'waist_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'waist_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
+                                    <input v-model="form.hips_cm" type="number" placeholder="Hips" @focus="activeField = 'hips_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'hips_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
+                                    <input v-model="form.height_cm" type="number" placeholder="Height" @focus="activeField = 'height_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'height_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
                                 </div>
                             </div>
                             <textarea v-model="form.fit_notes" rows="2" placeholder="Fit notes (optional) — e.g. prefer relaxed, sleeves a touch longer" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50"></textarea>
