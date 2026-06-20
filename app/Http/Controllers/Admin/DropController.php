@@ -56,6 +56,8 @@ class DropController extends Controller
             'target_quantity' => 'required|integer|min:1',
             'ends_at'         => 'nullable|date',
             'status'          => ['required', Rule::in(['draft', 'live', 'greenlit', 'fulfilled', 'closed'])],
+            'sizes'           => 'nullable|array',
+            'sizes.*'         => 'string|max:20',
             'image'           => 'nullable|image|max:5120',
         ]);
     }

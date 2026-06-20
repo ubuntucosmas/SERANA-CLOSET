@@ -34,7 +34,8 @@ const countdown = computed(() => {
 const open = ref(false);
 const step = ref('details');          // details | pay | done
 const stkStatus = ref('idle');        // idle | processing | waiting (for MpesaStkPanel)
-const form = ref({ full_name: '', phone: '', email: '', size: '' });
+const form = ref({ full_name: '', phone: '', email: '', size: '', bust_cm: '', waist_cm: '', hips_cm: '', height_cm: '', fit_notes: '' });
+const offersSizes = computed(() => Array.isArray(props.drop.sizes) && props.drop.sizes.length > 0);
 const orderId = ref(null);
 const isPaid = ref(false);
 const reference = ref(null);
@@ -57,6 +58,10 @@ function closeReserve() {
 async function submitReserve() {
     if (!form.value.full_name || !form.value.phone) {
         pulse.emit('Please add your name and phone number.', 'error');
+        return;
+    }
+    if (offersSizes.value && !form.value.size) {
+        pulse.emit('Please choose a size.', 'error');
         return;
     }
     try {
@@ -128,6 +133,11 @@ function startPolling() {
                 <h1 class="text-4xl md:text-5xl font-headline font-light tracking-tight dark:text-white text-on-surface leading-tight">{{ drop.title }}</h1>
                 <p class="mt-4 text-primary font-headline text-2xl">{{ formatAmount(drop.price, page.props) }}</p>
 
+                <div v-if="offersSizes" class="mt-5 flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mr-1">Sizes</span>
+                    <span v-for="s in drop.sizes" :key="s" class="px-3 py-1 rounded-full text-xs font-semibold border dark:border-white/15 border-black/10 dark:text-white text-on-surface">{{ s }}</span>
+                </div>
+
                 <p v-if="drop.description" class="mt-6 text-on-surface-variant leading-relaxed whitespace-pre-line">{{ drop.description }}</p>
 
                 <!-- Progress -->
@@ -182,7 +192,31 @@ function startPolling() {
                             <input v-model="form.full_name" placeholder="Full name" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
                             <input v-model="form.phone" placeholder="M-PESA phone (07…)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
                             <input v-model="form.email" type="email" placeholder="Email (for your receipt)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                            <input v-model="form.size" placeholder="Size / fit notes (optional)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+
+                            <!-- Size: pick from offered sizes, or free text -->
+                            <div v-if="offersSizes">
+                                <span class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Choose your size</span>
+                                <div class="flex flex-wrap gap-2">
+                                    <button v-for="s in drop.sizes" :key="s" type="button" @click="form.size = s"
+                                        :class="['px-4 py-2 rounded-lg text-sm font-semibold border transition-all',
+                                                 form.size === s ? 'bg-primary text-background border-primary' : 'dark:border-white/10 border-black/10 dark:text-white text-on-surface hover:border-primary/50']">
+                                        {{ s }}
+                                    </button>
+                                </div>
+                            </div>
+                            <input v-else v-model="form.size" placeholder="Size (e.g. M, or UK 12)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+
+                            <!-- Measurements for a precise fit (optional but encouraged) -->
+                            <div>
+                                <span class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Your measurements (cm) — for the best fit</span>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <input v-model="form.bust_cm" type="number" placeholder="Bust" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                                    <input v-model="form.waist_cm" type="number" placeholder="Waist" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                                    <input v-model="form.hips_cm" type="number" placeholder="Hips" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                                    <input v-model="form.height_cm" type="number" placeholder="Height" class="bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                                </div>
+                            </div>
+                            <textarea v-model="form.fit_notes" rows="2" placeholder="Fit notes (optional) — e.g. prefer relaxed, sleeves a touch longer" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50"></textarea>
                         </div>
                         <button @click="submitReserve" class="mt-6 w-full py-4 rounded-xl bg-primary text-background font-headline font-black uppercase tracking-widest text-sm hover:brightness-105 transition-all">
                             Continue to payment

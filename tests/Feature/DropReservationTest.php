@@ -34,6 +34,11 @@ class DropReservationTest extends TestCase
             'phone' => '0712345678',
             'email' => 'jane@example.com',
             'size' => 'M',
+            'bust_cm' => 86,
+            'waist_cm' => 68,
+            'hips_cm' => 92,
+            'height_cm' => 168,
+            'fit_notes' => 'Relaxed fit please',
         ]);
 
         $res->assertOk()->assertJson(['success' => true]);
@@ -43,6 +48,26 @@ class DropReservationTest extends TestCase
         $this->assertSame($drop->id, $order->drop_id);
         $this->assertEquals(8500, (int) $order->price_quoted);
         $this->assertFalse((bool) $order->is_paid);
+        // Per-reserver sizing is captured for production.
+        $this->assertEquals(86, (int) $order->bust_cm);
+        $this->assertSame('M', $order->items_json['size']);
+        $this->assertEquals(168, (int) $order->items_json['height_cm']);
+        $this->assertSame('Relaxed fit please', $order->items_json['fit_notes']);
+    }
+
+    public function test_a_drop_with_offered_sizes_requires_a_valid_size(): void
+    {
+        $drop = $this->liveDrop(['sizes' => ['S', 'M', 'L']]);
+
+        // Missing size → rejected.
+        $this->postJson(route('drops.reserve', $drop), ['full_name' => 'A', 'phone' => '0712345678'])
+            ->assertStatus(422);
+        // Size not in the offered set → rejected.
+        $this->postJson(route('drops.reserve', $drop), ['full_name' => 'A', 'phone' => '0712345678', 'size' => 'XXL'])
+            ->assertStatus(422);
+        // Valid size → accepted.
+        $this->postJson(route('drops.reserve', $drop), ['full_name' => 'A', 'phone' => '0712345678', 'size' => 'M'])
+            ->assertOk();
     }
 
     public function test_a_closed_drop_rejects_reservations(): void

@@ -25,6 +25,7 @@ class Drop extends Model
         'price' => 'decimal:2',
         'target_quantity' => 'integer',
         'ends_at' => 'datetime',
+        'sizes' => 'array',
     ];
 
     protected $appends = ['image_url', 'reserved_count', 'funded_percent', 'is_funded', 'is_open'];

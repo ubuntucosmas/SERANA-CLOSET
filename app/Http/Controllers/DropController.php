@@ -6,6 +6,7 @@ use App\Models\CustomOrder;
 use App\Models\Drop;
 use App\Support\OrderStatus;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 /**
@@ -49,11 +50,20 @@ class DropController extends Controller
             return response()->json(['success' => false, 'message' => 'This drop has no price set yet.'], 422);
         }
 
+        $offersSizes = !empty($drop->sizes);
+
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'phone'     => 'required|string|max:30',
             'email'     => 'nullable|email',
-            'size'      => 'nullable|string|max:50',
+            // Pick from the drop's offered sizes when it defines them.
+            'size'      => [$offersSizes ? 'required' : 'nullable', 'string', 'max:50',
+                            $offersSizes ? Rule::in($drop->sizes) : 'nullable'],
+            'bust_cm'   => 'nullable|numeric|min:40|max:200',
+            'waist_cm'  => 'nullable|numeric|min:30|max:200',
+            'hips_cm'   => 'nullable|numeric|min:40|max:200',
+            'height_cm' => 'nullable|numeric|min:50|max:250',
+            'fit_notes' => 'nullable|string|max:500',
         ]);
 
         $order = CustomOrder::create([
@@ -67,7 +77,17 @@ class DropController extends Controller
             'phone'           => $validated['phone'],
             'whatsapp_number' => $validated['phone'],
             'email'           => $validated['email'] ?? null,
-            'items_json'      => ['drop' => $drop->title, 'size' => $validated['size'] ?? null],
+            // Structured measurements live in their own columns; size, height and
+            // fit notes ride in items_json so the studio can cut per person.
+            'bust_cm'         => $validated['bust_cm'] ?? null,
+            'waist_cm'        => $validated['waist_cm'] ?? null,
+            'hips_cm'         => $validated['hips_cm'] ?? null,
+            'items_json'      => [
+                'drop'      => $drop->title,
+                'size'      => $validated['size'] ?? null,
+                'height_cm' => $validated['height_cm'] ?? null,
+                'fit_notes' => $validated['fit_notes'] ?? null,
+            ],
         ]);
 
         // Bind to the buyer's session so they (and only they) can pay & poll

@@ -228,8 +228,10 @@ const isEditingDrop = ref(false);
 const dropPreview = ref(null);
 const dropForm = useForm({
     id: null, title: '', description: '', price: 0, target_quantity: 10,
-    ends_at: '', status: 'draft', image: null,
+    ends_at: '', status: 'draft', sizes: '', image: null,
 });
+// Offered sizes are edited as a comma list ("S, M, L") and sent as an array.
+const parseSizes = (str) => (str || '').split(',').map(s => s.trim()).filter(Boolean);
 function addDrop() {
     isEditingDrop.value = false;
     dropForm.reset();
@@ -246,6 +248,7 @@ function editDrop(d) {
     // datetime-local wants "YYYY-MM-DDTHH:mm"
     dropForm.ends_at = d.ends_at ? String(d.ends_at).slice(0, 16).replace(' ', 'T') : '';
     dropForm.status = d.status;
+    dropForm.sizes = (d.sizes || []).join(', ');
     dropForm.image = null;
     dropPreview.value = d.image_url;
     showDropModal.value = true;
@@ -253,9 +256,9 @@ function editDrop(d) {
 function submitDrop() {
     const done = () => { showDropModal.value = false; isEditingDrop.value = false; dropForm.reset(); dropPreview.value = null; };
     if (isEditingDrop.value) {
-        dropForm.transform(d => ({ ...d, _method: 'PUT' })).post(route('admin.drops.update', dropForm.id), { onSuccess: done });
+        dropForm.transform(d => ({ ...d, sizes: parseSizes(d.sizes), _method: 'PUT' })).post(route('admin.drops.update', dropForm.id), { onSuccess: done });
     } else {
-        dropForm.post(route('admin.drops.store'), { onSuccess: done });
+        dropForm.transform(d => ({ ...d, sizes: parseSizes(d.sizes) })).post(route('admin.drops.store'), { onSuccess: done });
     }
 }
 function archiveDrop(id) { if (confirm('Archive this drop?')) router.delete(route('admin.drops.destroy', id), { preserveScroll: true }); }
@@ -526,10 +529,17 @@ function removeAsset(key) {
                         </select>
                     </label>
                 </div>
-                <label class="block">
-                    <span class="block text-sm text-slate-300 mb-2">Reservation deadline (optional)</span>
-                    <input v-model="dropForm.ends_at" type="datetime-local" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                </label>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Reservation deadline (optional)</span>
+                        <input v-model="dropForm.ends_at" type="datetime-local" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    </label>
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Sizes offered (optional)</span>
+                        <input v-model="dropForm.sizes" placeholder="e.g. XS, S, M, L, XL" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <span class="block text-xs text-slate-600 mt-1.5">Comma-separated. Leave blank to collect measurements only.</span>
+                    </label>
+                </div>
                 <div>
                     <span class="block text-sm text-slate-300 mb-2">Concept image</span>
                     <label class="block aspect-video rounded-xl bg-slate-950 border border-dashed border-white/10 overflow-hidden cursor-pointer grid place-items-center max-w-sm">

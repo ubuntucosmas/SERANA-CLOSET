@@ -23,6 +23,15 @@ const statusStyle = {
     closed: 'bg-rose-400/15 text-rose-300',
 };
 function fmtDate(d) { return d ? new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'No deadline'; }
+function sizeOf(r) { return r.items_json?.size || null; }
+function measurementsOf(r) {
+    const parts = [];
+    if (r.bust_cm) parts.push(`Bust ${r.bust_cm}`);
+    if (r.waist_cm) parts.push(`Waist ${r.waist_cm}`);
+    if (r.hips_cm) parts.push(`Hips ${r.hips_cm}`);
+    if (r.items_json?.height_cm) parts.push(`Height ${r.items_json.height_cm}`);
+    return parts.length ? parts.join(' · ') + ' cm' : null;
+}
 const hasDrops = computed(() => props.drops.length > 0);
 </script>
 
@@ -69,15 +78,20 @@ const hasDrops = computed(() => props.drops.length > 0);
             <!-- reservations -->
             <div v-if="expanded === d.id" class="border-t border-white/5 divide-y divide-white/5">
                 <p v-if="!d.reservations?.length" class="text-slate-500 text-sm text-center py-4">No reservations yet.</p>
-                <div v-for="r in d.reservations" :key="r.id" class="flex items-center justify-between px-5 py-3 text-sm">
-                    <div class="min-w-0">
-                        <span class="text-white truncate">{{ r.full_name || 'Customer' }}</span>
-                        <span class="text-slate-500 ml-2">{{ r.phone }}</span>
+                <div v-for="r in d.reservations" :key="r.id" class="px-5 py-3 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="text-white">{{ r.full_name || 'Customer' }}</span>
+                            <span class="text-slate-500 ml-2">{{ r.phone }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <span v-if="sizeOf(r)" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#57d5fc]/15 text-[#57d5fc]">Size {{ sizeOf(r) }}</span>
+                            <span class="text-slate-400">{{ formatAmount(r.price_quoted, page.props) }}</span>
+                            <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full', r.is_paid ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10']">{{ r.is_paid ? 'Paid' : 'Unpaid' }}</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3 shrink-0">
-                        <span class="text-slate-400">{{ formatAmount(r.price_quoted, page.props) }}</span>
-                        <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full', r.is_paid ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10']">{{ r.is_paid ? 'Paid' : 'Unpaid' }}</span>
-                    </div>
+                    <p v-if="measurementsOf(r)" class="mt-1 text-xs text-slate-500">{{ measurementsOf(r) }}</p>
+                    <p v-if="r.items_json?.fit_notes" class="mt-0.5 text-xs text-slate-400 italic">“{{ r.items_json.fit_notes }}”</p>
                 </div>
             </div>
         </div>
