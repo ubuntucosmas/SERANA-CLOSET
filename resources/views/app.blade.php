@@ -17,9 +17,36 @@
         </script>
 
         <!-- SEO & Meta Tags -->
+        @php
+            $ts = $page['props']['theme_settings'] ?? [];
+            $resolveAsset = function ($v) {
+                if (!$v) return null;
+                return str_starts_with($v, 'http')
+                    ? $v
+                    : \Illuminate\Support\Facades\Storage::disk('public')->url($v);
+            };
+            $siteName = $ts['site_name'] ?? config('app.name', 'Serana Closet');
+            $ogDescription = ($ts['site_tagline'] ?? null)
+                ?: 'Bespoke commissions and limited-batch drops — made to demand, paid by M-PESA, delivered across Kenya.';
+            $ogImage = $resolveAsset($ts['hero_bg'] ?? null) ?: $resolveAsset($ts['site_logo'] ?? null);
+            $ogTitle = $siteName . ' — Bespoke atelier & limited drops';
+        @endphp
         <title inertia>{{ config('app.name', 'Serana Closet') }}</title>
-        <meta name="description" content="Serana Closet: The Digital Atelier. Uncompromising craftsmanship merging traditional Kenyan tailoring with futuristic precision. Bespoke commissions and limited batch drops.">
-        
+        <meta name="description" content="{{ $ogDescription }}">
+
+        <!-- Open Graph / social sharing (server-rendered so link previews work) -->
+        <meta property="og:site_name" content="{{ $siteName }}">
+        <meta property="og:title" content="{{ $ogTitle }}">
+        <meta property="og:description" content="{{ $ogDescription }}">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ url()->current() }}">
+        @if($ogImage)<meta property="og:image" content="{{ $ogImage }}">@endif
+        <meta name="twitter:card" content="{{ $ogImage ? 'summary_large_image' : 'summary' }}">
+        <meta name="twitter:title" content="{{ $ogTitle }}">
+        <meta name="twitter:description" content="{{ $ogDescription }}">
+        @if($ogImage)<meta name="twitter:image" content="{{ $ogImage }}">@endif
+        <meta name="theme-color" content="#0a0a0a">
+
         <!-- Dynamic Favicon -->
         @if(isset($page['props']['theme_settings']['site_favicon']))
             @php
