@@ -119,4 +119,28 @@ class DropReservationTest extends TestCase
         $this->assertSame(50, $fresh->funded_percent);
         $this->assertFalse($fresh->is_funded);
     }
+
+    public function test_expired_drops_are_greenlit_or_closed_at_deadline(): void
+    {
+        // Funded + past deadline → greenlit. (Create the paid reservation
+        // directly since an expired drop no longer accepts new reservations.)
+        $funded = $this->liveDrop(['target_quantity' => 1, 'ends_at' => now()->subHour()]);
+        CustomOrder::create([
+            'drop_id' => $funded->id, 'type' => 'drop', 'status' => 'Paid', 'is_paid' => true,
+            'price_quoted' => $funded->price, 'full_name' => 'A', 'phone' => '0712345678',
+            'whatsapp_number' => '0712345678',
+        ]);
+
+        // Unfunded + past deadline → closed.
+        $unfunded = $this->liveDrop(['target_quantity' => 5, 'ends_at' => now()->subHour()]);
+
+        // Still open → untouched.
+        $open = $this->liveDrop(['ends_at' => now()->addDay()]);
+
+        $this->artisan('drops:close-expired')->assertSuccessful();
+
+        $this->assertSame('greenlit', $funded->fresh()->status);
+        $this->assertSame('closed', $unfunded->fresh()->status);
+        $this->assertSame('live', $open->fresh()->status);
+    }
 }

@@ -328,7 +328,8 @@ function removeAsset(key) {
             <div class="grid sm:grid-cols-2 gap-3 mb-5 text-sm">
                 <div v-if="selectedOrder.phone" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Phone</span>{{ selectedOrder.phone }}</div>
                 <div v-if="selectedOrder.email" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Email</span>{{ selectedOrder.email }}</div>
-                <div class="bg-slate-950/60 rounded-xl px-4 py-3 sm:col-span-2"><span class="text-slate-500 text-xs block">Item</span>{{ selectedOrder.garment_name || selectedOrder.outfit_type || 'Custom piece' }}</div>
+                <div class="bg-slate-950/60 rounded-xl px-4 py-3" :class="selectedOrder.items_json?.size ? '' : 'sm:col-span-2'"><span class="text-slate-500 text-xs block">Item</span>{{ selectedOrder.garment_name || selectedOrder.outfit_type || 'Custom piece' }}</div>
+                <div v-if="selectedOrder.items_json?.size" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Size</span>{{ selectedOrder.items_json.size }}</div>
             </div>
 
             <!-- Measurements -->

@@ -13,3 +13,6 @@ Schedule::command('stock:release-expired')->everyMinute()->withoutOverlapping();
 
 // Resolve payments whose Safaricom callback never arrived.
 Schedule::command('mpesa:reconcile')->everyThreeMinutes()->withoutOverlapping();
+
+// Greenlight or close drops once their reservation deadline passes.
+Schedule::command('drops:close-expired')->everyFiveMinutes()->withoutOverlapping();

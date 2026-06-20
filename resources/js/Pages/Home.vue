@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { useCurrency } from '@/Composables/useCurrency';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import HeroSection    from '@/Components/HeroSection.vue';
 import CategoryGrid   from '@/Components/CategoryGrid.vue';
@@ -13,7 +14,11 @@ const props = defineProps({
     featuredProducts: { type: Array, default: () => [] },
     studioLoad: { type: Number, default: 0 },
     studioCapacity: { type: Number, default: 0 },
+    featuredDrop: { type: Object, default: null },
 });
+
+const page = usePage();
+const { formatAmount } = useCurrency();
 
 onMounted(() => {
     // Page is ready - animations handled by StorefrontLayout
@@ -47,6 +52,35 @@ onMounted(() => {
 
         <!-- 1. Hero -->
         <HeroSection />
+
+        <!-- 1b. Live Drop launchpad -->
+        <section v-if="featuredDrop" v-reveal class="px-6 md:px-8 py-10 md:py-14">
+            <Link :href="route('drops.show', featuredDrop.slug)"
+                class="group block max-w-screen-xl mx-auto rounded-3xl overflow-hidden border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent hover:border-primary/60 transition-all duration-500">
+                <div class="grid md:grid-cols-2">
+                    <div class="aspect-[16/10] md:aspect-auto bg-black/10 dark:bg-white/5 overflow-hidden">
+                        <img v-if="featuredDrop.image_url" :src="featuredDrop.image_url" :alt="featuredDrop.title" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <div v-else class="w-full h-full grid place-items-center text-on-surface-variant/30"><span class="material-symbols-outlined text-6xl">bolt</span></div>
+                    </div>
+                    <div class="p-8 md:p-12 flex flex-col justify-center">
+                        <span class="inline-flex items-center gap-2 text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">
+                            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Live Drop
+                        </span>
+                        <h2 class="text-3xl md:text-4xl font-headline font-light tracking-tight dark:text-white text-on-surface leading-tight">{{ featuredDrop.title }}</h2>
+                        <p class="mt-3 text-primary font-headline text-xl">{{ formatAmount(featuredDrop.price, page.props) }}</p>
+                        <div class="mt-6">
+                            <div class="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                                <div class="h-full bg-primary transition-all duration-1000" :style="{ width: featuredDrop.funded_percent + '%' }"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-on-surface-variant font-medium">{{ featuredDrop.reserved_count }} of {{ featuredDrop.target_quantity }} reserved — secure yours before we make it.</p>
+                        </div>
+                        <span class="mt-7 inline-flex items-center gap-2 text-sm font-headline font-black uppercase tracking-widest text-primary group-hover:translate-x-1 transition-transform">
+                            Reserve your piece <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </span>
+                    </div>
+                </div>
+            </Link>
+        </section>
 
         <!-- 2. Collection Ribbon (New Mobile Hook) -->
         <CollectionRibbon :products="featuredProducts" />

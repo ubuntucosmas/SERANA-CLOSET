@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\CustomOrder;
+use App\Models\Drop;
 use App\Models\ThemeSetting;
 use Inertia\Inertia;
 
@@ -33,6 +34,11 @@ class HomeController extends Controller
                 ->get(),
             'studioLoad'     => $studioLoad,
             'studioCapacity' => $studioCapacity,
+            // The home page doubles as a launchpad for the current live drop.
+            'featuredDrop'   => Drop::where('status', 'live')
+                ->withCount('paidReservations')
+                ->latest()
+                ->first(),
         ]);
     }
 }

@@ -22,6 +22,7 @@ const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 
 function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
+function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? 'Shop' : 'Custom'); }
 function itemOf(o) { return o.garment_name || o.outfit_type || (isCustom(o) ? 'Custom piece' : 'Shop order'); }
 
 // One clear payment label regardless of the shared status column.
@@ -92,7 +93,7 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom' }, {
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <span class="text-white font-medium truncate">{{ o.full_name || 'Customer' }}</span>
-                            <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5 text-slate-400">{{ isCustom(o) ? 'Custom' : 'Shop' }}</span>
+                            <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5 text-slate-400">{{ typeLabel(o) }}</span>
                         </div>
                         <p class="text-slate-400 text-sm truncate">{{ itemOf(o) }}</p>
                         <p v-if="o.reference || o.cipher" class="text-slate-600 text-xs font-mono mt-0.5">{{ o.reference || o.cipher }}</p>
