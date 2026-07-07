@@ -26,7 +26,7 @@ function getGridClass(index) {
             <meta name="description" content="Witness the Serana Standard in the real world. A curated gallery of our most striking commissions and global client features.">
         </Head>
 
-        <main class="pt-8 md:pt-32 pb-24 bg-surface/5">
+        <main class="pb-24 bg-surface/5">
             <div class="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12">
                 
                 <!-- Editorial Header -->

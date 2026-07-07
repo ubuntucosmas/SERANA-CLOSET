@@ -284,6 +284,24 @@
 }
 
 @layer utilities {
+    /* Single source of truth for clearing the fixed TopNavBar. The values are
+       the nav's unscrolled height (pt-10 + py-8/py-10 + logo) plus a constant
+       1rem breathing gap. StorefrontLayout applies .nav-clearance to every
+       page's content; full-bleed hero pages (Home, About) opt out via the
+       layout's `flushTop` prop. Pages must NOT add their own top padding. */
+    :root {
+        --nav-clearance: 9.5rem;
+    }
+    @media (min-width: 768px) {
+        :root { --nav-clearance: 10.5rem; }
+    }
+    @media (min-width: 1024px) {
+        :root { --nav-clearance: 11.5rem; }
+    }
+    .nav-clearance {
+        padding-top: var(--nav-clearance);
+    }
+
     .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
     }

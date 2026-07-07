@@ -4,6 +4,8 @@ namespace App\Listeners;
 
 use App\Events\MpesaWebhookHandled;
 use App\Mail\OrderReceiptMail;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -12,11 +14,16 @@ use Illuminate\Support\Facades\Mail;
  * instant payment is confirmed. Runs off the MpesaWebhookHandled event so it
  * fires for both the live callback and the reconciliation job.
  *
+ * Queued: the event fires inside Safaricom's callback request, and a slow SMTP
+ * round-trip there would make Safaricom time out and retry the callback.
+ *
  * Mail delivery is best-effort: a mail failure must never break payment
  * settlement (the order is already paid), so all errors are caught and logged.
  */
-class SendOrderConfirmation
+class SendOrderConfirmation implements ShouldQueue
 {
+    use InteractsWithQueue;
+
     public function handle(MpesaWebhookHandled $event): void
     {
         $order = $event->order;

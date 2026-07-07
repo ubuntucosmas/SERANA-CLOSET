@@ -60,17 +60,24 @@ async function handlePayment() {
     isProcessing.value = true;
     stkSent.value = false;
     try {
-        const payload = { ...form.value, items: cart.items, total: cart.totalPrice };
+        // The server re-prices every line from the catalog — send only what it
+        // needs: ids, quantities and the customer's size selections.
+        const payload = {
+            ...form.value,
+            items: cart.items.map(i => ({ id: i.id, quantity: i.quantity, options: i.options ?? null })),
+        };
         if (!payload.height_cm) delete payload.height_cm;
         if (!payload.bust_cm) delete payload.bust_cm;
         if (!payload.waist_cm) delete payload.waist_cm;
         if (!payload.hips_cm) delete payload.hips_cm;
 
         const response = await axios.post(route('checkout.process'), payload);
-        if (response.data.success) {
-            orderId.value = response.data.order_id || Date.now();
+        if (response.data.success && response.data.order_id) {
+            orderId.value = response.data.order_id;
             isWaitingForStk.value = true;
             pulse.emit('Order created successfully.', 'success');
+        } else {
+            pulse.emit(response.data.message || 'Order processing failed.', 'error');
         }
     } catch (err) {
         console.error(err);
@@ -154,7 +161,8 @@ function startPolling() {
                 isPaid.value = true;
                 isWaitingForStk.value = false;
                 isSuccess.value = true;
-                paidAmount.value = cart.totalPrice;
+                // Server-confirmed figure — the local cart is not authoritative.
+                paidAmount.value = response.data.amount ?? cart.totalPrice;
                 safaricomTransactionId.value = response.data.transaction_id;
                 receiptUrl.value = response.data.receipt_url;
                 frozenItems.value = [...cart.items];
@@ -171,7 +179,7 @@ function startPolling() {
     <StorefrontLayout hideMobileCard>
         <Head title="Checkout — Serana" />
 
-        <main class="relative pt-28 md:pt-32 pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto min-h-screen bg-background">
+        <main class="relative pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto min-h-screen bg-background">
 
             <!-- Lipa na M-PESA Express Checkout -->
             <div class="max-w-6xl mx-auto">

@@ -103,7 +103,7 @@ onMounted(() => {
     <StorefrontLayout>
         <Head title="Track Your Order | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pt-8 md:pt-32 pb-24">
+        <div class="min-h-screen bg-background text-on-surface pb-24">
             <div class="max-w-3xl mx-auto px-6 sm:px-8">
                 <!-- Header -->
                 <div class="mb-10 text-center">

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomOrder;
+use App\Models\PaymentAttempt;
 use App\Services\MpesaService;
 use App\Services\OrderSettlementService;
 use App\Support\OrderStatus;
+use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -22,17 +24,25 @@ class MpesaController extends Controller
 
     /**
      * Initiate STK Push
-     * Logic: 1. Validate request
-     *        2. Call MpesaService to dispatch the STK push
-     *        3. Return the CheckoutRequestID for frontend tracking
+     * Logic: 1. Validate request & authorize the caller against the order
+     *        2. Re-secure the order's stock (retries can outlive the hold)
+     *        3. Dispatch the push and record it as a PaymentAttempt
      */
     public function initiate(Request $request)
     {
         try {
             $validated = $request->validate([
-                'order_id' => 'required',
-                'phone' => 'required|string',
+                'order_id' => 'required|integer',
+                'phone' => 'required|string|max:30',
             ]);
+
+            $phone = Phone::normalize($validated['phone']);
+            if (! Phone::isValidKenyanMobile($phone)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enter a valid Kenyan mobile number, e.g. 07XX XXX XXX.',
+                ], 422);
+            }
 
             $order = CustomOrder::find($validated['order_id']);
             if (!$order) return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
@@ -50,15 +60,34 @@ class MpesaController extends Controller
                 return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
             }
 
+            // An expired order's stock hold is long gone — never collect money
+            // for it. The customer rebuilds their bag and checks out afresh.
+            if ($order->status === OrderStatus::EXPIRED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order expired before payment. Please check out again.',
+                ], 409);
+            }
+
             // SERVER-AUTHORITATIVE AMOUNT: never trust a client-supplied amount.
             // The only source of truth is the price computed at checkout.
-            $amount = round((float) $order->price_quoted);
+            $amount = (int) round((float) $order->price_quoted);
             if ($amount <= 0) {
                 return response()->json(['success' => false, 'message' => 'Order has no payable amount.'], 422);
             }
 
+            // Retries can arrive after the original hold lapsed: re-secure the
+            // stock (extend live holds / re-acquire released ones) before taking
+            // a shilling for it.
+            if (! $order->secureStockForPayment()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'An item in this order sold out while it sat unpaid. Please check out again.',
+                ], 409);
+            }
+
             $result = $this->mpesaService->initiateStkPush(
-                $validated['phone'],
+                $phone,
                 $amount,
                 "ORDER-{$order->id}",
                 "Payment for Serana Brief #{$order->id}"
@@ -66,6 +95,16 @@ class MpesaController extends Controller
 
             if ($result['success']) {
                 $checkoutID = $result['data']['CheckoutRequestID'];
+
+                // Every push gets its own attempt row so a customer who retries
+                // and then pays the *earlier* prompt still settles the order.
+                $order->paymentAttempts()->create([
+                    'checkout_request_id' => $checkoutID,
+                    'phone'               => $phone,
+                    'amount'              => $amount,
+                    'status'              => PaymentAttempt::PENDING,
+                ]);
+                // Kept in sync as "latest attempt" for older tooling/queries.
                 $order->update(['mpesa_checkout_id' => $checkoutID]);
 
                 return response()->json([
@@ -77,6 +116,8 @@ class MpesaController extends Controller
 
             return response()->json($result, 400);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error("M-Pesa Initiation Exception: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
@@ -92,14 +133,14 @@ class MpesaController extends Controller
      * M-Pesa Callback
      * Safaricom sends the final transaction result here asynchronously.
      * Logic: 1. Log raw payload for audit
-     *        2. Identify order by CheckoutRequestID
+     *        2. Identify the attempt (and its order) by CheckoutRequestID
      *        3. Check for idempotency (prevent double processing)
-     *        4. Update order & dispatch event
+     *        4. Record the attempt outcome, settle the order, dispatch event
      */
     public function callback(Request $request)
     {
         $payload = $request->all();
-        
+
         // 1. Audit Trail
         Log::info("M-Pesa Callback Received", [
             'payload' => $payload,
@@ -116,26 +157,23 @@ class MpesaController extends Controller
         $resultCode = $stkCallback['ResultCode'];
         $checkoutRequestID = $stkCallback['CheckoutRequestID'];
 
-        $order = CustomOrder::where('mpesa_checkout_id', $checkoutRequestID)->first();
+        // Match the specific attempt; fall back to the order's latest checkout id
+        // for orders created before per-attempt tracking existed.
+        $attempt = PaymentAttempt::where('checkout_request_id', $checkoutRequestID)->first();
+        $order = $attempt?->order
+            ?? CustomOrder::where('mpesa_checkout_id', $checkoutRequestID)->first();
 
         if (!$order) {
             Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Order Not Found']);
         }
 
-        // 2. Idempotency Check
-        if ($order->is_paid || $order->status === OrderStatus::PAID) {
-            Log::info("M-Pesa Callback: Order #{$order->id} already processed. Skipping.");
-            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already Processed']);
-        }
-
-        // 3. Process Result
+        // Extract the success metadata up front — the already-paid branch needs
+        // it too, to book-keep a duplicate payment.
+        $receiptNumber = null;
+        $paidAmount = null;
         if ($resultCode == 0) {
-            // SUCCESS
-            $receiptNumber = null;
-            $paidAmount = null;
-            $items = $stkCallback['CallbackMetadata']['Item'] ?? [];
-            foreach ($items as $item) {
+            foreach ($stkCallback['CallbackMetadata']['Item'] ?? [] as $item) {
                 if (($item['Name'] ?? null) === 'MpesaReceiptNumber') {
                     $receiptNumber = $item['Value'] ?? null;
                 }
@@ -143,30 +181,54 @@ class MpesaController extends Controller
                     $paidAmount = $item['Value'] ?? null;
                 }
             }
+        }
 
+        // 2. Idempotency / duplicate-payment check
+        if ($order->is_paid || $order->status === OrderStatus::PAID) {
+            if ($attempt && $attempt->status === PaymentAttempt::PENDING) {
+                if ($resultCode == 0) {
+                    // The customer paid a second prompt for an already-paid order:
+                    // record it — this is a refund owed, not a success to celebrate.
+                    $attempt->markPaid($receiptNumber);
+                    Log::warning("M-Pesa Callback: duplicate successful payment for already-paid Order #{$order->id}. Receipt: $receiptNumber — refund may be owed.");
+                } else {
+                    $attempt->markFailed((string) $resultCode, $stkCallback['ResultDesc'] ?? null);
+                }
+            }
+            Log::info("M-Pesa Callback: Order #{$order->id} already processed. Skipping.");
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already Processed']);
+        }
+
+        // 3. Process Result
+        if ($resultCode == 0) {
             // AMOUNT VERIFICATION: the amount actually paid must match the amount
-            // we quoted. A short/forged callback must never flip is_paid.
-            $expected = round((float) $order->price_quoted);
-            if ($paidAmount === null || (int) round((float) $paidAmount) !== (int) $expected) {
-                $this->settlement->markUnpaid($order, OrderStatus::AMOUNT_MISMATCH);
-                Log::error("M-Pesa Callback: amount mismatch for Order #{$order->id}.", [
-                    'expected' => $expected,
-                    'paid' => $paidAmount,
-                ]);
+            // we pushed. A short/forged callback must never flip is_paid.
+            $expected = $attempt?->amount ?? (int) round((float) $order->price_quoted);
+            if ($paidAmount === null || (int) round((float) $paidAmount) !== $expected) {
+                $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
+                $this->settlement->flagAmountMismatch($order, $expected, $paidAmount);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
             }
 
             // Marks paid, commits held stock to sold, and dispatches the event.
+            $attempt?->markPaid($receiptNumber);
             $this->settlement->markPaid($order, $receiptNumber, $payload);
             Log::info("M-Pesa Payment Successful for Order #{$order->id}. Receipt: $receiptNumber");
 
         } else {
             // FAILED / CANCELLED (Codes like 1032 are common for user cancellation)
-            $this->settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
+            $attempt?->markFailed((string) $resultCode, $stkCallback['ResultDesc'] ?? null);
+
+            // Only fail the order when no other push could still pay it — a
+            // cancelled retry must not clobber an earlier prompt the customer
+            // may have completed.
+            if (! $order->hasLivePaymentAttempts()) {
+                $this->settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
+            }
             Log::warning("M-Pesa Payment Failed for Order #{$order->id}. Code: $resultCode");
         }
-        
+
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
@@ -194,6 +256,9 @@ class MpesaController extends Controller
             'is_paid' => $isPaid,
             'status' => $order->status,
             'reference' => $order->cipher,
+            // Server-confirmed total, so the success screen never has to trust
+            // the client-side cart for the figure it displays.
+            'amount' => (float) $order->price_quoted,
             'transaction_id' => $order->mpesa_receipt_number,
             // Signed, time-limited receipt link — only valid once payment is confirmed.
             'receipt_url' => $isPaid

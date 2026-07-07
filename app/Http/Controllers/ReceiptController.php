@@ -20,10 +20,13 @@ class ReceiptController extends Controller
 
         $pdf = Pdf::loadView('receipts.luxury', [
             'order' => $order,
-            'items' => $order->items_json ?: [],
+            // items_with_urls yields only real line items — raw items_json also
+            // carries non-item keys (precision_sizing, drop metadata) that would
+            // render as junk rows on the PDF.
+            'items' => $order->items_with_urls,
             'date' => $order->updated_at->format('M d, Y H:i A')
         ]);
 
-        return $pdf->download("Serana-Atelier-Receipt-{$order->id}.pdf");
+        return $pdf->download('Serana-Receipt-' . ($order->cipher ?? $order->id) . '.pdf');
     }
 }

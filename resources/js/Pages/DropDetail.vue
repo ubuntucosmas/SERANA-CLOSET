@@ -122,7 +122,7 @@ function startPolling() {
 <template>
     <Head :title="`${drop.title} — Serana Drop`" />
     <StorefrontLayout>
-        <section class="max-w-screen-xl mx-auto px-6 pt-28 pb-24 grid lg:grid-cols-2 gap-12 lg:gap-16">
+        <section class="max-w-screen-xl mx-auto px-6 pb-24 grid lg:grid-cols-2 gap-12 lg:gap-16">
             <!-- Image -->
             <div class="rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 aspect-[4/5] lg:sticky lg:top-28 self-start">
                 <img v-if="drop.image_url" :src="drop.image_url" :alt="drop.title" class="w-full h-full object-cover" />

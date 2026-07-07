@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CustomOrder;
+use App\Http\Requests\StoreCheckoutRequest;
 use App\Models\Product;
+use App\Models\CustomOrder;
 use App\Support\OrderStatus;
-use Illuminate\Http\Request;
+use App\Support\Phone;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class CheckoutController extends Controller
@@ -21,79 +23,81 @@ class CheckoutController extends Controller
 
     /**
      * Process the payment and order creation.
+     *
+     * Everything money-relevant is server-authoritative: the client sends only
+     * product ids, quantities and size selections; names, prices and images are
+     * snapshotted from the catalog so a tampered cart can neither change what
+     * is charged nor what the receipt later shows.
      */
-    public function process(Request $request)
+    public function process(StoreCheckoutRequest $request)
     {
-        $validated = $request->validate([
-            'full_name'      => 'required|string|max:255',
-            'email'          => 'required|email',
-            'address'        => 'required|string',
-            'city'           => 'required|string',
-            'phone'          => 'required|string',
-            'items'          => 'required|array|min:1',
-            // Optional Precision Sizing
-            'height_cm' => 'nullable|numeric|min:50|max:250',
-            'bust_cm'   => 'nullable|numeric|min:40|max:200',
-            'waist_cm'  => 'nullable|numeric|min:30|max:200',
-            'hips_cm'   => 'nullable|numeric|min:40|max:200',
-        ]);
+        $validated = $request->validated();
 
-        // Validate all items exist and check stock BEFORE processing
+        $products = Product::whereIn('id', collect($validated['items'])->pluck('id'))
+            ->get()
+            ->keyBy('id');
+
+        // Pre-check stock and build the server-side item snapshot.
         $stockErrors = [];
         $calculatedTotal = 0;
-        
+        $snapshotItems = [];
+
         foreach ($validated['items'] as $item) {
-            $product = Product::find($item['id']);
-            
-            if (!$product) {
+            $product = $products->get($item['id']);
+            if (! $product) {
+                // Product vanished between validation and now (deleted mid-request).
                 return response()->json([
-                    'success'  => false,
-                    'message'  => "Product not found: {$item['id']}",
+                    'success' => false,
+                    'message' => 'An item in your bag is no longer available.',
                 ], 422);
             }
 
-            // Handle batch-limited products (availability accounts for active holds)
-            if ($product->batch_limit) {
-                $available = $product->availableStock();
-                $requested = $item['quantity'] ?? 1;
+            $quantity = (int) $item['quantity'];
 
-                if ($requested > $available) {
-                    $stockErrors[] = "{$product->name} - only {$available} available (requested: {$requested})";
-                }
+            // Batch-limited products: availability accounts for active holds.
+            if ($product->batch_limit && $quantity > $product->availableStock()) {
+                $stockErrors[] = "{$product->name} — only {$product->availableStock()} available (requested: {$quantity})";
             }
 
-            $calculatedTotal += $product->price * ($item['quantity'] ?? 1);
+            $calculatedTotal += $product->price * $quantity;
+
+            $snapshotItems[] = [
+                'id'         => $product->id,
+                'name'       => $product->name,
+                'slug'       => $product->slug,
+                'price'      => (float) $product->price,
+                'quantity'   => $quantity,
+                'image_path' => $product->image_path,
+                'is_bespoke' => (bool) $product->is_customizable,
+                'options'    => $item['options'] ?? null,
+            ];
         }
 
-        if (!empty($stockErrors)) {
+        if (! empty($stockErrors)) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'Insufficient stock for: ' . implode(', ', $stockErrors),
+                'success' => false,
+                'message' => 'Insufficient stock for: ' . implode(', ', $stockErrors),
             ], 422);
         }
 
-        // Handle guest vs authenticated user
-        $userId = null;
-        if (auth()->check()) {
-            $userId = auth()->id();
-        }
+        $userId = auth()->id();
+        $phone = Phone::normalize($validated['phone']);
 
         // Merge optional measurements into the items payload so the
         // Studio Dashboard Artisan Panel can surface them in the spec grid.
-        $itemsWithSizing = $validated['items'];
         $sizingProvided = array_filter([
             'height_cm' => $validated['height_cm'] ?? null,
             'bust_cm'   => $validated['bust_cm'] ?? null,
             'waist_cm'  => $validated['waist_cm'] ?? null,
             'hips_cm'   => $validated['hips_cm'] ?? null,
         ]);
-        if (!empty($sizingProvided)) {
-            $itemsWithSizing['precision_sizing'] = $sizingProvided;
+        if (! empty($sizingProvided)) {
+            $snapshotItems['precision_sizing'] = $sizingProvided;
         }
 
-        // Atomic order creation with stock decrement
+        // Atomic order creation with stock holds
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $calculatedTotal, $itemsWithSizing) {
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems) {
                 $expiresAt = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
 
@@ -103,10 +107,10 @@ class CheckoutController extends Controller
                     $product = Product::where('id', $item['id'])->lockForUpdate()->first();
 
                     if ($product && $product->batch_limit) {
-                        $quantity = $item['quantity'] ?? 1;
+                        $quantity = (int) $item['quantity'];
                         // Re-check availability inside the lock (sold + active holds).
                         if ($quantity > $product->availableStock()) {
-                            throw new \Exception("Stock level changed during processing for: {$product->name}");
+                            throw new \DomainException("Stock level changed during processing for: {$product->name}");
                         }
                         $toReserve[] = ['product_id' => $product->id, 'quantity' => $quantity];
                     }
@@ -122,10 +126,10 @@ class CheckoutController extends Controller
                     'price_quoted' => $calculatedTotal,
                     'address'      => $validated['address'],
                     'city'         => $validated['city'],
-                    'phone'        => $validated['phone'],
-                    'items_json'   => $itemsWithSizing,
-                    'is_paid'      => false, 
-                    'whatsapp_number' => $validated['phone'],
+                    'phone'        => $phone,
+                    'items_json'   => $snapshotItems,
+                    'is_paid'      => false,
+                    'whatsapp_number' => $phone,
                     'bust_cm'  => $validated['bust_cm'] ?? null,
                     'waist_cm' => $validated['waist_cm'] ?? null,
                     'hips_cm'  => $validated['hips_cm'] ?? null,
@@ -143,17 +147,22 @@ class CheckoutController extends Controller
 
                 return $order;
             });
-        } catch (\Exception $e) {
-            // Log the error for Artisan inspection
-            \Illuminate\Support\Facades\Log::error("🚨 [Checkout_Fault] " . $e->getMessage(), [
+        } catch (\DomainException $e) {
+            // Stock race: someone else claimed the last unit(s) mid-checkout.
+            return response()->json([
+                'success' => false,
+                'message' => 'An item in your bag just sold out. Please review your bag and try again.',
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error("🚨 [Checkout_Fault] " . $e->getMessage(), [
                 'user_id' => $userId,
                 'email'   => $validated['email'],
-                'trace'   => $e->getTraceAsString()
+                'trace'   => $e->getTraceAsString(),
             ]);
 
             return response()->json([
-                'success'  => false,
-                'message'  => 'Transaction security alert. Please refresh and try again.',
+                'success' => false,
+                'message' => 'Something went wrong while creating your order. Please try again.',
             ], 500);
         }
 
@@ -164,7 +173,7 @@ class CheckoutController extends Controller
         return response()->json([
             'success'  => true,
             'message'  => 'Order created. Proceed to payment',
-            'order_id' => $order->id
+            'order_id' => $order->id,
         ]);
     }
 }

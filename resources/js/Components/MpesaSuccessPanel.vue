@@ -16,27 +16,29 @@ const props = defineProps({
 
 const { formatAmount } = useCurrency();
 
+// A short, professional note to the studio confirming payment — reference
+// and M-Pesa code up front, items listed plainly underneath.
 function shareToWhatsApp() {
     const orderRef = props.reference || `ORD-${String(props.orderId).substring(0, 8).toUpperCase()}`;
-    const baseUrl = window.location.origin;
-    const productList = props.items.map(item => {
-        const imgUrl = (item.image && item.image.startsWith('http')) 
-            ? item.image 
-            : `${baseUrl}/${(item.image || '').replace(/^\//, '')}`;
-        return `• ${item.name} (x${item.quantity})\n  Image: ${imgUrl}`;
-    }).join('\n\n');
-    
-    const message = `*PAYMENT CONFIRMED — SERANA ATELIER*\n\n` +
-                  `I have successfully paid for Order *#${orderRef}* via M-Pesa.\n\n` +
-                  `*TRANSACTION DETAILS*\n` +
-                  `• Status: Paid\n` +
-                  `• Amount: ${formatAmount(props.amount, page.props)}\n` +
-                  `• M-Pesa ID: ${props.transactionId}\n` +
-                  `• Date: ${props.date}\n\n` +
-                  `*PURCHASED ITEMS*\n` +
-                  `${productList}\n\n` +
-                  `Please proceed with production allocation.`;
-    
+    const productList = props.items
+        .map((item, index) => `${index + 1}. ${item.name} ×${item.quantity}`)
+        .join('\n');
+
+    const lines = [
+        'Hello Serana,',
+        '',
+        `I've completed payment for order *${orderRef}*.`,
+        '',
+        `Amount: ${formatAmount(props.amount, page.props)}`,
+        props.transactionId ? `M-Pesa code: ${props.transactionId}` : null,
+        `Date: ${props.date}`,
+        productList ? `\nItems:\n${productList}` : null,
+        '',
+        'Kindly confirm my order. Thank you.',
+    ].filter(line => line !== null);
+
+    const message = lines.join('\n');
+
     const whatsappNumber = page.props.whatsapp_number || '';
     const base = whatsappNumber ? `https://wa.me/${whatsappNumber}` : 'https://wa.me/';
     window.open(`${base}?text=${encodeURIComponent(message)}`, '_blank');

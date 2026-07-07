@@ -124,27 +124,19 @@ const toSentenceCase = (str) =>
             <SectionBackground opacity="opacity-60" blur="blur-sm" />
 
             <main
-                class="relative z-10 pt-8 md:pt-32 pb-40 md:pb-32 max-w-screen-2xl mx-auto px-6 sm:px-8 lg:px-12"
+                class="relative z-10 pb-40 md:pb-32 max-w-screen-2xl mx-auto px-6 sm:px-8 lg:px-12"
             >
                 <header class="mb-8 lg:mb-12 reveal">
                     <div
                         class="flex flex-col md:flex-row md:items-center justify-between gap-6"
                     >
                         <div>
-                            <h1
-                                class="text-3xl lg:text-5xl dark:text-white text-on-surface font-light tracking-tighter leading-tight"
-                            >
-                                <span class="text-primary font-medium"
-                                    >Studio</span
-                                >
-                                <span class="text-white/60 font-light"
-                                    >Collection_</span
-                                >
+                            <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-3">The Collection</p>
+                            <h1 class="text-4xl lg:text-6xl dark:text-white text-on-surface font-headline font-light tracking-tight leading-[0.95]">
+                                Ready to wear, <span class="text-primary">ready today.</span>
                             </h1>
-                            <p
-                                class="mt-2 text-[10px] tracking-wider dark:text-white/30 text-black/30 hidden md:block"
-                            >
-                                Engineered for confidence.
+                            <p class="mt-3 text-on-surface-variant text-sm hidden md:block">
+                                Considered pieces, cut in limited numbers.
                             </p>
                         </div>
 
@@ -167,7 +159,7 @@ const toSentenceCase = (str) =>
                                 >
                                     <span
                                         class="text-[10px] font-black tracking-widest opacity-40"
-                                        >Sort_by:</span
+                                        >Sort</span
                                     >
                                     <span
                                         class="text-[10px] font-black tracking-wider text-primary"
@@ -326,15 +318,15 @@ const toSentenceCase = (str) =>
                                 >
                             </div>
                             <h3
-                                class="text-4xl font-light dark:text-white text-on-surface tracking-tighter mb-8"
+                                class="text-4xl font-headline font-light dark:text-white text-on-surface tracking-tight mb-8"
                             >
-                                No pieces found_
+                                No pieces found
                             </h3>
                             <button
                                 @click="filterByCategory('all')"
                                 class="text-[10px] font-black tracking-wider text-primary border-b border-primary/40 pb-2 hover:border-primary transition-all"
                             >
-                                Reset Studio_
+                                View all pieces
                             </button>
                         </div>
 
@@ -531,7 +523,7 @@ const toSentenceCase = (str) =>
                             <p
                                 class="text-[8px] text-center dark:text-white/20 text-black/20 tracking-wider"
                             >
-                                Serana Closet Studio Control v2.0
+                                Serana Closet
                             </p>
                         </div>
                     </div>

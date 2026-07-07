@@ -125,42 +125,43 @@ class CustomOrderController extends Controller
     }
 
     /**
-     * Compose the WhatsApp commission brief.
+     * Compose the WhatsApp custom-order brief the client sends to the studio.
      *
-     * Formatted for a phone screen: WhatsApp *bold* headers, only the lines
-     * that carry real information (no walls of "N/A"), and a clear Priority
-     * Pass flag so the atelier never misses an expedited request. Optional
-     * sections collapse gracefully when the client leaves them blank.
+     * Written in the client's voice (they press send), formatted for a phone
+     * screen: WhatsApp *bold* section headers, only lines that carry real
+     * information (no walls of "N/A"), and a clear Priority flag so the
+     * studio never misses an expedited request. Optional sections collapse
+     * gracefully when the client leaves them blank.
      */
     private function buildBrief(CustomOrder $order, array $validated, bool $priorityPass, array $imagePaths): string
     {
-        $rule = "──────────────────";
         $lines = [];
 
-        $lines[] = "✨ *SERANA ATELIER*";
-        $lines[] = "_Bespoke Commission Brief_";
-        $lines[] = "Ref {$order->cipher} · Order #{$order->id}";
-        $lines[] = $rule;
+        $lines[] = "Hello Serana,";
+        $lines[] = "";
+        $lines[] = "I'd like to place a custom order. Here is my brief:";
+        $lines[] = "";
+        $lines[] = "*Reference:* {$order->cipher}";
 
         // — Client —
         $lines[] = "\n*Client*";
-        $lines[] = "• {$order->full_name}";
-        $lines[] = "• {$order->whatsapp_number}";
+        $lines[] = "Name: {$order->full_name}";
+        $lines[] = "Phone: {$order->whatsapp_number}";
         if (!empty($validated['location'])) {
-            $lines[] = "• {$validated['location']}";
+            $lines[] = "Location: {$validated['location']}";
         }
 
         // — The piece —
         $lines[] = "\n*The Piece*";
-        $lines[] = "• " . strtoupper($order->type);
+        $lines[] = "Type: " . ucfirst($order->type);
         if (!empty($validated['occasion'])) {
-            $lines[] = "• Occasion · {$validated['occasion']}";
+            $lines[] = "Occasion: {$validated['occasion']}";
         }
         if (!empty($validated['deadline'])) {
-            $lines[] = "• Needed by · {$validated['deadline']}";
+            $lines[] = "Needed by: {$validated['deadline']}";
         }
         if ($priorityPass) {
-            $lines[] = "• ⚡ *Priority Pass* — expedited queue";
+            $lines[] = "*Priority Pass* — expedited request";
         }
 
         // — Measurements (only what was given) —
@@ -174,28 +175,28 @@ class CustomOrderController extends Controller
 
         $lines[] = "\n*Measurements*";
         if (empty($measurements)) {
-            $lines[] = "_To be taken at the first fitting._";
+            $lines[] = "To be taken at the first fitting.";
         } else {
             foreach ($measurements as $label => $value) {
-                $lines[] = "• {$label} · {$value} cm";
+                $lines[] = "{$label}: {$value} cm";
             }
         }
 
         // — Design —
         $lines[] = "\n*Design*";
-        $lines[] = "• Fit · " . ($validated['selected_fit'] ?? 'Regular');
-        $lines[] = "• Fabric · " . ($order->fabric_preference ?: 'To be discussed');
-        $lines[] = "• Colour · " . ($validated['selected_color'] ?? 'To be discussed');
+        $lines[] = "Fit: " . ($validated['selected_fit'] ?? 'Regular');
+        $lines[] = "Fabric: " . ($order->fabric_preference ?: 'To be discussed');
+        $lines[] = "Colour: " . ($validated['selected_color'] ?? 'To be discussed');
 
         // — Notes —
         if (!empty($validated['notes'])) {
             $lines[] = "\n*Notes*";
-            $lines[] = "_{$validated['notes']}_";
+            $lines[] = $validated['notes'];
         }
 
         // — References —
         if (count($imagePaths) > 0) {
-            $lines[] = "\n*References* (" . count($imagePaths) . ")";
+            $lines[] = "\n*Reference images* (" . count($imagePaths) . ")";
             $base = rtrim(config('app.url'), '/');
             foreach ($imagePaths as $index => $path) {
                 $url = $base . '/storage/' . ltrim($path, '/');
@@ -203,8 +204,7 @@ class CustomOrderController extends Controller
             }
         }
 
-        $lines[] = "\n" . $rule;
-        $lines[] = "Reply to confirm and we'll begin crafting. ✦";
+        $lines[] = "\nLooking forward to your confirmation. Thank you.";
 
         return implode("\n", $lines);
     }

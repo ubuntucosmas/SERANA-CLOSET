@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\PublicUrl;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -40,20 +40,7 @@ class Product extends Model
 
     public function getImageUrlAttribute()
     {
-        if (!$this->image_path) return null;
-        if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-
-        // Dynamically select the target disk (local public vs cloud s3)
-        $targetDisk = config('filesystems.public_disk');
-        $disk = Storage::disk($targetDisk);
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
-        if ($driver === 'local') {
-            $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
-            return '/storage/' . $rawPath;
-        }
-
-        return $disk->url($this->image_path);
+        return PublicUrl::resolve($this->image_path);
     }
 
     /**
@@ -68,21 +55,10 @@ class Product extends Model
 
     public function getSecondaryImageUrlsAttribute()
     {
-        $images = $this->secondary_images ?? [];
-        $targetDisk = config('filesystems.public_disk');
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
-        return array_map(function($path) use ($targetDisk, $driver) {
-            if (!$path) return null;
-            if (str_starts_with($path, 'http')) return $path;
-
-            if ($driver === 'local') {
-                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-                return '/storage/' . $rawPath;
-            }
-
-            return Storage::disk($targetDisk)->url($path);
-        }, $images);
+        return array_map(
+            fn ($path) => PublicUrl::resolve($path),
+            $this->secondary_images ?? []
+        );
     }
 
     public function getOptimizedSecondaryUrlsAttribute()

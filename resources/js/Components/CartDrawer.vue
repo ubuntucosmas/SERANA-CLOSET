@@ -9,30 +9,25 @@ const page = usePage();
 const cart = useCartStore();
 const { formatAmount } = useCurrency();
 
+// A courteous, scannable order message: numbered items with any chosen
+// sizes, then the total. No decoration — the studio reads it on a phone.
 const whatsappUrl = computed(() => {
-    const itemsList = cart.items.map(item => {
-        let details = `• ${item.name} (${item.quantity})`;
+    const itemsList = cart.items.map((item, index) => {
+        let line = `${index + 1}. ${item.name} ×${item.quantity} — ${formatAmount(item.price * item.quantity, page.props)}`;
         if (item.options) {
-            if (item.garment_type === 'set') {
-                details += ` [Set: H-${item.options.top_size}, J-${item.options.bottom_size}]`;
-            } else if (item.garment_type === 'hoodie') {
-                details += ` [Size: ${item.options.top_size}]`;
-            } else if (item.garment_type === 'jogger') {
-                details += ` [Size: ${item.options.bottom_size}]`;
-            }
+            const sizes = [];
+            if (item.options.top_size) sizes.push(`Hoodie ${item.options.top_size}`);
+            if (item.options.bottom_size) sizes.push(`Jogger ${item.options.bottom_size}`);
+            if (sizes.length) line += `\n    Size: ${sizes.join(', ')}`;
         }
-        return `${details} - ${formatAmount(item.price * item.quantity, page.props)}`;
+        return line;
     }).join('\n');
-    
-    const total = `Total: ${formatAmount(cart.totalPrice, page.props)}`;
-    const message = `🏁 *NEW ORDER* 🏁\n\n` +
-                    `*[ 01: SELECTION ]*\n` +
+
+    const message = `Hello Serana,\n\n` +
+                    `I'd like to order the following:\n\n` +
                     `${itemsList}\n\n` +
-                    `*[ 02: SUMMARY ]*\n` +
-                    `${total}\n\n` +
-                    `--------------------------\n` +
-                    `Please process this order for production.\n` +
-                    `Sent via Serana Studio.`;
+                    `*Total: ${formatAmount(cart.totalPrice, page.props)}*\n\n` +
+                    `Please confirm availability and the next steps. Thank you.`;
 
     return `https://wa.me/${page.props.whatsapp_number}?text=${rawurlencode(message)}`;
 });

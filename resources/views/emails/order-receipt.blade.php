@@ -1,6 +1,9 @@
 @php
     $currency = \App\Models\ThemeSetting::get('currency', 'KSh');
     $isStandard = $order->type === 'standard';
+    // Admin-managed store contacts — same sources as the storefront.
+    $contactEmail   = \App\Models\ThemeSetting::get('contact_email', 'studio@seranacloset.com');
+    $contactAddress = \App\Models\ThemeSetting::get('contact_address', 'Nairobi, Kenya');
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -17,7 +20,7 @@
                     <!-- Header -->
                     <tr>
                         <td style="padding:36px 36px 8px;">
-                            <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#57d5fc;">Serana Atelier</div>
+                            <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#57d5fc;">Serana Closet</div>
                             <h1 style="margin:14px 0 6px; font-size:26px; font-weight:300; color:#ffffff;">Payment confirmed.</h1>
                             <p style="margin:0; font-size:14px; color:#9a9aa0; line-height:1.6;">
                                 Thank you, {{ $order->full_name }}. We've received your payment and your order is in our hands.
@@ -88,8 +91,8 @@
                     <tr>
                         <td style="padding:20px 36px 32px; border-top:1px solid #232327;">
                             <p style="margin:0; font-size:11px; color:#6c6c72; line-height:1.6;">
-                                Serana Atelier &middot; Nairobi, Kenya<br>
-                                This receipt was issued on {{ $date }}.
+                                Serana Closet &middot; {{ $contactAddress }} &middot; <a href="mailto:{{ $contactEmail }}" style="color:#6c6c72;">{{ $contactEmail }}</a><br>
+                                This receipt was issued on {{ $date }}. Questions? Just reply to this email.
                             </p>
                         </td>
                     </tr>

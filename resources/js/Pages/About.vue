@@ -162,7 +162,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <StorefrontLayout>
+    <StorefrontLayout flushTop>
         <Head>
             <title>Our Story | Serana Closet</title>
             <meta

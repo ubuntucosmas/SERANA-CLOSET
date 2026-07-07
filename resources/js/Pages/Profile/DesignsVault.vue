@@ -57,7 +57,7 @@ const getOrderThumbnails = (order) => {
     <Head title="My Designs Vault" />
 
     <StorefrontLayout>
-        <main ref="vaultRoot" class="min-h-screen bg-background pt-32 pb-20 px-6 max-w-screen-xl mx-auto font-body">
+        <main ref="vaultRoot" class="min-h-screen bg-background pb-20 px-6 max-w-screen-xl mx-auto font-body">
             
             <!-- ═══ HEADER ═══ -->
             <header class="mb-20 reveal-item opacity-0">

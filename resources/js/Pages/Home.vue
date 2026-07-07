@@ -44,7 +44,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <StorefrontLayout>
+    <StorefrontLayout flushTop>
         <Head>
             <title>Serana Closet | Custom Studio</title>
             <meta name="description" content="Nairobi's elite bespoke fashion house. Merging traditional tailoring with futuristic digital precision. Experience the Serana Standard of custom wear.">

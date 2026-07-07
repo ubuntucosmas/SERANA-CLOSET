@@ -9,9 +9,11 @@
         <Notification />
         <SitePath />
 
-        <main class="flex-grow relative z-10">
+        <!-- .nav-clearance gives every page the same constant gap below the
+             fixed TopNavBar (see app.css); full-bleed hero pages pass flushTop. -->
+        <main class="flex-grow relative z-10" :class="flushTop ? '' : 'nav-clearance'">
             <transition @enter="pageEnter" @leave="pageLeave" :css="false" mode="out-in" appear>
-                <div :key="$page.url" :class="!hideMobileCard ? 'px-0 pt-16 pb-20 md:p-0 md:pt-0 md:pb-0' : ''">
+                <div :key="$page.url" :class="!hideMobileCard ? 'px-0 pb-20 md:p-0 md:pb-0' : ''">
                     <div :class="!hideMobileCard ? 'mobile-floating-card md:!bg-transparent md:!border-none md:!shadow-none md:!p-0 md:!m-0' : ''">
                         <slot />
                     </div>
@@ -35,7 +37,10 @@ import { animate } from 'animejs';
 
 // Cart self-initializes from localStorage in useCartStore.js
 defineProps({
-    hideMobileCard: { type: Boolean, default: false }
+    hideMobileCard: { type: Boolean, default: false },
+    // Full-bleed hero pages (Home, About) render under the transparent nav
+    // and skip the standard nav clearance.
+    flushTop: { type: Boolean, default: false },
 });
 
 const prefersReducedMotion =

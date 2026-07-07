@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use App\Support\OrderStatus;
-use App\Support\WhatsApp;
+use App\Support\Phone;
+use App\Support\PublicUrl;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 
 class CustomOrder extends Model
@@ -31,20 +32,10 @@ class CustomOrder extends Model
      */
     public function getInspirationUrlsAttribute()
     {
-        $paths = $this->inspiration_image_paths ?: [];
-        $targetDisk = config('filesystems.public_disk');
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
-        return array_map(function ($path) use ($targetDisk, $driver) {
-            if (str_starts_with($path, 'http')) return $path;
-            
-            if ($driver === 'local') {
-                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-                return '/storage/' . $rawPath;
-            }
-            
-            return Storage::disk($targetDisk)->url($path);
-        }, $paths);
+        return array_map(
+            fn ($path) => PublicUrl::resolve($path),
+            $this->inspiration_image_paths ?: []
+        );
     }
 
     public function getItemsWithUrlsAttribute()
@@ -52,23 +43,14 @@ class CustomOrder extends Model
         $items = $this->items_json ?: [];
         if (!is_array($items)) return [];
 
-        $targetDisk = config('filesystems.public_disk');
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
         $processed = [];
         foreach ($items as $key => $item) {
             if ($key === 'precision_sizing') continue;
-            
+
             if (is_array($item)) {
                 $img = $item['image'] ?? $item['image_path'] ?? null;
                 if ($img) {
-                    if (str_starts_with($img, 'http')) {
-                        $item['image_url'] = $img;
-                    } elseif ($driver === 'local') {
-                        $rawPath = ltrim(str_replace('/storage/', '/', $img), '/');
-                        $item['image_url'] = '/storage/' . $rawPath;
-                    } else {
-                        $item['image_url'] = Storage::disk($targetDisk)->url($img);
-                    }
+                    $item['image_url'] = PublicUrl::resolve($img);
                 }
                 $processed[] = $item;
             }
@@ -98,18 +80,80 @@ class CustomOrder extends Model
         return $this->hasMany(StockReservation::class);
     }
 
+    public function paymentAttempts()
+    {
+        return $this->hasMany(PaymentAttempt::class);
+    }
+
+    /**
+     * Is any STK push for this order still awaiting its outcome (or already
+     * paid)? While one is, a *different* attempt failing must not fail the
+     * order — the customer may have paid the other prompt.
+     */
+    public function hasLivePaymentAttempts(): bool
+    {
+        return $this->paymentAttempts()
+            ->whereIn('status', [PaymentAttempt::PENDING, PaymentAttempt::PAID])
+            ->exists();
+    }
+
     /**
      * Convert this order's held stock into confirmed sales. Called once on
-     * payment confirmation. Idempotent: only 'held' reservations are committed.
+     * payment confirmation. Idempotent: already-committed reservations are
+     * skipped. Released holds are committed too — if the money arrived after
+     * the hold lapsed, the customer must still be served; availability floors
+     * at zero, so any overshoot surfaces as "sold out" rather than overselling
+     * further.
      */
     public function commitReservations(): void
     {
-        \Illuminate\Support\Facades\DB::transaction(function () {
-            $held = $this->stockReservations()->where('status', 'held')->lockForUpdate()->get();
-            foreach ($held as $reservation) {
+        DB::transaction(function () {
+            $reservations = $this->stockReservations()
+                ->whereIn('status', ['held', 'released'])
+                ->lockForUpdate()->get();
+            foreach ($reservations as $reservation) {
                 Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
                 $reservation->update(['status' => 'committed']);
             }
+        });
+    }
+
+    /**
+     * Make sure every unit this order needs is still ours before an STK push
+     * takes the customer's money. Live holds get a fresh payment window;
+     * holds the expiry job already released are re-acquired if the stock is
+     * still free. Returns false — without mutating anything — when it isn't,
+     * so the caller can refuse the push instead of collecting money for a
+     * garment someone else bought.
+     */
+    public function secureStockForPayment(): bool
+    {
+        $window = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+
+        return DB::transaction(function () use ($window) {
+            $reservations = $this->stockReservations()
+                ->whereIn('status', ['held', 'released'])
+                ->lockForUpdate()->get();
+
+            // Validate first, mutate after — a bare `return false` from this
+            // closure commits, so nothing may change until all lines pass.
+            foreach ($reservations->where('status', 'released') as $reservation) {
+                $product = Product::whereKey($reservation->product_id)->lockForUpdate()->first();
+                if (! $product) {
+                    return false;
+                }
+                // The released hold no longer counts against availability, so
+                // the full quantity must still be free to re-claim it.
+                if ($product->batch_limit && $reservation->quantity > (int) $product->availableStock()) {
+                    return false;
+                }
+            }
+
+            foreach ($reservations as $reservation) {
+                $reservation->update(['status' => 'held', 'expires_at' => $window]);
+            }
+
+            return true;
         });
     }
 
@@ -125,15 +169,15 @@ class CustomOrder extends Model
      */
     public function matchesContact(?string $phone): bool
     {
-        $input = WhatsApp::normalizeNumber($phone);
+        $input = Phone::normalize($phone);
 
         if ($input === '') {
             return false;
         }
 
         return in_array($input, [
-            WhatsApp::normalizeNumber($this->whatsapp_number),
-            WhatsApp::normalizeNumber($this->phone),
+            Phone::normalize($this->whatsapp_number),
+            Phone::normalize($this->phone),
         ], true);
     }
 

@@ -55,7 +55,10 @@ Route::post('/track/lookup', [OrderTrackingController::class, 'lookup'])
 Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])
     ->middleware('throttle:6,1')
     ->name('mpesa.stk');
-Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])->name('mpesa.status');
+// Polled every 5s by the checkout modal; 30/min accommodates that with headroom.
+Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])
+    ->middleware('throttle:30,1')
+    ->name('mpesa.status');
 // Token-guarded callback: Safaricom posts to the URL we register, which embeds a
 // shared secret. See VerifyMpesaCallback middleware.
 Route::post('/payments/mpesa/callback/{token}', [MpesaController::class, 'callback'])

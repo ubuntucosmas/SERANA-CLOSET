@@ -17,7 +17,7 @@ const hasDrops = computed(() => props.drops.length > 0);
 <template>
     <Head title="Drops — reserve before we make it" />
     <StorefrontLayout>
-        <section class="max-w-screen-xl mx-auto px-6 pt-28 pb-24">
+        <section class="max-w-screen-xl mx-auto px-6 pb-24">
             <!-- Header -->
             <div class="max-w-2xl mb-14">
                 <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">Serana Drops</p>

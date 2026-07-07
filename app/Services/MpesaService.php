@@ -76,11 +76,9 @@ class MpesaService
 
         $timestamp = now()->format('YmdHis');
         $password = base64_encode($this->shortcode . $this->passkey . $timestamp);
-        
-        // Clean phone number (Ensure it starts with 254)
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-        if (str_starts_with($phone, '0')) $phone = '254' . substr($phone, 1);
-        if (!str_starts_with($phone, '254')) $phone = '254' . $phone;
+
+        // Callers validate; this is a final belt-and-braces normalization.
+        $phone = \App\Support\Phone::normalize($phone);
 
         $payload = [
             'BusinessShortCode' => $this->shortcode,

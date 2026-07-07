@@ -71,6 +71,11 @@ return [
         // later orders in the loop aren't rejected with a SpikeArrestViolation and
         // silently skipped. Set to 0 in tests to keep them fast.
         'query_spacing_seconds' => (int) env('MPESA_QUERY_SPACING_SECONDS', 13),
+
+        // Max STK queries per reconcile run. With ~13s spacing, 4 keeps a run
+        // comfortably inside its one-minute scheduling slot; any backlog rolls
+        // into the next run instead of stretching this one.
+        'reconcile_batch' => (int) env('MPESA_RECONCILE_BATCH', 4),
     ],
 
 ];

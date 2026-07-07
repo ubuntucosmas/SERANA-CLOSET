@@ -59,7 +59,10 @@ export const useCartStore = defineStore('cart', () => {
                 quantity: 1,
                 slug: product.slug,
                 is_bespoke: product.is_customizable || false,
-                options: product.options || null
+                options: product.options || null,
+                // Carried so the +/- stepper can respect the batch cap too.
+                batch_limit: product.batch_limit ?? null,
+                batch_sold: product.batch_sold ?? 0
             });
         }
 
@@ -72,11 +75,17 @@ export const useCartStore = defineStore('cart', () => {
 
     function updateQuantity(id, delta) {
         const item = items.value.find(i => i.id === id);
-        if (item) {
-            item.quantity += delta;
-            if (item.quantity <= 0) {
-                removeItem(id);
-            }
+        if (!item) return;
+
+        // Same batch-cap check addItem applies (server re-validates regardless).
+        if (delta > 0 && item.batch_limit) {
+            const available = item.batch_limit - (item.batch_sold || 0);
+            if (item.quantity >= available) return;
+        }
+
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+            removeItem(id);
         }
     }
 

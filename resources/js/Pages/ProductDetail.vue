@@ -167,7 +167,7 @@ onUnmounted(() => {
     <StorefrontLayout :hideMobileCard="true">
         <Head :title="`${product.name} | Serana Closet`" />
 
-        <main class="pt-28 md:pt-32 pb-24 px-0 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
+        <main class="pb-24 px-0 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
             <div class="w-full max-w-[1300px] mx-auto bg-surface border-y md:border border-white/5 rounded-none md:rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     

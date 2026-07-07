@@ -188,25 +188,20 @@ function resetForm() {
     <StorefrontLayout>
         <Head title="Private Commission | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pt-8 md:pt-32 pb-24">
+        <div class="min-h-screen bg-background text-on-surface pb-24">
             <div class="max-w-5xl mx-auto px-6 sm:px-8">
                 <!-- Modern Header -->
                 <div v-if="!submitted" class="mb-12 text-center">
-                    <div
-                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-wider font-medium mb-5 rounded-sm"
-                    >
-                        Private Commission
-                    </div>
+                    <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">Private Commission</p>
                     <h1
-                        class="text-6xl md:text-7xl font-light tracking-tighter leading-none"
+                        class="text-5xl md:text-7xl font-headline font-light tracking-tight leading-[0.95]"
                     >
-                        Begin your bespoke piece.
+                        Begin your <span class="text-primary">bespoke</span> piece.
                     </h1>
                     <p
                         class="mt-4 text-lg text-on-surface-variant max-w-md mx-auto"
                     >
-                        A private briefing for the atelier. We craft it
-                        perfectly.
+                        A private briefing for the atelier — we cut and sew it to your exact measurements.
                     </p>
                 </div>
 

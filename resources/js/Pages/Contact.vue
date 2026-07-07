@@ -5,7 +5,7 @@
             <meta name="description" content="Connect with the Serana Studio in Nairobi. Priority WhatsApp access, custom design inquiries, and support.">
         </Head>
 
-        <main class="pt-8 md:pt-32 pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto font-body">
+        <main class="pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto font-body">
             <!-- Header Section -->
             <header class="mb-20 text-center reveal">
                 <h1 class="serif-text text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-light">The Studio <span class="text-primary luminous-glow">Connect</span></h1>
