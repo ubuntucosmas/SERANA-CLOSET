@@ -24,6 +24,11 @@ class SendOrderConfirmation implements ShouldQueue
 {
     use InteractsWithQueue;
 
+    public $tries = 3;
+    public $timeout = 60;
+
+    public function backoff(): array { return [30, 120]; }
+
     public function handle(MpesaWebhookHandled $event): void
     {
         $order = $event->order;
@@ -44,7 +49,8 @@ class SendOrderConfirmation implements ShouldQueue
                 Mail::to($ownerEmail)->send(new OrderReceiptMail($order));
             }
         } catch (\Throwable $e) {
-            Log::error("Order receipt email failed for Order #{$order->id}: " . $e->getMessage());
+            Log::error('Order receipt delivery failed; queued retry required.', ['order_id' => $order->id, 'exception' => get_class($e)]);
+            throw $e;
         }
     }
 }

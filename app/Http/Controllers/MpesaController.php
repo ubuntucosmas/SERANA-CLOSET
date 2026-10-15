@@ -69,8 +69,21 @@ class MpesaController extends Controller
                 ], 409);
             }
 
+            // Money has already been collected against this order at the wrong
+            // amount. A fresh prompt would charge the customer again before the
+            // studio has reviewed (and possibly refunded) the first payment.
+            if ($order->status === OrderStatus::AMOUNT_MISMATCH) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order needs studio review before another payment. Contact support with your order reference.',
+                ], 409);
+            }
+
             // SERVER-AUTHORITATIVE AMOUNT: never trust a client-supplied amount.
             // The only source of truth is the price computed at checkout.
+            if ((float) $order->price_quoted !== floor((float) $order->price_quoted)) {
+                return response()->json(['success' => false, 'message' => 'This order amount needs studio review before M-Pesa payment. Contact support with your order reference.'], 422);
+            }
             $amount = (int) round((float) $order->price_quoted);
             if ($amount <= 0) {
                 return response()->json(['success' => false, 'message' => 'Order has no payable amount.'], 422);
@@ -106,6 +119,13 @@ class MpesaController extends Controller
                 ]);
                 // Kept in sync as "latest attempt" for older tooling/queries.
                 $order->update(['mpesa_checkout_id' => $checkoutID]);
+                // A retry after "Payment Failed" is live again: put the order back
+                // into the pending state the expiry and reconciliation jobs watch.
+                // Conditional, so an earlier prompt's callback that settled the
+                // order in the meantime is never overwritten.
+                CustomOrder::whereKey($order->id)
+                    ->where('is_paid', false)
+                    ->update(['status' => OrderStatus::PENDING_PAYMENT]);
 
                 return response()->json([
                     'success' => true,
@@ -114,7 +134,7 @@ class MpesaController extends Controller
                 ]);
             }
 
-            return response()->json($result, 400);
+            return response()->json(['success' => false, 'message' => $result['message'] ?? 'M-Pesa could not start this request.'], 400);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -141,21 +161,15 @@ class MpesaController extends Controller
     {
         $payload = $request->all();
 
-        // 1. Audit Trail
-        Log::info("M-Pesa Callback Received", [
-            'payload' => $payload,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
+        $request->validate([
+            'Body.stkCallback.ResultCode' => ['required', 'integer'],
+            'Body.stkCallback.CheckoutRequestID' => ['required', 'string', 'max:255'],
+            'Body.stkCallback.CallbackMetadata.Item' => ['sometimes', 'array'],
         ]);
-
-        if (!isset($payload['Body']['stkCallback'])) {
-            Log::error("M-Pesa Callback: Malformed payload missing Body.stkCallback");
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         $stkCallback = $payload['Body']['stkCallback'];
         $resultCode = $stkCallback['ResultCode'];
         $checkoutRequestID = $stkCallback['CheckoutRequestID'];
+        Log::info('M-Pesa callback received.', ['checkout_id' => $checkoutRequestID, 'result_code' => $resultCode]);
 
         // Match the specific attempt; fall back to the order's latest checkout id
         // for orders created before per-attempt tracking existed.
@@ -190,7 +204,7 @@ class MpesaController extends Controller
                     // The customer paid a second prompt for an already-paid order:
                     // record it — this is a refund owed, not a success to celebrate.
                     $attempt->markPaid($receiptNumber);
-                    Log::warning("M-Pesa Callback: duplicate successful payment for already-paid Order #{$order->id}. Receipt: $receiptNumber — refund may be owed.");
+                    Log::warning("M-Pesa Callback: duplicate successful payment for already-paid Order #{$order->id}. — refund may be owed.");
                 } else {
                     $attempt->markFailed((string) $resultCode, $stkCallback['ResultDesc'] ?? null);
                 }
@@ -204,7 +218,7 @@ class MpesaController extends Controller
             // AMOUNT VERIFICATION: the amount actually paid must match the amount
             // we pushed. A short/forged callback must never flip is_paid.
             $expected = $attempt?->amount ?? (int) round((float) $order->price_quoted);
-            if ($paidAmount === null || (int) round((float) $paidAmount) !== $expected) {
+            if (! is_numeric($paidAmount) || (int) round((float) $paidAmount * 100) !== $expected * 100) {
                 $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
                 $this->settlement->flagAmountMismatch($order, $expected, $paidAmount);
 
@@ -214,7 +228,7 @@ class MpesaController extends Controller
             // Marks paid, commits held stock to sold, and dispatches the event.
             $attempt?->markPaid($receiptNumber);
             $this->settlement->markPaid($order, $receiptNumber, $payload);
-            Log::info("M-Pesa Payment Successful for Order #{$order->id}. Receipt: $receiptNumber");
+            Log::info("M-Pesa Payment Successful for Order #{$order->id}.");
 
         } else {
             // FAILED / CANCELLED (Codes like 1032 are common for user cancellation)
@@ -249,7 +263,7 @@ class MpesaController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
-        $isPaid = $order->status === OrderStatus::PAID || $order->is_paid;
+        $isPaid = (bool) $order->is_paid;
 
         return response()->json([
             'success' => true,

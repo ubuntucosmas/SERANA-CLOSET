@@ -190,7 +190,7 @@ class CustomOrder extends Model
      */
     public function publicTrackingPayload(): array
     {
-        $isPaid = $this->is_paid || $this->status === OrderStatus::PAID;
+        $isPaid = (bool) $this->is_paid;
 
         return [
             'reference'   => $this->cipher,
@@ -214,14 +214,18 @@ class CustomOrder extends Model
     /** Item names + quantities for ready-to-wear orders (no-op for bespoke). */
     private function trackingItems(): array
     {
-        if ($this->type !== 'standard') {
-            return [];
+        if ($this->type === 'drop') {
+            return [['name' => $this->items_json['drop'] ?? 'Drop Reservation', 'quantity' => 1,
+                'options' => ['size' => $this->items_json['size'] ?? null], 'price' => $this->price_quoted]];
         }
+        if ($this->type !== 'standard') return [];
 
         return collect($this->items_with_urls)->map(fn ($item) => [
             'name'      => $item['name'] ?? 'Item',
             'quantity'  => $item['quantity'] ?? 1,
             'image_url' => $item['image_url'] ?? null,
+            'options' => $item['options'] ?? null,
+            'price' => $item['price'] ?? null,
         ])->all();
     }
 }

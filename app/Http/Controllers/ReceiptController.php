@@ -14,7 +14,7 @@ class ReceiptController extends Controller
         $order = CustomOrder::findOrFail($orderId);
         
         // Ensure the order is paid
-        if (!$order->is_paid && $order->status !== OrderStatus::PAID) {
+        if (!$order->is_paid) {
             return back()->with('error', 'Receipts are only available for paid orders.');
         }
 

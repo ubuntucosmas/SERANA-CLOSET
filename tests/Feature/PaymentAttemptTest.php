@@ -237,4 +237,121 @@ class PaymentAttemptTest extends TestCase
             ->assertStatus(409);
         $this->assertSame('released', $reservation->fresh()->status);
     }
+
+    public function test_retry_restores_pending_state_for_automatic_reconciliation(): void
+    {
+        $order = $this->pendingOrder(['status' => OrderStatus::PAYMENT_FAILED]);
+        $this->fakeStkPushSequence(['RETRY-CHECKOUT']);
+        $this->withSession(['serana.order_ids' => [$order->id]])
+            ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])
+            ->assertOk();
+        $this->assertSame(OrderStatus::PENDING_PAYMENT, $order->fresh()->status);
+        $this->assertSame(PaymentAttempt::PENDING, $order->paymentAttempts()->sole()->status);
+    }
+
+    /**
+     * B-01, end to end: the first prompt fails, the customer retries and pays,
+     * Safaricom's callback is lost. Reconciliation must settle the order once,
+     * commit its stock and fire exactly one receipt event, and a second run
+     * (or a late callback) must change nothing.
+     */
+    public function test_reconciliation_settles_paid_retry_after_payment_failed(): void
+    {
+        Event::fake();
+        $product = $this->product();
+        $order = $this->pendingOrder();
+        $order->stockReservations()->create([
+            'product_id' => $product->id, 'quantity' => 1,
+            'status' => 'held', 'expires_at' => now()->addMinutes(15),
+        ]);
+        $this->fakeStkPushSequence(['ws_CO_FIRST', 'ws_CO_RETRY']);
+        $session = ['serana.order_ids' => [$order->id]];
+
+        $this->withSession($session)
+            ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])->assertOk();
+        $this->postJson('/payments/mpesa/callback/secret', ['Body' => ['stkCallback' => [
+            'ResultCode' => 1032, 'CheckoutRequestID' => 'ws_CO_FIRST',
+        ]]])->assertOk();
+        $this->assertSame(OrderStatus::PAYMENT_FAILED, $order->fresh()->status);
+
+        $this->withSession($session)
+            ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])->assertOk();
+        PaymentAttempt::where('checkout_request_id', 'ws_CO_RETRY')->sole()
+            ->forceFill(['created_at' => now()->subMinutes(5)])->save(); // past the callback grace
+
+        Http::fake([
+            '*oauth/v1/generate*'     => Http::response(['access_token' => 'fake']),
+            '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),
+        ]);
+        $this->artisan('mpesa:reconcile')->assertSuccessful();
+        $this->artisan('mpesa:reconcile')->assertSuccessful();
+        $this->postJson('/payments/mpesa/callback/secret', $this->successCallback('ws_CO_RETRY'))->assertOk();
+
+        $fresh = $order->fresh();
+        $this->assertTrue($fresh->is_paid);
+        $this->assertSame(OrderStatus::PAID, $fresh->status);
+        $this->assertSame(1, $product->fresh()->batch_sold, 'stock committed exactly once');
+        $this->assertSame(1, CustomOrder::count(), 'no duplicate order');
+        Event::assertDispatchedTimes(\App\Events\MpesaWebhookHandled::class, 1);
+        $this->assertTrue($fresh->publicTrackingPayload()['is_paid'], 'Track Order shows the settled payment');
+    }
+
+    /** Defence in depth: a pending push on an unpaid order is reconciled whatever the order's status. */
+    public function test_reconciliation_resolves_pending_attempts_on_payment_failed_orders(): void
+    {
+        Event::fake();
+        Http::fake([
+            '*oauth/v1/generate*'     => Http::response(['access_token' => 'fake']),
+            '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),
+        ]);
+        $order = $this->pendingOrder(['status' => OrderStatus::PAYMENT_FAILED]);
+        $order->paymentAttempts()->create([
+            'checkout_request_id' => 'ws_CO_STUCK', 'phone' => '254712345678',
+            'amount' => 5000, 'status' => PaymentAttempt::PENDING,
+        ])->forceFill(['created_at' => now()->subMinutes(5)])->save();
+
+        $this->artisan('mpesa:reconcile')->assertSuccessful();
+
+        $this->assertTrue($order->fresh()->is_paid);
+        $this->assertSame(OrderStatus::PAID, $order->fresh()->status);
+    }
+
+    /** A failed retry leaves the order failed and returns its stock to the pool. */
+    public function test_failed_retry_keeps_order_failed_and_releases_holds(): void
+    {
+        $product = $this->product();
+        $order = $this->pendingOrder(['status' => OrderStatus::PAYMENT_FAILED]);
+        $reservation = $order->stockReservations()->create([
+            'product_id' => $product->id, 'quantity' => 1,
+            'status' => 'released', 'expires_at' => now()->subMinute(),
+        ]);
+        $this->fakeStkPushSequence(['ws_CO_RETRY']);
+
+        $this->withSession(['serana.order_ids' => [$order->id]])
+            ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])->assertOk();
+        $this->assertSame('held', $reservation->fresh()->status, 'retry re-acquires the hold');
+
+        $this->postJson('/payments/mpesa/callback/secret', ['Body' => ['stkCallback' => [
+            'ResultCode' => 1032, 'CheckoutRequestID' => 'ws_CO_RETRY',
+        ]]])->assertOk();
+
+        $this->assertSame(OrderStatus::PAYMENT_FAILED, $order->fresh()->status);
+        $this->assertFalse($order->fresh()->is_paid);
+        $this->assertSame('released', $reservation->fresh()->status);
+        $this->assertSame(0, $product->fresh()->batch_sold);
+    }
+
+    /** Money already taken at the wrong amount: never prompt the customer again before review. */
+    public function test_initiate_rejected_for_amount_mismatch_orders(): void
+    {
+        Http::fake();
+        $order = $this->pendingOrder(['status' => OrderStatus::AMOUNT_MISMATCH]);
+
+        $this->withSession(['serana.order_ids' => [$order->id]])
+            ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])
+            ->assertStatus(409);
+
+        $this->assertSame(0, $order->paymentAttempts()->count());
+        Http::assertNothingSent();
+    }
 }

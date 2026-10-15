@@ -95,15 +95,16 @@ class ReconcilePendingPayments extends Command
         $reconcilable = [OrderStatus::PENDING_PAYMENT, OrderStatus::EXPIRED];
 
         // Give the callback a grace window first; ignore ancient abandoned pushes.
+        // Any unpaid order qualifies, whatever its status: an unresolved push is
+        // what matters, and a status-based filter is how a paid retry on a
+        // "Payment Failed" order once went unsettled.
         $attempts = PaymentAttempt::with('order')
             ->pending()
             ->where('created_at', '<=', now()->subMinutes(2))
             ->where('created_at', '>=', now()->subDay())
             ->orderByDesc('created_at')
             ->get()
-            ->filter(fn ($attempt) => $attempt->order
-                && ! $attempt->order->is_paid
-                && in_array($attempt->order->status, $reconcilable, true))
+            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->is_paid)
             ->map(fn ($attempt) => [
                 'order'       => $attempt->order,
                 'checkout_id' => $attempt->checkout_request_id,
