@@ -99,6 +99,27 @@ class MpesaPaymentSecurityTest extends TestCase
         $this->assertFalse($order->fresh()->is_paid);
     }
 
+    /**
+     * Fail closed: with no token configured on the server, even a callback
+     * that guesses the empty token is rejected; a URL without a token never
+     * reaches the handler at all.
+     */
+    public function test_callback_rejected_when_no_token_is_configured_or_supplied(): void
+    {
+        config(['services.mpesa.callback_token' => '']);
+        $order = $this->makeOrder();
+        $payload = ['Body' => ['stkCallback' => [
+            'ResultCode' => 0,
+            'CheckoutRequestID' => $order->mpesa_checkout_id,
+            'CallbackMetadata' => ['Item' => [['Name' => 'Amount', 'Value' => 5000]]],
+        ]]];
+
+        $this->postJson('/payments/mpesa/callback/anything', $payload)->assertStatus(403);
+        $this->postJson('/payments/mpesa/callback/', $payload)->assertNotFound();
+
+        $this->assertFalse($order->fresh()->is_paid);
+    }
+
     /** A correct-token callback whose amount differs from the quote must not mark paid. */
     public function test_callback_rejects_amount_mismatch(): void
     {
