@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SubmissionReceipt;
+
 use App\Http\Requests\StoreCheckoutRequest;
 use App\Models\Product;
 use App\Models\CustomOrder;
@@ -33,9 +35,13 @@ class CheckoutController extends Controller
     {
         $validated = $request->validated();
 
+        if ($saved = SubmissionReceipt::recall($request, 'checkout', $validated)) return response()->json($saved);
+
         $products = Product::whereIn('id', collect($validated['items'])->pluck('id'))
             ->get()
             ->keyBy('id');
+
+        $quantities = collect($validated['items'])->groupBy('id')->map(fn ($lines) => $lines->sum('quantity'));
 
         // Pre-check stock and build the server-side item snapshot.
         $stockErrors = [];
@@ -55,7 +61,7 @@ class CheckoutController extends Controller
             $quantity = (int) $item['quantity'];
 
             // Batch-limited products: availability accounts for active holds.
-            if ($product->batch_limit && $quantity > $product->availableStock()) {
+            if (! $product->in_stock || ($product->batch_limit !== null && $quantities[$product->id] > $product->availableStock())) {
                 $stockErrors[] = "{$product->name} — only {$product->availableStock()} available (requested: {$quantity})";
             }
 
@@ -97,17 +103,19 @@ class CheckoutController extends Controller
 
         // Atomic order creation with stock holds
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems) {
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities) {
                 $expiresAt = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
 
                 // Hold (not sell) batch stock for each item under a row lock so
                 // concurrent checkouts serialize on the product and can't oversell.
-                foreach ($validated['items'] as $item) {
-                    $product = Product::where('id', $item['id'])->lockForUpdate()->first();
+                foreach ($quantities->sortKeys() as $productId => $quantity) {
+                    $product = Product::where('id', $productId)->lockForUpdate()->first();
+                    if (! $product || ! $product->in_stock) {
+                        throw new \DomainException('This item is no longer available.');
+                    }
 
-                    if ($product && $product->batch_limit) {
-                        $quantity = (int) $item['quantity'];
+                    if ($product->batch_limit !== null) {
                         // Re-check availability inside the lock (sold + active holds).
                         if ($quantity > $product->availableStock()) {
                             throw new \DomainException("Stock level changed during processing for: {$product->name}");
@@ -170,10 +178,13 @@ class CheckoutController extends Controller
         // its payment status and receive the signed receipt link — without login.
         $request->session()->push('serana.order_ids', $order->id);
 
-        return response()->json([
+        return response()->json(SubmissionReceipt::remember($request, 'checkout', $validated, [
             'success'  => true,
             'message'  => 'Order created. Proceed to payment',
             'order_id' => $order->id,
-        ]);
+            'reference' => $order->cipher,
+            'amount' => (float) $order->price_quoted,
+            'items' => $snapshotItems,
+        ]));
     }
 }

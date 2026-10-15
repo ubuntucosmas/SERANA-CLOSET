@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SubmissionReceipt;
+
 use App\Models\CustomOrder;
 use App\Models\Drop;
 use App\Support\OrderStatus;
@@ -53,6 +55,7 @@ class DropController extends Controller
         $offersSizes = !empty($drop->sizes);
 
         $validated = $request->validate([
+            'request_id' => 'nullable|uuid',
             'full_name' => 'required|string|max:255',
             'phone'     => 'required|string|max:30',
             'email'     => 'nullable|email',
@@ -65,6 +68,8 @@ class DropController extends Controller
             'height_cm' => 'nullable|numeric|min:50|max:250',
             'fit_notes' => 'nullable|string|max:500',
         ]);
+
+        if ($saved = SubmissionReceipt::recall($request, 'drop:'.$drop->id, $validated)) return response()->json($saved);
 
         $order = CustomOrder::create([
             'user_id'         => auth()->id(),
@@ -94,10 +99,11 @@ class DropController extends Controller
         // status without logging in — same mechanism as standard checkout.
         $request->session()->push('serana.order_ids', $order->id);
 
-        return response()->json([
+        return response()->json(SubmissionReceipt::remember($request, 'drop:'.$drop->id, $validated, [
             'success'  => true,
             'message'  => 'Reservation created. Proceed to payment.',
             'order_id' => $order->id,
-        ]);
+            'reference' => $order->cipher,
+        ]));
     }
 }

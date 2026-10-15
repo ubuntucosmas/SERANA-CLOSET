@@ -25,23 +25,23 @@ Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.
 Route::get('/custom-order',        [CustomOrderController::class, 'index'])->name('custom-order');
 Route::post('/custom-orders',      [CustomOrderController::class, 'store'])
     ->middleware('throttle:10,1')
-    ->name('custom-orders.store');
+    ->block(10, 10)->name('custom-orders.store');
 // Serana Drops — sell-then-make pre-orders. Reserving creates a CustomOrder
 // (type='drop') and then rides the standard M-Pesa STK flow.
 Route::get('/drops',                 [App\Http\Controllers\DropController::class, 'index'])->name('drops');
 Route::get('/drops/{drop}',          [App\Http\Controllers\DropController::class, 'show'])->name('drops.show');
 Route::post('/drops/{drop}/reserve', [App\Http\Controllers\DropController::class, 'reserve'])
     ->middleware('throttle:20,1')
-    ->name('drops.reserve');
+    ->block(10, 10)->name('drops.reserve');
 Route::get('/about',               fn () => Inertia::render('About'))->name('about');
 Route::get('/the-circle',          [CircleController::class, 'index'])->name('circle');
-Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
+Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware('throttle:10,1')->name('newsletter.subscribe');
 Route::get('/contact',             fn () => Inertia::render('Contact'))->name('contact');
 Route::get('/cart',                fn () => Inertia::render('Cart'))->name('cart');
 Route::get('/checkout',            [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout/process',   [CheckoutController::class, 'process'])
     ->middleware('throttle:20,1')
-    ->name('checkout.process');
+    ->block(10, 10)->name('checkout.process');
 
 // Public order tracking (guest-friendly). Lookup is throttled and requires
 // reference + phone, so it can't be used to enumerate orders.

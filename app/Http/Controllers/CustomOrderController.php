@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SubmissionReceipt;
+
 use App\Models\CustomOrder;
 use App\Models\Product;
 use App\Models\ThemeSetting;
@@ -38,6 +40,7 @@ class CustomOrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'request_id' => 'nullable|uuid',
             'full_name' => 'required|string|max:255',
             'whatsapp_number' => 'required|string|max:20',
             'location' => 'nullable|string|max:255',
@@ -56,6 +59,8 @@ class CustomOrderController extends Controller
             'images.*' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
             'priority_pass' => 'nullable',
         ]);
+
+        if ($saved = SubmissionReceipt::recall($request, 'bespoke', $validated)) return response()->json($saved);
 
         try {
             $priorityPass = filter_var($request->priority_pass, FILTER_VALIDATE_BOOLEAN);
@@ -106,11 +111,11 @@ class CustomOrderController extends Controller
             $storePhone = ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'));
             $whatsappUrl = WhatsApp::link($storePhone, $message);
 
-            return response()->json([
+            return response()->json(SubmissionReceipt::remember($request, 'bespoke', $validated, [
                 'success' => true,
                 'whatsapp_url' => $whatsappUrl,
                 'reference' => $order->cipher,
-            ]);
+            ]));
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("🚨 [CustomOrder_Fault] " . $e->getMessage(), [
                 'full_name' => $validated['full_name'],

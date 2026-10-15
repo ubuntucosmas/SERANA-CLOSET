@@ -89,7 +89,7 @@ class Product extends Model
      */
     public function availableStock(): ?int
     {
-        if (!$this->batch_limit) {
+        if ($this->batch_limit === null) {
             return null;
         }
 

@@ -22,6 +22,7 @@ class StoreCheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'request_id' => ['nullable', 'uuid'],
             'full_name' => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', 'max:255'],
             'address'   => ['required', 'string', 'max:500'],
@@ -33,7 +34,7 @@ class StoreCheckoutRequest extends FormRequest
             }],
 
             'items'            => ['required', 'array', 'min:1', 'max:30'],
-            'items.*.id'       => ['required', 'integer', 'distinct',
+            'items.*.id'       => ['required', 'integer',
                                    Rule::exists('products', 'id')->whereNull('deleted_at')],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
             // Size/variant selections chosen by the customer (not pricing data).
