@@ -12,6 +12,10 @@ class GallerySeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \LogicException('Demo seeding is restricted to local and testing environments. Provision production accounts separately.');
+        }
+
         $images = [
             [
                 'image_path' => '/images/hero_editorial.png',

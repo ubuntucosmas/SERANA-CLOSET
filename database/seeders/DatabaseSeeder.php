@@ -15,6 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \LogicException('Demo seeding is restricted to local and testing environments. Provision production accounts separately.');
+        }
+
         // 1. Create Admin Studio Account
         User::updateOrCreate(
             ['email' => 'admin@serana.com'],
