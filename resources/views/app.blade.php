@@ -16,36 +16,25 @@
             })();
         </script>
 
-        <!-- SEO & Meta Tags -->
+        {{-- Block form on purpose: an inline @php(...) followed by a later @php/@endphp block compiles into a parse error. --}}
         @php
-            $ts = $page['props']['theme_settings'] ?? [];
-            $resolveAsset = function ($v) {
-                if (!$v) return null;
-                return str_starts_with($v, 'http')
-                    ? $v
-                    : \Illuminate\Support\Facades\Storage::disk('public')->url($v);
-            };
-            $siteName = $ts['site_name'] ?? config('app.name', 'Serana Closet');
-            $ogDescription = ($ts['site_tagline'] ?? null)
-                ?: 'Bespoke commissions and limited-batch drops — made to demand, paid by M-PESA, delivered across Kenya.';
-            $ogImage = $resolveAsset($ts['hero_bg'] ?? null) ?: $resolveAsset($ts['site_logo'] ?? null);
-            $ogTitle = $siteName . ' — Bespoke atelier & limited drops';
+            $seo = $page['props']['seo'] ?? \App\Support\PageSeo::forRequest(request());
         @endphp
-        <title inertia>{{ config('app.name', 'Serana Closet') }}</title>
-        <meta name="description" content="{{ $ogDescription }}">
-
-        <!-- Open Graph / social sharing (server-rendered so link previews work) -->
-        <meta property="og:site_name" content="{{ $siteName }}">
-        <meta property="og:title" content="{{ $ogTitle }}">
-        <meta property="og:description" content="{{ $ogDescription }}">
-        <meta property="og:type" content="website">
-        <meta property="og:url" content="{{ url()->current() }}">
-        @if($ogImage)<meta property="og:image" content="{{ $ogImage }}">@endif
-        <meta name="twitter:card" content="{{ $ogImage ? 'summary_large_image' : 'summary' }}">
-        <meta name="twitter:title" content="{{ $ogTitle }}">
-        <meta name="twitter:description" content="{{ $ogDescription }}">
-        @if($ogImage)<meta name="twitter:image" content="{{ $ogImage }}">@endif
-        <meta name="theme-color" content="#0a0a0a">
+        <title inertia>{{ $seo['title'] }}</title>
+        <meta inertia="description" name="description" content="{{ $seo['description'] }}">
+        <meta inertia="robots" name="robots" content="{{ $seo['robots'] }}">
+        <link inertia="canonical" rel="canonical" href="{{ $seo['url'] }}">
+        @foreach(['title', 'description', 'url', 'type', 'image'] as $key)
+            @if($seo[$key] ?? null)<meta inertia="og:{{ $key }}" property="og:{{ $key }}" content="{{ $seo[$key] }}">@endif
+        @endforeach
+        <meta inertia="twitter:card" name="twitter:card" content="{{ $seo['image'] ? 'summary_large_image' : 'summary' }}">
+        @foreach(['title', 'description', 'image'] as $key)
+            @if($seo[$key] ?? null)<meta inertia="twitter:{{ $key }}" name="twitter:{{ $key }}" content="{{ $seo[$key] }}">@endif
+        @endforeach
+        @if($seo['structured_data'])
+            <script inertia="structured-data" type="application/ld+json">{!! json_encode($seo['structured_data'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
+        <meta name="theme-color" content="#07090e">
 
         <!-- Dynamic Favicon -->
         @if(isset($page['props']['theme_settings']['site_favicon']))
@@ -58,8 +47,10 @@
             <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
         @endif
         
-        <!-- Serana Brand Fonts — WOODNORK Dark Luxury System -->
-        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <!-- Approved SERANA typography -->
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
         <!-- Material Symbols (Icons) -->
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">

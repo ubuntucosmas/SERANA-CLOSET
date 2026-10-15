@@ -18,6 +18,9 @@ use Inertia\Inertia;
 |--------------------------------------------------------------------------
 */
 
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots');
+
 Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 Route::get('/shop',                [ShopController::class, 'index'])->name('shop');

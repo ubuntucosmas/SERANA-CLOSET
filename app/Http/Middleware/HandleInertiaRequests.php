@@ -38,6 +38,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
+            'seo' => fn () => \App\Support\PageSeo::forRequest($request),
             'auth' => [
                 'user' => fn () => $request->user()
                     ? $request->user()->only('id', 'name', 'email', 'role')
