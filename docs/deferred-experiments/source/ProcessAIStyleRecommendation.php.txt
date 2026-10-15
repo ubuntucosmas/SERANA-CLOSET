@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Jobs;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class ProcessAIStyleRecommendation implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    protected $userPrompt;
+    protected $commissionId;
+
+    /**
+     * Create a new job instance.
+     *
+     * @param string $userPrompt
+     * @param int $commissionId
+     */
+    public function __construct(string $userPrompt, int $commissionId)
+    {
+        $this->userPrompt = $userPrompt;
+        $this->commissionId = $commissionId;
+    }
+
+    /**
+     * Execute the job.
+     */
+    public function handle(): void
+    {
+        $provider = env('AI_PROVIDER', 'ollama');
+
+        if ($provider === 'ollama') {
+            $this->processWithOllama();
+        } else {
+            Log::warning("AI provider {$provider} not yet supported.");
+        }
+    }
+
+    /**
+     * Process using a self-hosted open-source model (e.g. Llama 3) via Ollama
+     */
+    protected function processWithOllama()
+    {
+        $apiUrl = env('OLLAMA_API_URL', 'http://127.0.0.1:11434') . '/api/generate';
+        $model = env('AI_MODEL_NAME', 'llama3');
+
+        $systemPrompt = "You are Serana's high-end digital atelier style concierge. Provide expert fabric and cut recommendations based on the user's input. Maintain a luxurious, Tech-Noir aesthetic tone.";
+
+        try {
+            $response = Http::timeout(60)->post($apiUrl, [
+                'model' => $model,
+                'prompt' => $systemPrompt . "\n\nUser: " . $this->userPrompt,
+                'stream' => false,
+            ]);
+
+            if ($response->successful()) {
+                $recommendation = $response->json('response');
+                // TODO: Save $recommendation to the commission record in the database
+                Log::info("AI Style Recommendation generated for commission #{$this->commissionId}");
+            } else {
+                Log::error('Ollama API error: ' . $response->body());
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to communicate with AI provider: ' . $e->getMessage());
+        }
+    }
+}

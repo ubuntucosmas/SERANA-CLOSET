@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+
+class CurrencyConverter
+{
+    protected string $apiKey;
+    protected string $baseCurrency = 'USD';
+
+    public function __construct()
+    {
+        $this->apiKey = config('services.exchangerate.key', env('EXCHANGE_RATE_API_KEY', ''));
+    }
+
+    /**
+     * Convert an amount from the base currency to the target currency.
+     *
+     * @param float $amount
+     * @param string $targetCurrency
+     * @return float
+     */
+    public function convert(float $amount, string $targetCurrency): float
+    {
+        if (strtoupper($targetCurrency) === $this->baseCurrency) {
+            return $amount;
+        }
+
+        $rate = $this->getRate($targetCurrency);
+
+        if (!$rate) {
+            Log::warning("Currency rate for {$targetCurrency} not found. Falling back to base currency.");
+            return $amount; // Fallback to avoid breaking checkout
+        }
+
+        return round($amount * $rate, 2);
+    }
+
+    /**
+     * Get the current exchange rate, cached for 12 hours to avoid API limits.
+     *
+     * @param string $targetCurrency
+     * @return float|null
+     */
+    protected function getRate(string $targetCurrency): ?float
+    {
+        $targetCurrency = strtoupper($targetCurrency);
+
+        return Cache::remember("exchange_rate_{$targetCurrency}", now()->addHours(12), function () use ($targetCurrency) {
+            if (empty($this->apiKey)) {
+                Log::error('ExchangeRate-API key is missing.');
+                return null;
+            }
+
+            try {
+                $response = Http::timeout(5)->get("https://v6.exchangerate-api.com/v6/{$this->apiKey}/latest/{$this->baseCurrency}");
+
+                if ($response->successful()) {
+                    $rates = $response->json('conversion_rates');
+                    return $rates[$targetCurrency] ?? null;
+                }
+
+                Log::error('Failed to fetch exchange rates: ' . $response->body());
+            } catch (\Exception $e) {
+                Log::error('Exception while fetching exchange rates: ' . $e->getMessage());
+            }
+
+            return null;
+        });
+    }
+}

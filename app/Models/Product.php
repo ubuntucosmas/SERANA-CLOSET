@@ -25,7 +25,7 @@ class Product extends Model
         'secondary_images',
     ];
 
-    protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls', 'xray_specs'];
+    protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls'];
 
     protected $casts = [
         'price' => 'decimal:2',
@@ -95,31 +95,4 @@ class Product extends Model
 
         return max(0, $this->batch_limit - (int) $this->batch_sold - $this->reservedQuantity());
     }
-
-    /**
-     * Standardized X-Ray Overlay Specifications.
-     * Provides structured data for the technical "X-Ray" UI overlay.
-     */
-    public function getXraySpecsAttribute()
-    {
-        $baseSpecs = $this->specifications ?? [];
-        
-        return [
-            'fabric' => $baseSpecs['fabric'] ?? 'Industrial Cotton Hybrid',
-            'weight' => $baseSpecs['fabric_weight'] ?? '420 GSM',
-            'density' => $baseSpecs['stitch_density'] ?? '12 Stitches/Inch',
-            'architecture' => $baseSpecs['architecture'] ?? 'Reinforced Double-Needle Stitching',
-            'tech_specs' => $baseSpecs['tech_specs'] ?? [
-                'Thermal Regulation Coating',
-                'Water-Resistant Membrane',
-                'Articulated Elbow Paneling'
-            ],
-            'ui' => $baseSpecs['ui'] ?? [
-                'weight_index' => 85,
-                'weight_label' => 'Optimized for structural integrity & thermal isolation'
-            ]
-        ];
-    }
-
-
 }

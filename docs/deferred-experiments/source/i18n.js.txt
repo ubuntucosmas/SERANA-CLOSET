@@ -1,0 +1,53 @@
+import { createI18n } from 'vue-i18n';
+
+// To support International Luxury Markets
+const messages = {
+    en: {
+        atelier: {
+            title: 'The Digital Atelier',
+            subtitle: 'Bespoke commissions crafted with precision.',
+            upload_inspiration: 'Upload Inspiration',
+            select_fabric: 'Select Premium Fabric',
+            measurements: 'Digital Measurements',
+            start_commission: 'Begin Commission',
+        },
+        currency: {
+            usd: '$',
+        }
+    },
+    fr: {
+        atelier: {
+            title: 'L\'Atelier Digital',
+            subtitle: 'Des commandes sur mesure conçues avec précision.',
+            upload_inspiration: 'Télécharger l\'inspiration',
+            select_fabric: 'Sélectionner un tissu premium',
+            measurements: 'Mesures Numériques',
+            start_commission: 'Commencer la commande',
+        },
+        currency: {
+            eur: '€',
+        }
+    },
+    ar: {
+        atelier: {
+            title: 'المشغل الرقمي',
+            subtitle: 'تفصيل حسب الطلب بدقة عالية.',
+            upload_inspiration: 'رفع مصدر الإلهام',
+            select_fabric: 'اختيار قماش فاخر',
+            measurements: 'القياسات الرقمية',
+            start_commission: 'ابدأ الطلب',
+        },
+        currency: {
+            aed: 'د.إ',
+        }
+    }
+};
+
+const i18n = createI18n({
+    legacy: false, // Use Composition API
+    locale: 'en', // set default locale
+    fallbackLocale: 'en',
+    messages,
+});
+
+export default i18n;
