@@ -35,7 +35,7 @@ class HomeController extends Controller
             'studioLoad'     => $studioLoad,
             'studioCapacity' => $studioCapacity,
             // The home page doubles as a launchpad for the current live drop.
-            'featuredDrop'   => Drop::where('status', 'live')
+            'featuredDrop'   => ! config('services.drops.enabled') ? null : Drop::where('status', 'live')
                 ->withCount('paidReservations')
                 ->latest()
                 ->first(),

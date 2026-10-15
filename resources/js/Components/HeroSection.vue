@@ -12,7 +12,7 @@ const image = computed(() => page.props.theme_settings?.focal_1_bg || '/images/h
             <div>
                 <p class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary mb-6">SERANA CLOSET · NAIROBI</p>
                 <h1 class="font-headline text-5xl sm:text-6xl xl:text-7xl font-semibold leading-[1.08] tracking-tight mb-6">Made for<br/><span class="text-primary">your style.</span></h1>
-                <p class="text-base sm:text-lg text-on-surface-variant leading-relaxed max-w-lg mb-8">Discover ready-to-wear pieces, reserve a limited Drop, or create something personal with our bespoke studio.</p>
+                <p class="text-base sm:text-lg text-on-surface-variant leading-relaxed max-w-lg mb-8">Discover ready-to-wear pieces<template v-if="$page.props.drops_enabled">, reserve a limited Drop,</template> or create something personal with our bespoke studio.</p>
                 <div class="flex flex-wrap gap-4">
                     <Link :href="route('shop')" class="action-primary">Shop Collection <span aria-hidden="true">→</span></Link>
                     <Link :href="route('custom-order')" class="action-secondary">Start Bespoke Request</Link>

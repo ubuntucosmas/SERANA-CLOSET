@@ -24,6 +24,7 @@ class SubmissionRetryTest extends TestCase
 
     public function test_drop_retry_reuses_reservation_and_cannot_change_its_size(): void
     {
+        config(['services.drops.enabled' => true]);
         $drop = Drop::create(['title' => 'Test Drop', 'price' => 5000, 'target_quantity' => 10, 'status' => 'live', 'sizes' => ['M', 'L']]);
         $payload = ['request_id' => (string) Str::uuid(), 'full_name' => 'Buyer', 'phone' => '0712345678', 'size' => 'M'];
         $first = $this->postJson(route('drops.reserve', $drop->slug), $payload)->assertOk()->json();

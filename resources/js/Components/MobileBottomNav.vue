@@ -40,9 +40,13 @@ function isActive(routeName) {
                 <span class="text-[8px] font-bold tracking-widest">Circle</span>
             </Link>
 
-            <Link :href="route('drops')" class="flex flex-col items-center gap-1 transition-all" :class="isActive('drops*') ? 'text-primary' : 'text-white/40'">
+            <Link v-if="$page.props.drops_enabled" :href="route('drops')" class="flex flex-col items-center gap-1 transition-all" :class="isActive('drops*') ? 'text-primary' : 'text-white/40'">
                 <span class="material-symbols-outlined text-[24px]">bolt</span>
                 <span class="text-[8px] font-bold tracking-widest">Drops</span>
+            </Link>
+            <Link v-else :href="route('track')" class="flex flex-col items-center gap-1 transition-all" :class="isActive('track') ? 'text-primary' : 'text-white/40'">
+                <span class="material-symbols-outlined text-[24px]">local_shipping</span>
+                <span class="text-[8px] font-bold tracking-widest">Track</span>
             </Link>
 
         </div>

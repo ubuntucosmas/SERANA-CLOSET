@@ -14,6 +14,12 @@ class DropReservationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['services.drops.enabled' => true]); // these tests cover the enabled flow
+    }
+
     private function liveDrop(array $overrides = []): Drop
     {
         return Drop::create(array_merge([
@@ -142,5 +148,27 @@ class DropReservationTest extends TestCase
         $this->assertSame('greenlit', $funded->fresh()->status);
         $this->assertSame('closed', $unfunded->fresh()->status);
         $this->assertSame('live', $open->fresh()->status);
+    }
+
+    /** V1 default: paid Drops are paused until a failed-target policy exists. */
+    public function test_drops_are_hidden_and_unpayable_while_disabled(): void
+    {
+        config(['services.drops.enabled' => false]);
+        $drop = $this->liveDrop();
+        $pending = CustomOrder::create([
+            'full_name' => 'A', 'phone' => '254712345678', 'whatsapp_number' => '254712345678',
+            'type' => 'drop', 'drop_id' => $drop->id, 'status' => 'Pending Payment',
+            'price_quoted' => 8500, 'is_paid' => false,
+        ]);
+
+        $this->get(route('drops'))->assertNotFound();
+        $this->get(route('drops.show', $drop))->assertNotFound();
+        $this->postJson(route('drops.reserve', $drop), ['full_name' => 'A', 'phone' => '0712345678'])->assertNotFound();
+        $this->withSession(['serana.order_ids' => [$pending->id]])
+            ->postJson(route('mpesa.stk'), ['order_id' => $pending->id, 'phone' => '0712345678'])
+            ->assertStatus(409);
+        $this->assertSame(0, $pending->paymentAttempts()->count());
+        $this->get(route('sitemap'))->assertDontSee('/drops');
+        $this->get('/')->assertOk()->assertInertia(fn ($page) => $page->where('featuredDrop', null)->where('drops_enabled', false));
     }
 }

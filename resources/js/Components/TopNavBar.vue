@@ -19,7 +19,7 @@
                     Home
                 </Link>
 
-                <Link :href="route('drops')"
+                <Link v-if="$page.props.drops_enabled" :href="route('drops')"
                     class="nav-link flex items-center gap-1.5" :class="{ 'active': isActive('drops*') }">
                     Drops
                     <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
@@ -184,7 +184,7 @@ const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`
 
 const mobileNavItems = [
     { label: 'Home', route: 'home', active: 'home' },
-    { label: 'Drops', route: 'drops', active: 'drops*' },
+    ...(page.props.drops_enabled ? [{ label: 'Drops', route: 'drops', active: 'drops*' }] : []),
     { label: 'Shop', route: 'shop', active: 'shop*' },
     { label: 'Bespoke', route: 'custom-order', active: 'custom-order*' },
     { label: 'About', route: 'about', active: 'about' },

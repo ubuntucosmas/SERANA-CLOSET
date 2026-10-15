@@ -69,6 +69,14 @@ class MpesaController extends Controller
                 ], 409);
             }
 
+            // With paid Drops paused, an unpaid reservation must not be charged.
+            if ($order->type === 'drop' && ! config('services.drops.enabled')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Drop reservations are paused. Contact support with your order reference.',
+                ], 409);
+            }
+
             // Money has already been collected against this order at the wrong
             // amount. A fresh prompt would charge the customer again before the
             // studio has reviewed (and possibly refunded) the first payment.

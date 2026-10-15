@@ -21,6 +21,8 @@ class DropController extends Controller
     /** Live campaigns the public can browse. */
     public function index()
     {
+        abort_unless(config('services.drops.enabled'), 404);
+
         $drops = Drop::whereIn('status', ['live', 'greenlit'])
             ->withCount('paidReservations')
             ->latest()
@@ -32,6 +34,7 @@ class DropController extends Controller
     /** A single drop. Drafts are never public. */
     public function show(Drop $drop)
     {
+        abort_unless(config('services.drops.enabled'), 404);
         abort_if($drop->status === 'draft', 404);
 
         $drop->loadCount('paidReservations');
@@ -45,6 +48,8 @@ class DropController extends Controller
      */
     public function reserve(Request $request, Drop $drop)
     {
+        abort_unless(config('services.drops.enabled'), 404);
+
         if (! $drop->is_open) {
             return response()->json(['success' => false, 'message' => 'This drop is no longer open for reservations.'], 422);
         }

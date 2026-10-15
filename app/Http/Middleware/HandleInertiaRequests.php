@@ -49,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'drops_enabled' => (bool) config('services.drops.enabled'),
             'whatsapp_number' => fn () => WhatsApp::normalizeNumber(
                 ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
             ),

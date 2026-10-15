@@ -39,6 +39,12 @@ return [
         'number' => env('WHATSAPP_NUMBER'),
     ],
 
+    'drops' => [
+        // Paid public Drops stay off until the studio has a published policy for
+        // campaigns that miss their target. Existing reservations stay trackable.
+        'enabled' => (bool) env('DROPS_ENABLED', false),
+    ],
+
     'store' => [
         // Where the owner's copy of every paid-order receipt is sent. Falls back
         // to the mail "from" address when unset.
