@@ -68,7 +68,7 @@ const navigateToSpecs = () => {
     router.visit(route('shop.show', props.product.slug));
 };
 
-const isSoldOut = computed(() => props.product.batch_limit && props.product.batch_sold >= props.product.batch_limit);
+const isSoldOut = computed(() => props.product.in_stock === false || (props.product.batch_limit != null && props.product.batch_sold >= props.product.batch_limit));
 
 
 
@@ -99,14 +99,9 @@ const stopAutoCycle = () => {
     currentIndex.value = 0;
 };
 
-const addToCart = async () => {
+const addToCart = () => {
     if (isSoldOut.value) return;
-    addToCartAnimating.value = true;
-    cart.addItem(props.product);
-    setTimeout(() => {
-        addToCartAnimating.value = false;
-        showQuickView.value = false; // Close modal after adding to cart
-    }, 500); // Give a brief 500ms delay to show the "Added to Bag" checkmark before closing
+    router.visit(route('shop.show', props.product.slug));
 };
 
 const cycleImage = () => {
@@ -275,14 +270,14 @@ onUnmounted(() => {
                                     @click="addToCart"
                                     class="w-full bg-primary text-black py-4 text-[11px] font-bold font-mono tracking-widest flex items-center justify-center gap-2 hover:bg-white transition-all active:scale-95 rounded-sm shadow-lg shadow-primary/20"
                                 >
-                                    {{ addToCartAnimating ? 'Added to Bag' : 'Add to Bag' }}
+                                    Choose Size
                                     <span class="material-symbols-outlined text-[16px]">{{ addToCartAnimating ? 'check' : 'shopping_bag' }}</span>
                                 </button>
                                 <button
-                                    v-else
+                                    v-else disabled
                                     class="w-full bg-white/5 text-white/30 py-4 text-[11px] font-bold font-mono tracking-widest flex items-center justify-center rounded-sm cursor-not-allowed border border-white/10"
                                 >
-                                    Waitlist
+                                    Out of Stock
                                 </button>
                                 
                                 <a :href="quickViewWhatsapp" target="_blank" class="w-full py-3 bg-transparent border border-white/10 text-white/60 font-bold tracking-widest text-[10px] rounded-sm flex items-center justify-center gap-2 hover:bg-white/5 hover:text-white transition-all">

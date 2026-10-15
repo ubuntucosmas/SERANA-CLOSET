@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { Head, usePage } from "@inertiajs/vue3";
+import { Head, Link, usePage } from "@inertiajs/vue3";
+import StatusBadge from '@/Components/StatusBadge.vue';
+import { paymentStatus, fulfilmentStatus } from '@/Support/orderStatus';
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
 import { useCurrency } from "@/Composables/useCurrency";
 
@@ -24,7 +26,7 @@ const journey = computed(() => {
     const o = order.value;
     if (!o) return null;
 
-    if (o.type === "standard") {
+    if (["standard", "drop"].includes(o.type)) {
         const steps = [
             { label: "Placed", icon: "receipt_long" },
             { label: "Paid", icon: "paid" },
@@ -53,7 +55,7 @@ const journey = computed(() => {
 
 const payment = computed(() => {
     const o = order.value;
-    if (!o || o.type !== "standard") return null;
+    if (!o || !["standard", "drop"].includes(o.type)) return null;
     if (o.is_paid) return { label: "Paid", tone: "ok" };
     const failed = ["Payment Failed", "Amount Mismatch", "Expired"];
     if (failed.includes(o.status)) return { label: o.status, tone: "bad" };
@@ -61,6 +63,7 @@ const payment = computed(() => {
 });
 
 async function lookup() {
+    if (isLoading.value) return;
     error.value = null;
     if (!form.value.reference.trim() || !form.value.phone.trim()) {
         error.value = "Please enter both your order reference and phone number.";
@@ -113,7 +116,7 @@ onMounted(() => {
                         Order Tracking
                     </div>
                     <h1 class="text-5xl md:text-6xl font-light tracking-tighter leading-none">
-                        Follow your piece.
+                        Track Order
                     </h1>
                     <p class="mt-4 text-on-surface-variant max-w-md mx-auto">
                         Enter your order reference and the phone number you ordered with
@@ -128,9 +131,9 @@ onMounted(() => {
                     class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8 space-y-6"
                 >
                     <div>
-                        <label class="block text-sm text-on-surface-variant mb-2">Order Reference</label>
+                        <label class="block text-sm text-on-surface-variant mb-2" for="trackorder-reference">Order Reference</label>
                         <input
-                            v-model="form.reference"
+                            id="trackorder-reference" v-model="form.reference"
                             type="text"
                             placeholder="SRN-XXXXXXXX-2026"
                             autocomplete="off"
@@ -141,16 +144,16 @@ onMounted(() => {
                         </p>
                     </div>
                     <div>
-                        <label class="block text-sm text-on-surface-variant mb-2">Phone Number</label>
+                        <label class="block text-sm text-on-surface-variant mb-2" for="trackorder-phone">Phone Number</label>
                         <input
-                            v-model="form.phone"
+                            id="trackorder-phone" v-model="form.phone"
                             type="tel"
                             placeholder="+254 712 345 678"
                             class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
                         />
                     </div>
 
-                    <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
+                    <p role="alert" v-if="error" class="text-red-400 text-sm">{{ error }}</p>
 
                     <button
                         type="submit"
@@ -172,28 +175,24 @@ onMounted(() => {
                                     Ref {{ order.reference }}
                                 </div>
                                 <h2 class="text-2xl font-light tracking-tight mt-1">
-                                    {{ order.type === "standard" ? "Atelier Order" : "Bespoke Commission" }}
+                                    {{ order.type === "standard" ? "Shop Order" : order.type === "drop" ? "Drop Reservation" : "Bespoke Request" }}
                                 </h2>
                                 <p class="text-sm text-on-surface-variant mt-1">Placed {{ order.placed_at }}</p>
                             </div>
                             <div class="text-right">
-                                <span
-                                    v-if="payment"
-                                    class="inline-block px-3 py-1.5 rounded-full text-xs font-medium"
-                                    :class="{
-                                        'bg-[#4fb33f]/15 text-[#4fb33f]': payment.tone === 'ok',
-                                        'bg-amber-400/15 text-amber-300': payment.tone === 'warn',
-                                        'bg-red-400/15 text-red-300': payment.tone === 'bad',
-                                    }"
-                                >
-                                    {{ payment.label }}
-                                </span>
+                                <StatusBadge v-bind="paymentStatus(order)" />
                                 <div v-if="order.amount" class="text-2xl font-light tracking-tight mt-2">
                                     {{ money(order.amount) }}
                                 </div>
                             </div>
                         </div>
 
+                        <p class="mt-5 text-sm font-semibold">Fulfilment: {{ fulfilmentStatus(order) }}</p>
+                        <p class="mt-3 text-sm text-on-surface-variant">{{ paymentStatus(order).next }}</p>
+                        <div class="mt-5 flex flex-wrap gap-4 text-sm">
+                            <button @click="lookup" :disabled="isLoading" class="text-primary underline">{{ isLoading ? 'Checking…' : 'Refresh Status' }}</button>
+                            <Link :href="route('contact')" class="underline">Contact Support</Link>
+                        </div>
                         <!-- Timeline -->
                         <div v-if="journey" class="mt-9">
                             <div class="relative">
@@ -261,6 +260,7 @@ onMounted(() => {
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm truncate">{{ item.name }}</div>
                                     <div class="text-xs text-on-surface-variant">Qty {{ item.quantity }}</div>
+                                    <p v-for="(value, key) in item.options" :key="key" class="text-xs text-on-surface-variant">{{ key.replaceAll('_', ' ') }}: {{ value }}</p>
                                 </div>
                             </div>
                         </div>

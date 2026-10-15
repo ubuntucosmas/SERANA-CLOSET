@@ -31,16 +31,16 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Cormorant Garamond", ...defaultTheme.fontFamily.serif],
-                "body": ["Manrope", ...defaultTheme.fontFamily.sans],
+                "headline": ["Space Grotesk", ...defaultTheme.fontFamily.sans],
+                "body": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans],
                 // Labels/UI now use the slim sans (no more terminal monospace).
-                "label": ["Manrope", ...defaultTheme.fontFamily.sans],
-                "mono": ["Manrope", ...defaultTheme.fontFamily.sans]
+                "label": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans],
+                "mono": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
-                "DEFAULT": "0px",
-                "lg": "0px",
-                "xl": "0px",
+                "DEFAULT": "8px",
+                "lg": "16px",
+                "xl": "24px",
                 "full": "9999px"
             },
         },

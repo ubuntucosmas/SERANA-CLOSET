@@ -34,7 +34,7 @@ onMounted(() => {
     <button 
         @click="toggleTheme" 
         class="w-10 h-10 flex items-center justify-center rounded-xl border dark:border-white/10 border-black/10 hover:border-primary/50 transition-all duration-300 group relative overflow-hidden bg-white/5 active:scale-90"
-        :title="isDark ? 'Switch to Studio White' : 'Switch to Tech-Noir'"
+        :title="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
     >
         <div class="relative w-6 h-6 flex flex-col transition-transform duration-500" :style="{ transform: isDark ? 'translateY(0)' : 'translateY(-100%)' }">
             <span class="material-symbols-outlined text-[20px] shrink-0 h-6 flex items-center justify-center text-primary">dark_mode</span>

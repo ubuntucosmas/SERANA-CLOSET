@@ -42,9 +42,9 @@
         --outline-variant:  #cfcfca;
 
         /* Fonts — slim editorial: Cormorant headings, Manrope everywhere else */
-        --font-display:     'Cormorant Garamond', serif;
-        --font-body:        'Manrope', sans-serif;
-        --font-mono:        'Manrope', sans-serif;
+        --font-display:     'Space Grotesk', sans-serif;
+        --font-body:        'Plus Jakarta Sans', sans-serif;
+        --font-mono:        'Plus Jakarta Sans', sans-serif;
 
         /* Spacing */
         --section-pad:      7vw;
@@ -52,9 +52,9 @@
         --btn-pad:          13px 28px;
 
         /* Radii — sharp luxury */
-        --radius-sm:        2px;
-        --radius-md:        4px;
-        --radius-lg:        6px;
+        --radius-sm:        8px;
+        --radius-md:        16px;
+        --radius-lg:        24px;
         --radius-round:     50%;
 
         /* Easings */
@@ -72,35 +72,35 @@
 
     .dark {
         /* Serana — DARK palette (Tech-Noir). Complete mirror of :root. */
-        --bg-primary:       #0a0a0b;
-        --bg-glass:         rgba(10, 10, 11, 0.85);
+        --bg-primary:       #07090e;
+        --bg-glass:         rgba(7, 9, 14, 0.88);
         --bg-card:          rgba(255, 255, 255, 0.04);
-        --bg-card-hover:    rgba(87, 213, 252, 0.06);
+        --bg-card-hover:    rgba(0, 210, 255, 0.06);
 
-        --background:       #0a0a0b;
-        --on-background:    #e5e2e3;
-        --surface:          #131313;
-        --on-surface:       #e5e2e3;
-        --surface-container: #1c1b1b;
+        --background:       #07090e;
+        --on-background:    #e2e8f0;
+        --surface:          #0b0f17;
+        --on-surface:       #e2e8f0;
+        --surface-container: #111622;
         --on-surface-variant: #c5c5d4;
 
-        --text-primary:     #e5e2e3;
+        --text-primary:     #e2e8f0;
         --text-muted:       rgba(229, 226, 227, 0.58);
         --text-ghost:       rgba(229, 226, 227, 0.26);
         --text-faint:       rgba(229, 226, 227, 0.17);
 
-        --accent:           #57d5fc;
-        --accent-rgb:       87, 213, 252;
+        --accent:           #00d2ff;
+        --accent-rgb:       0, 210, 255;
         --accent-hover:     #b6ebff;
-        --accent-glow:      rgba(87, 213, 252, 0.40);
-        --accent-glow-soft: rgba(87, 213, 252, 0.18);
+        --accent-glow:      rgba(0, 210, 255, 0.40);
+        --accent-glow-soft: rgba(0, 210, 255, 0.18);
 
-        --border:           rgba(87, 213, 252, 0.14);
-        --border-mid:       rgba(87, 213, 252, 0.28);
-        --border-hover:     rgba(87, 213, 252, 0.50);
-        --border-active:    #57d5fc;
+        --border:           rgba(0, 210, 255, 0.14);
+        --border-mid:       rgba(0, 210, 255, 0.28);
+        --border-hover:     rgba(0, 210, 255, 0.50);
+        --border-active:    #00d2ff;
 
-        --primary:          #57d5fc;
+        --primary:          #00d2ff;
         --primary-alt:      #b6ebff;
         --outline-variant:  #454652;
     }
@@ -112,9 +112,35 @@
 
     html {
         font-size: 16px;
+        scroll-behavior: smooth;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        html {
+            scroll-behavior: auto;
+        }
+
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+
+    a, button, input, textarea, select {
+        @apply transition-all duration-200;
+    }
+
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+        @apply outline-2 outline-offset-2 outline-primary;
     }
 
     /* WOODNORK Typography System — Dark Luxury */
@@ -190,9 +216,6 @@
         letter-spacing: 0.01em;
     }
 
-    * {
-        border-radius: 0 !important;
-    }
 }
 
 @layer components {
@@ -379,7 +402,7 @@
     }
     .btn-outline:hover {
         border-color: var(--accent);
-        background: rgba(87, 213, 252, 0.06);
+        background: rgba(0, 210, 255, 0.06);
     }
 
     /* Mono Tag / Badge */
@@ -513,7 +536,7 @@
 
     /* Left panel fade for split layouts */
     .split-left {
-        background: linear-gradient(90deg, #0a0a0b 80%, rgba(10, 10, 11, 0) 100%);
+        background: linear-gradient(90deg, #07090e 80%, rgba(10, 10, 11, 0) 100%);
     }
 
     /* Gallery nav hover zone */
@@ -596,3 +619,29 @@ html:not(.dark) .always-dark .hover\:bg-white\/10:hover { background-color: rgba
    it a whisper and drop its dark scrim so it doesn't muddy the light page. */
 html:not(.dark) .section-bg { opacity: 0.12; }
 html:not(.dark) .section-bg-scrim { display: none; }
+/* Shared screen clarity: readable controls and the supplied Stitch surfaces. */
+@layer base {
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    button, input, select, textarea { font: inherit; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea { min-height: 44px; max-width: 100%; }
+    label { line-height: 1.5; }
+    h1, h2, h3 { text-wrap: balance; }
+}
+@layer components {
+    .action-primary { @apply inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 text-white px-7 py-3.5 font-semibold hover:bg-blue-500 disabled:opacity-50; }
+    .action-secondary { @apply inline-flex items-center justify-center gap-2 rounded-full border border-outline-variant px-6 py-3 text-sm; }
+    .feedback-error { @apply rounded-xl border border-red-400/40 p-4 text-sm; }
+    .feedback-success { @apply rounded-xl border border-emerald-400/40 p-4 text-sm; }
+}
+/* Existing screens use compact utility labels. Keep them readable consistently. */
+[class*="text-[7px]"], [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"] {
+    font-size: .75rem;
+    line-height: 1.5;
+    letter-spacing: .04em;
+}
+.glass-panel { border-radius: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    .reveal, .reveal-item { opacity: 1 !important; transform: none !important; }
+}

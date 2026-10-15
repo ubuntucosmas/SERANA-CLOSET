@@ -165,10 +165,6 @@ onMounted(() => {
     <StorefrontLayout flushTop>
         <Head>
             <title>Our Story | Serana Closet</title>
-            <meta
-                name="description"
-                content="Discover the people, passion, and craft behind Serana Closet. Real tailoring. Real care. Made in Nairobi."
-            />
         </Head>
 
         <main
@@ -299,7 +295,7 @@ onMounted(() => {
                     <div
                         class="absolute -bottom-6 -right-4 lg:-right-8 bg-transparent border-2 dark:border-primary/20 border-primary/10 rounded-sm px-8 py-5 backdrop-blur shadow-2xl"
                     >
-                        <h1
+                        <h2
                             class="text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9]"
                         >
                             Building
@@ -307,7 +303,7 @@ onMounted(() => {
                                 >The Future</span
                             >
                             of Nairobi Fashion
-                        </h1>
+                        </h2>
                         <p
                             class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-black/40 tracking-wider font-medium leading-loose font-sans"
                         >

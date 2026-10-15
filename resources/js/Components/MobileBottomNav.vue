@@ -28,7 +28,7 @@ function isActive(routeName) {
             </Link>
 
             <!-- Floating Action: Cart -->
-            <button @click="cart.isOpen = true" class="relative -mt-10 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(57,255,20,0.3)] group active:scale-90 transition-all">
+            <button aria-label="Open bag" @click="cart.isOpen = true" class="relative -mt-10 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(57,255,20,0.3)] group active:scale-90 transition-all">
                 <span class="material-symbols-outlined text-black font-black text-[26px]">shopping_cart</span>
                 <span v-if="cart.totalItems > 0" class="absolute -top-1 -right-1 bg-on-surface text-background text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-primary">
                     {{ cart.totalItems }}

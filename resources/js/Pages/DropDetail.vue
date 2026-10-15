@@ -1,5 +1,5 @@
 <script setup>
-import { Head, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
@@ -33,9 +33,13 @@ const countdown = computed(() => {
 
 /* ───────── Reserve + pay state machine ───────── */
 const open = ref(false);
+const reserving = ref(false);
+const pendingConfirmation = ref(false);
+const formError = ref('');
 const step = ref('details');          // details | pay | done
 const stkStatus = ref('idle');        // idle | processing | waiting (for MpesaStkPanel)
-const form = ref({ full_name: '', phone: '', email: '', size: '', bust_cm: '', waist_cm: '', hips_cm: '', height_cm: '', fit_notes: '' });
+const form = ref({
+    request_id: crypto.randomUUID(), full_name: '', phone: '', email: '', size: '', bust_cm: '', waist_cm: '', hips_cm: '', height_cm: '', fit_notes: '' });
 const offersSizes = computed(() => Array.isArray(props.drop.sizes) && props.drop.sizes.length > 0);
 const activeField = ref(null); // which measurement the figure should highlight
 const orderId = ref(null);
@@ -48,16 +52,16 @@ let pollingInterval = null;
 function openReserve() {
     if (!props.drop.is_open) return;
     open.value = true;
-    step.value = 'details';
-    stkStatus.value = 'idle';
-    isPaid.value = false;
+    if (!orderId.value) { step.value = 'details'; stkStatus.value = 'idle'; }
 }
 function closeReserve() {
     open.value = false;
-    if (pollingInterval) clearInterval(pollingInterval);
 }
 
 async function submitReserve() {
+    if (reserving.value) return;
+    if (orderId.value) { step.value = 'pay'; return; }
+    formError.value = '';
     if (!form.value.full_name || !form.value.phone) {
         pulse.emit('Please add your name and phone number.', 'error');
         return;
@@ -66,19 +70,24 @@ async function submitReserve() {
         pulse.emit('Please choose a size.', 'error');
         return;
     }
+    reserving.value = true;
     try {
         const res = await axios.post(route('drops.reserve', props.drop.slug), form.value);
         if (res.data.success) {
             orderId.value = res.data.order_id;
+            reference.value = res.data.reference;
             step.value = 'pay';
             initiateStk();
         }
     } catch (err) {
-        pulse.emit(err.response?.data?.message || 'Could not create your reservation.', 'error');
-    }
+        formError.value = Object.values(err.response?.data?.errors || {}).flat().join(' ') || err.response?.data?.message || 'Could not create your reservation. Please check your details and try again.';
+        pulse.emit(formError.value, 'error');
+    } finally { reserving.value = false; }
 }
 
-async function initiateStk() {
+async function initiateStk(data) {
+    if (stkStatus.value !== 'idle' || pendingConfirmation.value) return;
+    if (data?.phone) form.value.phone = data.phone;
     stkStatus.value = 'processing';
     try {
         const res = await axios.post(route('mpesa.stk'), { order_id: orderId.value, phone: form.value.phone });
@@ -87,13 +96,18 @@ async function initiateStk() {
             startPolling();
         } else {
             stkStatus.value = 'idle';
-            step.value = 'details';
+            step.value = 'pay';
             pulse.emit(res.data.message || 'Failed to start payment.', 'error');
         }
     } catch (err) {
-        stkStatus.value = 'idle';
-        step.value = 'details';
-        pulse.emit(err.response?.data?.message || 'Failed to start payment.', 'error');
+        if (!err.response || err.response.status >= 500) {
+            pendingConfirmation.value = true;
+            startPolling();
+        } else {
+            stkStatus.value = 'idle';
+            step.value = 'pay';
+        }
+        pulse.emit(err.response?.data?.message || 'Payment could not be confirmed. Check your reservation before paying again.', 'error');
     }
 }
 
@@ -102,10 +116,17 @@ function startPolling() {
     let attempts = 0;
     pollingInterval = setInterval(async () => {
         attempts++;
-        if (attempts > 30) { clearInterval(pollingInterval); return; }
+        if (attempts > 30) { clearInterval(pollingInterval); pendingConfirmation.value = true; return; }
         try {
             const res = await axios.get(route('mpesa.status', orderId.value));
             if (res.data.reference) reference.value = res.data.reference;
+            if (!res.data.is_paid && ['Payment Failed', 'Expired', 'Amount Mismatch'].includes(res.data.status)) {
+                clearInterval(pollingInterval);
+                pendingConfirmation.value = res.data.status !== 'Payment Failed';
+                stkStatus.value = 'idle';
+                formError.value = 'Payment is not confirmed. Contact support if M-Pesa shows a charge before trying again.';
+                return;
+            }
             if (res.data.is_paid) {
                 clearInterval(pollingInterval);
                 isPaid.value = true;
@@ -172,9 +193,11 @@ function startPolling() {
                 </button>
                 <p v-else class="mt-8 text-on-surface-variant font-medium">This drop is closed for new reservations.</p>
 
+                <p class="mt-5 text-sm text-on-surface-variant">This is a paid pre-order. Contact the studio about timing and what happens if the goal is not reached before reserving.</p>
+                <Link :href="route('contact')" class="text-sm text-primary underline">Ask About This Drop</Link>
                 <div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-on-surface-variant">
                     <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-primary">lock</span> Pay securely with M-PESA</span>
-                    <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-primary">verified_user</span> Made only if it reaches the goal</span>
+                    <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-primary">verified_user</span> Production starts after the goal is reached</span>
                 </div>
             </div>
         </section>
@@ -184,16 +207,27 @@ function startPolling() {
             <div v-if="open" class="fixed inset-0 z-[300] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/85 backdrop-blur-md" @click="closeReserve"></div>
                 <div class="relative z-10 w-full max-w-md max-h-[92vh] overflow-y-auto no-scrollbar">
-                    <button @click="closeReserve" class="absolute top-4 right-4 z-50 w-9 h-9 grid place-items-center bg-black/40 text-white/60 hover:text-white rounded-full"><span class="material-symbols-outlined text-lg">close</span></button>
+                    <button aria-label="Close reservation" @click="closeReserve" class="absolute top-4 right-4 z-50 w-9 h-9 grid place-items-center bg-black/40 text-white/60 hover:text-white rounded-full"><span class="material-symbols-outlined text-lg">close</span></button>
 
+                    <p v-if="formError" role="alert" class="bg-surface text-on-surface rounded-xl p-4 mb-3">{{ formError }}</p>
+                    <div v-if="pendingConfirmation" class="bg-surface text-on-surface rounded-2xl p-8">
+                        <h2 class="text-2xl mb-3">Payment confirmation pending</h2>
+                        <p class="text-sm mb-4">Your reservation is saved. If you approved the M-Pesa prompt, please wait for confirmation before paying again.</p>
+                        <p v-if="reference" class="text-sm mb-4">Reference: {{ reference }}</p>
+                        <Link :href="route('track', { ref: reference })" class="action-primary">Track Order</Link>
+                        <Link :href="route('contact')" class="block underline mt-4">Contact Support</Link>
+                    </div>
                     <!-- Step 1: details -->
-                    <div v-if="step === 'details'" class="bg-white dark:bg-[#0d1f0d] rounded-3xl p-8">
+                    <div v-if="!pendingConfirmation && step === 'details'" class="bg-white dark:bg-[#0d1f0d] rounded-3xl p-8">
                         <h2 class="font-headline text-2xl dark:text-white text-on-surface mb-1">Reserve “{{ drop.title }}”</h2>
                         <p class="text-on-surface-variant text-sm mb-6">{{ formatAmount(drop.price, page.props) }} · paid now via M-PESA to secure your piece.</p>
                         <div class="space-y-4">
-                            <input v-model="form.full_name" placeholder="Full name" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                            <input v-model="form.phone" placeholder="M-PESA phone (07…)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
-                            <input v-model="form.email" type="email" placeholder="Email (for your receipt)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                            <label for="drop-full_name" class="block text-sm mb-2">Full Name (required)</label>
+                            <input id="drop-full_name" v-model="form.full_name" placeholder="Full name" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                            <label for="drop-phone" class="block text-sm mb-2">M-Pesa Phone Number (required)</label>
+                            <input type="tel" id="drop-phone" v-model="form.phone" placeholder="M-PESA phone (07…)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                            <label for="drop-email" class="block text-sm mb-2">Email (optional)</label>
+                            <input id="drop-email" v-model="form.email" type="email" placeholder="Email (for your receipt)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
 
                             <!-- Size: pick from offered sizes, or free text -->
                             <div v-if="offersSizes">
@@ -206,32 +240,37 @@ function startPolling() {
                                     </button>
                                 </div>
                             </div>
-                            <input v-else v-model="form.size" placeholder="Size (e.g. M, or UK 12)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
+                            <input v-else aria-label="Size (optional)" v-model="form.size" placeholder="Size (e.g. M, or UK 12)" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50" />
 
                             <!-- Measurements for a precise fit (optional but encouraged) -->
                             <div>
                                 <span class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Your measurements (cm) — for the best fit</span>
                                 <SizingFigure :activeField="activeField" :measurements="form" @pick="activeField = $event" class="mb-3" />
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    <input v-model="form.bust_cm" type="number" placeholder="Bust" @focus="activeField = 'bust_cm'"
-                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'bust_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
-                                    <input v-model="form.waist_cm" type="number" placeholder="Waist" @focus="activeField = 'waist_cm'"
-                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'waist_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
-                                    <input v-model="form.hips_cm" type="number" placeholder="Hips" @focus="activeField = 'hips_cm'"
-                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'hips_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
-                                    <input v-model="form.height_cm" type="number" placeholder="Height" @focus="activeField = 'height_cm'"
-                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'height_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" />
+                                    <div><label for="drop-bust_cm" class="block text-sm mb-2">Bust (cm, optional)</label>
+                            <input id="drop-bust_cm" v-model="form.bust_cm" type="number" placeholder="Bust" @focus="activeField = 'bust_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'bust_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" /></div>
+                                    <div><label for="drop-waist_cm" class="block text-sm mb-2">Waist (cm, optional)</label>
+                            <input id="drop-waist_cm" v-model="form.waist_cm" type="number" placeholder="Waist" @focus="activeField = 'waist_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'waist_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" /></div>
+                                    <div><label for="drop-hips_cm" class="block text-sm mb-2">Hips (cm, optional)</label>
+                            <input id="drop-hips_cm" v-model="form.hips_cm" type="number" placeholder="Hips" @focus="activeField = 'hips_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'hips_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" /></div>
+                                    <div><label for="drop-height_cm" class="block text-sm mb-2">Height (cm, optional)</label>
+                            <input id="drop-height_cm" v-model="form.height_cm" type="number" placeholder="Height" @focus="activeField = 'height_cm'"
+                                        :class="['bg-black/5 dark:bg-white/5 border rounded-xl px-3 py-2.5 dark:text-white text-on-surface outline-none', activeField === 'height_cm' ? 'border-primary' : 'dark:border-white/10 border-black/10 focus:border-primary/50']" /></div>
                                 </div>
                             </div>
-                            <textarea v-model="form.fit_notes" rows="2" placeholder="Fit notes (optional) — e.g. prefer relaxed, sleeves a touch longer" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50"></textarea>
+                            <label for="drop-fit_notes" class="block text-sm mb-2">Fit Notes (optional)</label>
+                            <textarea id="drop-fit_notes" v-model="form.fit_notes" rows="2" placeholder="Fit notes (optional) — e.g. prefer relaxed, sleeves a touch longer" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50"></textarea>
                         </div>
-                        <button @click="submitReserve" class="mt-6 w-full py-4 rounded-xl bg-primary text-background font-headline font-black uppercase tracking-widest text-sm hover:brightness-105 transition-all">
-                            Continue to payment
+                        <button :disabled="reserving" @click="submitReserve" class="mt-6 w-full py-4 rounded-xl bg-primary text-background font-headline font-black uppercase tracking-widest text-sm hover:brightness-105 transition-all">
+                            {{ reserving ? 'Creating Reservation…' : 'Reserve & Continue to Payment' }}
                         </button>
                     </div>
 
                     <!-- Step 2: pay -->
-                    <MpesaStkPanel v-else-if="step === 'pay' && !isPaid" :amount="drop.price" :phone="form.phone" :status="stkStatus" @cancel="closeReserve" />
+                    <MpesaStkPanel v-else-if="!pendingConfirmation && step === 'pay' && !isPaid" :amount="drop.price" :phone="form.phone" :reference="reference" :status="stkStatus" @pay="initiateStk" @cancel="closeReserve" />
 
                     <!-- Step 3: done -->
                     <MpesaSuccessPanel v-else-if="step === 'done'" :amount="drop.price" :orderId="orderId" :items="[]"

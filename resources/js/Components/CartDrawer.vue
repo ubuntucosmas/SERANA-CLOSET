@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
 import { animate, stagger } from 'animejs';
@@ -36,6 +36,7 @@ const rawurlencode = (str) => {
     return encodeURIComponent(str).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
 };
 const drawerRef = ref(null);
+let returnFocus = null;
 const overlayRef = ref(null);
 const itemsRef = ref(null);
 
@@ -49,6 +50,9 @@ const hasBespokeItems = computed(() => cart.items.some(item => item.is_bespoke))
 watch(() => cart.isOpen, async (open) => {
     await nextTick();
     if (open) {
+        returnFocus = document.activeElement;
+        document.body.style.overflow = 'hidden';
+        drawerRef.value?.querySelector('button')?.focus();
         animate(overlayRef.value, {
             opacity: [0, 1],
             duration: 400,
@@ -72,7 +76,7 @@ watch(() => cart.isOpen, async (open) => {
             });
         }
     }
-});
+}, { immediate: true });
 
 const closeDrawer = () => {
     animate(drawerRef.value, {
@@ -86,9 +90,23 @@ const closeDrawer = () => {
         easing: 'easeInQuad',
         onComplete: () => {
             cart.isOpen = false;
+            document.body.style.overflow = '';
+            returnFocus?.focus();
         }
     });
 };
+function handleKeys(event) {
+    if (!cart.isOpen) return;
+    if (event.key === 'Escape') { event.preventDefault(); closeDrawer(); }
+    if (event.key === 'Tab') {
+        const controls = [...(drawerRef.value?.querySelectorAll('a[href], button:not([disabled]), input') || [])].filter(el => el.offsetParent !== null);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+}
+onMounted(() => document.addEventListener('keydown', handleKeys));
+onUnmounted(() => { document.removeEventListener('keydown', handleKeys); document.body.style.overflow = ''; });
 </script>
 
 <template>
@@ -102,16 +120,17 @@ const closeDrawer = () => {
 
         <!-- Semantic Shell: Mini Cart Slide-out Component -->
         <div 
+            role="dialog" aria-modal="true" aria-labelledby="bag-heading"
             ref="drawerRef"
             class="relative z-10 w-full max-w-lg dark:bg-black bg-surface border-l dark:border-white/10 border-black/10 shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col h-full transform translate-x-full"
         >
             <!-- Header -->
             <div class="px-8 py-10 flex justify-between items-center border-b dark:border-white/5 border-black/5">
                 <div>
-                    <h2 class="font-headline text-xl lg:text-2xl tracking-[0.1em] dark:text-white text-on-surface uppercase font-light">Your Bag</h2>
+                    <h2 id="bag-heading" class="font-headline text-xl lg:text-2xl tracking-[0.1em] dark:text-white text-on-surface uppercase font-light">Your Bag</h2>
                     <p class="font-label text-[9px] uppercase tracking-[0.2em] dark:text-white/40 text-black/40 mt-1">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'Piece' : 'Pieces' }}</p>
                 </div>
-                <button @click="closeDrawer" class="dark:text-white text-on-surface hover:text-primary transition-colors">
+                <button aria-label="Close bag" @click="closeDrawer" class="dark:text-white text-on-surface hover:text-primary transition-colors">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -130,18 +149,32 @@ const closeDrawer = () => {
                     <div>
                         <h3 class="font-headline text-2xl dark:text-white text-on-surface tracking-[0.2em] font-light uppercase mb-4">Your Bag is Empty</h3>
                         <p class="text-[10px] uppercase tracking-[0.2em] dark:text-white/30 text-black/30 mb-8 leading-relaxed">Your bag is currently empty. Visit the shop to add pieces to your collection.</p>
-                        <button 
+                        <div class="mb-8 grid grid-cols-3 gap-2 text-left">
+                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
+                                <span class="material-symbols-outlined text-base text-primary">local_shipping</span>
+                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Delivery</p>
+                            </div>
+                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
+                                <span class="material-symbols-outlined text-base text-primary">verified_user</span>
+                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Secure</p>
+                            </div>
+                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
+                                <span class="material-symbols-outlined text-base text-primary">support_agent</span>
+                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Style help</p>
+                            </div>
+                        </div>
+                        <Link :href="route('shop')"
                             @click="closeDrawer" 
                             class="group relative inline-flex items-center gap-4 px-10 py-5 bg-primary/5 border border-primary/20 rounded-full overflow-hidden transition-all hover:bg-primary/10 active:scale-95"
                         >
-                            <span class="relative z-10 text-[9px] font-headline font-black uppercase tracking-[0.4em] text-primary">Start Shopping</span>
+                            <span class="relative z-10 text-[9px] font-headline font-black uppercase tracking-[0.4em] text-primary">Shop Collection</span>
                             <span class="material-symbols-outlined text-primary text-sm animate-bounce-x">arrow_right_alt</span>
-                        </button>
+                        </Link>
                     </div>
                 </div>
 
                 <!-- Bag Items -->
-                <div v-for="item in cart.items" :key="item.id" class="cart-item-anim flex gap-6 py-8 border-b dark:border-white/5 border-black/5 opacity-0">
+                <div v-for="item in cart.items" :key="item.line_key" class="cart-item-anim flex gap-6 py-8 border-b dark:border-white/5 border-black/5 opacity-0">
                     <div class="w-24 h-32 flex-shrink-0 bg-surface-container overflow-hidden border dark:border-white/5 border-black/5">
                         <img :src="item.image" :alt="item.name" class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" />
                     </div>
@@ -186,12 +219,12 @@ const closeDrawer = () => {
                             <div class="flex items-center gap-4 text-xs font-label">
                                 <span class="dark:text-white/70 text-black/70 uppercase">Qty</span>
                                 <div class="flex items-center gap-3 border dark:border-white/10 border-black/10 px-3 py-1">
-                                    <button @click="cart.updateQuantity(item.id, -1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">-</button>
+                                    <button :aria-label="`Decrease quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, -1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">-</button>
                                     <span class="dark:text-white text-on-surface">{{ item.quantity }}</span>
-                                    <button @click="cart.updateQuantity(item.id, 1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">+</button>
+                                    <button :aria-label="`Increase quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, 1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">+</button>
                                 </div>
                             </div>
-                            <button @click="cart.removeItem(item.id)" class="text-[10px] font-label uppercase tracking-widest dark:text-white/70 text-black/70 hover:text-error transition-colors">Remove</button>
+                            <button @click="cart.removeItem(item.line_key)" class="text-[10px] font-label uppercase tracking-widest dark:text-white/70 text-black/70 hover:text-error transition-colors">Remove</button>
                         </div>
                     </div>
                 </div>

@@ -23,6 +23,8 @@ const submit = () => {
 <template>
     <GuestLayout>
         <Head title="Register" />
+        <h1 class="text-2xl font-headline mb-3">Create Account</h1>
+        <p class="text-sm text-on-surface-variant mb-6">Create an account to keep track of orders placed while signed in.</p>
 
         <form @submit.prevent="submit">
             <div>

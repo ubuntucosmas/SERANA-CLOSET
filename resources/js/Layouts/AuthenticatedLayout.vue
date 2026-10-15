@@ -1,4 +1,5 @@
 <script setup>
+import SiteSeo from '@/Components/SiteSeo.vue';
 import { ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -11,6 +12,7 @@ const showingNavigationDropdown = ref(false);
 </script>
 
 <template>
+    <SiteSeo />
     <div>
         <div class="min-h-screen bg-gray-100">
             <nav

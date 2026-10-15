@@ -68,9 +68,9 @@ const handleClose = () => {
                 <form @submit.prevent="submit" class="space-y-6">
                     <!-- Email -->
                     <div class="space-y-2">
-                        <label class="text-[9px] tracking-widest text-on-surface-variant font-bold ml-1">Login email</label>
+                        <label class="text-[9px] tracking-widest text-on-surface-variant font-bold ml-1" for="loginmodal-email">Login email</label>
                         <input 
-                            v-model="form.email"
+                            id="loginmodal-email" v-model="form.email"
                             type="email" 
                             required
                             placeholder="Email address"
@@ -82,11 +82,11 @@ const handleClose = () => {
                     <!-- Password -->
                     <div class="space-y-2">
                         <div class="flex justify-between items-center ml-1">
-                            <label class="text-[9px] tracking-widest text-on-surface-variant font-bold">Account password</label>
+                            <label class="text-[9px] tracking-widest text-on-surface-variant font-bold" for="loginmodal-password">Account password</label>
                             <Link :href="route('password.request')" class="text-[8px] tracking-widest text-primary/60 hover:text-primary transition-colors font-bold">Forgot?</Link>
                         </div>
                         <input 
-                            v-model="form.password"
+                            id="loginmodal-password" v-model="form.password"
                             type="password" 
                             required
                             placeholder="••••••••"

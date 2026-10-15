@@ -1,5 +1,5 @@
 <script setup>
-import { watch, onMounted } from 'vue';
+import { watch, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 import { animate } from 'animejs';
@@ -13,12 +13,9 @@ watch(() => page.props.flash, (flash) => {
     if (flash?.error) pulse.emit(flash.error, 'error');
 }, { deep: true, immediate: true });
 
-onMounted(() => {
-    // Legacy support for custom event
-    window.addEventListener('serana-toast', (e) => {
-        pulse.emit(e.detail.message, e.detail.type || 'success');
-    });
-});
+const handleToast = (event) => pulse.emit(event.detail.message, event.detail.type || 'success');
+onMounted(() => window.addEventListener('serana-toast', handleToast));
+onUnmounted(() => window.removeEventListener('serana-toast', handleToast));
 
 const enterAnimation = (el, done) => {
     animate(el, {
@@ -50,7 +47,7 @@ const leaveAnimation = (el, done) => {
 </script>
 
 <template>
-    <div class="fixed top-8 right-8 z-[200] pointer-events-none flex flex-col gap-3 items-end">
+    <div aria-live="polite" class="fixed top-4 right-4 sm:top-8 sm:right-8 z-[200] pointer-events-none flex flex-col gap-3 items-end">
         <transition-group 
             @enter="enterAnimation" 
             @leave="leaveAnimation"
@@ -59,7 +56,7 @@ const leaveAnimation = (el, done) => {
             <div 
                 v-for="note in pulse.notifications" 
                 :key="note.id"
-                class="pointer-events-auto w-80 md:w-96 bg-surface/90 backdrop-blur-xl border border-white/5 p-4 rounded-sm shadow-[0_15px_40px_rgba(0,0,0,0.6)] relative overflow-hidden group"
+                class="pointer-events-auto w-[min(20rem,calc(100vw-2rem))] md:w-96 bg-surface/90 backdrop-blur-xl border border-white/5 p-4 rounded-sm shadow-[0_15px_40px_rgba(0,0,0,0.6)] relative overflow-hidden group"
             >
                 <!-- Tech-Noir Scanner Element -->
                 <div class="absolute inset-0 pointer-events-none overflow-hidden">
@@ -79,10 +76,10 @@ const leaveAnimation = (el, done) => {
 
                     <div class="flex-1 space-y-1">
                         <div class="flex justify-between items-center">
-                            <span class="text-[8px] font-bold tracking-[0.4em] uppercase" :class="note.type === 'success' ? 'text-primary' : 'text-red-500'">
-                                SYSTEM_LOG // {{ note.type === 'success' ? '001' : 'ERR' }}
+                            <span class="text-[11px] font-bold tracking-[0.2em] uppercase" :class="note.type === 'success' ? 'text-primary' : 'text-red-500'">
+                                {{ note.type === 'success' ? 'Done' : 'Something went wrong' }}
                             </span>
-                            <button @click="pulse.remove(note.id)" class="text-white/20 hover:text-white transition-colors">
+                            <button aria-label="Dismiss notification" @click="pulse.remove(note.id)" class="text-white/20 hover:text-white transition-colors">
                                 <span class="material-symbols-outlined text-[14px]">close</span>
                             </button>
                         </div>

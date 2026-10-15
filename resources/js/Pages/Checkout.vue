@@ -5,7 +5,7 @@ import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 
@@ -15,6 +15,8 @@ const pulse = usePulseStore();
 const cart = useCartStore();
 const { formatAmount } = useCurrency();
 
+const errors = ref({});
+const orderAmount = ref(null);
 const isProcessing = ref(false);
 const isWaitingForStk = ref(false);
 // True only once the STK push has actually been dispatched. Kept separate from
@@ -45,6 +47,7 @@ let pollingInterval = null;
 const showSizing = ref(false);
 
 const form = ref({
+    request_id: crypto.randomUUID(),
     email: '',
     full_name: '',
     address: '',
@@ -57,6 +60,9 @@ const form = ref({
 });
 
 async function handlePayment() {
+    if (isProcessing.value || !cart.items.length) return;
+    if (orderId.value) { isWaitingForStk.value = true; return; }
+    errors.value = {};
     isProcessing.value = true;
     stkSent.value = false;
     try {
@@ -74,6 +80,9 @@ async function handlePayment() {
         const response = await axios.post(route('checkout.process'), payload);
         if (response.data.success && response.data.order_id) {
             orderId.value = response.data.order_id;
+            orderReference.value = response.data.reference;
+            orderAmount.value = response.data.amount;
+            frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
             isWaitingForStk.value = true;
             pulse.emit('Order created successfully.', 'success');
         } else {
@@ -82,7 +91,8 @@ async function handlePayment() {
     } catch (err) {
         console.error(err);
         if (err.response?.data?.errors) {
-            pulse.emit('Please check the form.', 'error');
+            errors.value = err.response.data.errors;
+            pulse.emit('Check the highlighted fields. Your order was not created.', 'error');
         } else {
             pulse.emit(err.response?.data?.message || 'Order processing failed.', 'error');
         }
@@ -92,6 +102,7 @@ async function handlePayment() {
 }
 
 async function initiateMpesaStk(data) {
+    if (isProcessing.value || stkSent.value || paymentPending.value) return;
     isProcessing.value = true;
     stkSent.value = false;
     paymentPending.value = false;
@@ -110,23 +121,27 @@ async function initiateMpesaStk(data) {
         }
     } catch (err) {
         console.error(err);
-        pulse.emit(err.response?.data?.message || 'Failed to initiate M-Pesa payment.', 'error');
+        if (!err.response || err.response.status >= 500) {
+            paymentPending.value = true;
+            stkSent.value = true;
+            startPolling();
+            pulse.emit('We could not confirm whether the request reached M-Pesa. Check this order before trying another payment.', 'error');
+        } else {
+            pulse.emit(err.response?.data?.message || 'M-Pesa could not start this request. Check your phone number and try again.', 'error');
+        }
     } finally {
         isProcessing.value = false;
     }
 }
 
 function closePaymentModal() {
-    if (pollingInterval) clearInterval(pollingInterval);
     isWaitingForStk.value = false;
-    stkSent.value = false;
     isSuccess.value = false;
-    paymentPending.value = false;
 }
 
 // Lock background scroll while the payment modal is open.
 watch(
-    [isWaitingForStk, isSuccess, isPaid],
+    [isWaitingForStk, isSuccess, isPaid, paymentPending],
     () => {
         const open = (isWaitingForStk.value && !isPaid.value) || isSuccess.value || paymentPending.value;
         if (typeof document !== 'undefined') {
@@ -156,6 +171,16 @@ function startPolling() {
             // Capture the tracking reference as soon as it's known, so the
             // pending hand-off can show it even before payment confirms.
             if (response.data.reference) orderReference.value = response.data.reference;
+            if (!response.data.is_paid && ['Payment Failed', 'Expired', 'Amount Mismatch'].includes(response.data.status)) {
+                clearInterval(pollingInterval);
+                stkSent.value = false;
+                isWaitingForStk.value = false;
+                paymentPending.value = false;
+                errors.value = { payment: [response.data.status === 'Payment Failed'
+                    ? 'Payment was not completed. Reopen payment to try again, or contact support if M-Pesa shows a charge.'
+                    : 'Payment needs review. Track this order or contact support before paying again.'] };
+                return;
+            }
             if (response.data.is_paid) {
                 clearInterval(pollingInterval);
                 isPaid.value = true;
@@ -165,14 +190,17 @@ function startPolling() {
                 paidAmount.value = response.data.amount ?? cart.totalPrice;
                 safaricomTransactionId.value = response.data.transaction_id;
                 receiptUrl.value = response.data.receipt_url;
-                frozenItems.value = [...cart.items];
                 frozenTotal.value = cart.totalPrice;
                 cart.clearBag();
-                pulse.emit('Payment Verified! Your order is now in production.', 'success');
+                pulse.emit('Payment confirmed. Track your order for fulfilment updates.', 'success');
             }
         } catch (err) { console.error('Polling error:', err); }
     }, 5000);
 }
+onUnmounted(() => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    document.body.style.overflow = '';
+});
 </script>
 
 <template>
@@ -202,7 +230,16 @@ function startPolling() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+                <p v-if="orderReference && !isPaid" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
+                <div v-if="Object.keys(errors).length" role="alert" class="mb-6 rounded-xl border border-red-400/40 p-5">
+                    <p class="font-semibold mb-2">Please check these details</p>
+                    <p v-for="(messages, field) in errors" :key="field" class="text-sm">{{ messages[0] }}</p>
+                </div>
+                <div v-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
+                    <h2 class="text-xl mb-3">Your bag is empty</h2>
+                    <Link :href="route('shop')" class="text-primary underline">Shop Collection</Link>
+                </div>
+                <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
                     <!-- LEFT: Order Summary -->
                     <aside class="lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
@@ -213,12 +250,13 @@ function startPolling() {
                             </div>
 
                             <div class="space-y-5">
-                                <div v-for="item in cart.items" :key="item.id" class="flex gap-4">
+                                <div v-for="item in cart.items" :key="item.line_key" class="flex gap-4">
                                     <div class="always-dark w-16 h-20 bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
                                         <img :src="item.image" class="w-full h-full object-cover" />
                                     </div>
                                     <div class="flex-1 min-w-0 pt-0.5">
                                         <div class="text-on-surface font-medium truncate">{{ item.name }}</div>
+                                        <p v-for="(value, key) in Object.fromEntries(Object.entries(item.options || {}).filter(([, value]) => value))" :key="key" class="text-xs text-on-surface-variant">{{ key.replaceAll('_', ' ') }}: {{ value }}</p>
                                         <div class="text-xs text-on-surface-variant mt-0.5">Qty · {{ item.quantity }}</div>
                                         <div class="text-primary font-mono text-sm mt-2">{{ formatAmount(item.price * item.quantity) }}</div>
                                     </div>
@@ -246,7 +284,7 @@ function startPolling() {
                             <div v-for="t in [
                                 { icon: 'lock', label: 'Encrypted' },
                                 { icon: 'verified_user', label: 'Safaricom' },
-                                { icon: 'bolt', label: 'Instant' },
+                                { icon: 'receipt_long', label: 'Receipt by email' },
                             ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-4 bg-surface-container border border-white/5">
                                 <span class="material-symbols-outlined text-[#4fb33f] text-lg">{{ t.icon }}</span>
                                 <span class="text-[9px] tracking-widest text-on-surface-variant font-bold">{{ t.label }}</span>
@@ -267,23 +305,27 @@ function startPolling() {
                             <div class="space-y-5">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Full Name</label>
-                                        <input v-model="form.full_name" type="text" placeholder="Your legal name" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-full_name">Full Name</label>
+                                        <input id="checkout-full_name" autocomplete="name" required :aria-invalid="!!errors.full_name" v-model="form.full_name" type="text" placeholder="Your legal name" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.full_name" class="text-sm text-red-400 mt-2">{{ errors.full_name[0] }}</p>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Email</label>
-                                        <input v-model="form.email" type="email" placeholder="you@email.com" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-email">Email</label>
+                                        <input id="checkout-email" autocomplete="email" required :aria-invalid="!!errors.email" v-model="form.email" type="email" placeholder="you@email.com" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.email" class="text-sm text-red-400 mt-2">{{ errors.email[0] }}</p>
                                     </div>
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Address</label>
-                                        <input v-model="form.address" type="text" placeholder="House & Street" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-address">Address</label>
+                                        <input id="checkout-address" autocomplete="street-address" required :aria-invalid="!!errors.address" v-model="form.address" type="text" placeholder="House & Street" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.address" class="text-sm text-red-400 mt-2">{{ errors.address[0] }}</p>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">City</label>
-                                        <input v-model="form.city" type="text" placeholder="Nairobi" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-city">City</label>
+                                        <input id="checkout-city" autocomplete="address-level2" required :aria-invalid="!!errors.city" v-model="form.city" type="text" placeholder="Nairobi" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.city" class="text-sm text-red-400 mt-2">{{ errors.city[0] }}</p>
                                     </div>
                                 </div>
 
@@ -295,8 +337,8 @@ function startPolling() {
                                     </button>
                                     <div v-if="showSizing" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                         <div v-for="f in ['height_cm','bust_cm','waist_cm','hips_cm']" :key="f">
-                                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-1.5 block">{{ f.replace('_cm','') }} (cm)</label>
-                                            <input v-model="form[f]" type="number" class="w-full bg-background border border-white/10 px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+                                            <label :for="`checkout-${f}`" class="text-[10px] tracking-widest text-on-surface-variant mb-1.5 block">{{ f.replace('_cm','') }} (cm)</label>
+                                            <input :id="`checkout-${f}`" v-model="form[f]" type="number" class="w-full bg-background border border-white/10 px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
                                         </div>
                                     </div>
                                 </div>
@@ -312,10 +354,11 @@ function startPolling() {
                             </div>
 
                             <!-- M-PESA number -->
-                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">M-PESA Number</label>
+                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-phone">M-PESA Number</label>
                             <div class="flex">
                                 <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#4fb33f] font-mono font-bold text-sm">+254</span>
-                                <input v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
+                                <input id="checkout-phone" autocomplete="tel" required :aria-invalid="!!errors.phone" v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
+                                        <p v-if="errors.phone" class="text-sm text-red-400 mt-2">{{ errors.phone[0] }}</p>
                             </div>
 
                             <!-- How it works -->
@@ -329,14 +372,15 @@ function startPolling() {
                                 </template>
                             </div>
 
+                            <p class="text-sm text-on-surface-variant mb-5">All delivery fields are required. You’ll review the current catalogue total before approving a payment on your phone.</p>
                             <!-- Pay button -->
                             <button
                                 @click="handlePayment"
-                                :disabled="isProcessing || !form.full_name || !form.phone || !form.address"
+                                :disabled="isProcessing || !form.full_name || !form.email || !form.city || !form.phone || !form.address"
                                 class="w-full py-5 bg-[#4fb33f] text-black font-black tracking-wider text-sm flex items-center justify-center gap-3 hover:bg-[#5cc94a] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_20px_40px_-12px_rgba(79,179,63,0.5)]">
                                 <template v-if="!isProcessing">
                                     <span class="material-symbols-outlined">lock</span>
-                                    Pay {{ formatAmount(cart.totalPrice) }}
+                                    {{ orderId ? 'Resume Payment' : 'Review Order & Pay' }}
                                 </template>
                                 <template v-else>
                                     <span class="material-symbols-outlined animate-spin">progress_activity</span>
@@ -408,18 +452,14 @@ function startPolling() {
                                     >
                                         Track my order
                                     </Link>
-                                    <button
-                                        @click="initiateMpesaStk({ phone: form.phone })"
-                                        class="flex-1 bg-black/5 dark:bg-black text-[#191c1b] dark:text-white font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest border border-black/10 dark:border-white/10 hover:bg-black/10 transition-all"
-                                    >
-                                        Try payment again
-                                    </button>
+
                                 </div>
                             </div>
 
                             <MpesaStkPanel
                                 v-else-if="!isPaid"
-                                :amount="cart.totalPrice"
+                                :amount="orderAmount ?? cart.totalPrice"
+                                :reference="orderReference"
                                 :phone="form.phone"
                                 :status="stkPanelStatus"
                                 @pay="initiateMpesaStk"

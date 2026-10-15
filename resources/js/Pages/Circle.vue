@@ -23,7 +23,6 @@ function getGridClass(index) {
     <StorefrontLayout>
         <Head>
             <title>The Circle | Serana Social Proof</title>
-            <meta name="description" content="Witness the Serana Standard in the real world. A curated gallery of our most striking commissions and global client features.">
         </Head>
 
         <main class="pb-24 bg-surface/5">
@@ -98,20 +97,8 @@ function getGridClass(index) {
                         <h2 class="font-headline text-4xl lg:text-5xl font-medium dark:text-white text-on-surface mb-8">
                             Pass the <span class="text-primary">Standard.</span>
                         </h2>
-                        <p class="dark:text-white/40 text-black/40 font-body text-lg mb-12">
-                            Invitations to join the Serana Circle are exclusive. Every piece we craft is a testament to trust. Want to recommend a friend to the studio?
-                        </p>
-                        
-                        <div v-if="!$page.props.auth?.user">
-                            <Link :href="route('login')" class="inline-flex items-center gap-4 bg-white/10 border dark:border-white/20 border-black/20 dark:text-white text-on-surface px-10 py-5 rounded-sm font-headline text-xs tracking-wider font-medium hover:bg-white hover:text-black transition-all shadow-none">
-                                Join the vault to invite <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                            </Link>
-                        </div>
-                        <div v-else>
-                            <Link :href="route('profile.designs')" class="inline-flex items-center gap-4 bg-transparent border border-primary/50 text-primary px-10 py-5 rounded-sm font-headline text-xs tracking-wider font-medium hover:bg-primary hover:text-black transition-all">
-                                Generate invitation code <span class="material-symbols-outlined text-sm">qr_code_2</span>
-                            </Link>
-                        </div>
+                        <p class="text-on-surface-variant text-lg mb-8">Inspired by a piece in the gallery? Share your ideas with the studio and we’ll discuss the design, fit and price with you.</p>
+                        <Link :href="route('custom-order')" class="action-primary">Start Bespoke Request</Link>
                     </div>
                 </section>
 

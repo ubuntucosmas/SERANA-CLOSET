@@ -47,11 +47,32 @@ onMounted(() => {
     <StorefrontLayout flushTop>
         <Head>
             <title>Serana Closet | Custom Studio</title>
-            <meta name="description" content="Nairobi's elite bespoke fashion house. Merging traditional tailoring with futuristic digital precision. Experience the Serana Standard of custom wear.">
         </Head>
 
         <!-- 1. Hero -->
         <HeroSection />
+
+        <section v-reveal class="px-6 md:px-8 py-10 md:py-14">
+            <div class="mx-auto max-w-screen-xl rounded-[2rem] border border-primary/20 bg-surface/80 p-4 shadow-[0_20px_60px_rgba(11,125,163,0.08)] backdrop-blur-xl md:p-6">
+                <div class="grid gap-4 md:grid-cols-3">
+                    <div class="rounded-2xl border border-black/5 bg-background/70 p-5 transition-transform duration-300 hover:-translate-y-1">
+                        <p class="text-[10px] font-headline font-black tracking-[0.35em] uppercase text-primary">01</p>
+                        <h3 class="mt-3 text-2xl font-headline font-medium text-on-surface">Bespoke fit</h3>
+                        <p class="mt-2 text-sm text-on-surface-variant">Tailored guidance to help you choose silhouettes, fabrics, and sizes that fit your lifestyle.</p>
+                    </div>
+                    <div class="rounded-2xl border border-black/5 bg-background/70 p-5 transition-transform duration-300 hover:-translate-y-1">
+                        <p class="text-[10px] font-headline font-black tracking-[0.35em] uppercase text-primary">02</p>
+                        <h3 class="mt-3 text-2xl font-headline font-medium text-on-surface">Fast styling</h3>
+                        <p class="mt-2 text-sm text-on-surface-variant">A streamlined shopping flow with quick decisions, clear sizing cues, and support when you need it.</p>
+                    </div>
+                    <div class="rounded-2xl border border-black/5 bg-background/70 p-5 transition-transform duration-300 hover:-translate-y-1">
+                        <p class="text-[10px] font-headline font-black tracking-[0.35em] uppercase text-primary">03</p>
+                        <h3 class="mt-3 text-2xl font-headline font-medium text-on-surface">Secure checkout</h3>
+                        <p class="mt-2 text-sm text-on-surface-variant">Review your bag, confirm delivery details and pay securely with M-Pesa.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- 1b. Live Drop launchpad -->
         <section v-if="featuredDrop" v-reveal class="px-6 md:px-8 py-10 md:py-14">
@@ -119,9 +140,9 @@ onMounted(() => {
                 <div class="flex items-center gap-10">
                     <div class="space-y-2">
                         <p class="text-[9px] font-headline font-medium tracking-wider text-primary">Studio Status</p>
-<h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] ">
-                             <span class="split-text">Our</span> <span class="split-text"><span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent font-medium">Collection</span></span>_
-                         </h1>
+<h2 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] ">
+                             <span class="split-text">Our</span> <span class="split-text"><span class="bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent font-medium">Collection</span></span>
+                         </h2>
                         <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-on-surface-variant tracking-wider font-medium leading-loose font-sans">
                             Nairobi's high-tech maker space. Engineering high-fashion silhouettes with careful precision and digital craft.
                         </p>
@@ -144,7 +165,7 @@ onMounted(() => {
                 </div>
 
                 <Link :href="route('custom-order')" class="hidden lg:flex items-center gap-6 px-10 py-5 border dark:border-white/10 border-black/10 rounded-sm text-[10px] font-headline font-medium tracking-wider hover:bg-white hover:text-background transition-all">
-                    Book Custom <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                    Start Bespoke Request <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                 </Link>
             </div>
         </section>

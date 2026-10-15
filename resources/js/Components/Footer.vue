@@ -14,17 +14,15 @@ const whatsapp = computed(() => `https://wa.me/${usePage().props.whatsapp_number
 
 // Navigation Links
 const exploreLinks = [
-    { label: 'The Archive', href: route('shop') },
-    { label: 'Custom Studio', href: route('custom-order') },
+    { label: 'Shop Collection', href: route('shop') },
+    { label: 'Bespoke', href: route('custom-order') },
     { label: 'Track Your Order', href: route('track') },
     { label: 'Our Story', href: route('about') },
 ];
 
 const legalLinks = [
-    { label: 'Shipping & Logistics', href: '#' },
-    { label: 'Privacy Policy', href: '#' },
-    { label: 'Terms of Service', href: '#' },
-    { label: 'Studio Authenticity', href: '#' },
+    { label: 'Contact & Delivery Help', href: route('contact') },
+    { label: 'About Serana', href: route('about') },
 ];
 
 const form = useForm({
@@ -78,7 +76,7 @@ function subscribe() {
 
             <!-- Explore Column -->
             <div>
-                <h4 class="text-primary font-headline font-black text-[11px] tracking-wider mb-10">Archive core</h4>
+                <h4 class="text-primary font-headline font-black text-[11px] tracking-wider mb-10">Explore</h4>
                 <ul class="space-y-5">
                     <li v-for="link in exploreLinks" :key="link.label">
                         <Link :href="link.href" class="text-on-surface-variant font-body text-sm hover:text-primary transition-all duration-300 block">
@@ -90,7 +88,7 @@ function subscribe() {
 
             <!-- Legal Column -->
             <div>
-                <h4 class="text-on-surface-variant font-headline font-black text-[11px] tracking-wider mb-10 opacity-70">Standards</h4>
+                <h4 class="text-on-surface-variant font-headline font-black text-[11px] tracking-wider mb-10 opacity-70">Help</h4>
                 <ul class="space-y-5">
                     <li v-for="link in legalLinks" :key="link.label">
                         <Link :href="link.href" class="text-on-surface-variant font-body text-sm hover:text-primary transition-all duration-300 block">
@@ -106,12 +104,14 @@ function subscribe() {
                 <div class="flex flex-col gap-6">
                     <p class="text-[11px] dark:text-white text-on-surface font-headline tracking-wider leading-relaxed font-black">Join our newsletter for priority notifications on new limited batch drops.</p>
                     <form @submit.prevent="subscribe" class="flex gap-2">
-                        <input v-model="form.email" type="email" placeholder="Your email" class="flex-grow dark:bg-white/5 dark:bg-black bg-white/5 dark:border-white/10 border-black/10 text-[11px] font-headline tracking-wider px-6 py-5 rounded-xl focus:border-primary/50 focus:ring-0 transition-all dark:text-white text-on-surface placeholder:text-on-surface-variant/30 font-black outline-none" required />
-                        <button type="submit" :disabled="form.processing" class="bg-primary text-background px-4 py-4 rounded-xl hover:shadow-[0_0_20px_rgba(57, 255, 20,0.3)] transition-all flex items-center justify-center">
+                        <input v-model="form.email" type="email" aria-label="Email address for newsletter" placeholder="Your email" class="flex-grow dark:bg-white/5 dark:bg-black bg-white/5 dark:border-white/10 border-black/10 text-[11px] font-headline tracking-wider px-6 py-5 rounded-xl focus:border-primary/50 focus:ring-0 transition-all dark:text-white text-on-surface placeholder:text-on-surface-variant/30 font-black outline-none" required />
+                        <button aria-label="Subscribe to newsletter" type="submit" :disabled="form.processing" class="bg-primary text-background px-4 py-4 rounded-xl hover:shadow-[0_0_20px_rgba(57, 255, 20,0.3)] transition-all flex items-center justify-center">
                             <span v-if="form.processing" class="animate-spin material-symbols-outlined text-sm">sync</span>
                             <span v-else class="material-symbols-outlined text-sm">arrow_forward</span>
                         </button>
                     </form>
+                    <p v-if="form.recentlySuccessful" role="status" class="text-sm text-primary">You’re subscribed. Watch your inbox for new Drops.</p>
+                    <p v-if="form.errors.email" role="alert" class="text-sm text-red-400">{{ form.errors.email }}</p>
                 </div>
             </div>
         </div>

@@ -8,7 +8,7 @@
             <!-- 1. Left Vector: Brand & Pulse -->
             <div class="flex items-center gap-10 relative z-20">
 <Link :href="route('home')" class="flex-shrink-0">
-                     <ApplicationLogo class="[&_h1]:text-3xl md:[&_h1]:text-4xl" />
+                     <ApplicationLogo class="" />
                 </Link>
             </div>
 
@@ -48,7 +48,7 @@
                                     </Link>
                                 </div>
                                 <Link :href="route('shop')" class="inline-flex items-center gap-2 text-[10px] font-headline font-medium text-primary hover:dark:text-white text-on-surface transition-colors tracking-wider">
-                                    View all items_ <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
+                                    Shop Collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
                                 </Link>
                             </div>
                             <div class="aspect-square bg-transparent border dark:border-white/5 border-black/5 rounded-sm p-1 overflow-hidden border dark:border-white/5 border-black/5 relative">
@@ -61,7 +61,7 @@
                 <!-- Custom Order Dropdown -->
                 <div class="group relative">
 <Link :href="route('custom-order')" class="nav-link flex items-center gap-2" :class="{ 'active': isActive('custom-order*') }">
-                        Custom
+                        Bespoke
                     </Link>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-8 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-400 w-[500px]">
                         <div class="bg-background/95 backdrop-blur-3xl border border-primary/15 shadow-2xl p-10 grid grid-cols-2 gap-10">
@@ -105,7 +105,7 @@
                     </a>
                 </div>
 
-                <div class="flex items-center gap-8">
+                <div class="flex items-center gap-6 md:gap-8">
                     <button @click="cart.isOpen = true" title="Shopping Bag" class="relative icon-btn dark:text-white/80 text-black/80 hover:text-primary !p-0">
                         <span class="material-symbols-outlined !text-[26px]">shopping_bag</span>
                         <span v-if="cart.totalItems > 0" class="absolute -top-2 -right-2 bg-primary text-black text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(57, 255, 20,0.4)]">
@@ -113,16 +113,28 @@
                         </span>
                     </button>
 
+                    <button
+                        type="button"
+                        class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-full border border-black/10 bg-white/10 text-on-surface hover:text-primary transition-all"
+                        aria-label="Toggle menu"
+                        :aria-expanded="mobileMenuOpen"
+                        @click="mobileMenuOpen = !mobileMenuOpen"
+                    >
+                        <span class="material-symbols-outlined !text-[22px]">
+                            {{ mobileMenuOpen ? 'close' : 'menu' }}
+                        </span>
+                    </button>
+
                     <template v-if="!$page.props.auth?.user">
-                        <button @click="showLogin = true" class="font-headline font-medium text-[10px] tracking-wider dark:text-white text-on-surface hover:text-primary transition-all pr-4">
-                            Log in
-                        </button>
+                        <Link :href="route('login')" class="hidden sm:inline-flex font-headline font-medium text-[10px] tracking-wider dark:text-white text-on-surface hover:text-primary transition-all pr-4">
+                            Sign In
+                        </Link>
                     </template>
                     <template v-else>
                         <Link v-if="$page.props.auth?.user?.role === 'admin'" :href="route('studio.index')" class="icon-btn dark:text-white/60 text-black/60 hover:text-primary" title="Studio Admin">
                             <span class="material-symbols-outlined !text-[28px]">dashboard</span>
                         </Link>
-                        <Link :href="route('profile.edit')" class="icon-btn dark:text-white/80 text-black/80 hover:text-primary" title="My Profile">
+                        <Link :href="route('profile.designs')" class="icon-btn dark:text-white/80 text-black/80 hover:text-primary" title="Your Orders">
                             <span class="material-symbols-outlined !text-[26px]">account_circle</span>
                         </Link>
                     </template>
@@ -131,8 +143,27 @@
             </div>
         </div>
 
+        <transition name="mobile-nav-slide">
+            <div v-if="mobileMenuOpen" class="lg:hidden fixed inset-0 z-40 pt-28 px-5">
+                <div class="absolute inset-0 bg-background/90 backdrop-blur-2xl" @click="mobileMenuOpen = false"></div>
+                <div class="relative z-10 rounded-3xl border border-black/10 bg-surface/95 p-5 shadow-2xl">
+                    <div class="space-y-2">
+                        <Link v-for="item in mobileNavItems" :key="item.route" :href="route(item.route)" class="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3 text-sm font-medium transition-all hover:border-primary/30 hover:bg-primary/5" :class="isActive(item.active || item.route) ? 'text-primary border-primary/30 bg-primary/5' : 'text-on-surface dark:text-white'" @click="closeMobileMenu()">
+                            <span>{{ item.label }}</span>
+                            <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </Link>
+                    </div>
+
+                    <div v-if="!$page.props.auth?.user" class="mt-5 border-t border-black/5 pt-5">
+                        <Link :href="route('login')" @click="closeMobileMenu()" class="w-full rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-background">
+                            Sign In
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
         <!-- Identity Access Modal -->
-        <LoginModal v-if="showLogin" @close="showLogin = false" />
     </nav>
 </template>
 
@@ -141,16 +172,25 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
-import LoginModal from '@/Components/LoginModal.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 
 const cart = useCartStore();
 
-const showLogin = ref(false);
 const scrolled = ref(false);
+const mobileMenuOpen = ref(false);
 const page = usePage();
 
 const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
+
+const mobileNavItems = [
+    { label: 'Home', route: 'home', active: 'home' },
+    { label: 'Drops', route: 'drops', active: 'drops*' },
+    { label: 'Shop', route: 'shop', active: 'shop*' },
+    { label: 'Bespoke', route: 'custom-order', active: 'custom-order*' },
+    { label: 'About', route: 'about', active: 'about' },
+    { label: 'Community', route: 'circle', active: 'circle' },
+    { label: 'Track Order', route: 'track', active: 'track' },
+];
 
 function isActive(routeName) {
     try {
@@ -160,16 +200,21 @@ function isActive(routeName) {
     }
 }
 
+function closeMobileMenu() {
+    mobileMenuOpen.value = false;
+}
+
+const handleScroll = () => {
+    scrolled.value = window.scrollY > 50;
+};
+
 onMounted(() => {
-    window.addEventListener('scroll', () => {
-        scrolled.value = window.scrollY > 50;
-    });
+    handleScroll();
+    window.addEventListener('scroll', handleScroll);
 });
 
 onUnmounted(() => {
-    window.removeEventListener('scroll', () => {
-        scrolled.value = window.scrollY > 50;
-    });
+    window.removeEventListener('scroll', handleScroll);
 });
 </script>
 
@@ -227,5 +272,15 @@ onUnmounted(() => {
 .pulse-slide-leave-to {
     transform: translateY(-100%);
     opacity: 0;
+}
+
+.mobile-nav-slide-enter-active,
+.mobile-nav-slide-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.mobile-nav-slide-enter-from,
+.mobile-nav-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-16px);
 }
 </style>

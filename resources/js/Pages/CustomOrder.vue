@@ -46,6 +46,7 @@ const fabrics = [
 ];
 
 const form = reactive({
+    request_id: crypto.randomUUID(),
     full_name: "",
     whatsapp_number: "",
     location: "",
@@ -109,6 +110,7 @@ function validateField(field) {
 }
 
 async function submitOrder() {
+    if (isSubmitting.value) return;
     validationErrors.value = {};
     if (!form.full_name || !form.whatsapp_number) {
         if (!form.full_name)
@@ -192,7 +194,7 @@ function resetForm() {
             <div class="max-w-5xl mx-auto px-6 sm:px-8">
                 <!-- Modern Header -->
                 <div v-if="!submitted" class="mb-12 text-center">
-                    <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">Private Commission</p>
+                    <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">Bespoke Request</p>
                     <h1
                         class="text-5xl md:text-7xl font-headline font-light tracking-tight leading-[0.95]"
                     >
@@ -201,7 +203,7 @@ function resetForm() {
                     <p
                         class="mt-4 text-lg text-on-surface-variant max-w-md mx-auto"
                     >
-                        A private briefing for the atelier — we cut and sew it to your exact measurements.
+                        Tell us what you have in mind. We’ll discuss the design, quote and timing with you.
                     </p>
                 </div>
 
@@ -221,10 +223,9 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >Full Name</label
-                                >
+                                     for="customorder-full_name">Full Name</label>
                                 <input
-                                    v-model="form.full_name"
+                                    id="customorder-full_name" v-model="form.full_name"
                                     @blur="validateField('full_name')"
                                     type="text"
                                     required
@@ -241,10 +242,9 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >WhatsApp Number</label
-                                >
+                                     for="customorder-whatsapp_number">WhatsApp Number</label>
                                 <input
-                                    v-model="form.whatsapp_number"
+                                    id="customorder-whatsapp_number" v-model="form.whatsapp_number"
                                     type="tel"
                                     required
                                     class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
@@ -256,10 +256,9 @@ function resetForm() {
                         <div class="mt-6">
                             <label
                                 class="block text-sm text-on-surface-variant mb-2"
-                                >City / Country</label
-                            >
+                                 for="customorder-location">City / Country</label>
                             <input
-                                v-model="form.location"
+                                id="customorder-location" v-model="form.location"
                                 type="text"
                                 class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
                                 placeholder="Nairobi, Kenya"
@@ -280,7 +279,7 @@ function resetForm() {
                         <div>
                             <label
                                 class="block text-sm text-on-surface-variant mb-3"
-                                >What are we making?</label
+                                 for="customorder-occasion">What are we making?</label
                             >
                             <div class="flex flex-wrap gap-2">
                                 <button
@@ -304,10 +303,9 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >Occasion</label
-                                >
+                                    >Occasion</label>
                                 <input
-                                    v-model="form.occasion"
+                                    id="customorder-occasion" v-model="form.occasion"
                                     type="text"
                                     placeholder="Wedding, Gala, Daily wear..."
                                     class="w-full bg-background border border-white/20 focus:border-primary px-5 py-4 rounded-2xl"
@@ -316,10 +314,9 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >When do you need it?</label
-                                >
+                                     for="customorder-deadline">When do you need it?</label>
                                 <input
-                                    v-model="form.deadline"
+                                    id="customorder-deadline" v-model="form.deadline"
                                     type="date"
                                     class="w-full bg-background border border-white/20 focus:border-primary px-5 py-4 rounded-xl text-white"
                                 />
@@ -403,7 +400,7 @@ function resetForm() {
                         <div class="mb-8">
                             <label
                                 class="block text-sm text-on-surface-variant mb-3"
-                                >Preferred Fabric</label
+                                 for="customorder-notes">Preferred Fabric</label
                             >
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 <div
@@ -526,10 +523,9 @@ function resetForm() {
                         <div>
                             <label
                                 class="block text-sm text-on-surface-variant mb-2"
-                                >Anything else we should know?</label
-                            >
+                                >Anything else we should know?</label>
                             <textarea
-                                v-model="form.notes"
+                                id="customorder-notes" v-model="form.notes"
                                 rows="3"
                                 placeholder="Special requests, fit preferences, deadline pressure..."
                                 class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3 rounded-xl text-sm resize-y"
@@ -537,30 +533,7 @@ function resetForm() {
                         </div>
                     </div>
 
-                    <!-- Priority Pass -->
-                    <div
-                        class="flex items-center justify-between bg-surface border border-white/10 rounded-3xl px-7 py-5"
-                    >
-                        <div>
-                            <div class="font-medium">Expedite my order</div>
-                            <div class="text-sm text-on-surface-variant">
-                                Skip the standard queue (+KSh 1,500)
-                            </div>
-                        </div>
-                        <label
-                            class="relative inline-flex items-center cursor-pointer"
-                        >
-                            <input
-                                type="checkbox"
-                                v-model="form.priority_pass"
-                                class="sr-only peer"
-                            />
-                            <div
-                                class="w-11 h-6 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"
-                            ></div>
-                        </label>
-                    </div>
-
+                    <p class="text-sm text-on-surface-variant">Your name and WhatsApp number are required. Measurements and other details are optional. No payment is taken here; the studio will confirm the design, price and timing with you on WhatsApp.</p>
                     <!-- Submit -->
                     <button
                         type="submit"
@@ -569,8 +542,8 @@ function resetForm() {
                     >
                         <span>{{
                             isSubmitting
-                                ? "Sending to the atelier…"
-                                : "Send brief to the atelier"
+                                ? "Saving Request…"
+                                : "Submit Bespoke Request"
                         }}</span>
                         <span
                             v-if="!isSubmitting"
@@ -582,8 +555,7 @@ function resetForm() {
                     <p
                         class="text-center text-xs text-on-surface-variant/70 tracking-wider"
                     >
-                        We’ll receive your brief on WhatsApp and reply within a
-                        few hours.
+                        Your request is saved first. Open WhatsApp to send the brief to the studio and discuss the quote and timing.
                     </p>
 
                     <div
@@ -599,7 +571,7 @@ function resetForm() {
                     <div class="w-20 h-20 mx-auto flex items-center justify-center bg-[#4fb33f]/12 border border-[#4fb33f]/30 mb-8">
                         <span class="material-symbols-outlined text-[#4fb33f] text-4xl" style="font-variation-settings:'FILL' 1">task_alt</span>
                     </div>
-                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Your brief is ready.</h2>
+                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Bespoke Request Saved</h2>
                     <p class="text-on-surface-variant leading-relaxed mb-10">
                         We’ve opened WhatsApp so you can send your commission brief to the atelier.
                         If it didn’t open automatically, tap the button below — then just hit send.

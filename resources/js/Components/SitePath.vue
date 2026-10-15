@@ -1,35 +1,25 @@
 <script setup>
 import { computed } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-
+import { Link, usePage } from '@inertiajs/vue3';
 const page = usePage();
-
-const pathSegments = computed(() => {
-    const url = page.url.split('?')[0]; // Strip query params
-    const segments = url.split('/').filter(Boolean);
-    
-    if (segments.length === 0) return ['ROOT', 'HOME'];
-    
-    return ['ROOT', ...segments.map(s => s.toUpperCase().replace(/[-_]/g, '_'))];
+const breadcrumbs = computed(() => {
+    const path = page.url.split('?')[0];
+    if (path.startsWith('/shop/')) return [{ label: 'Shop', href: route('shop') }, { label: page.props.product?.name || 'Product' }];
+    if (path.startsWith('/drops/')) return [{ label: 'Drops', href: route('drops') }, { label: page.props.drop?.title || 'Drop' }];
+    if (path === '/checkout') return [{ label: 'Your Bag', href: route('cart') }, { label: 'Checkout' }];
+    if (path === '/profile') return [{ label: 'Your Orders', href: route('profile.designs') }, { label: 'Account Settings' }];
+    return [];
 });
 </script>
 
 <template>
-    <div class="fixed bottom-10 left-10 z-[100] hidden lg:flex items-center gap-3 font-mono text-[8px] uppercase tracking-[0.4em] opacity-20 hover:opacity-60 transition-all cursor-default select-none group">
-        <div class="flex items-center gap-1">
-            <span class="text-primary animate-pulse">●</span>
-            <span class="text-primary">SERANA://</span>
-        </div>
-        <div class="flex items-center gap-2">
-            <template v-for="(segment, index) in pathSegments" :key="index">
-                <span :class="index === pathSegments.length - 1 ? 'text-white' : 'text-white/40'">{{ segment }}</span>
-                <span v-if="index < pathSegments.length - 1" class="text-white/10">❯</span>
-            </template>
-        </div>
-        <!-- Coordinate Metadata (Faux) -->
-        <div class="ml-10 flex gap-4 text-white/5 group-hover:text-white/10 transition-colors">
-            <span>LOC:{{ Math.floor(Math.random() * 1000) }}.{{ Math.floor(Math.random() * 90) }}</span>
-            <span>OS:SRN_V2</span>
-        </div>
-    </div>
+    <nav v-if="breadcrumbs.length" aria-label="Breadcrumb" class="max-w-screen-xl mx-auto px-6 mb-6 text-sm text-on-surface-variant">
+        <ol class="flex flex-wrap items-center gap-2">
+            <li v-for="(crumb, index) in breadcrumbs" :key="crumb.label" class="flex items-center gap-2">
+                <span v-if="index" aria-hidden="true">/</span>
+                <Link v-if="crumb.href" :href="crumb.href" class="hover:text-primary underline underline-offset-4">{{ crumb.label }}</Link>
+                <span v-else aria-current="page">{{ crumb.label }}</span>
+            </li>
+        </ol>
+    </nav>
 </template>

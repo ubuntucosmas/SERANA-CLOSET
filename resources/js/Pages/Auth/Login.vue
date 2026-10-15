@@ -27,7 +27,7 @@ const submit = () => {
 
 <template>
     <StorefrontLayout>
-        <Head title="Identity Access" />
+        <Head title="Sign In" />
 
         <div class="min-h-screen pt-32 pb-20 flex items-center justify-center px-6">
             <div class="w-full max-w-md bg-surface-container/40 border dark:border-white/5 border-black/5 rounded-3xl overflow-hidden backdrop-blur-2xl shadow-2xl">
@@ -36,8 +36,8 @@ const submit = () => {
 
                 <div class="p-10">
                     <div class="text-center mb-10">
-                        <h2 class="font-headline text-4xl font-black dark:text-white text-on-surface mb-2 tracking-tighter">Identity <span class="text-primary luminous-glow">Access</span></h2>
-                        <p class="text-[10px] text-on-surface-variant tracking-[0.3em] font-bold">Authorized staff only</p>
+                        <h1 class="font-headline text-4xl font-black dark:text-white text-on-surface mb-2 tracking-tighter">Sign <span class="text-primary">In</span></h1>
+                        <p class="text-[10px] text-on-surface-variant tracking-[0.3em] font-bold">Sign in to view your orders and account details</p>
                     </div>
 
                     <div v-if="status" class="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-xl text-primary text-xs font-bold tracking-widest text-center">
@@ -47,13 +47,13 @@ const submit = () => {
                     <form @submit.prevent="submit" class="space-y-6">
                         <!-- Email -->
                         <div class="space-y-2">
-                            <label class="text-[9px] tracking-widest text-on-surface-variant font-bold ml-1">Archive identifier</label>
+                            <label class="text-[9px] tracking-widest text-on-surface-variant font-bold ml-1" for="login-email">Email Address</label>
                             <input 
-                                v-model="form.email"
+                                id="login-email" v-model="form.email"
                                 type="email" 
                                 required
                                 autofocus
-                                placeholder="Email identifier"
+                                placeholder="you@example.com"
                                 class="w-full bg-surface-container/50 border dark:border-white/10 border-black/10 rounded-xl px-5 py-4 text-sm font-mono dark:text-white text-on-surface focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all placeholder:opacity-20"
                             />
                             <InputError :message="form.errors.email" />
@@ -62,11 +62,11 @@ const submit = () => {
                         <!-- Password -->
                         <div class="space-y-2">
                             <div class="flex justify-between items-center ml-1">
-                                <label class="text-[9px] tracking-widest text-on-surface-variant font-bold">Account password</label>
+                                <label class="text-[9px] tracking-widest text-on-surface-variant font-bold" for="login-password">Account password</label>
                                 <Link v-if="canResetPassword" :href="route('password.request')" class="text-[8px] tracking-widest text-primary/60 hover:text-primary transition-colors font-bold">Forgot?</Link>
                             </div>
                             <input 
-                                v-model="form.password"
+                                id="login-password" v-model="form.password"
                                 type="password" 
                                 required
                                 placeholder="••••••••"
@@ -82,7 +82,7 @@ const submit = () => {
                                 type="checkbox" 
                                 class="w-4 h-4 rounded-md bg-surface-container dark:border-white/10 border-black/10 text-primary focus:ring-offset-0 focus:ring-primary/20 transition-all"
                             />
-                            <span class="text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors font-bold">Retain Session</span>
+                            <span class="text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors font-bold">Remember Me</span>
                         </label>
 
                         <!-- Submit -->
@@ -91,19 +91,17 @@ const submit = () => {
                             :disabled="form.processing"
                             class="w-full py-5 bg-primary text-background rounded-2xl font-headline font-black tracking-[0.2em] text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30_rgba(57,255,20,0.2)] disabled:opacity-50 disabled:hover:scale-100"
                         >
-                            <span v-if="!form.processing">Authorize access</span>
+                            <span v-if="!form.processing">Sign In</span>
                             <span v-else class="flex items-center justify-center gap-2">
                                 <span class="w-3 h-3 border-2 border-background/20 border-t-background rounded-full animate-spin"></span>
-                                Validating...
+                                Signing In…
                             </span>
                         </button>
                     </form>
 
                     <div class="mt-8 pt-8 border-t dark:border-white/5 border-black/5 text-center">
-                        <p class="text-[9px] text-on-surface-variant tracking-widest leading-relaxed">
-                            By accessing this portal, you agree to the <br/>
-                            <span class="text-on-surface font-bold">Serana Digital Integrity protocols.</span>
-                        </p>
+                        <p class="text-sm text-on-surface-variant">New to Serana? <Link :href="route('register')" class="text-primary underline">Create Account</Link></p>
+                        <Link :href="route('shop')" class="block text-sm mt-4 underline">Continue Shopping as Guest</Link>
                     </div>
                 </div>
             </div>

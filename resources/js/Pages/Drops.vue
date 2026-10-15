@@ -33,7 +33,8 @@ const hasDrops = computed(() => props.drops.length > 0);
             <div v-if="!hasDrops" class="text-center py-24 border border-dashed dark:border-white/10 border-black/10 rounded-3xl">
                 <span class="material-symbols-outlined text-5xl text-primary/60">bolt</span>
                 <p class="mt-4 dark:text-white text-on-surface font-headline text-xl">No live drops right now.</p>
-                <p class="text-on-surface-variant text-sm mt-2">Follow us — the next one lands soon.</p>
+                <p class="text-on-surface-variant text-sm mt-2">Browse ready-to-wear pieces while you wait for the next Drop.</p>
+                <Link :href="route('shop')" class="action-primary mt-6">Shop Collection</Link>
             </div>
 
             <!-- Grid -->
@@ -45,7 +46,7 @@ const hasDrops = computed(() => props.drops.length > 0);
                         <div v-else class="w-full h-full grid place-items-center text-on-surface-variant/30">
                             <span class="material-symbols-outlined text-5xl">checkroom</span>
                         </div>
-                        <span v-if="drop.is_funded" class="absolute top-4 left-4 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-primary text-background">Greenlit ✓</span>
+                        <span v-if="drop.is_funded" class="absolute top-4 left-4 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-primary text-background">In Production</span>
                         <span v-else-if="!drop.is_open" class="absolute top-4 left-4 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-black/70 text-white">Closed</span>
                     </div>
                     <div class="p-6">
@@ -60,7 +61,7 @@ const hasDrops = computed(() => props.drops.length > 0);
                             </div>
                             <div class="mt-2 flex justify-between text-[11px] text-on-surface-variant font-medium">
                                 <span>{{ drop.reserved_count }} of {{ drop.target_quantity }} reserved</span>
-                                <span class="text-primary group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">Reserve <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+                                <span class="text-primary group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">{{ drop.is_open ? 'View & Reserve' : 'View Drop' }} <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
                             </div>
                         </div>
                     </div>

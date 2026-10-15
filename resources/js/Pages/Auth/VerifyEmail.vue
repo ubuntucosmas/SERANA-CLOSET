@@ -24,6 +24,8 @@ const verificationLinkSent = computed(
 <template>
     <GuestLayout>
         <Head title="Email Verification" />
+        <h1 class="text-2xl font-headline mb-3">Verify Your Email</h1>
+        <p class="text-sm text-on-surface-variant mb-6">Open the verification link in your email, or request another link below.</p>
 
         <div class="mb-4 text-sm text-gray-600">
             Thanks for signing up! Before getting started, could you verify your

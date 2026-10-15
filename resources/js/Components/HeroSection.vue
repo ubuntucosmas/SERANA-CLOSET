@@ -1,177 +1,29 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue';
-import { usePage, Link } from '@inertiajs/vue3';
-import { animate, stagger } from 'animejs';
-
+import { computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 const page = usePage();
-
-const dynamicBackgrounds = computed(() => {
-    const list = [
-        '/images/detailed_texture.png',
-        '/images/black_cloth_texture.png',
-        '/images/black_zip_up_hoodie_gray_bg.png'
-    ];
-    if (page.props.theme_settings.hero_bg) {
-        list.unshift(page.props.theme_settings.hero_bg);
-    }
-    return list;
-});
-
-const focalImages = computed(() => {
-    const defaults = [
-        { src: '/images/hero_editorial.png', label: 'Signature Collection • Midnight Silk' },
-        { src: '/images/black_white_hoodies_showcase.png', label: 'Luminous Series • High-Contrast Hoodies' },
-        { src: '/images/ready_to_wear_rack.png', label: 'Ready-To-Wear • Nairobi HQ' }
-    ];
-
-    const dynamic = [];
-    for (let i = 1; i <= 3; i++) {
-        const src = page.props.theme_settings[`focal_${i}_bg`];
-        const label = page.props.theme_settings[`focal_${i}_label`];
-        if (src) {
-            dynamic.push({ src, label: label || 'Featured Collection' });
-        }
-    }
-
-    return dynamic.length > 0 ? dynamic : defaults;
-});
-
-const currentBgIndex = ref(0);
-const currentFocalIndex = ref(0);
-
-onMounted(() => {
-    // Initial Reveal Animations
-    animate('.reveal-hero-item', {
-        opacity: [0, 1],
-        translateY: [30, 0],
-        duration: 1200,
-        delay: (el, i) => i * 100, // Faster stagger
-        easing: 'easeOutExpo'
-    });
-
-    // Slow cinematic alternation
-    setInterval(() => {
-        currentBgIndex.value = (currentBgIndex.value + 1) % dynamicBackgrounds.value.length;
-        currentFocalIndex.value = (currentFocalIndex.value + 1) % focalImages.value.length;
-    }, 12000);
-});
+const image = computed(() => page.props.theme_settings?.focal_1_bg || '/images/hero_editorial.png');
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-screen overflow-hidden bg-background always-dark px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
-        <!-- Background Image -->
-        <div class="absolute inset-0 z-0 overflow-hidden">
-            <transition name="fade-extreme">
-                <img :key="dynamicBackgrounds[currentBgIndex]" :src="dynamicBackgrounds[currentBgIndex]" class="absolute inset-0 w-full h-full object-cover scale-110 opacity-20 blur-[1px] grayscale" alt="Serana Studio" />
-            </transition>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
-        </div>
-
-        <!-- Hero Content (Grid Layout) -->
-        <div class="relative z-40 w-full max-w-screen-2xl mx-auto px-4 sm:px-8 h-full">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-end h-full pb-10 lg:pb-20">
-                
-                <!-- Text Context Content (Left) -->
-                <div class="lg:col-span-6 relative z-20 space-y-10 pb-12">
-                    <!-- Badge -->
-                    <!-- <div class="reveal-hero-item opacity-0 flex items-center gap-3 text-[#B9C3FF] text-[9px] font-headline font-bold tracking-[0.5em] uppercase">
-                        <span class="w-8 h-px bg-[#B9C3FF]/30"></span>
-                        Est. Nairobi · {{ new Date().getFullYear() }} Collection_
-                    </div> -->
-
-                    <!-- Main Heading -->
-                    <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
-                        Crafting your<br/>
-                        <span class=" font-light dark:text-white/40 text-on-surface-variant">perfect design</span>
-                    </h1>
-
-                    <!-- Subtitle -->
-                    <p class="reveal-hero-item opacity-0 text-lg md:text-xl dark:text-white/40 text-on-surface-variant max-w-lg leading-relaxed font-light border-l border-primary/20 pl-10">
-                        Careful tailoring for the modern style. From signature custom orders to limited drops, we make clothes with excellent craft.
-                    </p>
-
-                    <!-- Actions -->
-                    <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-4 lg:pt-6">
-                        <Link :href="route('custom-order')" class="btn-primary flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
-                            Start Order
-                        </Link>
-                        <Link :href="route('shop')" class="btn-outline flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
-                            Open Shop
-                        </Link>
-                    </div>
+    <section class="relative overflow-hidden bg-background pt-36 pb-16 lg:pt-44 lg:pb-24">
+        <div aria-hidden="true" class="absolute -right-24 top-16 w-[600px] h-[600px] rounded-full bg-blue-600/10 blur-[100px] pointer-events-none"></div>
+        <div class="relative max-w-7xl mx-auto px-6 lg:px-10 grid lg:grid-cols-2 items-center gap-12 lg:gap-20">
+            <div>
+                <p class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary mb-6">SERANA CLOSET · NAIROBI</p>
+                <h1 class="font-headline text-5xl sm:text-6xl xl:text-7xl font-semibold leading-[1.08] tracking-tight mb-6">Made for<br/><span class="text-primary">your style.</span></h1>
+                <p class="text-base sm:text-lg text-on-surface-variant leading-relaxed max-w-lg mb-8">Discover ready-to-wear pieces, reserve a limited Drop, or create something personal with our bespoke studio.</p>
+                <div class="flex flex-wrap gap-4">
+                    <Link :href="route('shop')" class="action-primary">Shop Collection <span aria-hidden="true">→</span></Link>
+                    <Link :href="route('custom-order')" class="action-secondary">Start Bespoke Request</Link>
                 </div>
-
-                <!-- Asymmetrical Cinematic Imagery (Right) -->
-                <div class="lg:col-span-6 relative h-full min-h-[300px] lg:min-h-[500px] flex items-center justify-center lg:justify-end z-10 w-full group/hero reveal-hero-item">
-                    <!-- Alternating Primary Main Image -->
-                    <div class="relative w-full max-w-[280px] lg:max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] lg:shadow-[0_60px_150px_rgba(0,0,0,1)] z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-6 lg:translate-y-12 bg-transparent">
-                        <transition name="fade-mid" mode="out-in">
-                            <img 
-                                :key="focalImages[currentFocalIndex].src" 
-                                :src="focalImages[currentFocalIndex].src" 
-                                class="w-full h-full object-cover"
-                                :fetchpriority="currentFocalIndex === 0 ? 'high' : 'auto'"
-                             />
-                        </transition>
-                        
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                        
-                        <div class="absolute bottom-6 lg:bottom-10 left-6 lg:left-10 right-6 lg:right-10 px-2 lg:block hidden">
-                            <transition name="fade-fast" mode="out-in">
-                                <span :key="focalImages[currentFocalIndex].label" class="inline-block bg-background/80 backdrop-blur-2xl text-primary text-[8px] lg:text-[9px] font-headline font-medium tracking-[0.3em] lg:tracking-[0.4em] px-4 lg:px-8 py-3 lg:py-4 border border-primary/20 rounded-sm shadow-2xl">
-                                    {{ focalImages[currentFocalIndex].label }}
-                                </span>
-                            </transition>
-                        </div>
-                    </div>
-
-                    <!-- Secondary Floating Details Image - Hidden on mobile for Zen -->
-                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
-                        <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
-                    </div>
-                </div>
+                <p class="mt-7 text-sm text-on-surface-variant">Pay with M-Pesa · Track your order online</p>
             </div>
+            <figure class="relative">
+                <div class="absolute -inset-4 rounded-[3rem] bg-gradient-to-br from-blue-600/20 to-primary/10 blur-2xl" aria-hidden="true"></div>
+                <img :src="image" alt="Serana fashion collection" class="relative w-full max-h-[560px] aspect-[4/5] object-cover rounded-3xl border border-primary/20" fetchpriority="high" />
+                <figcaption class="relative mt-4 text-sm text-on-surface-variant">{{ page.props.theme_settings?.focal_1_label || 'Designed in Nairobi. Worn your way.' }}</figcaption>
+            </figure>
         </div>
-
     </section>
 </template>
-
-
-<style scoped>
-.fade-extreme-enter-active, .fade-extreme-leave-active {
-    transition: opacity 4000ms ease;
-}
-.fade-extreme-enter-from, .fade-extreme-leave-to {
-    opacity: 0;
-}
-
-.fade-mid-enter-active, .fade-mid-leave-active {
-    transition: opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-mid-enter-from, .fade-mid-leave-to {
-    opacity: 0;
-}
-
-.fade-fast-enter-active, .fade-fast-leave-active {
-    transition: all 800ms ease;
-}
-.fade-fast-enter-from {
-    opacity: 0;
-    transform: translateY(10px);
-}
-.fade-fast-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
-
-@keyframes scan {
-    0% { transform: translateY(-100%); opacity: 0; }
-    10% { opacity: 0.2; }
-    50% { opacity: 0.1; }
-    100% { transform: translateY(100vh); opacity: 0; }
-}
-
-.animate-scan {
-    animation: scan 12s linear infinite;
-}
-</style>

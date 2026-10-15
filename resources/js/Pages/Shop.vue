@@ -22,6 +22,18 @@ const showLogisticsOverlay = ref(false);
 // ── Cinematic Background System ──────────────────────────────────────────────
 // Unified via SectionBackground.vue
 
+const searchQuery = ref('');
+
+const clearFilters = () => {
+    searchQuery.value = '';
+    showLogisticsOverlay.value = false;
+    router.get(
+        route("shop"),
+        { sort: currentSort.value },
+        { preserveState: true, replace: true },
+    );
+};
+
 const filterByCategory = (slug) => {
     showLogisticsOverlay.value = false;
     router.get(
@@ -62,7 +74,8 @@ const activeCategory = computed(() => {
 
 // ── Sorted + paginated grid (replaces the old infinite carousel) ─────────────
 const sortedProducts = computed(() => {
-    const list = [...(props.products || [])];
+    const query = searchQuery.value.trim().toLowerCase();
+    const list = (props.products || []).filter(product => !query || `${product.name} ${product.description || ''}`.toLowerCase().includes(query));
     switch (currentSort.value) {
         case "price_asc":
             return list.sort((a, b) => Number(a.price) - Number(b.price));
@@ -90,7 +103,7 @@ const loadMore = () => {
 
 // Reset paging whenever the result set or ordering changes.
 watch(
-    [currentSort, () => props.products],
+    [currentSort, searchQuery, () => props.products],
     () => {
         visibleCount.value = PAGE_SIZE;
     },
@@ -142,16 +155,6 @@ const toSentenceCase = (str) =>
 
                         <!-- Desktop Controls -->
                         <div class="hidden md:flex items-center gap-4">
-                            <!-- Search Button with Magnifying Glass -->
-                            <button
-                                class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-primary hover:bg-primary hover:text-black hover:border-primary transition-all group"
-                            >
-                                <span
-                                    class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform"
-                                    >search</span
-                                >
-                            </button>
-
                             <div class="relative group">
                                 <button
                                     @click="showSortMenu = !showSortMenu"
@@ -197,6 +200,12 @@ const toSentenceCase = (str) =>
                         </div>
                     </div>
                 </header>
+                <div class="mb-8">
+                    <label for="shop-search" class="block text-sm mb-2">Search the Collection</label>
+                    <input id="shop-search" v-model="searchQuery" type="search" placeholder="Search by name or description" class="w-full max-w-lg bg-surface border border-outline-variant rounded-xl px-4 py-3" />
+                    <p v-if="activeCategory || searchQuery" class="mt-3 text-sm text-on-surface-variant" aria-live="polite">{{ sortedProducts.length }} results<span v-if="activeCategory"> in {{ activeCategory.name }}</span><span v-if="searchQuery"> for “{{ searchQuery }}”</span>. <button @click="clearFilters" class="text-primary underline">Clear Filters</button></p>
+                </div>
+
 
                 <div class="flex flex-col md:flex-row gap-16">
                     <!-- Desktop Sidebar -->
@@ -287,17 +296,17 @@ const toSentenceCase = (str) =>
                                 <p
                                     class="text-[10px] text-white/40 tracking-widest mt-1"
                                 >
-                                    {{ products.length }}
+                                    {{ sortedProducts.length }}
                                     {{
-                                        products.length === 1
+                                        sortedProducts.length === 1
                                             ? "piece"
                                             : "pieces"
                                     }}
-                                    available
+                                    in this collection
                                 </p>
                             </div>
                             <button
-                                @click="filterByCategory('all')"
+                                @click="clearFilters()"
                                 v-if="activeCategory"
                                 class="text-[10px] text-primary tracking-widest font-black hover:underline"
                             >
@@ -306,7 +315,7 @@ const toSentenceCase = (str) =>
                         </div>
 
                         <div
-                            v-if="products.length === 0"
+                            v-if="sortedProducts.length === 0"
                             class="flex flex-col items-center justify-center py-48 text-center"
                         >
                             <div
@@ -320,10 +329,13 @@ const toSentenceCase = (str) =>
                             <h3
                                 class="text-4xl font-headline font-light dark:text-white text-on-surface tracking-tight mb-8"
                             >
-                                No pieces found
+                                No pieces found in this edit
                             </h3>
+                            <p class="mb-6 max-w-md text-sm text-on-surface-variant">
+                                Try another category or reset the filters to browse the full Serana Closet archive.
+                            </p>
                             <button
-                                @click="filterByCategory('all')"
+                                @click="clearFilters()"
                                 class="text-[10px] font-black tracking-wider text-primary border-b border-primary/40 pb-2 hover:border-primary transition-all"
                             >
                                 View all pieces
