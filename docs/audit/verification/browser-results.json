@@ -1,0 +1,460 @@
+{
+  "public": {
+    "reports": [
+      {
+        "width": 375,
+        "path": "/",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Made foryour style."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/shop",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Ready to wear, ready today."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/cart",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Your Bag"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/checkout",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Secure Checkout"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/custom-order",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Begin your bespoke piece."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/drops",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reserve it before we make it."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/track",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Track Order"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/about",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Madewith care."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/contact",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Contact Serana"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/the-circle",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "The Serana Circle."
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/login",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Sign In"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/register",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Create Account"
+        ]
+      },
+      {
+        "width": 375,
+        "path": "/forgot-password",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reset Password"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Made foryour style."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/shop",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Ready to wear, ready today."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/cart",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Your Bag"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/checkout",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Secure Checkout"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/custom-order",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Begin your bespoke piece."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/drops",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reserve it before we make it."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/track",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Track Order"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/about",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Madewith care."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/contact",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Contact Serana"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/the-circle",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "The Serana Circle."
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/login",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Sign In"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/register",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Create Account"
+        ]
+      },
+      {
+        "width": 768,
+        "path": "/forgot-password",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reset Password"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Made foryour style."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/shop",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Ready to wear, ready today."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/cart",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Your Bag"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/checkout",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Secure Checkout"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/custom-order",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Begin your bespoke piece."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/drops",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reserve it before we make it."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/track",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Track Order"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/about",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Madewith care."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/contact",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Contact Serana"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/the-circle",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "The Serana Circle."
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/login",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Sign In"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/register",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Create Account"
+        ]
+      },
+      {
+        "width": 1440,
+        "path": "/forgot-password",
+        "status": 200,
+        "overflow": false,
+        "headings": [
+          "Reset Password"
+        ]
+      },
+      {
+        "searchEmpty": true
+      },
+      {
+        "searchCleared": true
+      }
+    ],
+    "errors": []
+  },
+  "authenticated": {
+    "checks": [
+      {
+        "tab": "home",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "orders",
+        "width": 375,
+        "overflow": true
+      },
+      {
+        "tab": "products",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "drops",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "showcase",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "subscribers",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "settings",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "path": "/profile",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "path": "/my-vault",
+        "width": 375,
+        "overflow": false
+      },
+      {
+        "tab": "home",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "orders",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "products",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "drops",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "showcase",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "subscribers",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "tab": "settings",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "path": "/profile",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "path": "/my-vault",
+        "width": 1440,
+        "overflow": false
+      }
+    ],
+    "errors": []
+  },
+  "shoppingFlow": "Product sizes → bag → quantity → checkout → server amount → pending payment → confirmed payment → cleared bag → tracking link: passed (payment endpoints mocked; no real payment sent)."
+}
