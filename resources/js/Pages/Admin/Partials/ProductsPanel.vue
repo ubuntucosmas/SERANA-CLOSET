@@ -29,7 +29,7 @@ const list = computed(() => {
         <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <div class="relative flex-1 sm:max-w-xs">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">search</span>
-                <input v-model="query" type="search" placeholder="Search products…"
+                <input v-model="query" type="search" aria-label="Search products" placeholder="Search products…"
                     class="w-full pl-10 pr-3 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-white placeholder-slate-600 focus:ring-1 focus:ring-[#57d5fc] outline-none" />
             </div>
             <button @click="showArchived = !showArchived"
@@ -41,7 +41,7 @@ const list = computed(() => {
 
         <div v-if="list.length === 0" class="text-center text-slate-500 py-16 bg-slate-900/40 rounded-2xl ring-1 ring-white/5">
             <span class="material-symbols-outlined text-3xl">inventory_2</span>
-            <p class="mt-2 text-sm">{{ showArchived ? 'No archived products.' : 'No products yet — add your first one.' }}</p>
+            <p class="mt-2 text-sm">{{ query ? 'No products match this search. Clear the search or change the archive view.' : showArchived ? 'No archived products.' : 'No products yet — use Add Product to create your first one.' }}</p>
         </div>
 
         <div v-else class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

@@ -41,13 +41,18 @@ class StudioController extends Controller
         ];
 
         $attention = [
-            'awaiting' => CustomOrder::where('status', OrderStatus::PENDING_PAYMENT)
-                ->where('is_paid', false)->latest()->take(5)->get()
+            'awaiting' => CustomOrder::where(function ($query) {
+                $query->whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::PAID, 'pending']);
+            })->latest()->take(12)->get()
                 ->map(fn ($o) => [
-                    'id'        => $o->id,
+                    'id' => $o->id,
                     'full_name' => $o->full_name,
-                    'amount'    => $o->price_quoted,
+                    'amount' => $o->price_quoted,
                     'reference' => $o->cipher,
+                    'next_action' => $o->is_paid ? 'Ready for fulfilment'
+                        : ($o->status === OrderStatus::AMOUNT_MISMATCH ? 'Review payment amount'
+                        : ($o->status === OrderStatus::PAYMENT_FAILED ? 'Follow up on failed payment'
+                        : ($o->status === 'pending' ? 'Review bespoke brief' : 'Awaiting payment confirmation'))),
                 ]),
             'low_stock' => Product::where('in_stock', false)->latest()->take(5)->get(['id', 'name']),
         ];
@@ -75,12 +80,28 @@ class StudioController extends Controller
     public function update(Request $request, CustomOrder $order)
     {
         $validated = $request->validate([
-            'status' => 'required|string',
+            'status' => ['required', \Illuminate\Validation\Rule::in(array_merge(OrderStatus::PRODUCTION_STAGES, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::EXPIRED]))],
             'internal_notes' => 'nullable|string',
-            'price_quoted' => 'nullable|numeric',
+            'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
         ]);
 
+        if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->is_paid) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);
+        }
+        $commerce = in_array($order->type, ['standard', 'drop'], true);
+        if (($order->is_paid || $commerce) && array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->price_quoted) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'A checkout or paid order’s total cannot be changed.']);
+        }
+        if ($validated['status'] !== $order->status && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
+        }
+        if ($commerce && $validated['status'] !== $order->status) {
+            if (! $order->is_paid || ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
+            }
+        }
+        unset($validated['is_paid']);
         $order->update($validated);
 
         return back()->with('success', 'Order updated successfully.');

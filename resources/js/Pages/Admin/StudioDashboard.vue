@@ -77,6 +77,7 @@ function bindOrder(order) {
     orderForm.internal_notes = order.internal_notes || '';
     orderForm.price_quoted = order.price_quoted || 0;
     orderForm.is_paid = !!order.is_paid;
+    orderForm.clearErrors();
     progressSnapForm.reset();
 }
 function closeOrder() { selectedOrder.value = null; }
@@ -131,7 +132,7 @@ const secondaryPreview2 = ref(null);
 const productForm = useForm({
     id: null, name: '', description: '', price: 0, category_id: '',
     image: null, secondary_image_1: null, secondary_image_2: null,
-    in_stock: true, is_customizable: false, batch_limit: null,
+    in_stock: true, is_customizable: false, batch_limit: null, garment_type: 'set',
 });
 function addProduct() {
     isEditingProduct.value = false;
@@ -147,6 +148,7 @@ function editProduct(p) {
     productForm.description = p.description;
     productForm.price = p.price;
     productForm.category_id = p.category_id;
+    productForm.garment_type = p.garment_type || 'set';
     productForm.in_stock = !!p.in_stock;
     productForm.is_customizable = !!p.is_customizable;
     productForm.batch_limit = p.batch_limit;
@@ -350,19 +352,19 @@ function removeAsset(key) {
                 <div class="grid sm:grid-cols-2 gap-4">
                     <label class="block">
                         <span class="block text-sm text-slate-300 mb-2">Production stage</span>
-                        <select v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
+                        <select :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
                             <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
                     </label>
                     <label class="block">
                         <span class="block text-sm text-slate-300 mb-2">Price (KSh)</span>
-                        <input v-model="orderForm.price_quoted" type="number" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <input :disabled="selectedOrder.is_paid || ['standard', 'drop'].includes(selectedOrder.type)" v-model="orderForm.price_quoted" type="number" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                 </div>
-                <label class="flex items-center gap-3 text-sm text-slate-300">
-                    <input v-model="orderForm.is_paid" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Marked as paid
-                </label>
+                <p class="text-sm text-slate-300">Payment: {{ selectedOrder.is_paid ? 'Payment Confirmed' : 'Not Confirmed' }}. Payment confirmation is managed automatically.</p>
+                <p v-for="(message, field) in orderForm.errors" :key="field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
+
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Private notes</span>
                     <textarea v-model="orderForm.internal_notes" rows="3" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
@@ -398,6 +400,15 @@ function removeAsset(key) {
         <div class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
             <h3 class="text-xl font-headline text-white mb-5">{{ isEditingProduct ? 'Edit product' : 'Add product' }}</h3>
             <div class="space-y-4">
+                <label class="block mb-4">
+                    <span class="block text-sm text-slate-300 mb-2">Garment Type (required)</span>
+                    <select v-model="productForm.garment_type" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white">
+                        <option value="set">Hoodie & Jogger Set — two sizes</option>
+                        <option value="hoodie">Hoodie — top size</option>
+                        <option value="jogger">Jogger — bottom size</option>
+                    </select>
+                </label>
+                <p v-for="(message, field) in productForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Name</span>
                     <input v-model="productForm.name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
@@ -451,6 +462,8 @@ function removeAsset(key) {
         <div class="bg-slate-900 text-slate-200 p-6">
             <h3 class="text-xl font-headline text-white mb-5">{{ isEditingGallery ? 'Edit photo' : 'Add photo' }}</h3>
             <div class="space-y-4">
+                <p v-for="(message, field) in galleryForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
+                <p v-for="(message, field) in categoryForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
                 <label class="block aspect-[4/3] rounded-xl bg-slate-950 border border-dashed border-white/10 overflow-hidden cursor-pointer grid place-items-center">
                     <img v-if="galleryPreview" :src="getObjectURL(galleryPreview)" class="w-full h-full object-cover" />
                     <span v-else class="material-symbols-outlined text-slate-700 text-3xl">add_photo_alternate</span>
@@ -501,6 +514,7 @@ function removeAsset(key) {
             <h3 class="text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit drop' : 'New drop' }}</h3>
             <p class="text-slate-500 text-sm mb-5">Customers reserve and pay upfront; you produce once it hits the goal.</p>
             <div class="space-y-4">
+                <p v-for="(message, field) in dropForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Title</span>
                     <input v-model="dropForm.title" placeholder="e.g. Midnight Trench" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />

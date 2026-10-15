@@ -11,6 +11,8 @@
     </AdminShell>
 -->
 <script setup>
+import SiteSeo from '@/Components/SiteSeo.vue';
+import Notification from '@/Components/Notification.vue';
 import { ref, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -58,7 +60,9 @@ const accent = '#57d5fc';
 </script>
 
 <template>
+    <SiteSeo />
     <div class="min-h-screen bg-[#020617] text-slate-200 font-body selection:bg-cyan-900 selection:text-white">
+        <Notification />
         <!-- ───────── Desktop sidebar ───────── -->
         <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col bg-slate-950 border-r border-white/5 px-5 py-7 z-40">
             <Link :href="route('home')" class="flex items-center gap-3 px-2 mb-10 group">

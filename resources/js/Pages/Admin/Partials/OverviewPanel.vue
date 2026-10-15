@@ -47,11 +47,11 @@ const nothingToDo = computed(() =>
         <!-- Needs your attention -->
         <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-6">
             <h2 class="text-white font-headline text-xl mb-1">Needs your attention</h2>
-            <p class="text-slate-500 text-sm mb-5">Quick things worth a look right now.</p>
+            <p class="text-slate-500 text-sm mb-5">Review payment issues, fulfil paid orders and follow up on new briefs.</p>
 
             <div v-if="nothingToDo" class="flex items-center gap-3 text-slate-400 py-6 justify-center">
                 <span class="material-symbols-outlined text-[#57d5fc]">check_circle</span>
-                You're all caught up.
+                No payment issues or new briefs in this queue. Check Orders for work already in production.
             </div>
 
             <div v-else class="space-y-3">
@@ -60,7 +60,7 @@ const nothingToDo = computed(() =>
                     <span class="flex items-center gap-3 min-w-0">
                         <span class="material-symbols-outlined text-amber-400 shrink-0">hourglass_top</span>
                         <span class="min-w-0">
-                            <span class="block text-white text-sm truncate">{{ o.full_name || 'Customer' }} — awaiting payment</span>
+                            <span class="block text-white text-sm truncate">{{ o.full_name || 'Customer' }} — {{ o.next_action }}</span>
                             <span class="block text-slate-500 text-xs font-mono">{{ o.reference || ('#' + o.id) }}</span>
                         </span>
                     </span>

@@ -35,7 +35,7 @@ function formatDate(d) {
         <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <div class="relative flex-1 sm:max-w-xs">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">search</span>
-                <input v-model="query" type="search" placeholder="Search email…"
+                <input v-model="query" type="search" aria-label="Search subscribers" placeholder="Search email…"
                     class="w-full pl-10 pr-3 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-white placeholder-slate-600 focus:ring-1 focus:ring-[#57d5fc] outline-none" />
             </div>
             <button @click="exportCsv" :disabled="leads.length === 0"
@@ -46,7 +46,7 @@ function formatDate(d) {
 
         <div v-if="list.length === 0" class="text-center text-slate-500 py-16 bg-slate-900/40 rounded-2xl ring-1 ring-white/5">
             <span class="material-symbols-outlined text-3xl">group</span>
-            <p class="mt-2 text-sm">No subscribers yet.</p>
+            <p class="mt-2 text-sm">{{ query ? 'No subscribers match this search. Clear the search to see all subscribers.' : 'No subscribers yet. Visitors can join using the storefront newsletter form.' }}</p>
         </div>
 
         <div v-else class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl divide-y divide-white/5">

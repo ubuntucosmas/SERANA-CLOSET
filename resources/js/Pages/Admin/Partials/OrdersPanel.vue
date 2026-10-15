@@ -2,6 +2,8 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import { paymentStatus } from '@/Support/orderStatus';
 import { useCurrency } from '@/Composables/useCurrency';
 
 const props = defineProps({
@@ -22,7 +24,7 @@ const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 
 function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
-function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? 'Shop' : 'Custom'); }
+function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? 'Shop' : 'Bespoke'); }
 function itemOf(o) { return o.garment_name || o.outfit_type || (isCustom(o) ? 'Custom piece' : 'Shop order'); }
 
 // One clear payment label regardless of the shared status column.
@@ -50,7 +52,7 @@ const filtered = computed(() => {
     });
 });
 
-const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom' }, { id: 'shop', label: 'Shop' }];
+const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Bespoke & Drops' }, { id: 'shop', label: 'Shop' }];
 </script>
 
 <template>
@@ -65,10 +67,10 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom' }, {
                 </button>
             </div>
             <div class="flex gap-2">
-                <div class="relative flex-1 sm:w-64">
+                <div class="relative flex-1 min-w-0 sm:w-64">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">search</span>
-                    <input v-model="query" type="search" placeholder="Search name, phone, reference…"
-                        class="w-full pl-10 pr-3 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-white placeholder-slate-600 focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    <input v-model="query" type="search" aria-label="Search orders" placeholder="Search name, phone, reference…"
+                        class="w-full min-w-0 pl-10 pr-3 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-white placeholder-slate-600 focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                 </div>
                 <button @click="showArchived = !showArchived"
                     :class="['px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors',
@@ -81,26 +83,26 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom' }, {
         <!-- Empty -->
         <div v-if="filtered.length === 0" class="text-center text-slate-500 py-16 bg-slate-900/40 rounded-2xl ring-1 ring-white/5">
             <span class="material-symbols-outlined text-3xl">inbox</span>
-            <p class="mt-2 text-sm">No {{ showArchived ? 'archived ' : '' }}orders here yet.</p>
+            <p class="mt-2 text-sm">{{ query || filter !== 'all' ? 'No orders match these filters. Clear the search or select All.' : showArchived ? 'No archived orders.' : 'No orders yet. New shop orders, reservations and bespoke requests appear here.' }}</p>
         </div>
 
         <!-- List -->
-        <div v-else class="grid gap-3">
+        <div v-else class="grid grid-cols-1 gap-3">
             <button v-for="o in filtered" :key="o.id" @click="emit('select', o)"
                 :class="['w-full text-left bg-slate-900/60 ring-1 rounded-2xl p-4 transition-colors',
                          selectedId === o.id ? 'ring-[#57d5fc]/50' : 'ring-white/10 hover:ring-white/25']">
-                <div class="flex items-start justify-between gap-3">
+                <div class="flex flex-col sm:flex-row items-start justify-between gap-3">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <span class="text-white font-medium truncate">{{ o.full_name || 'Customer' }}</span>
                             <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5 text-slate-400">{{ typeLabel(o) }}</span>
                         </div>
                         <p class="text-slate-400 text-sm truncate">{{ itemOf(o) }}</p>
-                        <p v-if="o.reference || o.cipher" class="text-slate-600 text-xs font-mono mt-0.5">{{ o.reference || o.cipher }}</p>
+                        <p v-if="o.reference || o.cipher" class="text-slate-500 text-xs font-mono mt-0.5 break-all">{{ o.reference || o.cipher }}</p>
                     </div>
-                    <div class="text-right shrink-0">
+                    <div class="w-full sm:w-auto flex flex-wrap sm:block justify-between gap-2 text-left sm:text-right shrink-0">
                         <p class="text-white font-headline">{{ formatAmount(amountOf(o), page.props) }}</p>
-                        <span :class="['inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', payment(o).cls]">{{ payment(o).label }}</span>
+                        <StatusBadge class="mt-1" v-bind="paymentStatus(o)" />
                     </div>
                 </div>
                 <div v-if="stage(o)" class="mt-3 flex items-center gap-1.5 text-xs text-slate-400">

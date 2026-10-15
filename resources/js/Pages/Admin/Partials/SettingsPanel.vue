@@ -40,6 +40,7 @@ const focals = [1, 2, 3];
 
 <template>
     <div class="space-y-6 max-w-3xl">
+        <p v-for="(message, field) in form.errors" :key="field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
         <!-- Store details -->
         <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-6">
             <h2 class="text-white font-headline text-xl mb-1">Store details</h2>

@@ -19,26 +19,25 @@ class CatalogController extends Controller
 
     public function index()
     {
-        return Inertia::render('Admin/StudioDashboard', [
-            'orders' => \App\Models\CustomOrder::with('user')->latest()->get(),
-            'products' => Product::with('category')->latest()->get(),
-            'categories' => Category::all(),
-            'active_tab' => 'catalog'
-        ]);
+        return redirect()->route('studio.index', ['tab' => 'products']);
     }
 
     public function storeProduct(Request $request)
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'secondary_image_1' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'secondary_image_2' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'name' => 'required|string|max:255|unique:products,name',
             'description' => 'required|string',
-            'price' => 'required|numeric',
-            'image' => 'nullable|image|max:5120',
+            // Whole shillings only: M-Pesa cannot charge cents, and checkout refuses fractional totals.
+            'price' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.0{1,2})?$/'],
+            'garment_type' => 'sometimes|in:set,hoodie,jogger',
             'is_customizable' => 'boolean',
             'in_stock' => 'boolean',
             'specifications' => 'nullable|array',
-            'batch_limit' => 'nullable|integer',
+            'batch_limit' => 'nullable|integer|min:0',
         ]);
 
         if ($request->hasFile('image')) {
@@ -69,11 +68,16 @@ class CatalogController extends Controller
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'secondary_image_1' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'secondary_image_2' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'name' => 'required|string|max:255|unique:products,name,' . $product->id,
             'description' => 'required|string',
-            'price' => 'required|numeric',
+            // Whole shillings only: M-Pesa cannot charge cents, and checkout refuses fractional totals.
+            'price' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.0{1,2})?$/'],
+            'garment_type' => 'sometimes|in:set,hoodie,jogger',
             'in_stock' => 'boolean',
-            'batch_limit' => 'nullable|integer',
+            'batch_limit' => 'nullable|integer|min:0',
             'batch_sold' => 'nullable|integer',
             'is_customizable' => 'boolean',
             'specifications' => 'nullable|array',
