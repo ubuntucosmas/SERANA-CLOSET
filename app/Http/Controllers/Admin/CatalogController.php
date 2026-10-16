@@ -32,12 +32,15 @@ class CatalogController extends Controller
             'name' => 'required|string|max:255|unique:products,name',
             'description' => 'required|string',
             // Whole shillings only: M-Pesa cannot charge cents, and checkout refuses fractional totals.
-            'price' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.0{1,2})?$/'],
+            'price' => ['required', 'numeric', 'min:1', 'regex:/^\d+(\.0{1,2})?$/'],
             'garment_type' => 'sometimes|in:set,hoodie,jogger',
             'is_customizable' => 'boolean',
             'in_stock' => 'boolean',
             'specifications' => 'nullable|array',
             'batch_limit' => 'nullable|integer|min:0',
+        ], [
+            'price.regex' => 'Use whole shillings, e.g. 1500. M-Pesa cannot charge cents.',
+            'price.min' => 'Price must be at least KSh 1.',
         ]);
 
         if ($request->hasFile('image')) {
@@ -74,13 +77,16 @@ class CatalogController extends Controller
             'name' => 'required|string|max:255|unique:products,name,' . $product->id,
             'description' => 'required|string',
             // Whole shillings only: M-Pesa cannot charge cents, and checkout refuses fractional totals.
-            'price' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.0{1,2})?$/'],
+            'price' => ['required', 'numeric', 'min:1', 'regex:/^\d+(\.0{1,2})?$/'],
             'garment_type' => 'sometimes|in:set,hoodie,jogger',
             'in_stock' => 'boolean',
             'batch_limit' => 'nullable|integer|min:0',
-            'batch_sold' => 'nullable|integer',
+            'batch_sold' => 'nullable|integer|min:0',
             'is_customizable' => 'boolean',
             'specifications' => 'nullable|array',
+        ], [
+            'price.regex' => 'Use whole shillings, e.g. 1500. M-Pesa cannot charge cents.',
+            'price.min' => 'Price must be at least KSh 1.',
         ]);
 
         $targetDisk = config('filesystems.public_disk');

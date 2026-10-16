@@ -142,7 +142,13 @@ class MpesaController extends Controller
                 ]);
             }
 
-            return response()->json(['success' => false, 'message' => $result['message'] ?? 'M-Pesa could not start this request.'], 400);
+            // The service's reason ("Failed to authenticate", "STK Push initiation
+            // failed") is for the studio, not the customer. Nothing was charged.
+            Log::warning("M-Pesa STK not started for Order #{$order->id}: " . ($result['message'] ?? 'unknown'), ['details' => $result['details'] ?? null]);
+            return response()->json([
+                'success' => false,
+                'message' => "M-Pesa couldn't send the payment prompt just now. You have not been charged. Check the number and try again in a minute.",
+            ], 400);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -183,7 +189,7 @@ class MpesaController extends Controller
         // for orders created before per-attempt tracking existed.
         $attempt = PaymentAttempt::where('checkout_request_id', $checkoutRequestID)->first();
         $order = $attempt?->order
-            ?? CustomOrder::where('mpesa_checkout_id', $checkoutRequestID)->first();
+            ?? CustomOrder::withTrashed()->where('mpesa_checkout_id', $checkoutRequestID)->first();
 
         if (!$order) {
             Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");

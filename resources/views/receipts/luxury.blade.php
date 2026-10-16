@@ -123,14 +123,14 @@
         <tbody>
             @forelse($items as $item)
             <tr>
-                <td><strong>{{ $item['name'] ?? 'Item' }}</strong></td>
+                <td><strong>{{ $item['name'] ?? 'Item' }}</strong>@if(!empty($item['size_label']))<br><span style="font-size:11px; color:#6b6b72;">{{ $item['size_label'] }}</span>@endif</td>
                 <td class="qty">{{ $item['quantity'] ?? 1 }}</td>
                 <td class="num">{{ $currency }} {{ number_format((float) ($item['price'] ?? 0), 2) }}</td>
                 <td class="num">{{ $currency }} {{ number_format((float) ($item['price'] ?? 0) * (int) ($item['quantity'] ?? 1), 2) }}</td>
             </tr>
             @empty
             <tr>
-                <td><strong>{{ $isBespoke ? 'Custom commission — ' . ucfirst($order->type) : 'Order #' . $order->id }}</strong></td>
+                <td><strong>{{ $isBespoke ? 'Custom order — ' . ucfirst($order->type) : 'Order #' . $order->id }}</strong></td>
                 <td class="qty">1</td>
                 <td class="num">{{ $currency }} {{ number_format((float) $order->price_quoted, 2) }}</td>
                 <td class="num">{{ $currency }} {{ number_format((float) $order->price_quoted, 2) }}</td>

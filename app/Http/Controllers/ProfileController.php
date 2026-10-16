@@ -41,21 +41,6 @@ class ProfileController extends Controller
     }
 
     /**
-     * Generate a unique invitation code for the user.
-     */
-    public function generateInvitation(Request $request): RedirectResponse
-    {
-        $user = $request->user();
-        
-        if (!$user->invitation_code) {
-            $user->invitation_code = 'SRN-' . strtoupper(bin2hex(random_bytes(4)));
-            $user->save();
-        }
-
-        return Redirect::route('profile.designs')->with('status', 'invitation-generated');
-    }
-
-    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse

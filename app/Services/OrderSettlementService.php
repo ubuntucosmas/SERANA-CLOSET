@@ -27,12 +27,16 @@ class OrderSettlementService
     public function markPaid(CustomOrder $order, ?string $receiptNumber = null, array $rawPayload = []): bool
     {
         $settled = DB::transaction(function () use ($order, $receiptNumber) {
-            $claimed = CustomOrder::whereKey($order->id)
+            // withTrashed: money that arrives for an order Studio archived must
+            // still settle it, and the order comes back so it can be fulfilled.
+            $claimed = CustomOrder::withTrashed()->whereKey($order->id)
                 ->where('is_paid', false)
                 ->update([
                     'is_paid'              => true,
+                    'paid_at'              => now(),
                     'status'               => OrderStatus::PAID,
                     'mpesa_receipt_number' => $receiptNumber ?? $order->mpesa_receipt_number,
+                    'deleted_at'           => null,
                 ]);
 
             if ($claimed === 0) {
@@ -60,8 +64,11 @@ class OrderSettlementService
      */
     public function markUnpaid(CustomOrder $order, string $status): void
     {
-        $updated = CustomOrder::whereKey($order->id)
+        // A collected-but-mismatched payment stays flagged until staff review
+        // it; a later failed prompt must not quietly downgrade it.
+        $updated = CustomOrder::withTrashed()->whereKey($order->id)
             ->where('is_paid', false)
+            ->when($status !== OrderStatus::AMOUNT_MISMATCH, fn ($q) => $q->where('status', '!=', OrderStatus::AMOUNT_MISMATCH))
             ->update(['status' => $status]);
 
         if ($updated > 0) {

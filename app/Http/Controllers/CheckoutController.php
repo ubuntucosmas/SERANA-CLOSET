@@ -37,6 +37,11 @@ class CheckoutController extends Controller
 
         if ($saved = SubmissionReceipt::recall($request, 'checkout', $validated)) return response()->json($saved);
 
+        // A fresh checkout from this browser replaces any earlier unpaid order it
+        // abandoned, so the customer is never blocked by their own stock hold and
+        // stale duplicates don't pile up in the Studio.
+        $this->supersedeAbandonedOrders($request);
+
         $products = Product::whereIn('id', collect($validated['items'])->pluck('id'))
             ->get()
             ->keyBy('id');
@@ -186,5 +191,29 @@ class CheckoutController extends Controller
             'amount' => (float) $order->price_quoted,
             'items' => $snapshotItems,
         ]));
+    }
+
+    /**
+     * Expire this session's earlier unpaid shop orders that have no M-Pesa
+     * prompt in flight, releasing their stock holds. Orders with a pending
+     * prompt are left alone: the customer may be paying it right now.
+     */
+    private function supersedeAbandonedOrders(\Illuminate\Http\Request $request): void
+    {
+        $ids = array_map('intval', (array) $request->session()->get('serana.order_ids', []));
+        if (! $ids) {
+            return;
+        }
+
+        CustomOrder::whereIn('id', $ids)
+            ->where('type', 'standard')
+            ->where('is_paid', false)
+            ->whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
+            ->whereDoesntHave('paymentAttempts', fn ($q) => $q->where('status', \App\Models\PaymentAttempt::PENDING))
+            ->get()
+            ->each(function (CustomOrder $order) {
+                $order->releaseReservations();
+                CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::EXPIRED]);
+            });
     }
 }

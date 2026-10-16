@@ -34,7 +34,9 @@ class OrderTrackingController extends Controller
 
         $reference = trim($validated['reference']);
 
-        $order = CustomOrder::query()
+        // Archived orders stay findable: archiving is a Studio tidy-up, not a
+        // reason for the customer to lose their order.
+        $order = CustomOrder::withTrashed()
             ->whereRaw('UPPER(cipher) = ?', [strtoupper($reference)])
             ->first();
 

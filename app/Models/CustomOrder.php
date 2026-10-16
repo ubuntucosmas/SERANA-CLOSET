@@ -19,6 +19,7 @@ class CustomOrder extends Model
         'inspiration_image_paths' => 'array',
         'items_json' => 'array',
         'is_paid' => 'boolean',
+        'paid_at' => 'datetime',
     ];
 
     protected $appends = ['inspiration_urls', 'items_with_urls'];
@@ -52,10 +53,31 @@ class CustomOrder extends Model
                 if ($img) {
                     $item['image_url'] = PublicUrl::resolve($img);
                 }
+                $item['size_label'] = self::sizeLabel($item['options'] ?? null);
                 $processed[] = $item;
             }
         }
         return $processed;
+    }
+
+    /** "Top M · Bottom L" for sets, "Size M" for single pieces, null when none chosen. */
+    public static function sizeLabel(?array $options): ?string
+    {
+        $top = $options['top_size'] ?? null;
+        $bottom = $options['bottom_size'] ?? null;
+        if ($top && $bottom) return "Top {$top} · Bottom {$bottom}";
+        if ($top || $bottom) return 'Size ' . ($top ?: $bottom);
+        return null;
+    }
+
+    /** When payment was confirmed, formatted in the store's display timezone. */
+    public function paidAtForDisplay(string $format = 'M d, Y g:i A'): ?string
+    {
+        $at = $this->paid_at
+            ?? $this->paymentAttempts()->where('status', PaymentAttempt::PAID)->oldest('updated_at')->value('updated_at');
+        $at = $at ? \Illuminate\Support\Carbon::parse($at) : $this->updated_at;
+
+        return $at?->copy()->timezone(config('app.display_timezone'))->format($format);
     }
 
     protected static function booted()
@@ -194,7 +216,7 @@ class CustomOrder extends Model
 
         return [
             'reference'   => $this->cipher,
-            'placed_at'   => optional($this->created_at)->format('M d, Y'),
+            'placed_at'   => optional($this->created_at)->timezone(config('app.display_timezone'))->format('M d, Y'),
             'type'        => $this->type,
             'status'      => $this->status,
             'is_paid'     => $isPaid,
@@ -203,7 +225,7 @@ class CustomOrder extends Model
             'progress'    => $this->progressSnaps()->latest()->get()->map(fn ($snap) => [
                 'image_url'   => $snap->image_url,
                 'description' => $snap->description,
-                'date'        => optional($snap->created_at)->format('M d, Y'),
+                'date'        => optional($snap->created_at)->timezone(config('app.display_timezone'))->format('M d, Y'),
             ])->all(),
             'receipt_url' => $isPaid
                 ? URL::temporarySignedRoute('orders.receipt', now()->addDays(7), ['order' => $this->id])
@@ -225,6 +247,7 @@ class CustomOrder extends Model
             'quantity'  => $item['quantity'] ?? 1,
             'image_url' => $item['image_url'] ?? null,
             'options' => $item['options'] ?? null,
+            'size_label' => $item['size_label'] ?? null,
             'price' => $item['price'] ?? null,
         ])->all();
     }

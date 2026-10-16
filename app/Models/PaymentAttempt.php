@@ -30,9 +30,10 @@ class PaymentAttempt extends Model
         'amount' => 'integer',
     ];
 
+    /** Payment evidence must always resolve its order, even one Studio archived. */
     public function order()
     {
-        return $this->belongsTo(CustomOrder::class, 'custom_order_id');
+        return $this->belongsTo(CustomOrder::class, 'custom_order_id')->withTrashed();
     }
 
     public function scopePending(Builder $query): Builder

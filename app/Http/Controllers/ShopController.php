@@ -25,7 +25,7 @@ class ShopController extends Controller
         return Inertia::render('Shop', [
             'products' => $products,
             'categories' => $categories,
-            'filters' => $request->only('category')
+            'filters' => $request->only(['category', 'sort'])
         ]);
     }
 

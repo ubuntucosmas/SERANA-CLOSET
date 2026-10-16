@@ -68,6 +68,12 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Timestamps are stored in UTC; anything shown to customers or staff as
+    | text (receipts, tracking dates, Studio notes) is formatted in this zone.
+    */
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Africa/Nairobi'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

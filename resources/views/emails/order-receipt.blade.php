@@ -56,7 +56,7 @@
                             @foreach($items as $item)
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
                                     <tr>
-                                        <td style="font-size:14px; color:#e8e8e8;">{{ $item['name'] ?? 'Item' }}</td>
+                                        <td style="font-size:14px; color:#e8e8e8;">{{ $item['name'] ?? 'Item' }}@if(!empty($item['size_label']))<br><span style="font-size:12px; color:#9a9aa0;">{{ $item['size_label'] }}</span>@endif</td>
                                         <td style="font-size:13px; color:#9a9aa0; text-align:right;">Qty {{ $item['quantity'] ?? 1 }}</td>
                                     </tr>
                                 </table>
