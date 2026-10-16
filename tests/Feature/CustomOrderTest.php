@@ -41,10 +41,24 @@ class CustomOrderTest extends TestCase
             'whatsapp_number' => '254700000000',
             'notes'           => 'Please add interior pockets',
             'occasion'        => 'Wedding',
-            'deadline'        => '2026-08-01',
+            'deadline'        => now()->addMonth()->toDateString(),
             'selected_fit'    => 'Slim',
             'location'        => 'Nairobi',
         ])->assertOk()->assertJson(['success' => true]);
+    }
+
+    /** Impossible measurements or a past deadline are a 422, never a 500. */
+    public function test_impossible_measurements_and_past_deadline_are_rejected(): void
+    {
+        $this->postJson(route('custom-orders.store'), [
+            'full_name'       => 'Jane Doe',
+            'whatsapp_number' => '254700000000',
+            'bust_cm'         => -50,
+            'waist_cm'        => 99999,
+            'deadline'        => now()->subDay()->toDateString(),
+        ])->assertStatus(422)->assertJsonValidationErrors(['bust_cm', 'waist_cm', 'deadline']);
+
+        $this->assertDatabaseCount('custom_orders', 0);
     }
 
     public function test_name_and_whatsapp_are_required(): void

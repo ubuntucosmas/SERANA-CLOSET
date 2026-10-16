@@ -96,14 +96,14 @@ Route::middleware('auth')->group(function () {
     
     // Client Vault & Personal Archive
     Route::get('/my-vault', function () {
+        // Customer-safe projection: never ship Studio notes or payment internals.
         return Inertia::render('Profile/DesignsVault', [
-            'orders' => auth()->user()->customOrders()->with('progressSnaps')->latest()->get(),
-            'user' => auth()->user()
+            'orders' => auth()->user()->customOrders()->latest()->get()
+                ->map(fn ($o) => $o->only(['id', 'cipher', 'type', 'status', 'is_paid', 'price_quoted', 'created_at'])),
         ]);
     })->name('profile.designs');
 
     // Invitation System
-    Route::post('/my-vault/invite', [ProfileController::class, 'generateInvitation'])->name('profile.invite');
 });
 
 /*
@@ -119,6 +119,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{id}/restore', [StudioController::class, 'restore'])->name('studio.order.restore');
     Route::delete('/order/{id}/force', [StudioController::class, 'forceDelete'])->name('studio.order.force_delete');
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
+    Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->name('studio.order.record_payment');
 
     // Catalog Management
     Route::get('/catalog', [App\Http\Controllers\Admin\CatalogController::class, 'index'])->name('admin.catalog.index');
@@ -147,6 +148,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/theme/update', [App\Http\Controllers\Admin\ThemeController::class, 'update'])->name('admin.theme.update');
     Route::post('/theme/bulk-update', [App\Http\Controllers\Admin\ThemeController::class, 'bulkUpdate'])->name('admin.theme.bulk_update');
     Route::delete('/theme/{key}', [App\Http\Controllers\Admin\ThemeController::class, 'destroy'])->name('admin.theme.destroy');
+    Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 
 require __DIR__.'/auth.php';

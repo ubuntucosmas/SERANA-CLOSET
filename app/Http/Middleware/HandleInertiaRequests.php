@@ -53,8 +53,9 @@ class HandleInertiaRequests extends Middleware
             'whatsapp_number' => fn () => WhatsApp::normalizeNumber(
                 ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
             ),
-            'theme_settings' => fn () => ThemeSetting::all()->mapWithKeys(function ($item) {
-                return [$item->key => ThemeSetting::get($item->key)];
+            // Custom order options are passed only to the pages that use them.
+            'theme_settings' => fn () => collect(ThemeSetting::values())->except(\App\Support\CustomOrderOptions::KEY)->mapWithKeys(function ($value, $key) {
+                return [$key => ThemeSetting::get($key)];
             })->all(),
             'categories' => fn () => \App\Models\Category::all()->map(function ($cat) {
                 return [

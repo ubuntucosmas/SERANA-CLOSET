@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ThemeSetting;
+use App\Support\CustomOrderOptions;
 use App\Support\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,6 @@ class ThemeController extends Controller
         'site_name' => 'nullable|string|max:100',
         'site_tagline' => 'nullable|string|max:300',
         'whatsapp_number' => 'nullable|string|max:30|regex:/^[+\d\s()-]+$/',
-        'studio_capacity' => 'nullable|integer|min:1|max:10000',
         'focal_1_label' => 'nullable|string|max:200',
         'focal_2_label' => 'nullable|string|max:200',
         'focal_3_label' => 'nullable|string|max:200',
@@ -61,6 +61,24 @@ class ThemeController extends Controller
             }
         });
         return back()->with('success', 'Store settings updated.');
+    }
+
+    /** Studio → Settings → Custom order options (garments, fabrics, colours). */
+    public function updateCustomOrderOptions(Request $request)
+    {
+        $validated = $request->validate(CustomOrderOptions::rules(), [
+            'fabrics.*.distinct' => 'Each fabric can only be listed once.',
+            'colours.*.name.distinct' => 'Each colour can only be listed once.',
+            'colours.*.hex.regex' => 'Pick each colour with the colour picker.',
+        ]);
+
+        if (! collect($validated['garments'])->contains('enabled', true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['garments' => 'Keep at least one garment switched on.']);
+        }
+
+        CustomOrderOptions::save($validated);
+
+        return back()->with('success', 'Custom order options updated.');
     }
 
     public function destroy(string $key)

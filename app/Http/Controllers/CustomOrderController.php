@@ -7,7 +7,9 @@ use App\Support\SubmissionReceipt;
 use App\Models\CustomOrder;
 use App\Models\Product;
 use App\Models\ThemeSetting;
+use App\Support\CustomOrderOptions;
 use App\Support\WhatsApp;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -32,32 +34,45 @@ class CustomOrderController extends Controller
         }
 
         return Inertia::render('CustomOrder', [
-            'showcaseProducts' => Product::latest()->take(6)->get(),
-            'baseProduct' => $targetProduct
+            'baseProduct' => $targetProduct,
+            // Garment, fabric and colour choices are managed in Studio → Settings.
+            'options' => CustomOrderOptions::forCustomers(),
         ]);
     }
 
     public function store(Request $request)
     {
+        // Only choices the studio currently offers are accepted.
+        $allowed = CustomOrderOptions::allowedValues();
+
         $validated = $request->validate([
             'request_id' => 'nullable|uuid',
             'full_name' => 'required|string|max:255',
             'whatsapp_number' => 'required|string|max:20',
             'location' => 'nullable|string|max:255',
-            'outfit_type' => 'nullable|string|max:100',
-            'fabric_preference' => 'nullable|string|max:100',
-            'selected_color' => 'nullable|string|max:100',
+            'outfit_type' => ['nullable', 'string', Rule::in($allowed['outfit_type'])],
+            'fabric_preference' => ['nullable', 'string', Rule::in($allowed['fabric_preference'])],
+            'selected_color' => ['nullable', 'string', Rule::in($allowed['selected_color'])],
             'notes' => 'nullable|string',
-            'bust_cm' => 'nullable|numeric',
-            'waist_cm' => 'nullable|numeric',
-            'hips_cm' => 'nullable|numeric',
-            'length_cm' => 'nullable|numeric',
-            'height_cm' => 'nullable|numeric',
-            'deadline' => 'nullable|string',
+            'bust_cm' => 'nullable|numeric|between:30,250',
+            'waist_cm' => 'nullable|numeric|between:30,250',
+            'hips_cm' => 'nullable|numeric|between:30,250',
+            'length_cm' => 'nullable|numeric|between:10,250',
+            'height_cm' => 'nullable|numeric|between:50,250',
+            'deadline' => 'nullable|date|after_or_equal:today',
             'occasion' => 'nullable|string|max:100',
             'selected_fit' => 'nullable|string|max:50',
-            'images.*' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            'images' => 'nullable|array|max:6',
+            'images.*' => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf|max:10240',
             'priority_pass' => 'nullable',
+        ], [
+            'outfit_type.in' => 'That garment is no longer offered. Please choose another.',
+            'fabric_preference.in' => 'That fabric is no longer offered. Please choose another.',
+            'selected_color.in' => 'That colour is no longer offered. Please choose another.',
+            'images.max' => 'You can attach up to 6 reference images.',
+            'images.*.mimes' => 'Reference images must be JPG, PNG, WEBP or PDF. On iPhone, share the photo as JPG.',
+            'images.*.max' => 'Each reference image must be 10MB or smaller.',
+            'images.*.uploaded' => 'A reference image could not be uploaded. Try a smaller photo (under 10MB).',
         ]);
 
         if ($saved = SubmissionReceipt::recall($request, 'bespoke', $validated)) return response()->json($saved);
