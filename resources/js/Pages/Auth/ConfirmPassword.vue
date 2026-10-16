@@ -23,7 +23,7 @@ const submit = () => {
         <h1 class="text-2xl font-headline mb-3">Confirm Your Password</h1>
         <p class="text-sm text-on-surface-variant mb-6">Enter your password to continue with this account action.</p>
 
-        <div class="mb-4 text-sm text-gray-600">
+        <div class="mb-4 text-sm text-on-surface-variant">
             This is a secure area of the application. Please confirm your
             password before continuing.
         </div>

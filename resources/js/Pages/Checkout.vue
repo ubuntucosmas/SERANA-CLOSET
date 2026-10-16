@@ -1,13 +1,15 @@
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
-import { ref, watch, computed, onUnmounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
+import { rememberTrackingPhone } from '@/Support/trackingMemory';
 
 const page = usePage();
 const pulse = usePulseStore();
@@ -48,8 +50,9 @@ const showSizing = ref(false);
 
 const form = ref({
     request_id: crypto.randomUUID(),
-    email: '',
-    full_name: '',
+    // Signed-in shoppers shouldn't retype what we already know.
+    email: page.props.auth?.user?.email || '',
+    full_name: page.props.auth?.user?.name || '',
     address: '',
     city: '',
     phone: '',
@@ -59,9 +62,122 @@ const form = ref({
     hips_cm: '',
 });
 
+// Remember the pending order for this exact bag, so a refresh, the back button
+// or a return visit resumes it instead of creating a duplicate order.
+const STORE_KEY = 'serana_checkout';
+const CONTEXT_TTL_MS = 60 * 60 * 1000;
+const bagSignature = computed(() => JSON.stringify(cart.items.map(i => [i.id, i.quantity, i.options ?? null])));
+const resumedOrder = ref(false);
+// 'review' when M-Pesa took a different amount: paying again is blocked until support reviews it.
+const paymentBlocked = ref(null);
+
+function saveContext() {
+    try {
+        const { email, full_name, address, city, phone } = form.value;
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+            sig: bagSignature.value, request_id: form.value.request_id,
+            order_id: orderId.value, reference: orderReference.value, amount: orderAmount.value,
+            items: frozenItems.value, details: { email, full_name, address, city, phone }, at: Date.now(),
+        }));
+    } catch {}
+}
+function clearContext() { try { localStorage.removeItem(STORE_KEY); } catch {} }
+
+function startOver() {
+    clearContext();
+    orderId.value = null; orderReference.value = null; orderAmount.value = null;
+    resumedOrder.value = false; paymentBlocked.value = null; errors.value = {};
+    form.value.request_id = crypto.randomUUID();
+}
+
+onMounted(async () => {
+    let ctx = null;
+    try { ctx = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch {}
+    if (!ctx) return;
+    if (ctx.sig !== bagSignature.value || Date.now() - ctx.at > CONTEXT_TTL_MS) { clearContext(); return; }
+    form.value.request_id = ctx.request_id || form.value.request_id;
+    Object.assign(form.value, ctx.details || {});
+    if (!ctx.order_id) return;
+    orderId.value = ctx.order_id; orderReference.value = ctx.reference; orderAmount.value = ctx.amount;
+    frozenItems.value = ctx.items || [];
+    resumedOrder.value = true;
+    try {
+        const { data } = await axios.get(route('mpesa.status', orderId.value));
+        applyStatus(data);
+    } catch (err) {
+        if (err.response?.status === 404) startOver();
+    }
+});
+
+// One place that turns the server's payment status into what the customer sees.
+// Returns 'paid' | 'failed' | 'blocked' | 'expired' | 'pending'.
+function applyStatus(data) {
+    if (data.reference) orderReference.value = data.reference;
+    if (data.is_paid) {
+        isPaid.value = true;
+        isWaitingForStk.value = false;
+        isSuccess.value = true;
+        resumedOrder.value = false;
+        // Server-confirmed figure — the local cart is not authoritative.
+        paidAmount.value = data.amount ?? cart.totalPrice;
+        safaricomTransactionId.value = data.transaction_id;
+        receiptUrl.value = data.receipt_url;
+        frozenTotal.value = cart.totalPrice;
+        cart.clearBag();
+        clearContext();
+        rememberTrackingPhone(form.value.phone);
+        return 'paid';
+    }
+    if (data.status === 'Expired') {
+        // The hold lapsed: a new order is needed. Keep the delivery details.
+        startOver();
+        pulse.emit('Your earlier unpaid order expired. Review your bag and pay again to place a new order.', 'error');
+        return 'expired';
+    }
+    if (data.status === 'Amount Mismatch') {
+        paymentBlocked.value = 'review';
+        errors.value = { payment: ['M-Pesa reported a different amount for this order. Please contact support with your order reference before paying again.'] };
+        return 'blocked';
+    }
+    if (data.status === 'Payment Failed') {
+        errors.value = { payment: ['Payment was not completed. Press Resume Payment to try again, or contact support if M-Pesa shows a charge.'] };
+        return 'failed';
+    }
+    return 'pending';
+}
+
+// Required delivery fields, in screen order. Tapping Pay with gaps jumps to
+// the first one and says what is missing, instead of a silently disabled button.
+const REQUIRED = [
+    ['full_name', 'Enter your full name.'],
+    ['email', 'Enter your email so we can send your receipt.'],
+    ['address', 'Enter the delivery address.'],
+    ['city', 'Enter your town or city.'],
+    ['phone', 'Enter the M-Pesa number to charge.'],
+];
+function firstMissingField() {
+    const missing = REQUIRED.filter(([field]) => !String(form.value[field] || '').trim());
+    if (!missing.length) return false;
+    errors.value = Object.fromEntries(missing.map(([field, message]) => [field, [message]]));
+    const el = document.getElementById(`checkout-${missing[0][0]}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus({ preventScroll: true });
+    return true;
+}
+const payTotal = computed(() => orderAmount.value ?? cart.totalPrice);
+// A field's message disappears as soon as it is filled in.
+watch(form, (value) => {
+    const fixed = REQUIRED.filter(([field]) => errors.value[field] && String(value[field] || '').trim());
+    if (fixed.length) errors.value = Object.fromEntries(Object.entries(errors.value).filter(([field]) => !fixed.some(([f]) => f === field)));
+}, { deep: true });
+// Field errors sit under their field; only the rest (payment, server) go in the top box.
+const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone'];
+const generalErrors = computed(() => Object.entries(errors.value).filter(([field]) => !FIELD_KEYS.includes(field)));
+
 async function handlePayment() {
     if (isProcessing.value || !cart.items.length) return;
     if (orderId.value) { isWaitingForStk.value = true; return; }
+    if (firstMissingField()) return;
     errors.value = {};
     isProcessing.value = true;
     stkSent.value = false;
@@ -77,14 +193,15 @@ async function handlePayment() {
         if (!payload.waist_cm) delete payload.waist_cm;
         if (!payload.hips_cm) delete payload.hips_cm;
 
+        saveContext(); // a refresh mid-request re-sends the same request_id and gets this order back
         const response = await axios.post(route('checkout.process'), payload);
         if (response.data.success && response.data.order_id) {
             orderId.value = response.data.order_id;
             orderReference.value = response.data.reference;
             orderAmount.value = response.data.amount;
             frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
+            saveContext();
             isWaitingForStk.value = true;
-            pulse.emit('Order created successfully.', 'success');
         } else {
             pulse.emit(response.data.message || 'Order processing failed.', 'error');
         }
@@ -92,7 +209,7 @@ async function handlePayment() {
         console.error(err);
         if (err.response?.data?.errors) {
             errors.value = err.response.data.errors;
-            pulse.emit('Check the highlighted fields. Your order was not created.', 'error');
+            document.querySelector('[aria-invalid="true"]')?.focus();
         } else {
             pulse.emit(err.response?.data?.message || 'Order processing failed.', 'error');
         }
@@ -113,7 +230,6 @@ async function initiateMpesaStk(data) {
             phone: data.phone
         });
         if (response.data.success) {
-            pulse.emit('STK Push sent to your phone.', 'success');
             stkSent.value = true; // advances the panel to "check your phone"
             startPolling();
         } else {
@@ -168,31 +284,12 @@ function startPolling() {
         }
         try {
             const response = await axios.get(route('mpesa.status', orderId.value));
-            // Capture the tracking reference as soon as it's known, so the
-            // pending hand-off can show it even before payment confirms.
-            if (response.data.reference) orderReference.value = response.data.reference;
-            if (!response.data.is_paid && ['Payment Failed', 'Expired', 'Amount Mismatch'].includes(response.data.status)) {
+            const outcome = applyStatus(response.data);
+            if (outcome !== 'pending') {
                 clearInterval(pollingInterval);
                 stkSent.value = false;
-                isWaitingForStk.value = false;
                 paymentPending.value = false;
-                errors.value = { payment: [response.data.status === 'Payment Failed'
-                    ? 'Payment was not completed. Reopen payment to try again, or contact support if M-Pesa shows a charge.'
-                    : 'Payment needs review. Track this order or contact support before paying again.'] };
-                return;
-            }
-            if (response.data.is_paid) {
-                clearInterval(pollingInterval);
-                isPaid.value = true;
-                isWaitingForStk.value = false;
-                isSuccess.value = true;
-                // Server-confirmed figure — the local cart is not authoritative.
-                paidAmount.value = response.data.amount ?? cart.totalPrice;
-                safaricomTransactionId.value = response.data.transaction_id;
-                receiptUrl.value = response.data.receipt_url;
-                frozenTotal.value = cart.totalPrice;
-                cart.clearBag();
-                pulse.emit('Payment confirmed. Track your order for fulfilment updates.', 'success');
+                if (outcome !== 'paid') isWaitingForStk.value = false;
             }
         } catch (err) { console.error('Polling error:', err); }
     }, 5000);
@@ -204,36 +301,46 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <StorefrontLayout hideMobileCard>
+    <StorefrontLayout focus>
         <Head title="Checkout — Serana" />
 
-        <main class="relative pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto min-h-screen bg-background">
+        <main class="page-container relative pb-24 min-h-screen">
 
             <!-- Lipa na M-PESA Express Checkout -->
             <div class="max-w-6xl mx-auto">
                 <!-- Header -->
-                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-10">
-                    <div>
-                        <Link :href="route('shop')" class="text-[11px] tracking-wider text-on-surface-variant hover:text-primary flex items-center gap-2 transition-colors">
-                            <span class="material-symbols-outlined text-sm">arrow_back</span> Back to Collection
+                <PageHeader kicker="Checkout" title="Secure Checkout" subtitle="Complete your order with M-PESA. Fast, safe, no card required.">
+                    <template #before>
+                        <Link :href="route('shop')" class="mb-4 flex w-fit items-center gap-2 text-sm text-on-surface-variant transition-colors hover:text-primary">
+                            <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span> Back to Collection
                         </Link>
-                        <h1 class="font-headline text-4xl md:text-5xl tracking-tighter mt-4 text-on-surface">Secure Checkout</h1>
-                        <p class="text-on-surface-variant mt-2 text-sm">Complete your order with M-PESA — fast, safe, no card required.</p>
-                    </div>
+                    </template>
+                    <template #actions>
                     <!-- Lipa na M-PESA lockup -->
-                    <div class="inline-flex items-center gap-3 self-start px-4 py-3 bg-[#4fb33f]/10 border border-[#4fb33f]/30">
-                        <span class="material-symbols-outlined text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
+                    <div class="inline-flex items-center gap-3 rounded-2xl border border-[#4fb33f]/30 bg-[#4fb33f]/10 px-4 py-3">
+                        <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
                         <div class="leading-tight">
                             <div class="text-[9px] tracking-wider text-on-surface-variant">Powered by</div>
-                            <div class="text-sm font-black text-[#4fb33f] tracking-tight">Lipa na M-PESA</div>
+                            <div class="text-sm font-black text-[#276b1d] dark:text-[#4fb33f] tracking-tight">Lipa na M-PESA</div>
                         </div>
                     </div>
-                </div>
+                    </template>
+                </PageHeader>
 
-                <p v-if="orderReference && !isPaid" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
-                <div v-if="Object.keys(errors).length" role="alert" class="mb-6 rounded-xl border border-red-400/40 p-5">
+                <div v-if="resumedOrder && !isPaid && !paymentBlocked" role="status" class="card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="font-semibold text-on-surface">You have an unpaid order for this bag</p>
+                        <p class="mt-1 text-sm text-on-surface-variant">Order <strong>{{ orderReference }}</strong> is waiting for payment. Resume it, or start over to change your details.</p>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap gap-3">
+                        <button type="button" class="action-primary" @click="handlePayment">Resume Payment</button>
+                        <button type="button" class="action-secondary" @click="startOver">Start Over</button>
+                    </div>
+                </div>
+                <p v-else-if="orderReference && !isPaid" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
+                <div v-if="generalErrors.length" role="alert" class="mb-6 rounded-xl border border-red-400/40 p-5">
                     <p class="font-semibold mb-2">Please check these details</p>
-                    <p v-for="(messages, field) in errors" :key="field" class="text-sm">{{ messages[0] }}</p>
+                    <p v-for="[field, messages] in generalErrors" :key="field" class="text-sm">{{ messages[0] }}</p>
                 </div>
                 <div v-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
                     <h2 class="text-xl mb-3">Your bag is empty</h2>
@@ -242,7 +349,7 @@ onUnmounted(() => {
                 <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
                     <!-- LEFT: Order Summary -->
-                    <aside class="lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
+                    <aside class="order-2 lg:order-1 lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
                         <div class="bg-surface-container border border-white/10 p-7 md:p-8">
                             <div class="flex items-center justify-between mb-7">
                                 <h3 class="tracking-wider text-[11px] text-on-surface-variant font-bold">Order Summary</h3>
@@ -256,7 +363,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="flex-1 min-w-0 pt-0.5">
                                         <div class="text-on-surface font-medium truncate">{{ item.name }}</div>
-                                        <p v-for="(value, key) in Object.fromEntries(Object.entries(item.options || {}).filter(([, value]) => value))" :key="key" class="text-xs text-on-surface-variant">{{ key.replaceAll('_', ' ') }}: {{ value }}</p>
+                                        <p v-if="item.options?.top_size || item.options?.bottom_size" class="text-xs text-on-surface-variant">{{ item.options.top_size && item.options.bottom_size ? `Top ${item.options.top_size} · Bottom ${item.options.bottom_size}` : `Size ${item.options.top_size || item.options.bottom_size}` }}</p>
                                         <div class="text-xs text-on-surface-variant mt-0.5">Qty · {{ item.quantity }}</div>
                                         <div class="text-primary font-mono text-sm mt-2">{{ formatAmount(item.price * item.quantity) }}</div>
                                     </div>
@@ -270,7 +377,7 @@ onUnmounted(() => {
                                 </div>
                                 <div class="flex justify-between text-sm text-on-surface-variant">
                                     <span>Delivery</span>
-                                    <span class="text-[#4fb33f] font-medium">Included</span>
+                                    <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">Included</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-white/5">
                                     <span class="tracking-widest text-[11px] text-on-surface-variant">Total</span>
@@ -286,14 +393,19 @@ onUnmounted(() => {
                                 { icon: 'verified_user', label: 'Safaricom' },
                                 { icon: 'receipt_long', label: 'Receipt by email' },
                             ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-4 bg-surface-container border border-white/5">
-                                <span class="material-symbols-outlined text-[#4fb33f] text-lg">{{ t.icon }}</span>
+                                <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-lg">{{ t.icon }}</span>
                                 <span class="text-[9px] tracking-widest text-on-surface-variant font-bold">{{ t.label }}</span>
                             </div>
                         </div>
                     </aside>
 
                     <!-- RIGHT: Details + Pay -->
-                    <div class="lg:col-span-7 space-y-6">
+                    <div class="order-1 lg:order-2 lg:col-span-7 space-y-6">
+                        <!-- Phones: one line of what's being bought; the full summary follows the form. -->
+                        <button type="button" @click="cart.isOpen = true" class="card flex w-full items-center justify-between gap-3 px-5 py-4 text-left lg:hidden">
+                            <span class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }} · <span class="font-semibold text-on-surface">{{ formatAmount(cart.totalPrice) }}</span></span>
+                            <span class="text-sm font-medium text-primary">View bag</span>
+                        </button>
 
                         <!-- 1 · Delivery details -->
                         <div class="bg-surface-container border border-white/10 p-7 md:p-8">
@@ -348,7 +460,7 @@ onUnmounted(() => {
                         <!-- 2 · Pay with M-PESA -->
                         <div class="bg-surface-container border border-[#4fb33f]/25 p-7 md:p-8">
                             <div class="flex items-center gap-3 mb-6">
-                                <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#4fb33f] text-xs font-black">2</span>
+                                <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-xs font-black">2</span>
                                 <h2 class="tracking-wider text-xs font-bold text-on-surface">Pay with M-PESA</h2>
                                 <span class="ml-auto w-2 h-2 rounded-full bg-[#4fb33f] animate-pulse"></span>
                             </div>
@@ -356,31 +468,37 @@ onUnmounted(() => {
                             <!-- M-PESA number -->
                             <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-phone">M-PESA Number</label>
                             <div class="flex">
-                                <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#4fb33f] font-mono font-bold text-sm">+254</span>
+                                <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#276b1d] dark:text-[#4fb33f] font-mono font-bold text-sm">+254</span>
                                 <input id="checkout-phone" autocomplete="tel" required :aria-invalid="!!errors.phone" v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
-                                        <p v-if="errors.phone" class="text-sm text-red-400 mt-2">{{ errors.phone[0] }}</p>
                             </div>
+                            <p v-if="errors.phone" class="text-sm text-red-400 mt-2">{{ errors.phone[0] }}</p>
 
                             <!-- How it works -->
                             <div class="flex items-center gap-1.5 mt-6 mb-6">
                                 <template v-for="(s, i) in ['Confirm order', 'Get STK prompt', 'Enter your PIN']" :key="s">
                                     <div class="flex items-center gap-2 flex-1">
-                                        <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4fb33f]/15 text-[#4fb33f] text-[10px] font-black">{{ i + 1 }}</span>
+                                        <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-[10px] font-black">{{ i + 1 }}</span>
                                         <span class="text-[10px] text-on-surface-variant leading-tight">{{ s }}</span>
                                     </div>
                                     <span v-if="i < 2" class="material-symbols-outlined text-on-surface-variant/30 text-sm">chevron_right</span>
                                 </template>
                             </div>
 
-                            <p class="text-sm text-on-surface-variant mb-5">All delivery fields are required. You’ll review the current catalogue total before approving a payment on your phone.</p>
+                            <p class="text-sm text-on-surface-variant mb-5">You’ll confirm the final total, then approve it with your M-Pesa PIN on your phone.</p>
+                            <!-- Amount mismatch: no pay action until support has reviewed it -->
+                            <div v-if="paymentBlocked" class="flex flex-col gap-3 sm:flex-row">
+                                <Link :href="route('track', { ref: orderReference })" class="action-primary flex-1">Track This Order</Link>
+                                <Link :href="route('contact')" class="action-secondary flex-1">Contact Support</Link>
+                            </div>
                             <!-- Pay button -->
                             <button
+                                v-else
                                 @click="handlePayment"
-                                :disabled="isProcessing || !form.full_name || !form.email || !form.city || !form.phone || !form.address"
-                                class="w-full py-5 bg-[#4fb33f] text-black font-black tracking-wider text-sm flex items-center justify-center gap-3 hover:bg-[#5cc94a] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_20px_40px_-12px_rgba(79,179,63,0.5)]">
+                                :disabled="isProcessing"
+                                class="action-primary w-full py-4 text-base">
                                 <template v-if="!isProcessing">
-                                    <span class="material-symbols-outlined">lock</span>
-                                    {{ orderId ? 'Resume Payment' : 'Review Order & Pay' }}
+                                    <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+                                    {{ orderId ? 'Resume Payment' : `Pay ${formatAmount(payTotal)} with M-Pesa` }}
                                 </template>
                                 <template v-else>
                                     <span class="material-symbols-outlined animate-spin">progress_activity</span>
@@ -389,7 +507,7 @@ onUnmounted(() => {
                             </button>
 
                             <p class="text-center text-[10px] text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs text-[#4fb33f]">shield</span>
+                                <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]">shield</span>
                                 You'll receive a secure STK push on your phone
                             </p>
                         </div>
@@ -407,7 +525,7 @@ onUnmounted(() => {
                         <!-- Backdrop -->
                         <div
                             class="pay-modal-backdrop absolute inset-0 bg-black/85 backdrop-blur-md"
-                            @click="closePaymentModal"
+                            @click="!stkSent && closePaymentModal()"
                         ></div>
 
                         <!-- Dialog -->
@@ -418,10 +536,10 @@ onUnmounted(() => {
                             <!-- Close -->
                             <button
                                 @click="closePaymentModal"
-                                class="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center bg-black/40 text-white/60 hover:text-white hover:bg-black/70 backdrop-blur-md transition-colors"
-                                title="Close"
+                                class="absolute top-4 right-4 z-50 w-11 h-11 rounded-full flex items-center justify-center bg-black/40 text-white/70 hover:text-white hover:bg-black/70 backdrop-blur-md transition-colors"
+                                aria-label="Close"
                             >
-                                <span class="material-symbols-outlined text-lg">close</span>
+                                <span class="material-symbols-outlined text-lg" aria-hidden="true">close</span>
                             </button>
 
                             <!-- Payment still confirming (polling ended before the

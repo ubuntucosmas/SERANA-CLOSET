@@ -143,7 +143,7 @@ function startPolling() {
 <template>
     <Head :title="`${drop.title} — Serana Drop`" />
     <StorefrontLayout>
-        <section class="max-w-screen-xl mx-auto px-6 pb-24 grid lg:grid-cols-2 gap-12 lg:gap-16">
+        <section class="page-container pb-24 grid lg:grid-cols-2 gap-12 lg:gap-16">
             <!-- Image -->
             <div class="rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 aspect-[4/5] lg:sticky lg:top-28 self-start">
                 <img v-if="drop.image_url" :src="drop.image_url" :alt="drop.title" class="w-full h-full object-cover" />
@@ -264,7 +264,7 @@ function startPolling() {
                             <label for="drop-fit_notes" class="block text-sm mb-2">Fit Notes (optional)</label>
                             <textarea id="drop-fit_notes" v-model="form.fit_notes" rows="2" placeholder="Fit notes (optional) — e.g. prefer relaxed, sleeves a touch longer" class="w-full bg-black/5 dark:bg-white/5 border dark:border-white/10 border-black/10 rounded-xl px-4 py-3 dark:text-white text-on-surface outline-none focus:border-primary/50"></textarea>
                         </div>
-                        <button :disabled="reserving" @click="submitReserve" class="mt-6 w-full py-4 rounded-xl bg-primary text-background font-headline font-black uppercase tracking-widest text-sm hover:brightness-105 transition-all">
+                        <button :disabled="reserving" @click="submitReserve" class="action-primary w-full py-4">
                             {{ reserving ? 'Creating Reservation…' : 'Reserve & Continue to Payment' }}
                         </button>
                     </div>

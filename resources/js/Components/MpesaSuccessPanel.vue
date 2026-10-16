@@ -44,6 +44,13 @@ function shareToWhatsApp() {
     window.open(`${base}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
+// Same wording as the bag and checkout: "Top M · Bottom L" or "Size M".
+function sizeLabel(item) {
+    const { top_size: top, bottom_size: bottom } = item.options || {};
+    if (top && bottom) return `Top ${top} · Bottom ${bottom}`;
+    return top || bottom ? `Size ${top || bottom}` : null;
+}
+
 function downloadReceipt() {
     // Signed, time-limited URL minted server-side after payment confirmation.
     if (props.receiptUrl) {
@@ -65,7 +72,7 @@ function downloadReceipt() {
         <ul v-if="items.length" class="space-y-3 border-t border-outline-variant pt-5 mb-6">
             <li v-for="(item, index) in items" :key="index" class="text-sm">
                 <p>{{ item.name }} × {{ item.quantity }} · {{ formatAmount(item.price * item.quantity, page.props) }}</p>
-                <p v-for="(value, key) in Object.fromEntries(Object.entries(item.options || {}).filter(([, value]) => value))" :key="key" class="text-on-surface-variant">{{ key.replaceAll('_', ' ') }}: {{ value }}</p>
+                <p v-if="sizeLabel(item)" class="text-on-surface-variant">{{ sizeLabel(item) }}</p>
             </li>
         </ul>
         <Link :href="route('track', { ref: reference })" class="action-primary w-full">Track Order</Link>

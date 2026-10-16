@@ -25,7 +25,7 @@ function pay() {
                 <label for="stk-phone" class="block text-sm mb-2">M-Pesa phone number (required)</label>
                 <input id="stk-phone" v-model="phoneNumber" type="tel" autocomplete="tel" required placeholder="0712 345 678" class="w-full rounded-xl bg-background border border-outline-variant p-3" />
             </div>
-            <button :disabled="!phoneNumber.trim()" class="w-full rounded-full bg-primary text-background py-4 font-semibold disabled:opacity-50">Pay with M-Pesa</button>
+            <button :disabled="!phoneNumber.trim()" class="action-primary w-full py-4">Pay with M-Pesa</button>
         </form>
         <div v-else class="space-y-5">
             <span class="material-symbols-outlined text-primary text-4xl animate-pulse" aria-hidden="true">{{ status === 'processing' ? 'sync' : 'smartphone' }}</span>

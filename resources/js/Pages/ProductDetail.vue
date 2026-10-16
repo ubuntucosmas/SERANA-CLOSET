@@ -1,118 +1,104 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { useCurrency } from '@/Composables/useCurrency';
-
 import { useWhatsApp } from '@/Composables/useWhatsApp';
 import { usePulseStore } from '@/Stores/usePulseStore';
-
-const page = usePage();
-const { formatAmount } = useCurrency();
-const { getWhatsAppUrl } = useWhatsApp();
-const pulse = usePulseStore();
+import { useBackToShop } from '@/Composables/useBackToShop';
 
 const props = defineProps({
     product: Object
 });
 
-const whatsappUrl = computed(() => {
-    return getWhatsAppUrl(props.product, {
-        topSize: selectedTopSize.value,
-        bottomSize: selectedBottomSize.value
-    }, page.props);
-});
-
+const page = usePage();
 const cart = useCartStore();
+const pulse = usePulseStore();
+const { formatAmount } = useCurrency();
+const { getWhatsAppUrl } = useWhatsApp();
+
 const isSoldOut = computed(() => props.product.in_stock === false || (props.product.batch_limit != null && props.product.batch_sold >= props.product.batch_limit));
 
-// ── Data-Driven Configuration Elements ───────────────────────────────────────
-const uiElements = computed(() => props.product.specifications?.ui || {
-    steps: ['1. Start', '2. Select', '3. Fit'],
-    configuring_set_label: 'CHOOSE YOUR PIECES',
-    icon_check: 'check_circle',
-    piece_1_label: 'ITEM 01',
-    piece_1_name: 'Hoodie',
-    piece_2_label: 'ITEM 02',
-    piece_2_name: 'Joggers',
-    size_prefix: 'SIZE:',
-    size_guide: 'Size Guide',
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    icon_bag: 'shopping_bag',
-    cta_primary: 'Add to Bag',
-    icon_chat: 'chat',
-    cta_secondary: 'CHAT WITH US'
+// Admin-editable piece names (Studio → product specs), with plain defaults.
+const ui = computed(() => props.product.specifications?.ui || {});
+const sizes = computed(() => ui.value.sizes || props.product.specifications?.sizes || ['S', 'M', 'L', 'XL', 'XXL']);
+
+// Which sizes this piece needs: a set needs both, a jogger the bottom only,
+// everything else the top only. Each gets its own visible row, so nothing
+// is hidden behind a toggle.
+const sizeRows = computed(() => {
+    const type = props.product.garment_type;
+    const top = { key: 'top', label: type === 'set' ? `${ui.value.piece_1_name || 'Hoodie'} size` : 'Size' };
+    const bottom = { key: 'bottom', label: type === 'set' ? `${ui.value.piece_2_name || 'Jogger'} size` : 'Size' };
+    if (type === 'set') return [top, bottom];
+    if (type === 'jogger') return [bottom];
+    return [top];
+});
+const selected = reactive({ top: null, bottom: null });
+
+// The button itself teaches the next step: no error toast needed.
+const missing = computed(() => sizeRows.value.filter(row => !selected[row.key]));
+const ctaLabel = computed(() => {
+    if (isSoldOut.value) return 'Out of Stock';
+    if (missing.value.length === sizeRows.value.length) return sizeRows.value.length > 1 ? 'Choose your sizes' : 'Choose a size';
+    if (missing.value.length) return `Choose ${missing.value[0].label.toLowerCase()}`;
+    return `Add to Bag · ${formatAmount(props.product.price, page.props)}`;
 });
 
-const defaultSizes = ['S', 'M', 'L', 'XL', 'XXL'];
-const sizes = computed(() => props.product.specifications?.ui?.sizes || props.product.specifications?.sizes || defaultSizes);
-
-// ── Jogger Set Configuration Engine ──────────────────────────────────────────
-const selectedTopSize = ref(null);
-const selectedBottomSize = ref(null);
-const activeComponent = ref(props.product.garment_type === 'jogger' ? 'joggers' : 'hoodie');
+const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: selected.top, bottomSize: selected.bottom }, page.props));
 
 const addToBag = () => {
-    if (isSoldOut.value) return;
-    const isSet = props.product.garment_type === 'set';
-    const isHoodie = props.product.garment_type === 'hoodie';
-    const isJogger = props.product.garment_type === 'jogger';
-    const isGeneric = !isSet && !isHoodie && !isJogger;
-
-    if (isSet) {
-        if (!selectedTopSize.value || !selectedBottomSize.value) {
-            const missing = !selectedTopSize.value && !selectedBottomSize.value 
-                ? 'both hoodie & jogger sizes' 
-                : (!selectedTopSize.value ? 'hoodie size' : 'jogger size');
-                
-            pulse.emit(`Please select ${missing} to add the set to your bag.`, 'error');
-            return;
-        }
-    } else if ((isHoodie || isGeneric) && !selectedTopSize.value && activeComponent.value === 'hoodie') {
-        pulse.emit(`Please select a size for your ${uiElements.value?.piece_1_name || 'piece'}.`, 'error');
-        return;
-    } else if ((isJogger || isGeneric) && !selectedBottomSize.value && activeComponent.value === 'joggers') {
-        pulse.emit(`Please select a size for your ${uiElements.value?.piece_2_name || 'piece'}.`, 'error');
-        return;
-    }
-    
-    if (props.product.batch_limit) {
-        const available = props.product.batch_limit - (props.product.batch_sold || 0);
-        const currentQty = cart.items.find(item => item.id === props.product.id)?.quantity ?? 0;
-        if (currentQty >= available) {
-            pulse.emit(`You have added the available quantity of this item.`, 'error');
-            return;
-        }
-    }
-
-    const itemToBag = {
+    if (isSoldOut.value || missing.value.length) return;
+    const added = cart.addItem({
         ...props.product,
-        name: isSet ? `${props.product.name} (Set)` : props.product.name,
-        options: {
-            top_size: isJogger ? null : selectedTopSize.value,
-            bottom_size: isHoodie ? null : selectedBottomSize.value
-        }
-    };
-    
-    try {
-        if (!cart.addItem(itemToBag)) {
-            pulse.emit('No more stock is available for this item. Review your bag.', 'error');
-            return;
-        }
-        pulse.emit('Added to your bag. Your next look is ready.', 'success');
-    } catch (e) {
-        console.error("Cart addition failed:", e);
-        pulse.emit(`Could not add this piece. Please try again.`, 'error');
-    }
+        options: { top_size: selected.top, bottom_size: selected.bottom },
+    });
+    // On success the bag drawer opens: that is the confirmation.
+    if (!added) pulse.emit("That's all we have of this piece right now. Check your bag.", 'error');
 };
 
-const trustHighlights = computed(() => [
-    { label: 'Free delivery', icon: 'local_shipping' },
-    { label: 'Bespoke support', icon: 'support_agent' },
-    { label: 'Secure checkout', icon: 'verified_user' },
-]);
+// Closing returns to the list they came from; otherwise to this piece's category.
+const { back } = useBackToShop();
+const closeProduct = () => back(route('shop', props.product.category?.slug ? { category: props.product.category.slug } : {}));
+// Esc closes, unless the bag is open or they're typing somewhere.
+const onKey = (e) => {
+    if (e.key !== 'Escape' || cart.isOpen || e.defaultPrevented) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+    closeProduct();
+};
+onMounted(() => window.addEventListener('keydown', onKey));
+onUnmounted(() => window.removeEventListener('keydown', onKey));
 
+// Phones: while the real button is still below the screen, a slim bar keeps
+// the next step one tap away. Tapping it with a size missing scrolls there.
+const ctaRef = ref(null);
+const ctaBelowFold = ref(false);
+let observer = null;
+onMounted(() => {
+    if (!ctaRef.value || !('IntersectionObserver' in window)) return;
+    observer = new IntersectionObserver(([entry]) => {
+        ctaBelowFold.value = !entry.isIntersecting && entry.boundingClientRect.top > 0;
+    });
+    observer.observe(ctaRef.value);
+});
+onUnmounted(() => observer?.disconnect());
+const stickyAction = () => {
+    if (missing.value.length) {
+        document.getElementById(`size-${missing.value[0].key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    addToBag();
+};
+
+// Only specs that actually say something; empty rows read as broken content.
+const techSpecs = computed(() => (props.product.specifications?.tech_specs || []).filter(spec => typeof spec === 'string' && spec.trim() !== ''));
+
+const trustHighlights = [
+    { label: 'Delivery included', icon: 'local_shipping' },
+    { label: 'Pay with M-Pesa', icon: 'verified_user' },
+    { label: 'Fit help on WhatsApp', icon: 'support_agent' },
+];
 
 const allImages = computed(() => {
     const images = [];
@@ -121,268 +107,162 @@ const allImages = computed(() => {
     return images.length > 0 ? images : ['/images/hero_editorial.png'];
 });
 
+// Swipe or tap the arrows. No auto-advance: the photo stays put while it is being looked at.
 const galleryRef = ref(null);
-// Which slide is in view — drives the active gallery dot.
 const currentIndex = ref(0);
 const onGalleryScroll = () => {
     if (!galleryRef.value) return;
     currentIndex.value = Math.round(galleryRef.value.scrollLeft / galleryRef.value.clientWidth);
 };
-let autoScrollInterval = null;
-
-const scrollGallery = (direction) => {
-    if (!galleryRef.value) return;
-    
-    const container = galleryRef.value;
-    const scrollAmount = container.clientWidth;
-    const maxScroll = container.scrollWidth - container.clientWidth;
-    
-    if (direction === 'next') {
-        if (container.scrollLeft >= maxScroll - 10) {
-            container.scrollTo({ left: 0, behavior: 'smooth' });
-        } else {
-            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-    } else {
-        if (container.scrollLeft <= 10) {
-            container.scrollTo({ left: maxScroll, behavior: 'smooth' });
-        } else {
-            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-        }
-    }
-    
-    // Reset timer on manual interaction
-    resetAutoScroll();
+const goTo = (index) => {
+    const el = galleryRef.value;
+    if (!el) return;
+    const count = allImages.value.length;
+    el.scrollTo({ left: ((index + count) % count) * el.clientWidth, behavior: 'smooth' });
 };
-
-const startAutoScroll = () => {
-    if (allImages.value.length <= 1) return;
-    autoScrollInterval = setInterval(() => {
-        scrollGallery('next');
-    }, 5000);
-};
-
-const resetAutoScroll = () => {
-    if (autoScrollInterval) {
-        clearInterval(autoScrollInterval);
-        startAutoScroll();
-    }
-};
-
-onMounted(() => {
-    startAutoScroll();
-});
-
-onUnmounted(() => {
-    if (autoScrollInterval) clearInterval(autoScrollInterval);
-});
 </script>
 
 <template>
-    <StorefrontLayout :hideMobileCard="true">
+    <StorefrontLayout>
         <Head :title="`${product.name} | Serana Closet`" />
 
-        <main class="pb-24 px-0 md:px-8 font-body text-on-surface bg-background min-h-screen flex items-center justify-center">
-            <div class="w-full max-w-[1300px] mx-auto bg-surface border-y md:border dark:border-white/5 border-black/5 rounded-none md:rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.12)] dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
+        <main class="page-container pb-24 font-body text-on-surface">
+            <div class="card relative w-full overflow-hidden shadow-xl shadow-black/10 dark:shadow-black/40">
+                <!-- Close (desktop): on the card, like closing a preview. -->
+                <button type="button" @click="closeProduct" aria-label="Close and go back to products" title="Back to products (Esc)"
+                    class="absolute right-3 top-3 z-30 hidden h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/15 backdrop-blur-md transition hover:bg-black/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary lg:flex">
+                    <span class="material-symbols-outlined text-[22px]" aria-hidden="true">close</span>
+                </button>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                    
-                    <!-- Left: The Visual Axis (Atelier Gallery) — deliberately
-                         always dark: the controls overlay the photograph. -->
-                    <div class="relative group/slider min-h-[40vh] lg:min-h-full bg-black always-dark">
-                        <div ref="galleryRef" @scroll.passive="onGalleryScroll" class="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth">
+
+                    <!-- Gallery — deliberately always dark: the controls overlay the photograph. -->
+                    <div class="relative aspect-[4/5] max-h-[55vh] w-full bg-black always-dark lg:aspect-auto lg:max-h-none lg:min-h-full">
+                        <div ref="galleryRef" @scroll.passive="onGalleryScroll" @keydown.left.prevent="goTo(currentIndex - 1)" @keydown.right.prevent="goTo(currentIndex + 1)" tabindex="0" role="region" :aria-label="`${product.name} photos`" class="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory no-scrollbar focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
                             <div v-for="(img, idx) in allImages" :key="idx" class="flex-none w-full snap-center h-full">
-                                <img :src="img" class="w-full h-full object-cover" />
+                                <img :alt="`${product.name} — photo ${idx + 1} of ${allImages.length}`" :src="img" :loading="idx === 0 ? 'eager' : 'lazy'" :fetchpriority="idx === 0 ? 'high' : 'auto'" decoding="async" class="w-full h-full object-cover" />
                             </div>
                         </div>
 
-                        <!-- Gallery Controls (Minimal) -->
-                        <div class="absolute inset-0 pointer-events-none z-20 flex flex-col justify-end p-6">
-                            <div v-if="allImages.length > 1" class="flex justify-between items-center gap-4">
-                                <button aria-label="Previous product image" @click="scrollGallery('prev')" class="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all">
-                                    <span class="material-symbols-outlined text-xl">chevron_left</span>
-                                </button>
-                                
-                                <div class="flex gap-2">
-                                    <div v-for="(_, i) in allImages" :key="i" class="w-1.5 h-1.5 rounded-full transition-all duration-300" :class="currentIndex === i ? 'bg-primary w-4' : 'bg-white/20'"></div>
-                                </div>
-
-                                <button aria-label="Next product image" @click="scrollGallery('next')" class="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all">
-                                    <span class="material-symbols-outlined text-xl">chevron_right</span>
-                                </button>
+                        <div v-if="allImages.length > 1" class="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between gap-4 p-4 pointer-events-none">
+                            <button aria-label="Previous photo" @click="goTo(currentIndex - 1)" class="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-xl" aria-hidden="true">chevron_left</span>
+                            </button>
+                            <div class="flex gap-2" aria-hidden="true">
+                                <span v-for="(_, i) in allImages" :key="i" class="h-1.5 rounded-full transition-all duration-300" :class="currentIndex === i ? 'bg-primary w-4' : 'bg-white/40 w-1.5'"></span>
                             </div>
+                            <button aria-label="Next photo" @click="goTo(currentIndex + 1)" class="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-xl" aria-hidden="true">chevron_right</span>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Right: The Configuration Canvas -->
-                    <div class="p-4 md:p-6 lg:p-10 flex flex-col justify-center space-y-4 md:space-y-6 relative border-t lg:border-t-0 lg:border-l dark:border-white/5 border-black/5 bg-surface-container/20">
-                        
-                        <!-- Header Card -->
-                        <header class="p-3 md:p-5 rounded-sm glass-panel">
-                            <div class="flex justify-between items-center gap-4">
-                                <div class="space-y-0.5">
-                                    <p class="text-primary font-bold text-[9px] tracking-wider opacity-60">{{ product.category?.name || 'PRIVATE COLLECTION' }}</p>
-                                    <h1 class="text-xl font-bold tracking-tight text-on-surface flex items-center gap-3">
-                                        {{ product.name }}<span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                                    </h1>
-                                </div>
-                                <div class="text-right shrink-0">
-                                    <p class="text-xl font-bold text-primary">{{ formatAmount(product.price, page.props) }}</p>
-                                    <p class="text-[8px] text-on-surface-variant/70 tracking-widest font-medium mt-0.5">{{ isSoldOut ? 'Out of Stock' : 'Available to Order' }}</p>
-                                </div>
+                    <!-- Buy column: name → price → size → Add to Bag first; details after. -->
+                    <div class="flex flex-col gap-6 p-5 md:p-8 lg:p-10 border-t lg:border-t-0 lg:border-l dark:border-white/5 border-black/5">
+                        <header>
+                            <p class="text-sm text-on-surface-variant">{{ product.category?.name || 'Collection' }}</p>
+                            <div class="mt-1 flex items-start justify-between gap-4">
+                                <h1 class="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">{{ product.name }}</h1>
+                                <p class="shrink-0 font-headline text-2xl font-bold text-on-surface md:text-3xl">{{ formatAmount(product.price, page.props) }}</p>
                             </div>
-                            <div class="mt-4 pt-4 border-t dark:border-white/5 border-black/5">
-                                <p class="text-on-surface-variant text-xs font-medium leading-relaxed">
-                                    {{ product.description }}
-                                </p>
-                            </div>
-                            <div class="mt-4 grid grid-cols-3 gap-2">
-                                <div v-for="item in trustHighlights" :key="item.label" class="rounded-xl border border-black/5 bg-white/5 px-2 py-3 text-center">
-                                    <span class="material-symbols-outlined text-base text-primary block">{{ item.icon }}</span>
-                                    <span class="mt-1 block text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">{{ item.label }}</span>
-                                </div>
-                            </div>
+                            <p class="mt-2 text-sm" :class="isSoldOut ? 'text-on-surface-variant' : 'text-primary'">{{ isSoldOut ? 'Out of stock' : 'In stock · delivery included' }}</p>
                         </header>
 
-                        <!-- Configuration Card: Garment Selection -->
-                        <div class="p-3 md:p-5 rounded-sm glass-panel space-y-5 md:space-y-6">
-                            <p class="text-[9px] font-black uppercase tracking-[0.35em] text-primary">Build your fit</p>
-
-                            <div class="space-y-2">
-                                <div class="flex justify-between text-[9px] tracking-wider text-on-surface-variant/70 font-bold">
-                                    <span>{{ uiElements.steps[0] }}</span>
-                                    <span class="text-primary">{{ uiElements.steps[1] }}</span>
-                                    <span>{{ uiElements.steps[2] }}</span>
+                        <!-- Sizes -->
+                        <div v-if="!isSoldOut" class="space-y-5">
+                            <fieldset v-for="row in sizeRows" :key="row.key" :id="`size-${row.key}`" class="scroll-mt-24">
+                                <div class="mb-2.5 flex items-center justify-between">
+                                    <legend class="text-sm font-semibold text-on-surface">
+                                        {{ row.label }}<span v-if="selected[row.key]" class="font-normal text-on-surface-variant"> · {{ selected[row.key] }}</span>
+                                    </legend>
+                                    <a v-if="row === sizeRows[0]" :href="whatsappUrl" target="_blank" rel="noopener" class="inline-flex min-h-[32px] items-center gap-1 text-sm font-medium text-primary hover:underline">
+                                        <span class="material-symbols-outlined text-base" aria-hidden="true">straighten</span>Ask about fit
+                                    </a>
                                 </div>
-                                <div class="h-[1px] w-full dark:bg-white/10 bg-black/10 relative">
-                                    <div class="absolute left-0 top-0 h-full w-1/2 bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
-                                    <div class="absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                                </div>
-                            </div>
-
-                            <!-- Piece Selectors -->
-                            <div v-if="product.garment_type === 'set'" class="space-y-3">
-                                <label class="text-[8px] font-bold tracking-wider text-on-surface-variant/70">{{ uiElements.configuring_set_label }}</label>
-                                <div class="flex gap-2 md:gap-3">
+                                <div class="grid grid-cols-5 gap-2">
                                     <button
-                                        @click="activeComponent = 'hoodie'"
-                                        class="flex-1 flex flex-col p-3 md:p-4 dark:bg-slate-950/20 bg-black/[0.03] border dark:border-white/5 border-black/10 transition-all group relative overflow-hidden"
-                                        :class="activeComponent === 'hoodie' ? '!border-primary/40 bg-primary/5' : 'dark:hover:border-white/10 hover:border-black/20'"
-                                    >
-                                        <div v-if="activeComponent === 'hoodie'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
-                                        <span class="text-[8px] font-bold tracking-widest mb-1" :class="activeComponent === 'hoodie' ? 'text-primary' : 'text-on-surface-variant/70'">{{ uiElements.piece_1_label }}</span>
-                                        <div class="flex justify-between items-end">
-                                            <span class="text-sm font-bold tracking-wide text-on-surface">{{ uiElements.piece_1_name }}</span>
-                                            <span class="text-[11px] font-bold text-primary" v-if="selectedTopSize">{{ selectedTopSize }}</span>
-                                        </div>
-                                    </button>
-                                    <button
-                                        @click="activeComponent = 'joggers'"
-                                        class="flex-1 flex flex-col p-3 md:p-4 dark:bg-slate-950/20 bg-black/[0.03] border dark:border-white/5 border-black/10 transition-all group relative overflow-hidden"
-                                        :class="activeComponent === 'joggers' ? '!border-primary/40 bg-primary/5' : 'dark:hover:border-white/10 hover:border-black/20'"
-                                    >
-                                        <div v-if="activeComponent === 'joggers'" class="absolute top-0 right-0 p-2"><span class="material-symbols-outlined text-primary text-[14px]">{{ uiElements.icon_check }}</span></div>
-                                        <span class="text-[8px] font-bold tracking-widest mb-1" :class="activeComponent === 'joggers' ? 'text-primary' : 'text-on-surface-variant/70'">{{ uiElements.piece_2_label }}</span>
-                                        <div class="flex justify-between items-end">
-                                            <span class="text-sm font-bold tracking-wide text-on-surface">{{ uiElements.piece_2_name }}</span>
-                                            <span class="text-[11px] font-bold text-primary" v-if="selectedBottomSize">{{ selectedBottomSize }}</span>
-                                        </div>
-                                    </button>
+                                        v-for="size in sizes" :key="size"
+                                        type="button"
+                                        @click="selected[row.key] = size"
+                                        :aria-pressed="selected[row.key] === size"
+                                        class="min-h-[48px] rounded-xl border text-sm font-semibold transition-colors"
+                                        :class="selected[row.key] === size
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'border-black/10 text-on-surface hover:border-black/30 dark:border-white/10 dark:hover:border-white/30'"
+                                    >{{ size }}</button>
                                 </div>
-                            </div>
-                            <div v-else class="space-y-1">
-                                <p class="text-[8px] font-bold tracking-wider text-primary">SINGLE PIECE</p>
-                                <h3 class="text-sm font-bold tracking-wide text-on-surface opacity-60">
-                                    {{ product.garment_type === 'hoodie' ? `ITEM 01: ${uiElements.piece_1_name}` : `ITEM 02: ${uiElements.piece_2_name}` }}
-                                </h3>
-                            </div>
+                            </fieldset>
                         </div>
 
-                        <!-- Configuration Card: Sizing -->
-                        <div class="p-3 md:p-5 rounded-sm glass-panel space-y-3 md:space-y-4">
-                            <div class="flex justify-between items-center">
-                                <label class="text-[8px] font-bold tracking-wider text-on-surface-variant/70">
-                                    {{ uiElements.size_prefix || 'SIZE:' }} {{ activeComponent === 'hoodie' ? (uiElements.piece_1_name || 'Piece').toLowerCase() : (uiElements.piece_2_name || 'Piece').toLowerCase() }}
-                                </label>
-                                <!-- No sizing chart yet — route fit questions to the atelier on WhatsApp, with the chosen sizes prefilled. -->
-                                <a :href="whatsappUrl" target="_blank" rel="noopener" class="text-[8px] font-bold tracking-widest text-primary border-b border-primary/20 hover:border-primary transition-all">{{ uiElements.size_guide || 'Size Guide' }}</a>
-                            </div>
-                            <div class="grid grid-cols-5 gap-2">
-                                <button 
-                                    v-for="size in sizes" :key="size"
-                                    @click="activeComponent === 'hoodie' ? selectedTopSize = size : selectedBottomSize = size"
-                                    class="py-3 border dark:border-white/5 border-black/10 rounded-sm text-xs font-bold transition-all"
-                                    :class="[
-                                        (activeComponent === 'hoodie' ? selectedTopSize : selectedBottomSize) === size
-                                            ? '!border-primary text-primary bg-primary/10'
-                                            : 'text-on-surface-variant/70 dark:hover:border-white/10 hover:border-black/20 hover:text-on-surface'
-                                    ]"
-                                >
-                                    {{ size }}
-                                </button>
-                            </div>
-
-                            <div v-if="product.specifications?.tech_specs?.length" class="pt-4 border-t dark:border-white/5 border-black/5 space-y-3">
-                                <div class="flex items-center gap-2 opacity-30 text-on-surface">
-                                    <span class="material-symbols-outlined text-sm">architecture</span>
-                                    <span class="text-[7px] font-bold tracking-wider">Product Details</span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4 text-[9px] text-on-surface-variant">
-                                    <div v-for="(spec, idx) in product.specifications.tech_specs" :key="idx" class="flex gap-2 items-start">
-                                        <span class="text-primary/40 font-mono">0{{ idx + 1 }}</span>
-                                        <p class="leading-relaxed">{{ spec }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Metrics Card -->
-                        <div v-if="product.specifications?.fabric_weight" class="p-4 md:p-5 rounded-sm glass-panel space-y-3 animate-in fade-in duration-1000">
-                            <div class="flex justify-between items-center">
-                                <span class="text-[8px] font-bold tracking-wider text-on-surface-variant/70">Fabric Weight</span>
-                                <span class="text-[11px] font-bold text-primary">{{ product.specifications.fabric_weight }}</span>
-                            </div>
-                            <div class="h-1 w-full dark:bg-white/5 bg-black/10 rounded-full overflow-hidden">
-                                <div class="h-full bg-blue-600 transition-all duration-1000" :style="{ width: (product.specifications?.weight_index || 50) + '%' }"></div>
-                            </div>
-                            <p class="text-[8px] text-on-surface-variant/70 tracking-widest">{{ product.specifications?.weight_label || 'Fabric details' }}</p>
-                        </div>
-
-                        <!-- CTA Card -->
-                        <div class="mt-auto pt-5 border-t dark:border-white/5 border-black/5 flex flex-col gap-3">
-                            <button 
-                                :disabled="isSoldOut"
-                                @click="addToBag"
-                                class="w-full py-4 bg-blue-600 text-white disabled:opacity-50 font-bold text-xs tracking-wider rounded-sm hover:bg-blue-500 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                            >
-                                <span class="material-symbols-outlined font-bold text-lg">{{ uiElements.icon_bag }}</span>
-                                {{ isSoldOut ? 'Out of Stock' : 'Add to Bag' }}
+                        <!-- Primary action -->
+                        <div class="flex flex-col gap-3">
+                            <button ref="ctaRef" :disabled="isSoldOut || missing.length > 0" @click="addToBag" class="action-primary w-full py-4 text-base">
+                                <span v-if="!missing.length && !isSoldOut" class="material-symbols-outlined text-lg" aria-hidden="true">shopping_bag</span>
+                                {{ ctaLabel }}
                             </button>
-                            <Link v-if="isSoldOut" :href="route('shop')" class="text-primary underline text-center">Browse the Collection</Link>
-                            <p class="text-sm text-on-surface-variant">Select your size, then add to your bag. Delivery is included. Pay with M-Pesa at checkout.</p>
-                            <a :href="whatsappUrl" target="_blank" class="w-full py-3.5 border dark:border-white/5 border-black/10 dark:bg-white/5 bg-black/[0.03] text-on-surface-variant hover:text-on-surface hover:!border-primary/40 font-bold text-[9px] tracking-wider rounded-sm transition-all text-center flex items-center justify-center gap-2">
-                                <span class="material-symbols-outlined text-[16px]">{{ uiElements.icon_chat }}</span>
-                                {{ uiElements.cta_secondary }}
-                            </a>
+                            <Link v-if="isSoldOut" :href="route('shop')" class="action-secondary w-full">Browse pieces in stock</Link>
+                            <Link v-if="product.is_customizable" :href="route('custom-order', { product: product.slug })" class="action-secondary w-full">
+                                <span class="material-symbols-outlined text-base" aria-hidden="true">content_cut</span>
+                                Want it made to your measurements?
+                            </Link>
                         </div>
+
+                        <ul class="grid grid-cols-3 gap-2">
+                            <li v-for="item in trustHighlights" :key="item.label" class="flex flex-col items-center gap-1 rounded-xl border border-black/5 px-2 py-3 text-center dark:border-white/5">
+                                <span class="material-symbols-outlined text-lg text-primary" aria-hidden="true">{{ item.icon }}</span>
+                                <span class="text-xs leading-tight text-on-surface-variant">{{ item.label }}</span>
+                            </li>
+                        </ul>
+
+                        <!-- Details: below the buying decision, never in its way. -->
+                        <section v-if="product.description || techSpecs.length || product.specifications?.fabric_weight" class="space-y-4 border-t border-black/5 pt-6 dark:border-white/5">
+                            <h2 class="text-sm font-semibold text-on-surface">About this piece</h2>
+                            <p v-if="product.description" class="text-sm leading-relaxed text-on-surface-variant">{{ product.description }}</p>
+                            <ul v-if="techSpecs.length" class="list-disc space-y-1.5 pl-5 text-sm text-on-surface-variant">
+                                <li v-for="(spec, idx) in techSpecs" :key="idx">{{ spec }}</li>
+                            </ul>
+                            <div v-if="product.specifications?.fabric_weight" class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-on-surface-variant">Fabric</span>
+                                    <span class="font-medium text-on-surface">{{ product.specifications.fabric_weight }}</span>
+                                </div>
+                                <div class="h-1 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                                    <div class="h-full bg-primary" :style="{ width: (product.specifications?.weight_index || 50) + '%' }"></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <p class="text-sm text-on-surface-variant">
+                            Questions about this piece?
+                            <a :href="whatsappUrl" target="_blank" rel="noopener" class="font-medium text-primary hover:underline">Chat with the studio on WhatsApp</a>
+                        </p>
                     </div>
                 </div>
             </div>
         </main>
 
+        <!-- Close (phones): pinned under the header so it stays reachable while
+             scrolling. Teleported: the card's backdrop-filter would otherwise
+             make "fixed" scroll with the card. -->
+        <teleport to="body">
+            <button type="button" @click="closeProduct" aria-label="Close and go back to products"
+                class="fixed right-4 top-[116px] z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-md transition active:scale-95 lg:hidden">
+                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">close</span>
+            </button>
+        </teleport>
+        <teleport to="body">
+        <transition name="buy-bar">
+            <div v-if="ctaBelowFold && !isSoldOut" class="fixed inset-x-4 bottom-[6.25rem] z-[90] lg:hidden">
+                <div class="card flex items-center gap-3 rounded-full p-1.5 pl-5 shadow-2xl shadow-black/30">
+                    <span class="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface">{{ formatAmount(product.price, page.props) }}</span>
+                    <button type="button" @click="stickyAction" class="action-primary shrink-0 px-5 py-3">{{ missing.length ? ctaLabel : 'Add to Bag' }}</button>
+                </div>
+            </div>
+        </transition>
+        </teleport>
     </StorefrontLayout>
 </template>
 
 <style scoped>
-.text-glow-after { transition: text-shadow 0.3s ease; }
-.text-glow-after:hover { text-shadow: 0 0 15px rgba(57, 255, 20, 0.6); }
-
-/* Animation for reveal */
-.reveal {
-    animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes revealUp {
-    from { opacity: 0; transform: translateY(40px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+.buy-bar-enter-active, .buy-bar-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.buy-bar-enter-from, .buy-bar-leave-to { opacity: 0; transform: translateY(12px); }
 </style>

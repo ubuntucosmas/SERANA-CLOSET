@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { Link, usePage } from '@inertiajs/vue3';
-import { animate, stagger } from 'animejs';
+import { animate } from 'animejs';
 import { useCurrency } from '@/Composables/useCurrency';
 
 const page = usePage();
@@ -38,13 +38,16 @@ const rawurlencode = (str) => {
 const drawerRef = ref(null);
 let returnFocus = null;
 const overlayRef = ref(null);
-const itemsRef = ref(null);
 
 function formatPrice(price) {
     return formatAmount(price, page.props);
 }
 
-const hasBespokeItems = computed(() => cart.items.some(item => item.is_bespoke));
+const sizeLabel = (item) => {
+    const { top_size: top, bottom_size: bottom } = item.options || {};
+    if (top && bottom) return `Top ${top} · Bottom ${bottom}`;
+    return top || bottom ? `Size ${top || bottom}` : null;
+};
 
 // Cinematic Animation Logic
 watch(() => cart.isOpen, async (open) => {
@@ -53,40 +56,21 @@ watch(() => cart.isOpen, async (open) => {
         returnFocus = document.activeElement;
         document.body.style.overflow = 'hidden';
         drawerRef.value?.querySelector('button')?.focus();
-        animate(overlayRef.value, {
-            opacity: [0, 1],
-            duration: 400,
-            easing: 'easeOutQuad'
-        });
-
-        animate(drawerRef.value, {
-            translateX: ['100%', '0%'],
-            duration: 600,
-            easing: 'easeOutExpo'
-        });
-
-        const items = itemsRef.value?.querySelectorAll('.cart-item-anim');
-        if (items?.length) {
-            animate(items, {
-                translateX: [50, 0],
-                opacity: [0, 1],
-                delay: stagger(80, { start: 200 }),
-                duration: 800,
-                easing: 'easeOutExpo'
-            });
-        }
+        // Quick and quiet: the bag should feel instant, not staged.
+        animate(overlayRef.value, { opacity: [0, 1], duration: 200, easing: 'easeOutQuad' });
+        animate(drawerRef.value, { translateX: ['100%', '0%'], duration: 300, easing: 'easeOutCubic' });
     }
 }, { immediate: true });
 
 const closeDrawer = () => {
     animate(drawerRef.value, {
         translateX: '100%',
-        duration: 400,
+        duration: 220,
         easing: 'easeInQuad'
     });
     animate(overlayRef.value, {
         opacity: 0,
-        duration: 300,
+        duration: 200,
         easing: 'easeInQuad',
         onComplete: () => {
             cart.isOpen = false;
@@ -110,168 +94,77 @@ onUnmounted(() => { document.removeEventListener('keydown', handleKeys); documen
 </script>
 
 <template>
-    <div v-if="cart.isOpen" class="fixed inset-0 z-[100] overflow-hidden flex justify-end">
-        <!-- Backdrop -->
-        <div 
-            ref="overlayRef"
-            @click="closeDrawer" 
-            class="absolute inset-0 dark:bg-black bg-white/50 backdrop-blur-sm opacity-0"
-        ></div>
+    <div v-if="cart.isOpen" class="fixed inset-0 z-[150] overflow-hidden flex justify-end">
+        <div ref="overlayRef" @click="closeDrawer" class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0"></div>
 
-        <!-- Semantic Shell: Mini Cart Slide-out Component -->
-        <div 
+        <div
             role="dialog" aria-modal="true" aria-labelledby="bag-heading"
             ref="drawerRef"
-            class="relative z-10 w-full max-w-lg dark:bg-black bg-surface border-l dark:border-white/10 border-black/10 shadow-[0_40px_100px_rgba(0,0,0,1)] flex flex-col h-full transform translate-x-full"
+            class="relative z-10 flex h-full w-full max-w-md flex-col border-l border-black/10 bg-surface shadow-2xl dark:border-white/10 dark:bg-black translate-x-full"
         >
             <!-- Header -->
-            <div class="px-8 py-10 flex justify-between items-center border-b dark:border-white/5 border-black/5">
+            <div class="flex items-center justify-between border-b border-black/5 px-5 py-4 dark:border-white/5 sm:px-6">
                 <div>
-                    <h2 id="bag-heading" class="font-headline text-xl lg:text-2xl tracking-[0.1em] dark:text-white text-on-surface uppercase font-light">Your Bag</h2>
-                    <p class="font-label text-[9px] uppercase tracking-[0.2em] dark:text-white/40 text-black/40 mt-1">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'Piece' : 'Pieces' }}</p>
+                    <h2 id="bag-heading" class="font-headline text-xl font-semibold text-on-surface">Your Bag</h2>
+                    <p class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }}</p>
                 </div>
-                <button aria-label="Close bag" @click="closeDrawer" class="dark:text-white text-on-surface hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined">close</span>
+                <button aria-label="Close bag" @click="closeDrawer" class="flex h-11 w-11 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
                 </button>
             </div>
 
-            <!-- Scrollable Items Area -->
-            <div ref="itemsRef" class="flex-grow overflow-y-auto px-8 no-scrollbar">
-                <div v-if="cart.items.length === 0" class="h-full flex flex-col items-center justify-center text-center space-y-10 pt-20 animate-fade-in px-12">
-                    <div class="relative group">
-                        <div class="absolute inset-0 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-1000"></div>
-                        <svg viewBox="0 0 100 100" class="w-24 h-24 relative z-10 text-on-surface-variant/20 stroke-current fill-none stroke-[0.5] transition-all duration-700 group-hover:scale-110 group-hover:text-primary/30">
-                            <path d="M30 40 L70 40 L75 85 L25 85 Z" />
-                            <path d="M40 40 Q40 20 50 20 Q60 20 60 40" />
-                            <circle cx="50" cy="62" r="3" class="fill-current opacity-30" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-headline text-2xl dark:text-white text-on-surface tracking-[0.2em] font-light uppercase mb-4">Your Bag is Empty</h3>
-                        <p class="text-[10px] uppercase tracking-[0.2em] dark:text-white/30 text-black/30 mb-8 leading-relaxed">Your bag is currently empty. Visit the shop to add pieces to your collection.</p>
-                        <div class="mb-8 grid grid-cols-3 gap-2 text-left">
-                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
-                                <span class="material-symbols-outlined text-base text-primary">local_shipping</span>
-                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Delivery</p>
-                            </div>
-                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
-                                <span class="material-symbols-outlined text-base text-primary">verified_user</span>
-                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Secure</p>
-                            </div>
-                            <div class="rounded-xl border border-black/5 bg-white/5 p-2">
-                                <span class="material-symbols-outlined text-base text-primary">support_agent</span>
-                                <p class="mt-2 text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">Style help</p>
-                            </div>
-                        </div>
-                        <Link :href="route('shop')"
-                            @click="closeDrawer" 
-                            class="group relative inline-flex items-center gap-4 px-10 py-5 bg-primary/5 border border-primary/20 rounded-full overflow-hidden transition-all hover:bg-primary/10 active:scale-95"
-                        >
-                            <span class="relative z-10 text-[9px] font-headline font-black uppercase tracking-[0.4em] text-primary">Shop Collection</span>
-                            <span class="material-symbols-outlined text-primary text-sm animate-bounce-x">arrow_right_alt</span>
+            <!-- Items -->
+            <div class="flex-grow overflow-y-auto px-5 sm:px-6 no-scrollbar">
+                <div v-if="cart.items.length === 0" class="flex h-full flex-col items-center justify-center gap-4 text-center">
+                    <span class="icon-tile"><span class="material-symbols-outlined text-xl" aria-hidden="true">shopping_bag</span></span>
+                    <h3 class="font-headline text-xl font-semibold text-on-surface">Your bag is empty</h3>
+                    <p class="max-w-xs text-sm text-on-surface-variant">Pick a piece and your size. It will wait here until you check out.</p>
+                    <Link :href="route('shop')" @click="closeDrawer" class="action-primary mt-2">Shop the Collection</Link>
+                    <Link :href="route('custom-order')" @click="closeDrawer" class="text-sm font-medium text-primary hover:underline">Or start a custom order</Link>
+                </div>
+
+                <ul v-else class="divide-y divide-black/5 dark:divide-white/5">
+                    <li v-for="item in cart.items" :key="item.line_key" class="flex gap-4 py-5">
+                        <Link :href="route('shop.show', item.slug)" @click="closeDrawer" class="h-28 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-surface-container">
+                            <img :src="item.image" :alt="item.name" class="h-full w-full object-cover" />
                         </Link>
-                    </div>
-                </div>
-
-                <!-- Bag Items -->
-                <div v-for="item in cart.items" :key="item.line_key" class="cart-item-anim flex gap-6 py-8 border-b dark:border-white/5 border-black/5 opacity-0">
-                    <div class="w-24 h-32 flex-shrink-0 bg-surface-container overflow-hidden border dark:border-white/5 border-black/5">
-                        <img :src="item.image" :alt="item.name" class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" />
-                    </div>
-                    <div class="flex flex-grow flex-col justify-between py-1">
-                        <div>
-                            <div class="flex justify-between items-start">
-                                <h3 class="font-headline text-lg dark:text-white text-on-surface pr-4">{{ item.name }}</h3>
-                                <span class="font-body text-sm font-black text-primary shrink-0">{{ formatPrice(item.price * item.quantity) }}</span>
+                        <div class="flex min-w-0 flex-grow flex-col">
+                            <div class="flex items-start justify-between gap-3">
+                                <Link :href="route('shop.show', item.slug)" @click="closeDrawer" class="font-semibold leading-snug text-on-surface hover:text-primary">{{ item.name }}</Link>
+                                <span class="shrink-0 font-semibold text-on-surface">{{ formatPrice(item.price * item.quantity) }}</span>
                             </div>
-
-                            <!-- Specialized Set Options -->
-                            <div v-if="item.options" class="mt-4 space-y-2 p-4 bg-white/5 border border-white/5 rounded-sm animate-in fade-in slide-in-from-top-1 duration-500">
-                                <template v-if="item.garment_type === 'set'">
-                                    <div class="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-white/40">
-                                        <span>Piece 01: Hoodie</span>
-                                        <span class="text-primary">{{ item.options.top_size }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-white/40">
-                                        <span>Piece 02: Joggers</span>
-                                        <span class="text-primary">{{ item.options.bottom_size }}</span>
-                                    </div>
-                                </template>
-                                <template v-else>
-                                    <div class="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-white/40">
-                                        <span>Size Selection</span>
-                                        <span class="text-primary">{{ item.garment_type === 'hoodie' ? item.options.top_size : item.options.bottom_size }}</span>
-                                    </div>
-                                </template>
-                            </div>
-
-                            <p v-if="item.is_bespoke || item.is_customizable" class="font-label text-[10px] text-primary uppercase tracking-widest mt-2">CUSTOM TAILORING</p>
-                            <p v-else-if="!item.options" class="font-label text-[10px] dark:text-white/70 text-black/70 uppercase tracking-widest mt-2">READY-TO-WEAR</p>
-                            
-                            <p v-if="item.selected_size || item.selected_color" class="font-body text-xs dark:text-white/70 text-black/70 mt-2 leading-relaxed">
-                                <span v-if="item.selected_size">Size: {{ item.selected_size }}</span>
-                                <span v-if="item.selected_size && item.selected_color"> | </span>
-                                <span v-if="item.selected_color">Color: {{ item.selected_color }}</span>
-                            </p>
-                            <p v-else-if="item.is_bespoke && !item.options" class="font-body text-xs dark:text-white/70 text-black/70 mt-2 leading-relaxed">Made to measure to your exact dimensions.</p>
-                        </div>
-                        <div class="flex justify-between items-end mt-4">
-                            <div class="flex items-center gap-4 text-xs font-label">
-                                <span class="dark:text-white/70 text-black/70 uppercase">Qty</span>
-                                <div class="flex items-center gap-3 border dark:border-white/10 border-black/10 px-3 py-1">
-                                    <button :aria-label="`Decrease quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, -1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">-</button>
-                                    <span class="dark:text-white text-on-surface">{{ item.quantity }}</span>
-                                    <button :aria-label="`Increase quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, 1)" class="hover:text-primary dark:text-white text-on-surface transition-colors">+</button>
+                            <p v-if="sizeLabel(item)" class="mt-1 text-sm text-on-surface-variant">{{ sizeLabel(item) }}</p>
+                            <div class="mt-auto flex items-center justify-between pt-3">
+                                <div class="flex items-center gap-1 rounded-full border border-black/10 p-0.5 dark:border-white/10">
+                                    <button :aria-label="`Decrease quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, -1)" class="h-9 w-9 rounded-full text-lg text-on-surface transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/10">
+                                        {{ item.quantity === 1 ? '×' : '−' }}
+                                    </button>
+                                    <span class="min-w-[1.5rem] text-center text-sm font-medium text-on-surface" aria-live="polite">{{ item.quantity }}</span>
+                                    <button :aria-label="`Increase quantity of ${item.name}`" :disabled="!cart.canIncrease(item.line_key)" @click="cart.updateQuantity(item.line_key, 1)" class="h-9 w-9 rounded-full text-lg text-on-surface transition-colors hover:bg-black/5 hover:text-primary disabled:opacity-30 dark:hover:bg-white/10">+</button>
                                 </div>
+                                <button @click="cart.removeItem(item.line_key)" class="min-h-[36px] text-sm text-on-surface-variant transition-colors hover:text-red-500">Remove</button>
                             </div>
-                            <button @click="cart.removeItem(item.line_key)" class="text-[10px] font-label uppercase tracking-widest dark:text-white/70 text-black/70 hover:text-error transition-colors">Remove</button>
+                            <p v-if="!cart.canIncrease(item.line_key)" class="mt-2 text-xs text-on-surface-variant">That’s all we have of this piece right now.</p>
                         </div>
-                    </div>
-                </div>
+                    </li>
+                </ul>
             </div>
 
-            <!-- Checkout Footer Section -->
-            <div v-if="cart.items.length > 0" class="px-8 py-10 dark:bg-[#050505] bg-surface-container border-t dark:border-white/5 border-black/5">
-                <div class="space-y-3 mb-8">
-                    <div class="flex justify-between font-body text-sm dark:text-white/70 text-black/70">
-                        <span>Subtotal</span>
-                        <span class="dark:text-white text-on-surface">{{ formatPrice(cart.totalPrice) }}</span>
-                    </div>
-                    <div class="flex justify-between font-body text-sm dark:text-white/70 text-black/70">
-                        <span>Shipping</span>
-                        <span class="text-primary uppercase text-[10px] tracking-widest">Complimentary</span>
-                    </div>
-                    <div class="pt-4 border-t dark:border-white/5 border-black/5 flex justify-between items-end">
-                        <span class="font-headline text-lg dark:text-white text-on-surface">Total</span>
-                        <span class="font-headline text-2xl text-primary">{{ formatPrice(cart.totalPrice) }}</span>
-                    </div>
+            <!-- Checkout -->
+            <div v-if="cart.items.length > 0" class="border-t border-black/5 bg-surface-container px-5 py-5 dark:border-white/5 dark:bg-[#050505] sm:px-6" style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom))">
+                <div class="mb-4 flex items-baseline justify-between">
+                    <span class="text-on-surface">Total <span class="text-sm text-on-surface-variant">· delivery included</span></span>
+                    <span class="font-headline text-2xl font-bold text-on-surface">{{ formatPrice(cart.totalPrice) }}</span>
                 </div>
-
-                <!-- Logistics Info -->
-                <div v-if="hasBespokeItems" class="mb-8 flex gap-3 p-4 bg-white/5 border dark:border-white/5 border-black/5">
-                    <span class="material-symbols-outlined text-primary text-xl">auto_awesome</span>
-                    <div class="font-body text-xs leading-relaxed">
-                        <p class="font-semibold dark:text-white text-on-surface">Estimated Delivery for Custom Pieces</p>
-                        <p class="dark:text-white/70 text-black/70 mt-1">Due to the bespoke nature of your tailored pieces, please allow 14–21 business days for master tailoring and delivery.</p>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex flex-col gap-3">
-                    <Link 
-                        :href="route('checkout')"
-                        @click="closeDrawer"
-                        class="w-full bg-primary text-black py-5 font-headline text-[10px] uppercase tracking-[0.3em] font-bold hover:brightness-110 transition-all text-center block"
-                    >
-                        Checkout
-                    </Link>
-                    <a 
-                        :href="whatsappUrl" 
-                        target="_blank"
-                        class="w-full flex items-center justify-center gap-2 border dark:border-white/10 border-black/10 py-4 font-headline text-[9px] uppercase tracking-[0.2em] dark:text-white text-on-surface hover:bg-white/5 transition-colors opacity-60"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" style="fill:#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.57-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                        WhatsApp Order
+                <Link :href="route('checkout')" prefetch @click="closeDrawer" class="action-primary w-full py-4 text-base">
+                    <span class="material-symbols-outlined text-lg" aria-hidden="true">lock</span>
+                    Checkout with M-Pesa
+                </Link>
+                <div class="mt-3 flex items-center justify-between text-sm">
+                    <button @click="closeDrawer" class="min-h-[40px] font-medium text-on-surface-variant hover:text-on-surface">Keep shopping</button>
+                    <a :href="whatsappUrl" target="_blank" rel="noopener" class="inline-flex min-h-[40px] items-center gap-1.5 text-on-surface-variant hover:text-on-surface">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" style="fill:#25D366" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.57-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        Order on WhatsApp instead
                     </a>
                 </div>
             </div>

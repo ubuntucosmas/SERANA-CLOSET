@@ -1,4 +1,6 @@
 <script setup>
+import BespokeBanner from '@/Components/BespokeBanner.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 
@@ -26,20 +28,10 @@ function getGridClass(index) {
         </Head>
 
         <main class="pb-24 bg-surface/5">
-            <div class="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12">
+            <div class="page-container">
                 
                 <!-- Editorial Header -->
-                <div class="max-w-3xl mb-24 reveal">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/30 mb-6 w-fit">
-                        <span class="text-[9px] font-medium tracking-wider text-primary">Social authority</span>
-                    </div>
-                    <h1 class="font-headline text-5xl lg:text-7xl font-medium dark:text-white text-on-surface leading-[1.1] mb-8">
-                        The Serana <span class="text-primary luminous-glow">Circle.</span>
-                    </h1>
-                    <p class="dark:text-white/40 text-black/40 font-body text-lg lg:text-xl leading-relaxed">
-                        Excellence is not claimed; it is observed. Explore our curated archive of clients who have chosen the Serana standard. This is the visual proof of the perfect fit.
-                    </p>
-                </div>
+                <PageHeader kicker="Client Gallery" title="The Serana" accent="Circle" subtitle="Pieces we have made for real clients. See something you like? Start a custom order and we'll make it for you." />
 
                 <!-- Asymmetric Gallery Grid -->
                 <div v-if="images.length > 0" class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 auto-rows-min">
@@ -89,18 +81,9 @@ function getGridClass(index) {
                     <div class="mt-12 w-px h-24 bg-gradient-to-b from-primary to-transparent opacity-30 shadow-[0_0_15px_rgba(57, 255, 20,0.5)]"></div>
                 </div>
 
-                <!-- Invitation CTA Section (Phase 9 Core) -->
-                <section class="mt-32 py-24 bg-transparent rounded-[40px] border dark:border-white/5 border-black/5 relative overflow-hidden reveal">
-                    <div class="absolute -right-24 -top-24 text-primary/5 w-96 h-96 material-symbols-outlined pointer-events-none" style="font-size: 400px;">group_add</div>
-                    
-                    <div class="max-w-3xl mx-auto text-center px-8 relative z-10">
-                        <h2 class="font-headline text-4xl lg:text-5xl font-medium dark:text-white text-on-surface mb-8">
-                            Pass the <span class="text-primary">Standard.</span>
-                        </h2>
-                        <p class="text-on-surface-variant text-lg mb-8">Inspired by a piece in the gallery? Share your ideas with the studio and we’ll discuss the design, fit and price with you.</p>
-                        <Link :href="route('custom-order')" class="action-primary">Start Bespoke Request</Link>
-                    </div>
-                </section>
+                <div class="mt-16 -mx-4 sm:-mx-6">
+                    <BespokeBanner title="Seen Something You Love?" text="Share the piece that inspired you. The studio will discuss the design, fit and price with you on WhatsApp before anything is made." />
+                </div>
 
             </div>
         </main>

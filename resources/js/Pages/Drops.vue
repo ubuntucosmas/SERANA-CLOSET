@@ -1,4 +1,5 @@
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -17,17 +18,9 @@ const hasDrops = computed(() => props.drops.length > 0);
 <template>
     <Head title="Drops — reserve before we make it" />
     <StorefrontLayout>
-        <section class="max-w-screen-xl mx-auto px-6 pb-24">
+        <section class="page-container pb-24">
             <!-- Header -->
-            <div class="max-w-2xl mb-14">
-                <p class="text-[10px] font-headline font-black tracking-[0.4em] uppercase text-primary mb-4">Serana Drops</p>
-                <h1 class="text-4xl md:text-6xl font-headline font-light tracking-tight dark:text-white text-on-surface leading-[0.95]">
-                    Reserve it <span class="text-primary">before</span> we make it.
-                </h1>
-                <p class="mt-5 text-on-surface-variant leading-relaxed">
-                    Limited design drops, made to demand. Reserve your piece — once enough are claimed, we cut, sew and ship. No mass production, no dead stock, no missing out.
-                </p>
-            </div>
+            <PageHeader kicker="Serana Drops" title="Reserve It Before" accent="We Make It" subtitle="Limited designs made to demand. Reserve your piece; once enough are claimed, we cut, sew and ship." />
 
             <!-- Empty -->
             <div v-if="!hasDrops" class="text-center py-24 border border-dashed dark:border-white/10 border-black/10 rounded-3xl">

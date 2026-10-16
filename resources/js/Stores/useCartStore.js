@@ -72,6 +72,15 @@ export const useCartStore = defineStore('cart', () => {
         if (item.quantity <= 0) removeItem(key);
     }
 
+    /** Units of this product the customer may still add, across all its size lines. */
+    function remainingFor(key) {
+        const item = items.value.find(line => line.line_key === key);
+        if (!item || item.batch_limit == null) return Infinity;
+        const total = items.value.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0);
+        return Math.max(0, item.batch_limit - (item.batch_sold || 0) - total);
+    }
+    const canIncrease = key => remainingFor(key) > 0;
+
     function toggleBag() {
         isOpen.value = !isOpen.value;
     }
@@ -88,6 +97,8 @@ export const useCartStore = defineStore('cart', () => {
         addItem,
         removeItem,
         updateQuantity,
+        remainingFor,
+        canIncrease,
         toggleBag,
         clearBag
     };

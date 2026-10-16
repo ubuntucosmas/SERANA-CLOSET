@@ -1,10 +1,12 @@
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { ref, computed, onMounted } from "vue";
 import { Head, Link, usePage } from "@inertiajs/vue3";
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { paymentStatus, fulfilmentStatus } from '@/Support/orderStatus';
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
 import { useCurrency } from "@/Composables/useCurrency";
+import { rememberTrackingPhone, recallTrackingPhone, forgetTrackingPhone } from "@/Support/trackingMemory";
 
 const props = defineProps({
     prefillReference: { type: String, default: null },
@@ -59,7 +61,7 @@ const payment = computed(() => {
     if (o.is_paid) return { label: "Paid", tone: "ok" };
     const failed = ["Payment Failed", "Amount Mismatch", "Expired"];
     if (failed.includes(o.status)) return { label: o.status, tone: "bad" };
-    return { label: "Awaiting payment", tone: "warn" };
+    return { label: "Payment Pending", tone: "warn" };
 });
 
 async function lookup() {
@@ -73,10 +75,11 @@ async function lookup() {
     isLoading.value = true;
     try {
         const res = await axios.post(route("track.lookup"), {
-            reference: form.value.reference.trim(),
+            reference: form.value.reference.trim().toUpperCase(),
             phone: form.value.phone.trim(),
         });
         order.value = res.data.order;
+        rememberTrackingPhone(form.value.phone);
     } catch (err) {
         order.value = null;
         error.value =
@@ -89,16 +92,27 @@ async function lookup() {
     }
 }
 
+// "Track another order": same customer, usually the same number.
 function reset() {
     order.value = null;
     error.value = null;
-    form.value.phone = "";
+    form.value.reference = "";
 }
 
-// Deep-linked from a success screen (?ref=…) with the phone still in hand —
-// surface the form pre-filled; the customer just adds their number.
+const phoneRemembered = ref(false);
+function useDifferentNumber() {
+    forgetTrackingPhone();
+    form.value.phone = "";
+    phoneRemembered.value = false;
+    document.getElementById("trackorder-phone")?.focus();
+}
+
+// Deep-linked (?ref=…) from a receipt, Your Orders or the success screen: if
+// this device already knows the number, show the order straight away.
 onMounted(() => {
-    if (props.prefillReference) form.value.reference = props.prefillReference;
+    form.value.phone = recallTrackingPhone();
+    phoneRemembered.value = !!form.value.phone;
+    if (props.prefillReference && form.value.phone) lookup();
 });
 </script>
 
@@ -106,40 +120,27 @@ onMounted(() => {
     <StorefrontLayout>
         <Head title="Track Your Order | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pb-24">
-            <div class="max-w-3xl mx-auto px-6 sm:px-8">
+        <div class="bg-background text-on-surface pb-24">
+            <div class="page-container">
                 <!-- Header -->
-                <div class="mb-10 text-center">
-                    <div
-                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-wider font-medium mb-5 rounded-sm"
-                    >
-                        Order Tracking
-                    </div>
-                    <h1 class="text-5xl md:text-6xl font-light tracking-tighter leading-none">
-                        Track Order
-                    </h1>
-                    <p class="mt-4 text-on-surface-variant max-w-md mx-auto">
-                        Enter your order reference and the phone number you ordered with
-                        to see payment, progress photos and your receipt.
-                    </p>
-                </div>
+                <PageHeader kicker="Order Tracking" title="Track Order" subtitle="Enter your order reference and the phone number you ordered with to see payment, progress photos and your receipt." />
 
                 <!-- Lookup form -->
                 <form
                     v-if="!order"
                     @submit.prevent="lookup"
-                    class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8 space-y-6"
+                    class="card space-y-6 p-6 md:p-8"
                 >
-                    <div>
+                    <div class="grid gap-6 md:grid-cols-2"><div>
                         <label class="block text-sm text-on-surface-variant mb-2" for="trackorder-reference">Order Reference</label>
                         <input
                             id="trackorder-reference" v-model="form.reference"
                             type="text"
                             placeholder="SRN-XXXXXXXX-2026"
                             autocomplete="off"
-                            class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base uppercase tracking-wider placeholder:text-on-surface-variant/50 placeholder:normal-case placeholder:tracking-normal"
+                            class="field py-3.5 text-base" style="text-transform:uppercase"
                         />
-                        <p class="text-xs text-on-surface-variant/70 mt-1.5">
+                        <p class="text-xs text-on-surface-variant mt-1.5">
                             On your WhatsApp brief, receipt, or order confirmation.
                         </p>
                     </div>
@@ -149,16 +150,19 @@ onMounted(() => {
                             id="trackorder-phone" v-model="form.phone"
                             type="tel"
                             placeholder="+254 712 345 678"
-                            class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
+                            autocomplete="tel"
+                            inputmode="tel"
+                            class="field py-3.5 text-base"
                         />
-                    </div>
+                        <button v-if="phoneRemembered" type="button" @click="useDifferentNumber" class="mt-1.5 text-xs text-on-surface-variant underline">Remembered on this device · Use a different number</button>
+                    </div></div>
 
                     <p role="alert" v-if="error" class="text-red-400 text-sm">{{ error }}</p>
 
                     <button
                         type="submit"
                         :disabled="isLoading"
-                        class="w-full py-5 bg-primary hover:bg-on-surface text-background font-bold text-[11px] tracking-wider rounded-2xl transition-all disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.985]"
+                        class="action-primary w-full py-4 md:w-auto md:px-10"
                     >
                         <span>{{ isLoading ? "Locating your order…" : "Track order" }}</span>
                         <span v-if="!isLoading" class="material-symbols-outlined text-lg">search</span>
@@ -175,7 +179,7 @@ onMounted(() => {
                                     Ref {{ order.reference }}
                                 </div>
                                 <h2 class="text-2xl font-light tracking-tight mt-1">
-                                    {{ order.type === "standard" ? "Shop Order" : order.type === "drop" ? "Drop Reservation" : "Bespoke Request" }}
+                                    {{ order.type === "standard" ? "Shop Order" : order.type === "drop" ? "Drop Reservation" : "Custom Order" }}
                                 </h2>
                                 <p class="text-sm text-on-surface-variant mt-1">Placed {{ order.placed_at }}</p>
                             </div>
@@ -260,7 +264,7 @@ onMounted(() => {
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm truncate">{{ item.name }}</div>
                                     <div class="text-xs text-on-surface-variant">Qty {{ item.quantity }}</div>
-                                    <p v-for="(value, key) in item.options" :key="key" class="text-xs text-on-surface-variant">{{ key.replaceAll('_', ' ') }}: {{ value }}</p>
+                                    <p v-if="item.size_label || item.options?.size" class="text-xs text-on-surface-variant">{{ item.size_label || ('Size ' + item.options.size) }}</p>
                                 </div>
                             </div>
                         </div>

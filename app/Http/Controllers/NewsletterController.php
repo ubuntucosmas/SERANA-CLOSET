@@ -10,11 +10,14 @@ class NewsletterController extends Controller
     public function subscribe(Request $request)
     {
         $validated = $request->validate([
-            'email' => 'required|email|unique:leads,email',
+            'email' => 'required|email|max:255',
         ]);
 
-        Lead::create($validated);
+        // Subscribing twice is a success, not an error, and must not reveal
+        // whether an address is already on the list.
+        Lead::firstOrCreate(['email' => strtolower(trim($validated['email']))]);
 
-        return back()->with('success', 'The Serana Inner Circle will open soon. You are on the registry.');
+        // The footer confirms inline beside the field; no extra flash toast.
+        return back();
     }
 }

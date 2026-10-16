@@ -1,10 +1,7 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import InputError from '@/Components/InputError.vue';
+import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 
 const form = useForm({
     name: '',
@@ -21,95 +18,52 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Register" />
-        <h1 class="text-2xl font-headline mb-3">Create Account</h1>
-        <p class="text-sm text-on-surface-variant mb-6">Create an account to keep track of orders placed while signed in.</p>
+    <StorefrontLayout>
+        <Head title="Create Account" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="name" value="Name" />
+        <div class="page-container flex justify-center pb-20">
+            <div class="w-full max-w-md bg-surface-container/40 border dark:border-white/5 border-black/5 rounded-3xl overflow-hidden backdrop-blur-2xl shadow-2xl">
+                <div class="h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
+                <div class="p-6 sm:p-10">
+                    <div class="text-center mb-8">
+                        <h1 class="font-headline text-4xl font-black text-on-surface mb-2 tracking-tighter">Create <span class="text-primary">Account</span></h1>
+                        <p class="text-sm text-on-surface-variant">Keep your orders in one place. You can always check out as a guest.</p>
+                    </div>
 
-                <InputError class="mt-2" :message="form.errors.name" />
+                    <form @submit.prevent="submit" class="space-y-5">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-on-surface-variant ml-1" for="register-name">Name</label>
+                            <input id="register-name" v-model="form.name" type="text" required autofocus autocomplete="name" class="field py-3.5" />
+                            <InputError :message="form.errors.name" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-on-surface-variant ml-1" for="register-email">Email</label>
+                            <input id="register-email" v-model="form.email" type="email" required autocomplete="username" placeholder="you@example.com" class="field py-3.5" />
+                            <InputError :message="form.errors.email" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-on-surface-variant ml-1" for="register-password">Password</label>
+                            <input id="register-password" v-model="form.password" type="password" required autocomplete="new-password" class="field py-3.5" />
+                            <InputError :message="form.errors.password" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-on-surface-variant ml-1" for="register-password_confirmation">Confirm password</label>
+                            <input id="register-password_confirmation" v-model="form.password_confirmation" type="password" required autocomplete="new-password" class="field py-3.5" />
+                            <InputError :message="form.errors.password_confirmation" />
+                        </div>
+
+                        <button type="submit" :disabled="form.processing" class="action-primary w-full py-4">
+                            {{ form.processing ? 'Creating your account…' : 'Create Account' }}
+                        </button>
+                    </form>
+
+                    <div class="mt-8 pt-8 border-t dark:border-white/5 border-black/5 text-center">
+                        <p class="text-sm text-on-surface-variant">Already have an account? <Link :href="route('login')" class="text-primary underline">Sign In</Link></p>
+                        <Link :href="route('shop')" class="block text-sm mt-4 underline">Continue Shopping as Guest</Link>
+                    </div>
+                </div>
             </div>
-
-            <div class="mt-4">
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel
-                    for="password_confirmation"
-                    value="Confirm Password"
-                />
-
-                <TextInput
-                    id="password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password_confirmation"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError
-                    class="mt-2"
-                    :message="form.errors.password_confirmation"
-                />
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    :href="route('login')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    Already registered?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Register
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+        </div>
+    </StorefrontLayout>
 </template>

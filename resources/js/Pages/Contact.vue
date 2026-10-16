@@ -4,14 +4,9 @@
             <title>The Studio | Contact Serana Closet</title>
         </Head>
 
-        <main class="pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto font-body">
+        <main class="page-container pb-24 font-body">
             <!-- Header Section -->
-            <header class="mb-20 text-center reveal">
-                <h1 class="serif-text text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-light">Contact <span class="text-primary">Serana</span></h1>
-                <p class="text-white/60 text-xl md:text-2xl max-w-2xl mx-auto font-light leading-relaxed">
-                    Ask about an order, sizing or a bespoke request. Send your message to our team on WhatsApp.
-                </p>
-            </header>
+            <PageHeader kicker="Contact" title="Contact" accent="Serana" subtitle="Ask about an order, sizing or a custom order. Send your message to our team on WhatsApp." />
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
                 <!-- Contact Channels -->
@@ -24,7 +19,7 @@
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">WhatsApp</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">Direct line for fitting updates and new design inquiries.</p>
-                                <a :href="whatsappUrl" target="_blank" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
+                                <a :href="whatsappUrl" target="_blank" rel="noopener" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
                                     {{ '+' + page.props.whatsapp_number }}
                                 </a>
                             </div>
@@ -66,8 +61,8 @@
                             </span>
                             <span class="text-[11px] font-headline font-black tracking-wider text-primary">Studio status</span>
                         </div>
-                        <p class="text-sm text-white leading-relaxed font-light">
-                            Message the studio to discuss current availability, fitting appointments or a new bespoke request.
+                        <p class="text-sm text-on-surface leading-relaxed font-light">
+                            Message the studio to discuss current availability, fitting appointments or a new custom order.
                         </p>
                     </div>
                 </div>
@@ -98,10 +93,10 @@
 
                         <div class="space-y-3">
                             <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black" for="contact-message">Message / specifications</label>
-                            <textarea id="contact-message" v-model="form.message" rows="5" placeholder="Tell us about your requirements..." class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none resize-none transition-all placeholder:opacity-50" required></textarea>
+                            <textarea id="contact-message" v-model="form.message" rows="5" minlength="5" placeholder="Tell us about your requirements..." class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none resize-none transition-all placeholder:opacity-50" required></textarea>
                         </div>
 
-                        <button type="submit" :disabled="isSubmitting" class="w-full py-6 dark:bg-white dark:text-background bg-on-surface text-surface font-headline text-[12.5px] tracking-wider font-black rounded-xl hover:bg-primary hover:text-background transition-all shadow-2xl disabled:opacity-50">
+                        <button type="submit" :disabled="isSubmitting" class="action-primary w-full py-4">
                             Open WhatsApp with Message
                         </button>
 
@@ -116,6 +111,7 @@
 </template>
 
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { reactive, ref, computed } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
@@ -135,8 +131,9 @@ const form = reactive({
     message: ''
 });
 
+const inquiryLabels = { bespoke: 'Custom order', batch: 'Limited batch drop', support: 'Order support / fitting', other: 'General inquiry' };
 const submitForm = () => {
-    const message = `Hello Serana,\n\nName: ${form.name}\nEmail: ${form.email}\nInquiry: ${form.type}\n\n${form.message}`;
+    const message = `Hello Serana,\n\nName: ${form.name}\nEmail: ${form.email}\nAbout: ${inquiryLabels[form.type] || form.type}\n\n${form.message}`;
     window.open(`${whatsappUrl.value}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
 };
 </script>

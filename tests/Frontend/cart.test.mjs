@@ -68,3 +68,23 @@ test('valid old bags receive variant keys and persist subsequent changes', async
     await nextTick();
     assert.equal(JSON.parse(saved)[0].quantity, 2);
 });
+
+test('canIncrease reports when the combined stock cap is reached', () => {
+    const cart = useCartStore();
+    cart.addItem({ ...product, options: { top_size: 'M' } });
+    cart.addItem({ ...product, options: { top_size: 'L' } });
+    const [m, l] = cart.items.map(i => i.line_key);
+    assert.equal(cart.remainingFor(m), 1);
+    assert.equal(cart.canIncrease(l), true);
+    cart.updateQuantity(l, 1);
+    assert.equal(cart.canIncrease(m), false, 'cap is shared across sizes');
+    assert.equal(cart.remainingFor(m), 0);
+    cart.removeItem(l);
+    assert.equal(cart.remainingFor(m), 2, 'removing a size frees its units');
+});
+
+test('unlimited products can always be increased', () => {
+    const cart = useCartStore();
+    cart.addItem({ ...product, batch_limit: null, options: { top_size: 'M' } });
+    assert.equal(cart.canIncrease(cart.items[0].line_key), true);
+});

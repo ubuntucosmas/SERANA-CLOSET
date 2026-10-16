@@ -173,15 +173,15 @@ onMounted(() => {
         >
             <!-- ═══ HERO ═══ -->
             <section
-                class="relative min-h-[85vh] flex items-end justify-start px-8 pb-20 pt-32 border-b dark:border-white/5 border-black/5 reveal-on-scroll reveal-hero overflow-hidden"
+                class="relative min-h-[70vh] flex items-end justify-start pb-20 pt-16 border-b dark:border-white/5 border-black/5 reveal-on-scroll reveal-hero overflow-hidden"
             >
                 <SectionBackground
-                    texture="/images/black_white_hoodies_showcase.png"
+                    texture="/images/black_white_hoodies_showcase.webp"
                     opacity="opacity-20"
                 />
 
                 <!-- Hero text -->
-                <div class="relative z-10 max-w-screen-xl mx-auto w-full">
+                <div class="page-container relative z-10">
                     <div
                         class="flex items-center gap-4 text-primary font-headline tracking-wider text-[10.5px] font-medium mb-8 reveal-item opacity-0"
                     >
@@ -190,7 +190,7 @@ onMounted(() => {
                         {{ new Date().getFullYear() - 2 }} archive
                     </div>
                     <h1
-                        class="serif-text text-6xl md:text-[9rem] font-light leading-[0.9] mb-8 max-w-4xl reveal-item opacity-0"
+                        class="font-headline text-5xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl mb-8 max-w-4xl reveal-item opacity-0"
                     >
                         Made<br />
                         <span class="text-white/40">with care.</span>
@@ -367,7 +367,7 @@ onMounted(() => {
                             class="material-symbols-outlined text-sm font-medium"
                             >draw</span
                         >
-                        Begin custom journey
+                        Start a Custom Order
                     </Link>
                 </div>
             </section>

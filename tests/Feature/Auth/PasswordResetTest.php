@@ -70,4 +70,12 @@ class PasswordResetTest extends TestCase
             return true;
         });
     }
+
+    public function test_reset_request_for_an_unknown_email_gets_the_same_answer(): void
+    {
+        // Must not reveal whether the address has an account.
+        $this->post('/forgot-password', ['email' => 'nobody@example.com'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status');
+    }
 }

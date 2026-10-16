@@ -15,15 +15,15 @@ final class PageSeo
         $name = ThemeSetting::get('site_name', 'Serana Closet');
         $path = $request->getPathInfo();
         $base = rtrim(config('app.url'), '/');
-        $titles = ['/' => 'Serana Closet', '/shop' => 'Shop Collection', '/drops' => 'Serana Drops', '/custom-order' => 'Bespoke Request', '/about' => 'About Serana', '/contact' => 'Contact Serana', '/the-circle' => 'The Serana Circle'];
+        $titles = ['/' => 'Serana Closet', '/shop' => 'Shop Collection', '/drops' => 'Serana Drops', '/custom-order' => 'Custom Order', '/about' => 'About Serana', '/contact' => 'Contact Serana', '/the-circle' => 'The Serana Circle'];
         $descriptions = [
-            '/' => 'Explore Serana’s ready-to-wear collection, limited Drops and bespoke requests.',
+            '/' => 'Explore Serana’s ready-to-wear collection, limited Drops and custom orders.',
             '/shop' => 'Browse the Serana ready-to-wear collection. View each piece, available sizes and price.',
             '/drops' => 'Explore limited Serana Drops. Review the campaign goal, price and sizes before reserving.',
-            '/custom-order' => 'Save a bespoke request, then discuss your design, quote and timeline with the studio on WhatsApp.',
+            '/custom-order' => 'Place a custom order, then discuss your design, quote and timeline with the studio on WhatsApp.',
             '/about' => 'Learn about Serana Closet and the studio behind the collection.',
-            '/contact' => 'Contact Serana about sizing, an order or a bespoke request.',
-            '/the-circle' => 'Explore the Serana gallery and find inspiration for a bespoke request.',
+            '/contact' => 'Contact Serana about sizing, an order or a custom order.',
+            '/the-circle' => 'Explore the Serana gallery and find inspiration for a custom order.',
         ];
         $seo = ['title' => ($titles[$path] ?? 'Serana Closet').' — '.$name,
             'description' => $descriptions[$path] ?? 'Manage your Serana account or order.',
