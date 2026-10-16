@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <!-- Apply saved theme before paint to avoid a light/dark flash -->
+        <!-- The v2 preference starts returning visitors in light mode too; later choices are remembered. -->
         <script>
             (function () {
                 try {
-                    var t = localStorage.getItem('serana-theme');
+                    var t = localStorage.getItem('serana-theme-v2');
                     var root = document.documentElement;
-                    if (t === 'light') root.classList.remove('dark');
-                    else root.classList.add('dark');
+                    root.classList.toggle('dark', t === 'dark');
                 } catch (e) {}
             })();
         </script>
@@ -53,7 +52,9 @@
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
         <!-- Material Symbols (Icons) -->
-        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+        {{-- Icon font is subset to the glyphs the app uses (~28KB vs 1.1MB). Adding a
+             new icon? Add its name here (alphabetical) or it renders as text. --}}
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=account_balance_wallet,account_circle,add,add_photo_alternate,add_shopping_cart,architecture,archive,arrow_back,arrow_forward,arrow_right_alt,assignment,auto_awesome,bolt,chat,check,check_circle,checkroom,chevron_left,chevron_right,close,content_cut,dark_mode,dashboard,delete,delete_forever,download,draw,dynamic_feed,edit,expand_less,expand_more,gesture,group,handshake,home,hourglass_top,image,inbox,inventory,inventory_2,keyboard_arrow_down,light_mode,local_florist,local_shipping,lock,logout,mail,menu,more_horiz,north_east,package_2,paid,pause,payments,photo_camera,photo_library,pin_drop,play_arrow,precision_manufacturing,progress_activity,receipt_long,search,search_off,settings,shield,shopping_bag,shopping_cart,smartphone,storefront,straighten,support_agent,sync,task_alt,tune,verified,verified_user,visibility,warning,whatsapp&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
         @routes

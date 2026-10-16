@@ -1,40 +1,40 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const isDark = ref(true);
+const isDark = ref(typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+
+const updateTheme = () => {
+    document.documentElement.classList.toggle('dark', isDark.value);
+    try {
+        localStorage.setItem('serana-theme-v2', isDark.value ? 'dark' : 'light');
+    } catch {
+        // The toggle still works for this visit when browser storage is unavailable.
+    }
+};
 
 const toggleTheme = () => {
     isDark.value = !isDark.value;
     updateTheme();
 };
 
-const updateTheme = () => {
-    if (isDark.value) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('serana-theme', 'dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('serana-theme', 'light');
-    }
-};
-
 onMounted(() => {
-    const savedTheme = localStorage.getItem('serana-theme');
-    if (savedTheme) {
-        isDark.value = savedTheme === 'dark';
-    } else {
-        // Default to dark for that Serana brand identity
-        isDark.value = true;
+    try {
+        isDark.value = localStorage.getItem('serana-theme-v2') === 'dark';
+    } catch {
+        isDark.value = false;
     }
     updateTheme();
 });
 </script>
 
 <template>
-    <button 
+    <button
+        type="button"
         @click="toggleTheme" 
         class="w-10 h-10 flex items-center justify-center rounded-xl border dark:border-white/10 border-black/10 hover:border-primary/50 transition-all duration-300 group relative overflow-hidden bg-white/5 active:scale-90"
         :title="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
+        :aria-label="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
+        :aria-pressed="isDark"
     >
         <div class="relative w-6 h-6 flex flex-col transition-transform duration-500" :style="{ transform: isDark ? 'translateY(0)' : 'translateY(-100%)' }">
             <span class="material-symbols-outlined text-[20px] shrink-0 h-6 flex items-center justify-center text-primary">dark_mode</span>

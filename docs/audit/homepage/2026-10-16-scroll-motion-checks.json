@@ -1,0 +1,82 @@
+{
+  "checks": [
+    {
+      "width": 320,
+      "status": 200,
+      "initialHeroTranslate": "0px -1.82px",
+      "scrolledHeroTranslate": "0px 3.33px",
+      "nativeScroll": 450,
+      "entering": {
+        "waiting": false,
+        "animations": 1
+      },
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "status": 200,
+      "initialHeroTranslate": "0px -2.01px",
+      "scrolledHeroTranslate": "0px 3.04px",
+      "nativeScroll": 450,
+      "entering": {
+        "waiting": false,
+        "animations": 1
+      },
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "status": 200,
+      "initialHeroTranslate": "0px -6.6px",
+      "scrolledHeroTranslate": "0px 5.16px",
+      "nativeScroll": 450,
+      "entering": {
+        "waiting": true,
+        "animations": 0
+      },
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "status": 200,
+      "initialHeroTranslate": "0px -0.04px",
+      "scrolledHeroTranslate": "0px 15.48px",
+      "nativeScroll": 450,
+      "entering": {
+        "waiting": true,
+        "animations": 0
+      },
+      "overflow": false
+    },
+    {
+      "width": 1440,
+      "status": 200,
+      "initialHeroTranslate": "0px -1.12px",
+      "scrolledHeroTranslate": "0px 13.12px",
+      "nativeScroll": 450,
+      "entering": {
+        "waiting": true,
+        "animations": 0
+      },
+      "overflow": false
+    },
+    {
+      "keyboardFocus": "Offscreen category link revealed immediately"
+    },
+    {
+      "preferenceChanged": "reduce",
+      "pendingReveals": 0,
+      "idleFrames": 0
+    },
+    {
+      "navigationCleanup": "Home → Shop → Home passed",
+      "reducedMotionNavigation": true
+    },
+    {
+      "initialReducedMotion": true,
+      "pendingReveals": 0,
+      "parallax": "none"
+    }
+  ],
+  "errors": []
+}

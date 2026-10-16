@@ -11,7 +11,7 @@ import { Link } from '@inertiajs/vue3';
     >
         <div>
             <Link href="/">
-                <ApplicationLogo class="h-20 w-20 fill-current text-primary" />
+                <ApplicationLogo />
             </Link>
         </div>
 

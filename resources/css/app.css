@@ -15,16 +15,16 @@
         --surface:          #ffffff;
         --on-surface:       #17171a;
         --surface-container:#ececea;
-        --on-surface-variant:#5a5a62;
+        --on-surface-variant:#474750;
 
         /* Text */
         --text-primary:     #17171a;
-        --text-muted:       rgba(23, 23, 26, 0.62);
+        --text-muted:       rgba(23, 23, 26, 0.74);
         --text-ghost:       rgba(23, 23, 26, 0.34);
         --text-faint:       rgba(23, 23, 26, 0.16);
 
         /* Accent — cyan, darkened for legible contrast on light */
-        --accent:           #0b7da3;
+        --accent:           #07617f;
         --accent-rgb:       11, 125, 163;
         --accent-hover:     #096b8c;
         --accent-glow:      rgba(11, 125, 163, 0.16);
@@ -37,9 +37,18 @@
         --border-active:    #0b7da3;
 
         /* Legacy */
-        --primary:          #0b7da3;
+        --primary:          #07617f;
         --primary-alt:      #096b8c;
         --outline-variant:  #cfcfca;
+        /* RGB channels so Tailwind opacity variants (bg-primary/10 …) work. */
+        --background-rgb: 245 245 243;
+        --on-background-rgb: 23 23 26;
+        --surface-rgb: 255 255 255;
+        --on-surface-rgb: 23 23 26;
+        --surface-container-rgb: 236 236 234;
+        --on-surface-variant-rgb: 71 71 80;
+        --primary-rgb: 7 97 127;
+        --outline-variant-rgb: 207 207 202;
 
         /* Fonts — slim editorial: Cormorant headings, Manrope everywhere else */
         --font-display:     'Space Grotesk', sans-serif;
@@ -82,10 +91,10 @@
         --surface:          #0b0f17;
         --on-surface:       #e2e8f0;
         --surface-container: #111622;
-        --on-surface-variant: #c5c5d4;
+        --on-surface-variant: #cbd5e1;
 
         --text-primary:     #e2e8f0;
-        --text-muted:       rgba(229, 226, 227, 0.58);
+        --text-muted:       rgba(229, 232, 240, 0.76);
         --text-ghost:       rgba(229, 226, 227, 0.26);
         --text-faint:       rgba(229, 226, 227, 0.17);
 
@@ -103,6 +112,14 @@
         --primary:          #00d2ff;
         --primary-alt:      #b6ebff;
         --outline-variant:  #454652;
+        --background-rgb: 7 9 14;
+        --on-background-rgb: 226 232 240;
+        --surface-rgb: 11 15 23;
+        --on-surface-rgb: 226 232 240;
+        --surface-container-rgb: 17 22 34;
+        --on-surface-variant-rgb: 203 213 225;
+        --primary-rgb: 0 210 255;
+        --outline-variant-rgb: 69 70 82;
     }
 
     .dark body {
@@ -147,11 +164,11 @@
     body {
         font-family: var(--font-body);
         font-weight: 400;
-        line-height: 1.82;
+        line-height: 1.7;
         letter-spacing: 0.01em;
         color: var(--text-primary);
         background-color: var(--bg-primary);
-        font-size: 15px;
+        font-size: 16px;
     }
 
     @media (min-width: 768px) {
@@ -186,9 +203,9 @@
     p, .slide-desc {
         font-family: var(--font-body);
         font-weight: 400;
-        font-size: clamp(.82rem, 1.1vw, .96rem);
+        font-size: clamp(.9375rem, 1vw, 1.0625rem);
         color: var(--text-muted);
-        line-height: 1.82;
+        line-height: 1.7;
     }
 
     /* Slim sans UI voice for labels, tags, nav, counters — mixed case */
@@ -219,16 +236,11 @@
 }
 
 @layer components {
+    /* Legacy name for an inner panel: same surface, border and radius as .card. */
     .glass-panel {
-        background-color: rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(0, 0, 0, 0.05);
-        /* Build-safe border */
-        @apply backdrop-blur-3xl;
-    }
-
-    .dark .glass-panel {
-        background-color: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        @apply backdrop-blur-xl;
     }
 
     /* Global Mobile High-Density Card */
@@ -307,19 +319,15 @@
 }
 
 @layer utilities {
-    /* Single source of truth for clearing the fixed TopNavBar. The values are
-       the nav's unscrolled height (pt-10 + py-8/py-10 + logo) plus a constant
-       1rem breathing gap. StorefrontLayout applies .nav-clearance to every
-       page's content; full-bleed hero pages (Home, About) opt out via the
-       layout's `flushTop` prop. Pages must NOT add their own top padding. */
+    /* The TopNavBar is sticky and in document flow, so content already starts
+       below it. .nav-clearance is now only the shared top gap every page gets
+       (StorefrontLayout applies it; flushTop hero pages opt out). Pages must
+       NOT add their own top padding. */
     :root {
-        --nav-clearance: 9.5rem;
+        --nav-clearance: 2rem;
     }
     @media (min-width: 768px) {
-        :root { --nav-clearance: 10.5rem; }
-    }
-    @media (min-width: 1024px) {
-        :root { --nav-clearance: 11.5rem; }
+        :root { --nav-clearance: 2.5rem; }
     }
     .nav-clearance {
         padding-top: var(--nav-clearance);
@@ -357,18 +365,6 @@
         transform: translateY(-2px);
     }
 
-    /* Glassmorphism Card */
-    .svc-card, .glass-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: var(--card-pad);
-        transition: border-color .3s, background .3s;
-    }
-    .svc-card:hover, .glass-card:hover {
-        border-color: var(--border-hover);
-        background: var(--bg-card-hover);
-    }
 
     /* Primary Button (cyan fill) */
     .btn-primary {
@@ -618,6 +614,8 @@ html:not(.dark) .always-dark .hover\:bg-white\/10:hover { background-color: rgba
 /* Cinematic dark video/texture background is for Tech-Noir; in Studio White keep
    it a whisper and drop its dark scrim so it doesn't muddy the light page. */
 html:not(.dark) .section-bg { opacity: 0.12; }
+/* Badges sit on saturated fills in both themes: keep their text white. */
+html:not(.dark) .badge, html:not(.dark) .badge-accent, html:not(.dark) .badge-new, html:not(.dark) .badge-muted { color: #fff; }
 html:not(.dark) .section-bg-scrim { display: none; }
 /* Shared screen clarity: readable controls and the supplied Stitch surfaces. */
 @layer base {
@@ -628,9 +626,82 @@ html:not(.dark) .section-bg-scrim { display: none; }
     label { line-height: 1.5; }
     h1, h2, h3 { text-wrap: balance; }
 }
+/* ============================================================================
+   SERANA LAYOUT SYSTEM — one container, one section rhythm, one card family.
+   Every storefront page composes these instead of hand-rolling spacing, radii
+   and borders. Tokens below adapt to both themes.
+   ============================================================================ */
+:root {
+    --card-bg: #ffffff;
+    --card-border: rgba(0, 0, 0, 0.08);
+    --card-border-hover: rgba(11, 125, 163, 0.40);
+    --card-shadow-hover: 0 16px 36px -14px rgba(11, 125, 163, 0.28);
+    --tile-bg: #f0f0ee;
+    --tint-bg: rgba(11, 125, 163, 0.08);
+    --tint-border: rgba(11, 125, 163, 0.20);
+    --action-from: #0062ff;
+    --action-to: #2563eb;
+    --action-glow: 0 0 30px -6px rgba(0, 98, 255, 0.45);
+}
+.dark {
+    --card-bg: rgba(17, 22, 34, 0.72);
+    --card-border: rgba(255, 255, 255, 0.07);
+    --card-border-hover: rgba(0, 210, 255, 0.35);
+    --card-shadow-hover: 0 16px 36px -12px rgba(0, 102, 255, 0.28);
+    --tile-bg: #090d15;
+    --tint-bg: rgba(59, 130, 246, 0.10);
+    --tint-border: rgba(59, 130, 246, 0.22);
+    --action-glow: 0 0 35px -5px rgba(0, 102, 255, 0.55);
+}
 @layer components {
-    .action-primary { @apply inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 text-white px-7 py-3.5 font-semibold hover:bg-blue-500 disabled:opacity-50; }
-    .action-secondary { @apply inline-flex items-center justify-center gap-2 rounded-full border border-outline-variant px-6 py-3 text-sm; }
+    /* Layout */
+    /* Grows with the screen: never narrower than 80rem on desktop, about three
+       quarters of the window on large monitors, capped at 120rem. */
+    .page-container { @apply mx-auto w-full px-4 sm:px-6 lg:px-8; max-width: min(max(80rem, 78vw), 120rem); }
+    .page-section { @apply py-10 md:py-14; }
+    .section-head { @apply mb-8 flex items-end justify-between gap-6; }
+    .section-title { @apply font-headline text-2xl font-bold tracking-tight text-on-surface sm:text-3xl; }
+    .section-sub { @apply mt-1.5 text-sm leading-relaxed text-on-surface-variant sm:text-base; }
+    .link-more { @apply inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-primary hover:text-on-surface sm:text-sm; }
+
+    /* Cards */
+    .card {
+        @apply rounded-2xl border;
+        background: var(--card-bg);
+        border-color: var(--card-border);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+    }
+    .card-hover { transition: transform .35s cubic-bezier(.16, 1, .3, 1), border-color .35s, box-shadow .35s; }
+    .card-hover:hover { transform: translateY(-4px); border-color: var(--card-border-hover); box-shadow: var(--card-shadow-hover); }
+    .card-media { @apply relative overflow-hidden rounded-xl; background: var(--tile-bg); }
+    .icon-tile { @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
+    .icon-tile-sm { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
+
+    /* Labels */
+    .kicker { @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
+    .kicker-dot { @apply h-2 w-2 rounded-full bg-primary; box-shadow: 0 0 8px var(--accent); }
+    .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white; }
+    .badge-accent { @apply badge bg-blue-600; box-shadow: 0 0 12px rgba(0, 102, 255, .55); }
+    .badge-muted { @apply badge bg-slate-700/90; }
+    .badge-new { @apply badge bg-cyan-800; box-shadow: 0 0 12px rgba(8, 145, 178, .5); }
+
+    /* Actions */
+    .action-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white disabled:opacity-50;
+        background-image: linear-gradient(to right, var(--action-from), var(--action-to));
+        box-shadow: var(--action-glow);
+    }
+    .action-primary:hover { background-image: linear-gradient(to right, #2563eb, #06b6d4); }
+    .action-secondary { @apply card inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium text-on-surface; }
+    .action-secondary:hover { border-color: var(--card-border-hover); }
+    /* Form fields */
+    .field {
+        @apply block w-full rounded-xl border px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary;
+        background: var(--tile-bg);
+        border-color: var(--card-border);
+    }
+    .action-icon { @apply inline-flex h-10 w-10 items-center justify-center rounded-xl text-on-surface hover:bg-blue-600 hover:text-white; background: var(--tint-bg); }
     .feedback-error { @apply rounded-xl border border-red-400/40 p-4 text-sm; }
     .feedback-success { @apply rounded-xl border border-emerald-400/40 p-4 text-sm; }
 }
@@ -640,7 +711,7 @@ html:not(.dark) .section-bg-scrim { display: none; }
     line-height: 1.5;
     letter-spacing: .04em;
 }
-.glass-panel { border-radius: 1rem; }
+.glass-panel { border-radius: 1rem !important; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
     .reveal, .reveal-item { opacity: 1 !important; transform: none !important; }
