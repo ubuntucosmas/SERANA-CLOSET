@@ -32,8 +32,8 @@ const branding = [
     { key: 'site_favicon', label: 'Browser icon', hint: 'The small icon in the browser tab. Use a square image.' },
 ];
 const homeImages = [
-    { key: 'hero_bg', label: 'Home background', hint: 'The large opening image on your home page.' },
-    { key: 'hero_detail_bg', label: 'Home accent image', hint: 'The floating detail shot beside the intro.' },
+    { key: 'hero_bg', label: 'Home background', hint: 'The background behind the home introduction and rotating products.' },
+    { key: 'hero_detail_bg', label: 'Home accent image', hint: 'The image in the home custom-order section.' },
 ];
 const focals = [1, 2, 3];
 </script>
@@ -54,7 +54,7 @@ const focals = [1, 2, 3];
                 </label>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Tagline</span>
-                    <input v-model="form.settings.site_tagline" placeholder="e.g. Bespoke, made with love"
+                    <input v-model="form.settings.site_tagline" placeholder="e.g. Custom fashion, made with love"
                         class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                 </label>
                 <label class="block">
@@ -62,12 +62,6 @@ const focals = [1, 2, 3];
                     <input v-model="form.settings.whatsapp_number" placeholder="e.g. 0712 345 678"
                         class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     <span class="block text-xs text-slate-600 mt-1.5">Where customer chat and order messages are sent.</span>
-                </label>
-                <label class="block">
-                    <span class="block text-sm text-slate-300 mb-2">Studio capacity (pieces)</span>
-                    <input v-model="form.settings.studio_capacity" type="number" min="1" placeholder="e.g. 20"
-                        class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                    <span class="block text-xs text-slate-600 mt-1.5">How many orders count as a "full" studio — drives the load % on the home page.</span>
                 </label>
             </div>
 

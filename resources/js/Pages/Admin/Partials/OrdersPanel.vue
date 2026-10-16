@@ -24,16 +24,19 @@ const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 
 function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
-function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? 'Shop' : 'Bespoke'); }
-function itemOf(o) { return o.garment_name || o.outfit_type || (isCustom(o) ? 'Custom piece' : 'Shop order'); }
-
-// One clear payment label regardless of the shared status column.
-function payment(o) {
-    if (o.is_paid) return { label: 'Paid', cls: 'text-emerald-400 bg-emerald-400/10' };
-    if (o.status === 'Pending Payment') return { label: 'Awaiting payment', cls: 'text-amber-400 bg-amber-400/10' };
-    if (['Payment Failed', 'Expired', 'Amount Mismatch'].includes(o.status)) return { label: o.status, cls: 'text-rose-400 bg-rose-400/10' };
-    return { label: 'Unpaid', cls: 'text-slate-400 bg-white/5' };
+function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? 'Shop' : 'Custom'); }
+// What the order is, in words staff recognise: the pieces for shop orders,
+// the Drop title, or the requested piece for a bespoke brief.
+function itemOf(o) {
+    if (o.type === 'standard') {
+        const items = o.items_with_urls || [];
+        return items.length ? items.map(i => `${i.name}${i.size_label ? ' (' + i.size_label + ')' : ''}${(i.quantity || 1) > 1 ? ' ×' + i.quantity : ''}`).join(', ') : 'Shop order';
+    }
+    if (o.type === 'drop') return o.items_json?.drop ? `${o.items_json.drop}${o.items_json.size ? ' · ' + o.items_json.size : ''}` : 'Drop reservation';
+    return o.type && o.type !== 'custom' ? `Custom ${o.type}` : 'Custom piece';
 }
+
+
 // Production stage only applies once a custom order is in the workflow.
 function stage(o) {
     return PRODUCTION.includes(o.status) ? o.status : null;
@@ -52,7 +55,7 @@ const filtered = computed(() => {
     });
 });
 
-const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Bespoke & Drops' }, { id: 'shop', label: 'Shop' }];
+const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & Drops' }, { id: 'shop', label: 'Shop' }];
 </script>
 
 <template>
@@ -83,7 +86,7 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Bespoke & Dr
         <!-- Empty -->
         <div v-if="filtered.length === 0" class="text-center text-slate-500 py-16 bg-slate-900/40 rounded-2xl ring-1 ring-white/5">
             <span class="material-symbols-outlined text-3xl">inbox</span>
-            <p class="mt-2 text-sm">{{ query || filter !== 'all' ? 'No orders match these filters. Clear the search or select All.' : showArchived ? 'No archived orders.' : 'No orders yet. New shop orders, reservations and bespoke requests appear here.' }}</p>
+            <p class="mt-2 text-sm">{{ query || filter !== 'all' ? 'No orders match these filters. Clear the search or select All.' : showArchived ? 'No archived orders.' : 'No orders yet. New shop orders, reservations and custom orders appear here.' }}</p>
         </div>
 
         <!-- List -->

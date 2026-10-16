@@ -61,14 +61,14 @@ const list = computed(() => {
                     <div class="mt-3 flex gap-2">
                         <template v-if="!showArchived">
                             <button @click="emit('edit', p)" class="flex-1 text-xs font-semibold py-2 rounded-lg bg-white/5 text-slate-200 hover:bg-white/10">Edit</button>
-                            <button @click="emit('delete', p.id)" title="Archive" class="px-2.5 py-2 rounded-lg bg-white/5 text-slate-400 hover:text-rose-400">
-                                <span class="material-symbols-outlined text-[18px]">archive</span>
+                            <button @click="emit('delete', p.id)" title="Archive" :aria-label="`Archive ${p.name}`" class="px-2.5 py-2 rounded-lg bg-white/5 text-slate-400 hover:text-rose-400">
+                                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">archive</span>
                             </button>
                         </template>
                         <template v-else>
                             <button @click="emit('restore', p.id)" class="flex-1 text-xs font-semibold py-2 rounded-lg bg-[#57d5fc]/15 text-[#57d5fc] hover:bg-[#57d5fc]/25">Restore</button>
-                            <button @click="emit('forceDelete', p.id)" title="Delete permanently" class="px-2.5 py-2 rounded-lg bg-white/5 text-slate-400 hover:text-rose-400">
-                                <span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                            <button @click="emit('forceDelete', p.id)" title="Delete permanently" :aria-label="`Delete ${p.name} permanently`" class="px-2.5 py-2 rounded-lg bg-white/5 text-slate-400 hover:text-rose-400">
+                                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete_forever</span>
                             </button>
                         </template>
                     </div>

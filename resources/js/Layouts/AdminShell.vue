@@ -13,7 +13,7 @@
 <script setup>
 import SiteSeo from '@/Components/SiteSeo.vue';
 import Notification from '@/Components/Notification.vue';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -57,6 +57,18 @@ function go(id) {
 }
 
 const accent = '#57d5fc';
+
+// The Studio is designed dark-only. In light mode the storefront's global
+// .text-white → dark-text rule turned its text dark-on-navy, so force dark
+// while the Studio is open and give the visitor's own choice back on leave.
+let hadDark = true;
+onMounted(() => {
+    hadDark = document.documentElement.classList.contains('dark');
+    document.documentElement.classList.add('dark');
+});
+onUnmounted(() => {
+    if (!hadDark) document.documentElement.classList.remove('dark');
+});
 </script>
 
 <template>

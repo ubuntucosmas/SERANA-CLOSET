@@ -3,9 +3,11 @@
   routes the active section to a presentational panel. Chrome lives in AdminShell.
 -->
 <script setup>
+import { orderImages } from '@/Support/orderImages';
 import { ref, computed, watch } from 'vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
+import { paymentStatus } from '@/Support/orderStatus';
 import AdminShell from '@/Layouts/AdminShell.vue';
 import Modal from '@/Components/Modal.vue';
 import OverviewPanel from './Partials/OverviewPanel.vue';
@@ -14,6 +16,7 @@ import ProductsPanel from './Partials/ProductsPanel.vue';
 import GalleryPanel from './Partials/GalleryPanel.vue';
 import SubscribersPanel from './Partials/SubscribersPanel.vue';
 import SettingsPanel from './Partials/SettingsPanel.vue';
+import CustomOrderOptionsPanel from './Partials/CustomOrderOptionsPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 
 const props = defineProps({
@@ -27,6 +30,7 @@ const props = defineProps({
     gallery: { type: Array, default: () => [] },
     archived_gallery: { type: Array, default: () => [] },
     leads: { type: Array, default: () => [] },
+    custom_order_options: { type: Object, default: () => ({ garments: [], fabrics: [], colours: [] }) },
     drops: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
 });
@@ -81,6 +85,33 @@ function bindOrder(order) {
     progressSnapForm.reset();
 }
 function closeOrder() { selectedOrder.value = null; }
+// Keep the open editor in sync after a save / payment record refreshes the lists.
+watch(() => [props.orders, props.archived_orders], () => {
+    if (!selectedOrder.value) return;
+    const fresh = [...props.orders, ...props.archived_orders].find(o => o.id === selectedOrder.value.id);
+    if (fresh) selectedOrder.value = fresh;
+});
+
+const isCommerceOrder = computed(() => ['standard', 'drop'].includes(selectedOrder.value?.type));
+const orderKindLabel = computed(() => ({ standard: 'Shop order', drop: 'Drop reservation' })[selectedOrder.value?.type] || 'Custom order');
+const customerPhone = computed(() => selectedOrder.value?.whatsapp_number || selectedOrder.value?.phone || '');
+const customerWhatsApp = computed(() => {
+    const digits = String(customerPhone.value).replace(/\D/g, '').replace(/^0/, '254');
+    return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(`Hello ${selectedOrder.value?.full_name || ''}, this is Serana Closet about order ${selectedOrder.value?.cipher || ''}.`)}` : null;
+});
+const briefFields = computed(() => {
+    const o = selectedOrder.value; if (!o) return [];
+    const j = o.items_json || {};
+    if (o.type === 'drop') return [['Drop', j.drop], ['Size', j.size], ['Height', j.height_cm && `${j.height_cm} cm`], ['Fit notes', j.fit_notes]].filter(f => f[1]);
+    return [['Piece', o.type && o.type !== 'custom' ? o.type : null], ['Occasion', j.occasion], ['Needed by', j.deadline], ['Location', j.location],
+        ['Fit', j.selected_fit], ['Fabric', o.fabric_preference], ['Colour', j.selected_color], ['Inspired by', j.source_product]].filter(f => f[1]);
+});
+const paymentForm = useForm({ amount: '', reference: '' });
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { paymentForm.reset(); paymentForm.clearErrors(); paymentForm.amount = o?.price_quoted ? Math.round(o.price_quoted) : ''; } });
+function recordPayment() {
+    if (!selectedOrder.value) return;
+    paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
+}
 function saveOrder() {
     orderForm.put(route('studio.update', orderForm.id), { preserveScroll: true });
 }
@@ -104,23 +135,22 @@ function submitProgressSnap() {
         onSuccess: () => progressSnapForm.reset(),
     });
 }
-function orderImages(order) {
-    if (!order) return [];
-    let imgs = [];
-    if (order.type === 'standard') imgs = (order.items_with_urls || []).map(i => i.image_url).filter(Boolean);
-    else imgs = order.inspiration_urls || [];
-    if (order.progress_snaps?.length) imgs.push(...order.progress_snaps.map(s => s.image_url).filter(Boolean));
-    return [...new Set(imgs)];
-}
+// Copy-ready text for packing/dispatch (shop) or the workroom (bespoke / drop).
 function copyBrief() {
     const o = selectedOrder.value;
     if (!o) return;
-    const brief = `SERANA ORDER #${String(o.id).padStart(4, '0')}\n` +
-        `Client: ${o.full_name || '—'}\nItem: ${o.garment_name || o.outfit_type || 'Custom piece'}\n` +
-        `Stage: ${o.status || '—'}\n\nMeasurements (cm):\n` +
-        `• Bust: ${o.bust_cm || '--'}  • Waist: ${o.waist_cm || '--'}  • Hips: ${o.hips_cm || '--'}  • Height: ${o.height_cm || '--'}\n\n` +
-        `Total: ${formatAmount(o.price_quoted || o.total || 0, page.props)}`;
-    navigator.clipboard?.writeText(brief);
+    const lines = [`SERANA ${orderKindLabel.value.toUpperCase()} ${o.cipher || '#' + o.id}`, `Client: ${o.full_name || '—'} · ${customerPhone.value || '—'}`];
+    if (o.type === 'standard') {
+        (o.items_with_urls || []).forEach(i => lines.push(`• ${i.name}${i.size_label ? ' — ' + i.size_label : ''} × ${i.quantity}`));
+        lines.push(`Deliver to: ${[o.address, o.city].filter(Boolean).join(', ') || '—'}`);
+    } else {
+        briefFields.value.forEach(([k, v]) => lines.push(`${k}: ${v}`));
+        if (o.items_json?.notes) lines.push(`Notes: ${o.items_json.notes}`);
+    }
+    const m = [['Bust', o.bust_cm], ['Waist', o.waist_cm], ['Hips', o.hips_cm], ['Length', o.length_cm], ['Height', o.height_cm || o.items_json?.height_cm]].filter(x => x[1]);
+    if (m.length) lines.push('Measurements (cm): ' + m.map(([k, v]) => `${k} ${v}`).join(' · '));
+    lines.push(`Stage: ${o.status || '—'} · Payment: ${paymentStatus(o).label}`, `Total: ${formatAmount(o.price_quoted || 0, page.props)}`);
+    navigator.clipboard?.writeText(lines.join('\n'));
 }
 
 /* ───────── Products ───────── */
@@ -271,7 +301,6 @@ const siteInfoForm = useForm({
         site_name: page.props.theme_settings?.site_name ?? '',
         site_tagline: page.props.theme_settings?.site_tagline ?? '',
         whatsapp_number: page.props.theme_settings?.whatsapp_number ?? page.props.whatsapp_number ?? '',
-        studio_capacity: page.props.theme_settings?.studio_capacity ?? '',
         focal_1_label: page.props.theme_settings?.focal_1_label ?? '',
         focal_2_label: page.props.theme_settings?.focal_2_label ?? '',
         focal_3_label: page.props.theme_settings?.focal_3_label ?? '',
@@ -310,9 +339,12 @@ function removeAsset(key) {
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
-        <SettingsPanel v-else-if="currentTab === 'settings'" :form="siteInfoForm" :categories="categories"
-            @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
-            @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
+        <template v-else-if="currentTab === 'settings'">
+            <SettingsPanel :form="siteInfoForm" :categories="categories"
+                @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
+                @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
+            <CustomOrderOptionsPanel :options="custom_order_options" />
+        </template>
     </AdminShell>
 
     <!-- ───────── Order detail ───────── -->
@@ -326,12 +358,40 @@ function removeAsset(key) {
                 <button @click="closeOrder" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
             </div>
 
-            <!-- Contact + item -->
-            <div class="grid sm:grid-cols-2 gap-3 mb-5 text-sm">
-                <div v-if="selectedOrder.phone" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Phone</span>{{ selectedOrder.phone }}</div>
-                <div v-if="selectedOrder.email" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Email</span>{{ selectedOrder.email }}</div>
-                <div class="bg-slate-950/60 rounded-xl px-4 py-3" :class="selectedOrder.items_json?.size ? '' : 'sm:col-span-2'"><span class="text-slate-500 text-xs block">Item</span>{{ selectedOrder.garment_name || selectedOrder.outfit_type || 'Custom piece' }}</div>
-                <div v-if="selectedOrder.items_json?.size" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Size</span>{{ selectedOrder.items_json.size }}</div>
+            <!-- Who it is and how to reach them -->
+            <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-[#57d5fc]">{{ orderKindLabel }}</p>
+            <div class="grid sm:grid-cols-2 gap-3 mb-4 text-sm">
+                <div class="bg-slate-950/60 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0"><span class="text-slate-500 text-xs block">Phone / WhatsApp</span><span class="text-white">{{ customerPhone || '—' }}</span></div>
+                    <a v-if="customerWhatsApp" :href="customerWhatsApp" target="_blank" rel="noopener" class="shrink-0 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25">Message</a>
+                </div>
+                <div v-if="selectedOrder.email" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Email</span><a :href="`mailto:${selectedOrder.email}`" class="text-white hover:underline break-all">{{ selectedOrder.email }}</a></div>
+            </div>
+
+            <!-- Shop order: what to pack and where it goes -->
+            <div v-if="selectedOrder.type === 'standard'" class="mb-5 space-y-3 text-sm">
+                <div class="bg-slate-950/60 rounded-xl p-4">
+                    <span class="text-slate-500 text-xs block mb-2">Items to pack</span>
+                    <ul class="space-y-2">
+                        <li v-for="(item, i) in selectedOrder.items_with_urls || []" :key="i" class="flex items-start justify-between gap-3">
+                            <span><span class="text-white">{{ item.name }}</span><span v-if="item.size_label" class="block text-xs text-slate-400">{{ item.size_label }}</span></span>
+                            <span class="whitespace-nowrap text-slate-300">× {{ item.quantity }} · {{ formatAmount((item.price || 0) * (item.quantity || 1), page.props) }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="bg-slate-950/60 rounded-xl p-4">
+                    <span class="text-slate-500 text-xs block mb-1">Deliver to</span>
+                    <span class="text-white">{{ selectedOrder.address || '—' }}</span>
+                    <span v-if="selectedOrder.city" class="block text-slate-300">{{ selectedOrder.city }}</span>
+                </div>
+            </div>
+
+            <!-- Custom order / Drop reservation details -->
+            <div v-else class="mb-5 text-sm">
+                <div v-if="briefFields.length" class="grid sm:grid-cols-2 gap-3">
+                    <div v-for="[label, value] in briefFields" :key="label" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">{{ label }}</span><span class="text-white capitalize">{{ value }}</span></div>
+                </div>
+                <div v-if="selectedOrder.items_json?.notes" class="mt-3 bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Client notes</span><p class="text-white whitespace-pre-line">{{ selectedOrder.items_json.notes }}</p></div>
             </div>
 
             <!-- Measurements -->
@@ -357,12 +417,29 @@ function removeAsset(key) {
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
                     </label>
-                    <label class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Price (KSh)</span>
-                        <input :disabled="selectedOrder.is_paid || ['standard', 'drop'].includes(selectedOrder.type)" v-model="orderForm.price_quoted" type="number" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    <div v-if="selectedOrder.is_paid || isCommerceOrder" class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Total</span>
+                        <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
+                    </div>
+                    <label v-else class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Quote (KSh)</span>
+                        <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                 </div>
-                <p class="text-sm text-slate-300">Payment: {{ selectedOrder.is_paid ? 'Payment Confirmed' : 'Not Confirmed' }}. Payment confirmation is managed automatically.</p>
+                <div class="rounded-xl bg-slate-950/60 p-4 text-sm">
+                    <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        <template v-if="isCommerceOrder">Confirmed automatically by M-Pesa. It can't be changed here.</template>
+                        <template v-else-if="selectedOrder.is_paid">Recorded by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
+                        <template v-else>Custom order payments are arranged on WhatsApp. Record the payment here once you receive it.</template>
+                    </p>
+                    <form v-if="!isCommerceOrder && !selectedOrder.is_paid" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+                        <input v-model="paymentForm.amount" type="number" min="1" step="1" aria-label="Amount received in KSh" placeholder="Amount (KSh)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <input v-model="paymentForm.reference" aria-label="M-Pesa code or payment note" placeholder="M-Pesa code or note" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-200 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : 'Record payment' }}</button>
+                    </form>
+                    <p v-for="(message, field) in paymentForm.errors" :key="field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
+                </div>
                 <p v-for="(message, field) in orderForm.errors" :key="field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
 
                 <label class="block">
@@ -443,7 +520,7 @@ function removeAsset(key) {
                 </div>
                 <div class="flex gap-6">
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.in_stock" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> In stock</label>
-                    <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.is_customizable" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Customizable</label>
+                    <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.is_customizable" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Offer a custom version <span class="text-slate-500">("Custom option" badge + made-to-measure link)</span></label>
                 </div>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Batch limit (optional)</span>
