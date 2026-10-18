@@ -695,6 +695,11 @@ html:not(.dark) .section-bg-scrim { display: none; }
     .action-primary:hover { background-image: linear-gradient(to right, #2563eb, #06b6d4); }
     .action-secondary { @apply card inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium text-on-surface; }
     .action-secondary:hover { border-color: var(--card-border-hover); }
+    /* WhatsApp hand-off (checkout, payment success, tracking): one look everywhere. */
+    .wa-action { @apply inline-flex items-center justify-center gap-2 rounded-full font-semibold transition; background: #25D366; color: #06281c; }
+    .wa-action:hover { filter: brightness(1.05); }
+    .wa-action:active { transform: scale(.98); }
+    .wa-action:disabled { opacity: .5; }
     /* Form fields */
     .field {
         @apply block w-full rounded-xl border px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary;
@@ -716,3 +721,64 @@ html:not(.dark) .section-bg-scrim { display: none; }
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
     .reveal, .reveal-item { opacity: 1 !important; transform: none !important; }
 }
+
+/* Compact Studio worksheets: shared column rhythm, numeric alignment and row actions. */
+.studio-table-wrap { overflow: auto; max-height: 70vh; border: 1px solid #334155; border-radius: .75rem; isolation: isolate; }
+.studio-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .8125rem; line-height: 1.4; color: #cbd5e1; }
+.studio-table th, .studio-table td { padding: .65rem .8rem; text-align: left; border-right: 1px solid #ffffff08; border-bottom: 1px solid #ffffff0d; vertical-align: middle; }
+.studio-table th { position: sticky; top: 0; z-index: 2; background: #172033; color: #e2e8f0; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.studio-table td { background: #0f172a; }
+.studio-table tr:nth-child(even) td { background: #111c30; }
+.studio-table tr:hover td, .studio-table .selected-row td { background: #163047; }
+.studio-table .numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.studio-table .row-action { position: sticky; right: 0; text-align: right; border-left: 1px solid #334155; white-space: nowrap; }
+.studio-table th.row-action { z-index: 3; }
+.studio-table .cell-note { display: block; margin-top: .2rem; font-size: .75rem; color: #94a3b8; }
+.table-action { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: .4rem .65rem; border: 1px solid #475569; border-radius: .375rem; background: #1e293b; color: #e2e8f0; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.table-action:hover { background: #334155; border-color: #67e8f9; }
+.stage-badge { display: inline-flex; padding: .25rem .5rem; border: 1px solid; border-radius: .375rem; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.stage-complete { color: #6ee7b7; background: #10b98115; border-color: #10b98150; }
+.stage-ready { color: #c4b5fd; background: #8b5cf615; border-color: #8b5cf650; }
+.stage-working { color: #67e8f9; background: #06b6d415; border-color: #06b6d450; }
+.stage-waiting { color: #fcd34d; background: #f59e0b15; border-color: #f59e0b50; }
+.stage-error { color: #fda4af; background: #f43f5e15; border-color: #f43f5e50; }
+@media (max-width: 639px) { .studio-table th, .studio-table td { padding: .6rem; } .studio-table .row-action { position: static; } }
+
+/* Studio light surfaces also cover native dialog content outside the shell. */
+html.studio-active:not(.dark) .bg-\[\#020617\] { background-color: #f1f5f9; }
+html.studio-active:not(.dark) [class*="bg-slate-950"],
+html.studio-active:not(.dark) [class*="bg-slate-900"] { background-color: #fff; }
+html.studio-active:not(.dark) [class*="text-slate-200"],
+html.studio-active:not(.dark) [class*="text-slate-300"] { color: #334155; }
+html.studio-active:not(.dark) [class*="text-slate-400"],
+html.studio-active:not(.dark) [class*="text-slate-500"],
+html.studio-active:not(.dark) [class*="text-slate-600"] { color: #526176; }
+html.studio-active:not(.dark) [class*="text-cyan-300"],
+html.studio-active:not(.dark) [class*="text-[#57d5fc]"] { color: #0e7490; }
+html.studio-active:not(.dark) [class*="text-rose-300"],
+html.studio-active:not(.dark) [class*="text-rose-400"] { color: #be123c; }
+html.studio-active:not(.dark) [class*="text-emerald-400"] { color: #047857; }
+html.studio-active:not(.dark) [class*="text-amber-400"] { color: #92400e; }
+html.studio-active:not(.dark) [class*="ring-white/"] { --tw-ring-color: #cbd5e1; }
+html.studio-active:not(.dark) input,
+html.studio-active:not(.dark) select,
+html.studio-active:not(.dark) textarea { color: #0f172a; border-color: #cbd5e1; color-scheme: light; }
+html.studio-active.dark input,
+html.studio-active.dark select { color-scheme: dark; }
+html.studio-active:not(.dark) .studio-table-wrap { border-color: #cbd5e1; }
+html.studio-active:not(.dark) .studio-table { color: #334155; }
+html.studio-active:not(.dark) .studio-table th { background: #e2e8f0; color: #1e293b; }
+html.studio-active:not(.dark) .studio-table td { background: #fff; }
+html.studio-active:not(.dark) .studio-table th,
+html.studio-active:not(.dark) .studio-table td { border-color: #e2e8f0; }
+html.studio-active:not(.dark) .studio-table tr:nth-child(even) td { background: #f8fafc; }
+html.studio-active:not(.dark) .studio-table tr:hover td,
+html.studio-active:not(.dark) .studio-table .selected-row td { background: #e0f2fe; }
+html.studio-active:not(.dark) .studio-table .cell-note { color: #526176; }
+html.studio-active:not(.dark) .table-action { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+html.studio-active:not(.dark) .table-action:hover { background: #e0f2fe; border-color: #0891b2; }
+html.studio-active:not(.dark) .stage-complete { color: #047857; background: #ecfdf5; }
+html.studio-active:not(.dark) .stage-ready { color: #6d28d9; background: #f5f3ff; }
+html.studio-active:not(.dark) .stage-working { color: #0e7490; background: #ecfeff; }
+html.studio-active:not(.dark) .stage-waiting { color: #92400e; background: #fffbeb; }
+html.studio-active:not(.dark) .stage-error { color: #be123c; background: #fff1f2; }

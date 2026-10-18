@@ -2,11 +2,11 @@
     // Admin-managed store details, with graceful fallbacks. Same sources the
     // storefront uses, so the receipt never shows stale hardcoded contacts.
     $currency       = \App\Models\ThemeSetting::get('currency', 'KSh');
-    $contactEmail   = \App\Models\ThemeSetting::get('contact_email', 'studio@seranacloset.com');
-    $contactAddress = \App\Models\ThemeSetting::get('contact_address', 'Nairobi, Kenya');
-    $storePhone     = \App\Support\Phone::normalize(
-        \App\Models\ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
-    );
+    $contactEmail   = \App\Support\StoreProfile::email();
+    $contactAddress = \App\Support\StoreProfile::address();
+    $storeWhatsApp  = \App\Support\StoreProfile::whatsapp();
+    $storePhone     = \App\Support\StoreProfile::phone();
+    $storeName      = \App\Support\StoreProfile::name();
     $trackUrl       = rtrim(config('app.url'), '/') . '/track';
     $isBespoke      = $order->type !== 'standard';
 @endphp
@@ -14,7 +14,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Serana Receipt — {{ $order->cipher ?? ('Order #' . $order->id) }}</title>
+    <title>{{ $storeName }} Receipt — {{ $order->cipher ?? ('Order #' . $order->id) }}</title>
     <style>
         /* Print-friendly: white paper, dark ink, the brand cyan used sparingly. */
         @page { margin: 0; }
@@ -89,7 +89,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="brand">Serana Closet</div>
+        <div class="brand">{{ $storeName }}</div>
         <div class="doc-title">Payment Receipt</div>
     </div>
 
@@ -149,11 +149,11 @@
         <table style="width: 100%;">
             <tr>
                 <td>
-                    <div class="label" style="color:#1c7a1c;">M-Pesa Confirmation Code</div>
+                    <div class="label" style="color:#1c7a1c;">{{ $order->payment_method === 'whatsapp' ? 'Payment Reference' : 'M-Pesa Confirmation Code' }}</div>
                     <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px;">{{ $order->mpesa_receipt_number }}</div>
                 </td>
                 <td style="text-align: right; vertical-align: bottom;">
-                    <div class="value muted" style="font-size: 10px;">Paid via M-Pesa (Safaricom)</div>
+                    <div class="value muted" style="font-size: 10px;">{{ $order->payment_method === 'whatsapp' ? 'Payment confirmed by the studio (WhatsApp order)' : 'Paid via M-Pesa (Safaricom)' }}</div>
                 </td>
             </tr>
         </table>
@@ -164,10 +164,11 @@
         @if(!empty($order->cipher))
             Track this order at {{ $trackUrl }} using reference {{ $order->cipher }} and the phone number on the order.<br>
         @endif
-        Serana Closet &middot; {{ $contactAddress }}
-        @if($storePhone) &middot; WhatsApp +{{ $storePhone }} @endif
+        {{ $storeName }} &middot; {{ $contactAddress }}
+        @if($storeWhatsApp) &middot; WhatsApp {{ \App\Support\StoreProfile::display($storeWhatsApp) }} @endif
+        @if($storePhone && $storePhone !== $storeWhatsApp) &middot; Call {{ \App\Support\StoreProfile::display($storePhone) }} @endif
         &middot; {{ $contactEmail }}<br>
-        This is a computer-generated receipt and requires no signature. &copy; {{ date('Y') }} Serana Closet.
+        This is a computer-generated receipt and requires no signature. &copy; {{ date('Y') }} {{ $storeName }}.
     </div>
 </body>
 </html>

@@ -2,15 +2,17 @@
     $currency = \App\Models\ThemeSetting::get('currency', 'KSh');
     $isStandard = $order->type === 'standard';
     // Admin-managed store contacts — same sources as the storefront.
-    $contactEmail   = \App\Models\ThemeSetting::get('contact_email', 'studio@seranacloset.com');
-    $contactAddress = \App\Models\ThemeSetting::get('contact_address', 'Nairobi, Kenya');
+    $contactEmail   = \App\Support\StoreProfile::email();
+    $contactAddress = \App\Support\StoreProfile::address();
+    $storeName      = \App\Support\StoreProfile::name();
+    $storeWhatsApp  = \App\Support\StoreProfile::whatsapp();
 @endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Serana Receipt</title>
+    <title>Your {{ $storeName }} Receipt</title>
 </head>
 <body style="margin:0; padding:0; background:#0b0b0c; font-family: Arial, Helvetica, sans-serif; color:#e8e8e8;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0c; padding:32px 16px;">
@@ -20,7 +22,7 @@
                     <!-- Header -->
                     <tr>
                         <td style="padding:36px 36px 8px;">
-                            <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#57d5fc;">Serana Closet</div>
+                            <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#57d5fc;">{{ $storeName }}</div>
                             <h1 style="margin:14px 0 6px; font-size:26px; font-weight:300; color:#ffffff;">Payment confirmed.</h1>
                             <p style="margin:0; font-size:14px; color:#9a9aa0; line-height:1.6;">
                                 Thank you, {{ $order->full_name }}. We've received your payment and your order is in our hands.
@@ -69,7 +71,7 @@
                     @if($order->mpesa_receipt_number)
                     <tr>
                         <td style="padding:18px 36px 0;">
-                            <div style="font-size:12px; color:#9a9aa0;">M-Pesa transaction: <span style="color:#ffffff; font-weight:bold;">{{ $order->mpesa_receipt_number }}</span></div>
+                            <div style="font-size:12px; color:#9a9aa0;">{{ $order->payment_method === 'whatsapp' ? 'Payment reference' : 'M-Pesa transaction' }}: <span style="color:#ffffff; font-weight:bold;">{{ $order->mpesa_receipt_number }}</span></div>
                         </td>
                     </tr>
                     @endif
@@ -91,7 +93,7 @@
                     <tr>
                         <td style="padding:20px 36px 32px; border-top:1px solid #232327;">
                             <p style="margin:0; font-size:11px; color:#6c6c72; line-height:1.6;">
-                                Serana Closet &middot; {{ $contactAddress }} &middot; <a href="mailto:{{ $contactEmail }}" style="color:#6c6c72;">{{ $contactEmail }}</a><br>
+                                {{ $storeName }} &middot; {{ $contactAddress }} &middot; <a href="mailto:{{ $contactEmail }}" style="color:#6c6c72;">{{ $contactEmail }}</a>@if($storeWhatsApp) &middot; <a href="https://wa.me/{{ $storeWhatsApp }}" style="color:#6c6c72;">WhatsApp {{ \App\Support\StoreProfile::display($storeWhatsApp) }}</a>@endif<br>
                                 This receipt was issued on {{ $date }}. Questions? Just reply to this email.
                             </p>
                         </td>

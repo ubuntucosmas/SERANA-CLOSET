@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ThemeSetting;
 use App\Support\CustomOrderOptions;
+use App\Support\PaymentSettings;
 use App\Support\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,9 @@ class ThemeController extends Controller
         'instagram_url' => 'nullable|url:http,https|max:500',
         'tiktok_url' => 'nullable|url:http,https|max:500',
         'facebook_url' => 'nullable|url:http,https|max:500',
+        'x_url' => 'nullable|url:http,https|max:500',
+        'care_phone' => 'nullable|string|max:30|regex:/^[+\d\s()-]+$/',
+        'notification_email' => 'nullable|email|max:255',
     ];
 
     public function update(Request $request)
@@ -45,7 +49,7 @@ class ThemeController extends Controller
             if (is_string($old) && str_starts_with($old, 'themes/')) Storage::disk($disk)->delete($old);
         } else {
             $value = $request->validate(['value' => self::TEXT_RULES[$key]])['value'] ?? null;
-            ThemeSetting::set($key, $key === 'whatsapp_number' ? WhatsApp::normalizeNumber($value) : $value);
+            ThemeSetting::set($key, in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value);
         }
         return back()->with('success', 'Store setting updated.');
     }
@@ -57,10 +61,45 @@ class ThemeController extends Controller
         $settings = $request->validate($rules)['settings'];
         DB::transaction(function () use ($settings) {
             foreach ($settings as $key => $value) {
-                ThemeSetting::set($key, $key === 'whatsapp_number' ? WhatsApp::normalizeNumber($value) : $value);
+                ThemeSetting::set($key, in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value);
             }
         });
         return back()->with('success', 'Store settings updated.');
+    }
+
+    /** Studio → Settings → Payments: M-Pesa and WhatsApp ordering switches. */
+    public function updatePaymentSettings(Request $request)
+    {
+        $validated = $request->validate(PaymentSettings::rules());
+
+        if (! $validated['mpesa_enabled'] && ! $validated['whatsapp_enabled']) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['whatsapp_enabled' => 'Keep at least one way to pay switched on.']);
+        }
+        if ($validated['mpesa_enabled'] && ! PaymentSettings::mpesaConfigured()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['mpesa_enabled' => 'M-Pesa can’t be switched on until its Daraja credentials are set on the server.']);
+        }
+        if (! $validated['mpesa_enabled'] && $validated['whatsapp_enabled'] && blank($validated['instructions'] ?? null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['instructions' => 'Tell customers how to pay for WhatsApp orders (e.g. your Send Money number).']);
+        }
+
+        PaymentSettings::save($validated);
+
+        return back()->with('success', 'Payment options updated.');
+    }
+
+    /** Studio → Payments → "Test connection": can we get a Daraja token right now? */
+    public function testMpesa(\App\Services\MpesaService $mpesa)
+    {
+        if (! PaymentSettings::mpesaConfigured()) {
+            return response()->json(['ok' => false, 'message' => 'Daraja credentials are not set on the server.']);
+        }
+        $ok = (bool) $mpesa->getAccessToken();
+
+        return response()->json([
+            'ok' => $ok,
+            'env' => config('services.mpesa.env') === 'production' ? 'live' : 'sandbox',
+            'message' => $ok ? 'Connected to Safaricom.' : 'Safaricom did not accept the credentials or could not be reached. Check the logs.',
+        ]);
     }
 
     /** Studio → Settings → Custom order options (garments, fabrics, colours). */

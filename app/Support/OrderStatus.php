@@ -21,6 +21,8 @@ final class OrderStatus
     public const PAYMENT_FAILED  = 'Payment Failed';
     public const AMOUNT_MISMATCH = 'Amount Mismatch';
     public const EXPIRED         = 'Expired';
+    /** The studio cancelled an unpaid order (e.g. a WhatsApp order never paid). */
+    public const CANCELLED       = 'Cancelled';
 
     /** Production lifecycle stages a custom order moves through in the studio. */
     public const PRODUCTION_STAGES = ['pending', 'designing', 'sewing', 'completed', 'shipped'];

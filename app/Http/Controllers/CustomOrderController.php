@@ -123,8 +123,11 @@ class CustomOrderController extends Controller
             //    client previews and sends, so it reads warm yet stays scannable.
             $message = $this->buildBrief($order, $validated, $priorityPass, $imagePaths);
 
-            $storePhone = ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'));
-            $whatsappUrl = WhatsApp::link($storePhone, $message);
+            $whatsappUrl = \App\Support\StoreProfile::whatsappLink($message);
+
+            // 3. Alert the owner: the brief reaches WhatsApp only if the
+            //    customer presses Send there.
+            self::alertOwner($order, $message);
 
             return response()->json(SubmissionReceipt::remember($request, 'bespoke', $validated, [
                 'success' => true,
@@ -141,6 +144,20 @@ class CustomOrderController extends Controller
                 'success' => false,
                 'message' => 'The digital atelier is momentarily busy. Please try again.'
             ], 500);
+        }
+    }
+
+    private static function alertOwner(CustomOrder $order, string $brief): void
+    {
+        $owner = \App\Support\StoreProfile::notificationEmail();
+        if (! $owner) {
+            return;
+        }
+        try {
+            \Illuminate\Support\Facades\Mail::to($owner)->queue(new \App\Mail\NewCustomOrderAlertMail($order, $brief));
+        } catch (\Throwable $e) {
+            // Never fail the brief over email; it's in the Studio either way.
+            \Illuminate\Support\Facades\Log::warning('Custom order alert could not be queued.', ['order_id' => $order->id, 'exception' => get_class($e)]);
         }
     }
 

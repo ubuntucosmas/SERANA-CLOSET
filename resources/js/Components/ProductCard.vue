@@ -2,6 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
+import { isSoldOut as soldOut, lowStockNote } from '@/Support/stock';
 
 const props = defineProps({
     product: { type: Object, required: true },
@@ -28,11 +29,13 @@ const onImgError = (e) => {
     }
 };
 
-const isSoldOut = computed(() => props.product.in_stock === false || (props.product.batch_limit != null && props.product.batch_sold >= props.product.batch_limit));
+const isSoldOut = computed(() => soldOut(props.product));
 
 // One badge, from real data only: availability first, then service, then recency.
 const badge = computed(() => {
     if (isSoldOut.value) return { label: 'Sold Out', class: 'badge-muted' };
+    const note = lowStockNote(props.product);
+    if (note) return { label: note, class: 'badge-accent' };
     if (props.product.is_customizable) return { label: 'Custom option', class: 'badge-accent' };
     const added = props.product.created_at ? new Date(props.product.created_at) : null;
     if (added && Date.now() - added.getTime() < 30 * 24 * 60 * 60 * 1000) return { label: 'New', class: 'badge-new' };

@@ -20,7 +20,7 @@
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">WhatsApp</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">Direct line for fitting updates and new design inquiries.</p>
                                 <a :href="whatsappUrl" target="_blank" rel="noopener" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
-                                    {{ '+' + page.props.whatsapp_number }}
+                                    {{ store.whatsapp_display }}
                                 </a>
                             </div>
                         </div>
@@ -50,6 +50,20 @@
                                 </p>
                             </div>
                         </div>
+
+                        <!-- Calls, when a separate care line is set in the Studio -->
+                        <div v-if="store.phone && store.phone !== store.whatsapp" class="flex items-start gap-8 group">
+                            <div class="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-primary text-3xl" aria-hidden="true">support_agent</span>
+                            </div>
+                            <div>
+                                <h3 class="font-headline text-xl font-bold text-on-surface mb-2">Call us</h3>
+                                <p class="text-on-surface-variant text-sm mb-4">For order help and delivery questions.</p>
+                                <a :href="`tel:+${store.phone}`" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">{{ store.phone_display }}</a>
+                            </div>
+                        </div>
+
+                        <SocialLinks item-class="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-on-surface-variant transition hover:text-primary dark:border-white/10" />
                     </div>
 
                     <!-- Studio Status -->
@@ -115,13 +129,17 @@ import PageHeader from '@/Components/PageHeader.vue';
 import { reactive, ref, computed } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
+import SocialLinks from '@/Components/SocialLinks.vue';
+import { useStore } from '@/Composables/useStore';
 
 const page = usePage();
-const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
+// Every contact here comes from the store profile (Studio → Settings).
+const { store } = useStore();
+const whatsappUrl = computed(() => store.value.whatsapp_url);
 
 // Admin-managed contact details, with sensible fallbacks.
-const contactEmail = computed(() => page.props.theme_settings?.contact_email || 'studio@seranacloset.com');
-const contactAddress = computed(() => page.props.theme_settings?.contact_address || 'IMENTI HOUSE 29 • Nairobi • Kenya');
+const contactEmail = computed(() => store.value.email);
+const contactAddress = computed(() => store.value.address);
 
 const isSubmitting = ref(false);
 const form = reactive({
@@ -133,7 +151,7 @@ const form = reactive({
 
 const inquiryLabels = { bespoke: 'Custom order', batch: 'Limited batch drop', support: 'Order support / fitting', other: 'General inquiry' };
 const submitForm = () => {
-    const message = `Hello Serana,\n\nName: ${form.name}\nEmail: ${form.email}\nAbout: ${inquiryLabels[form.type] || form.type}\n\n${form.message}`;
-    window.open(`${whatsappUrl.value}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    const message = `Hello ${store.value.name},\n\nName: ${form.name}\nEmail: ${form.email}\nAbout: ${inquiryLabels[form.type] || form.type}\n\n${form.message}`;
+    window.open(`${store.value.whatsapp_url}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
 };
 </script>

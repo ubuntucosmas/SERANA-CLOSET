@@ -42,7 +42,7 @@ const journey = computed(() => {
             else if (o.status === "completed") index = 3;
             else if (o.status === "shipped") index = 4;
         }
-        return { steps, index, awaitingPayment: !o.is_paid };
+        return { steps, index, awaitingPayment: !o.is_paid && !['Cancelled', 'Expired', 'Amount Mismatch'].includes(o.status) };
     }
 
     const steps = [
@@ -226,15 +226,31 @@ onMounted(() => {
                                 </div>
                             </div>
 
+                            <!-- WhatsApp order: how to pay, and a one-tap resend. -->
+                            <div v-if="journey.awaitingPayment && order.payment_method === 'whatsapp'" class="mt-6 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-4 text-sm">
+                                <p class="font-semibold text-on-surface">How to pay</p>
+                                <p class="mt-1 whitespace-pre-line text-on-surface">{{ order.payment_instructions || 'The studio will reply on WhatsApp with how to pay.' }}</p>
+                                <p class="mt-2 text-xs text-on-surface-variant">Use {{ order.reference }} as the payment reference.</p>
+                                <a v-if="order.whatsapp_url" :href="order.whatsapp_url" target="_blank" rel="noopener" class="mt-3 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 font-semibold text-[#06281c]">
+                                    <span class="material-symbols-outlined text-base" aria-hidden="true">chat</span>
+                                    Send order on WhatsApp
+                                </a>
+                            </div>
                             <p
-                                v-if="journey.awaitingPayment"
-                                class="mt-6 text-sm text-amber-300/90 bg-amber-400/10 rounded-xl px-4 py-3"
+                                v-else-if="journey.awaitingPayment"
+                                class="mt-6 text-sm text-amber-700 dark:text-amber-300/90 bg-amber-400/10 rounded-xl px-4 py-3"
                             >
                                 We haven't received payment for this order yet. If you've already
                                 paid, it can take a moment to confirm — refresh shortly.
                             </p>
                         </div>
 
+                        <!-- Paid: the payment record, in case it wasn't sent at checkout -->
+                        <a v-if="order.paid_whatsapp_url" :href="order.paid_whatsapp_url" target="_blank" rel="noopener"
+                            class="mt-8 mr-3 inline-flex items-center gap-2 rounded-2xl bg-[#25D366] px-6 py-3.5 text-[11px] font-bold tracking-wider text-[#06281c]">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">chat</span>
+                            Send payment record on WhatsApp
+                        </a>
                         <!-- Receipt -->
                         <a
                             v-if="order.receipt_url"

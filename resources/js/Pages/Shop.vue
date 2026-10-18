@@ -5,6 +5,7 @@ import { Head, router, useRemember } from "@inertiajs/vue3";
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
 
 import ProductCard from "@/Components/ProductCard.vue";
+import { isSoldOut } from "@/Support/stock";
 
 const props = defineProps({
     products: Array,
@@ -67,7 +68,6 @@ const activeCategory = computed(() => {
 const isCategorySelected = slug => (activeCategory.value?.slug || 'all') === slug;
 
 // ── Sorted + paginated grid (replaces the old infinite carousel) ─────────────
-const isSoldOut = (p) => p.in_stock === false || (p.batch_limit != null && p.batch_sold >= p.batch_limit);
 const comparators = {
     price_asc: (a, b) => Number(a.price) - Number(b.price),
     price_desc: (a, b) => Number(b.price) - Number(a.price),

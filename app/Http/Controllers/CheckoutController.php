@@ -8,6 +8,8 @@ use App\Http\Requests\StoreCheckoutRequest;
 use App\Models\Product;
 use App\Models\CustomOrder;
 use App\Support\OrderStatus;
+use App\Support\PaymentSettings;
+use App\Support\WhatsAppOrderMessage;
 use App\Support\Phone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -41,6 +43,10 @@ class CheckoutController extends Controller
         // abandoned, so the customer is never blocked by their own stock hold and
         // stale duplicates don't pile up in the Studio.
         $this->supersedeAbandonedOrders($request);
+
+        // M-Pesa (pay now) or WhatsApp (pay after the studio confirms).
+        $method = $validated['payment_method'] ?? PaymentSettings::methods()[0];
+        $isWhatsApp = $method === PaymentSettings::WHATSAPP;
 
         $products = Product::whereIn('id', collect($validated['items'])->pluck('id'))
             ->get()
@@ -108,8 +114,11 @@ class CheckoutController extends Controller
 
         // Atomic order creation with stock holds
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities) {
-                $expiresAt = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp) {
+                // A prompt is paid in minutes; a WhatsApp order needs time to arrange payment.
+                $expiresAt = $isWhatsApp
+                    ? now()->addHours(PaymentSettings::holdHours())
+                    : now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
 
                 // Hold (not sell) batch stock for each item under a row lock so
@@ -142,6 +151,7 @@ class CheckoutController extends Controller
                     'phone'        => $phone,
                     'items_json'   => $snapshotItems,
                     'is_paid'      => false,
+                    'payment_method' => $method,
                     'whatsapp_number' => $phone,
                     'bust_cm'  => $validated['bust_cm'] ?? null,
                     'waist_cm' => $validated['waist_cm'] ?? null,
@@ -179,6 +189,10 @@ class CheckoutController extends Controller
             ], 500);
         }
 
+        if ($isWhatsApp) {
+            self::sendOrderPlacedMail($order);
+        }
+
         // Bind this order to the buyer's session so they (and only they) can poll
         // its payment status and receive the signed receipt link — without login.
         $request->session()->push('serana.order_ids', $order->id);
@@ -190,7 +204,66 @@ class CheckoutController extends Controller
             'reference' => $order->cipher,
             'amount' => (float) $order->price_quoted,
             'items' => $snapshotItems,
+            'payment_method' => $method,
+            'whatsapp_url' => $isWhatsApp ? WhatsAppOrderMessage::link($order) : null,
+            'instructions' => $isWhatsApp ? (PaymentSettings::instructions() ?: null) : null,
+            'hold_hours' => $isWhatsApp ? PaymentSettings::holdHours() : null,
         ]));
+    }
+
+    /**
+     * Move an unpaid M-Pesa order to WhatsApp (e.g. M-Pesa was paused, or the
+     * customer prefers it). Same order, same code: no duplicate is created.
+     */
+    public function switchToWhatsApp(\Illuminate\Http\Request $request, CustomOrder $order)
+    {
+        $owned = in_array((int) $order->id, array_map('intval', (array) $request->session()->get('serana.order_ids', [])), true)
+            || (auth()->check() && (int) $order->user_id === (int) auth()->id());
+        abort_unless($owned && $order->type === 'standard', 404);
+
+        if (! PaymentSettings::whatsappAvailable()) {
+            return response()->json(['success' => false, 'message' => 'Ordering on WhatsApp is not available right now.'], 409);
+        }
+        if ($order->is_paid) {
+            return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
+        }
+        if (! in_array($order->status, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED], true)) {
+            return response()->json(['success' => false, 'message' => 'This order can no longer be changed. Please check out again.'], 409);
+        }
+        // Never while a prompt may still be answered: that payment would settle the order too.
+        if ($order->paymentAttempts()->where('status', \App\Models\PaymentAttempt::PENDING)
+            ->where('created_at', '>=', now()->subMinutes(config('services.mpesa.reservation_minutes', 15)))->exists()) {
+            return response()->json(['success' => false, 'message' => 'An M-Pesa prompt for this order may still be completing. Wait a moment, then try again.'], 409);
+        }
+        if (! $order->secureStockForPayment(now()->addHours(PaymentSettings::holdHours()))) {
+            return response()->json(['success' => false, 'message' => 'An item in this order sold out meanwhile. Please review your bag and check out again.'], 409);
+        }
+
+        $order->update(['payment_method' => PaymentSettings::WHATSAPP, 'status' => OrderStatus::PENDING_PAYMENT]);
+        self::sendOrderPlacedMail($order);
+
+        return response()->json([
+            'success' => true,
+            'payment_method' => PaymentSettings::WHATSAPP,
+            'reference' => $order->cipher,
+            'whatsapp_url' => WhatsAppOrderMessage::link($order),
+            'instructions' => PaymentSettings::instructions() ?: null,
+            'hold_hours' => PaymentSettings::holdHours(),
+        ]);
+    }
+
+    /** Customer gets their code and how to pay; the owner gets a Bcc as the new-order alert. */
+    private static function sendOrderPlacedMail(CustomOrder $order): void
+    {
+        try {
+            $owner = \App\Support\StoreProfile::notificationEmail();
+            $mail = \Illuminate\Support\Facades\Mail::to($order->email ?: $owner);
+            if ($owner && $order->email) $mail->bcc($owner);
+            $mail->queue(new \App\Mail\WhatsAppOrderPlacedMail($order));
+        } catch (\Throwable $e) {
+            // Never fail the order over email; it's in the Studio either way.
+            Log::warning('WhatsApp order email could not be queued.', ['order_id' => $order->id, 'exception' => get_class($e)]);
+        }
     }
 
     /**
@@ -208,6 +281,8 @@ class CheckoutController extends Controller
         CustomOrder::whereIn('id', $ids)
             ->where('type', 'standard')
             ->where('is_paid', false)
+            // A WhatsApp order is waiting on the studio, not abandoned.
+            ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q->where('status', \App\Models\PaymentAttempt::PENDING))
             ->get()

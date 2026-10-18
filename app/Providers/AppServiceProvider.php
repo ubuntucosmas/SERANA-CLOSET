@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Models\ThemeSetting;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->configureRateLimits();
+
         // No blanket Vite::prefetch(): it downloaded every page chunk, Studio
         // included, for every visitor. app.js warms only the storefront pages
         // a shopper is likely to open next, once the browser is idle.
@@ -30,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
         // Branded password-reset email (the framework default reads
         // "Reset Password Notification" and signs off with APP_NAME).
         ResetPassword::toMailUsing(function ($user, string $token) {
-            $store = ThemeSetting::get('site_name') ?: 'Serana Closet';
+            $store = \App\Support\StoreProfile::name();
             $minutes = config('auth.passwords.' . config('auth.defaults.passwords') . '.expire', 60);
             $url = url(route('password.reset', ['token' => $token, 'email' => $user->getEmailForPasswordReset()], false));
 
@@ -48,5 +53,31 @@ class AppServiceProvider extends ServiceProvider
         // SendOrderConfirmation listens for App\Events\MpesaWebhookHandled via
         // Laravel's listener auto-discovery (app/Listeners) — no manual binding,
         // which would double-register and send the receipt twice.
+    }
+
+    /**
+     * Per-shopper limits. Kenyan mobile networks put many customers behind a
+     * few shared public IPs (carrier NAT), so per-IP limits alone lock real
+     * shoppers out at peak: three people paying at once used to exhaust the
+     * payment-status limit. Each limit is counted per browser session, with a
+     * much higher per-IP ceiling as the backstop against scripted abuse.
+     */
+    private function configureRateLimits(): void
+    {
+        $shopper = function (string $name, int $perSession, int $perIp): void {
+            RateLimiter::for($name, fn (Request $request) => [
+                Limit::perMinute($perSession)->by("{$name}:s:" . ($request->hasSession() ? $request->session()->getId() : $request->ip())),
+                Limit::perMinute($perIp)->by("{$name}:ip:" . $request->ip()),
+            ]);
+        };
+
+        $shopper('checkout', 20, 300);
+        $shopper('checkout-switch', 10, 200);
+        $shopper('custom-orders', 10, 150);
+        $shopper('drops', 20, 300);
+        $shopper('newsletter', 5, 120);
+        $shopper('track', 10, 200);
+        $shopper('stk', 6, 150);          // each prompt reaches Safaricom; the order must also belong to the session
+        $shopper('payment-status', 40, 2000); // polled every 5s while paying
     }
 }

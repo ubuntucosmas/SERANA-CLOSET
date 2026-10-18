@@ -174,7 +174,8 @@ const scrolled = ref(false);
 const mobileMenuOpen = ref(false);
 const page = usePage();
 
-const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
+// Store contacts come from Studio → Settings (page.props.store).
+const whatsappUrl = computed(() => page.props.store?.whatsapp_url || route('contact'));
 
 const mobileNavItems = [
     { label: 'Home', route: 'home', active: 'home' },

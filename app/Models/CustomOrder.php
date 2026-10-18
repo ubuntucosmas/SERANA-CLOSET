@@ -148,9 +148,10 @@ class CustomOrder extends Model
      * so the caller can refuse the push instead of collecting money for a
      * garment someone else bought.
      */
-    public function secureStockForPayment(): bool
+    public function secureStockForPayment(?\DateTimeInterface $until = null): bool
     {
-        $window = now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+        // M-Pesa holds last minutes; a WhatsApp order passes its longer window.
+        $window = $until ?? now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
 
         return DB::transaction(function () use ($window) {
             $reservations = $this->stockReservations()
@@ -220,6 +221,16 @@ class CustomOrder extends Model
             'type'        => $this->type,
             'status'      => $this->status,
             'is_paid'     => $isPaid,
+            'payment_method' => $this->payment_method,
+            // How to pay a WhatsApp order, as set in Studio → Payments.
+            'payment_instructions' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP
+                ? (\App\Support\PaymentSettings::instructions() ?: null) : null,
+            'whatsapp_url' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP && $this->type === 'standard'
+                && ! in_array($this->status, [OrderStatus::EXPIRED, OrderStatus::CANCELLED], true)
+                ? \App\Support\WhatsAppOrderMessage::link($this) : null,
+            // Paid orders: post the payment record to the studio, if it was missed at checkout.
+            'paid_whatsapp_url' => $isPaid && in_array($this->type, ['standard', 'drop'], true)
+                ? \App\Support\WhatsAppOrderMessage::paidLink($this) : null,
             'amount'      => $this->price_quoted ? (float) $this->price_quoted : null,
             'items'       => $this->trackingItems(),
             'progress'    => $this->progressSnaps()->latest()->get()->map(fn ($snap) => [

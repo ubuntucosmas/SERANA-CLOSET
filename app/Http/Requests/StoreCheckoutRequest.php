@@ -23,6 +23,8 @@ class StoreCheckoutRequest extends FormRequest
     {
         return [
             'request_id' => ['nullable', 'uuid'],
+            // Only methods switched on in Studio → Payments (and M-Pesa only when configured).
+            'payment_method' => ['nullable', 'string', \Illuminate\Validation\Rule::in(\App\Support\PaymentSettings::methods())],
             'full_name' => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', 'max:255'],
             'address'   => ['required', 'string', 'max:500'],
@@ -51,6 +53,7 @@ class StoreCheckoutRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'payment_method.in'        => 'That way of paying is not available right now. Please choose another.',
             'items.*.id.exists'        => 'An item in your bag is no longer available.',
             'items.*.quantity.integer' => 'Item quantities must be whole numbers.',
             'items.*.quantity.min'     => 'Item quantities must be at least 1.',

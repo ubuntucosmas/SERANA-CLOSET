@@ -35,6 +35,8 @@ class Product extends Model
         'specifications' => 'array',
         'batch_limit' => 'integer',
         'batch_sold' => 'integer',
+        // Present only after withAvailability(); MariaDB sums arrive as strings.
+        'reserved_quantity' => 'integer',
         'secondary_images' => 'array',
     ];
 
@@ -77,9 +79,31 @@ class Product extends Model
         return $this->hasMany(StockReservation::class);
     }
 
+    /**
+     * Load active holds in the same query, so listings can show true
+     * availability (sold + held) without a query per product.
+     */
+    public function scopeWithAvailability($query)
+    {
+        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()], 'quantity');
+    }
+
+    /**
+     * What a shopper sees and the Studio reports: null when unlimited.
+     * Listings must append() it after withAvailability() (see ShopController).
+     */
+    public function getAvailableStockAttribute(): ?int
+    {
+        return $this->availableStock();
+    }
+
     /** Quantity currently held by unpaid, non-expired checkouts. */
     public function reservedQuantity(): int
     {
+        if (array_key_exists('reserved_quantity', $this->attributes)) {
+            return (int) $this->attributes['reserved_quantity'];
+        }
+
         return (int) $this->reservations()->active()->sum('quantity');
     }
 

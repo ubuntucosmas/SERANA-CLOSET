@@ -14,11 +14,12 @@ class HomeController extends Controller
     public function index()
     {
         return Inertia::render('Home', [
-            'featuredProducts' => Product::with('category')
+            'featuredProducts' => Product::with('category')->withAvailability()
                 ->where('in_stock', true)
                 ->latest()
                 ->take(4)
-                ->get(),
+                ->get()
+                ->append('available_stock'),
             'showcaseProducts' => Product::with('category:id,name')
                 ->where('in_stock', true)
                 ->whereNotNull('image_path')

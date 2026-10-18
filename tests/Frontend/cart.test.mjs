@@ -88,3 +88,11 @@ test('unlimited products can always be increased', () => {
     cart.addItem({ ...product, batch_limit: null, options: { top_size: 'M' } });
     assert.equal(cart.canIncrease(cart.items[0].line_key), true);
 });
+
+test('the bag cap counts units held by other checkouts', () => {
+    const cart = useCartStore();
+    const held = { ...product, batch_limit: 3, batch_sold: 1, available_stock: 1 };
+    assert.equal(cart.addItem(held), true);
+    assert.equal(cart.addItem(held), false, 'only one unit is actually free');
+    assert.equal(cart.remainingFor(cart.items[0].line_key), 0);
+});

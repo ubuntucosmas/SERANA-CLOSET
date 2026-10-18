@@ -29,6 +29,14 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="MPESA_QUERY_SPACING_SECONDS" value="0"/>
+        <!-- Deterministic M-Pesa "configured" state, independent of any local .env.
+             Tests that need it unconfigured override config() themselves. -->
+        <env name="MPESA_ENV" value="sandbox" force="true"/>
+        <env name="MPESA_CONSUMER_KEY" value="test-key" force="true"/>
+        <env name="MPESA_CONSUMER_SECRET" value="test-secret" force="true"/>
+        <env name="MPESA_SHORTCODE" value="174379" force="true"/>
+        <env name="MPESA_PASSKEY" value="test-passkey" force="true"/>
+        <env name="MPESA_CALLBACK_TOKEN" value="test-callback-token" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

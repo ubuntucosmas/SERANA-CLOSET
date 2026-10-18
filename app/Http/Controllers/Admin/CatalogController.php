@@ -81,7 +81,8 @@ class CatalogController extends Controller
             'garment_type' => 'sometimes|in:set,hoodie,jogger',
             'in_stock' => 'boolean',
             'batch_limit' => 'nullable|integer|min:0',
-            'batch_sold' => 'nullable|integer|min:0',
+            // batch_sold is never taken from a form: only payment settlement
+            // moves it, so a stale Studio tab can't overwrite real sales.
             'is_customizable' => 'boolean',
             'specifications' => 'nullable|array',
         ], [

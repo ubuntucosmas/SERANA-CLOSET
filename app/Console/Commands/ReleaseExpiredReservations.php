@@ -3,9 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\CustomOrder;
-use App\Models\PaymentAttempt;
 use App\Models\StockReservation;
 use App\Support\OrderStatus;
+use App\Support\PaymentSettings;
 use Illuminate\Console\Command;
 
 /**
@@ -27,17 +27,32 @@ class ReleaseExpiredReservations extends Command
             ->update(['status' => 'released']);
 
         // Mark the now-stale orders so the studio dashboard reflects reality.
-        // Spare any order with a recent unresolved STK push: the customer may be
-        // typing their PIN right now, and expiring mid-payment would strand the
+        // A failed prompt collected nothing, so once the window passes it is an
+        // abandoned checkout too; left as "Payment Failed" it would sit in the
+        // Studio's payment-problems queue for ever. Spare any order with a
+        // prompt sent inside the window: the customer may be typing their PIN
+        // (or retrying) right now, and expiring mid-payment would strand the
         // money if the callback is then lost.
-        $expiredOrders = CustomOrder::where('status', OrderStatus::PENDING_PAYMENT)
+        $expiredOrders = CustomOrder::whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->where('is_paid', false)
+            ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->whereDoesntHave('stockReservations', fn ($q) => $q->where('status', 'held'))
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q
-                ->where('status', PaymentAttempt::PENDING)
                 ->where('created_at', '>=', now()->subMinutes($window)))
             ->where('created_at', '<=', now()->subMinutes($window))
             ->update(['status' => OrderStatus::EXPIRED]);
+
+        // WhatsApp orders wait for the studio to confirm payment: they expire only
+        // after their own (longer) window, whether or not they held any stock.
+        $staleWhatsApp = CustomOrder::where('payment_method', PaymentSettings::WHATSAPP)
+            ->where('status', OrderStatus::PENDING_PAYMENT)
+            ->where('is_paid', false)
+            ->where('created_at', '<=', now()->subHours(PaymentSettings::holdHours()))
+            ->get();
+        foreach ($staleWhatsApp as $order) {
+            $order->releaseReservations();
+            $expiredOrders += CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::EXPIRED]);
+        }
 
         $this->info("Released {$released} reservation(s); expired {$expiredOrders} order(s).");
 

@@ -47,6 +47,7 @@ const isPaid = ref(false);
 const reference = ref(null);
 const transactionId = ref(null);
 const receiptUrl = ref(null);
+const paidWhatsAppUrl = ref(null);
 let pollingInterval = null;
 
 function openReserve() {
@@ -132,6 +133,7 @@ function startPolling() {
                 isPaid.value = true;
                 transactionId.value = res.data.transaction_id;
                 receiptUrl.value = res.data.receipt_url;
+                paidWhatsAppUrl.value = res.data.whatsapp_url || null;
                 step.value = 'done';
                 pulse.emit('Reservation confirmed!', 'success');
             }
@@ -274,7 +276,7 @@ function startPolling() {
 
                     <!-- Step 3: done -->
                     <MpesaSuccessPanel v-else-if="step === 'done'" :amount="drop.price" :orderId="orderId" :items="[]"
-                        :transactionId="transactionId" :receiptUrl="receiptUrl" :reference="reference" :email="form.email" />
+                        :transactionId="transactionId" :receiptUrl="receiptUrl" :reference="reference" :email="form.email" :whatsappUrl="paidWhatsAppUrl" />
                 </div>
             </div>
         </teleport>

@@ -37,7 +37,9 @@ class OrderTrackingController extends Controller
         // Archived orders stay findable: archiving is a Studio tidy-up, not a
         // reason for the customer to lose their order.
         $order = CustomOrder::withTrashed()
-            ->whereRaw('UPPER(cipher) = ?', [strtoupper($reference)])
+            // Codes are stored upper-case; a plain equality uses the unique index
+            // (UPPER(cipher) forced a full table scan on every lookup).
+            ->where('cipher', strtoupper($reference))
             ->first();
 
         // One generic answer whether the reference is unknown or the phone

@@ -55,6 +55,20 @@ class MpesaController extends Controller
                 return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
             }
 
+            // M-Pesa switched off in Studio → Payments (or not configured): no new
+            // prompts. Callbacks and reconciliation still settle any in progress.
+            if (! \App\Support\PaymentSettings::mpesaAvailable()) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'mpesa_paused',
+                    'whatsapp' => \App\Support\PaymentSettings::whatsappAvailable(),
+                    'message' => 'M-Pesa payments are paused right now. You can send this same order on WhatsApp instead.',
+                ], 409);
+            }
+            if ($order->payment_method === \App\Support\PaymentSettings::WHATSAPP) {
+                return response()->json(['success' => false, 'message' => 'This order is being paid via WhatsApp. The studio will confirm your payment.'], 409);
+            }
+
             // Reject re-payment of an already-settled order.
             if ($order->is_paid || $order->status === OrderStatus::PAID) {
                 return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
@@ -283,11 +297,14 @@ class MpesaController extends Controller
             'success' => true,
             'is_paid' => $isPaid,
             'status' => $order->status,
+            'payment_method' => $order->payment_method,
             'reference' => $order->cipher,
             // Server-confirmed total, so the success screen never has to trust
             // the client-side cart for the figure it displays.
             'amount' => (float) $order->price_quoted,
             'transaction_id' => $order->mpesa_receipt_number,
+            // Paid only: the payment record the customer posts to the studio.
+            'whatsapp_url' => $isPaid ? \App\Support\WhatsAppOrderMessage::paidLink($order) : null,
             // Signed, time-limited receipt link — only valid once payment is confirmed.
             'receipt_url' => $isPaid
                 ? \Illuminate\Support\Facades\URL::temporarySignedRoute(

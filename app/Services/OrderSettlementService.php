@@ -92,8 +92,7 @@ class OrderSettlementService
             'paid'     => $paid,
         ]);
 
-        $ownerEmail = config('services.store.notification_email')
-            ?: config('mail.from.address');
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
 
         if (! $ownerEmail) {
             return;

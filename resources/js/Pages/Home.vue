@@ -32,7 +32,7 @@ const collectionFilters = computed(() => {
 const visibleProducts = computed(() => selectedCategory.value === 'all'
     ? props.featuredProducts
     : props.featuredProducts.filter(product => String(product.category?.id) === selectedCategory.value));
-const helpHref = computed(() => page.props.whatsapp_number ? `https://wa.me/${page.props.whatsapp_number}` : route('contact'));
+const helpHref = computed(() => page.props.store?.whatsapp_url || route('contact'));
 </script>
 
 <template>
@@ -107,7 +107,7 @@ const helpHref = computed(() => page.props.whatsapp_number ? `https://wa.me/${pa
                     <p class="mt-2 text-sm text-on-surface-variant">Need a second opinion on sizing, or an update on your order?</p>
                 </div>
                 <div class="flex flex-wrap gap-3">
-                    <a :href="helpHref" :target="page.props.whatsapp_number ? '_blank' : undefined" rel="noopener" class="action-secondary">Ask the Studio <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span></a>
+                    <a :href="helpHref" :target="page.props.store?.whatsapp_url ? '_blank' : undefined" rel="noopener" class="action-secondary">Ask the Studio <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span></a>
                     <Link :href="route('track')" class="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-primary hover:underline">Track Order</Link>
                 </div>
             </div>

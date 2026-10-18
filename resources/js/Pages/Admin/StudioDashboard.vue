@@ -3,8 +3,9 @@
   routes the active section to a presentational panel. Chrome lives in AdminShell.
 -->
 <script setup>
+import { studioSection } from '@/Support/studioSections';
 import { orderImages } from '@/Support/orderImages';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
 import { paymentStatus } from '@/Support/orderStatus';
@@ -17,13 +18,18 @@ import GalleryPanel from './Partials/GalleryPanel.vue';
 import SubscribersPanel from './Partials/SubscribersPanel.vue';
 import SettingsPanel from './Partials/SettingsPanel.vue';
 import CustomOrderOptionsPanel from './Partials/CustomOrderOptionsPanel.vue';
+import PaymentsPanel from './Partials/PaymentsPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 
 const props = defineProps({
+    workflow: { type: Object, default: () => ({}) },
+    generated_at: { type: String, default: '' },
     stats: { type: Object, default: () => ({}) },
     attention: { type: Object, default: () => ({ awaiting: [], low_stock: [] }) },
-    orders: { type: Array, default: () => [] },
-    archived_orders: { type: Array, default: () => [] },
+    // A page of orders ({ data, page, last_page, total, archived }), plus the
+    // order currently open (?order=ID), wherever it sits in the list.
+    orders: { type: Object, default: () => ({ data: [], page: 1, last_page: 1, total: 0, archived: false }) },
+    focus_order: { type: Object, default: null },
     products: { type: Array, default: () => [] },
     archived_products: { type: Array, default: () => [] },
     categories: { type: Array, default: () => [] },
@@ -31,6 +37,7 @@ const props = defineProps({
     archived_gallery: { type: Array, default: () => [] },
     leads: { type: Array, default: () => [] },
     custom_order_options: { type: Object, default: () => ({ garments: [], fabrics: [], colours: [] }) },
+    payment_settings: { type: Object, default: () => ({ mpesa_enabled: true, whatsapp_enabled: true, instructions: '', whatsapp_hold_hours: 48, hold_options: [12, 24, 48, 72], mpesa_configured: false, mpesa_env: 'sandbox', prompts_in_progress: 0 }) },
     drops: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
 });
@@ -41,19 +48,16 @@ const { formatAmount } = useCurrency();
 /* ───────── Navigation + lazy per-section loading ───────── */
 const currentTab = ref(props.active_tab);
 function goTab(id) { currentTab.value = id; }
+function openQueue(queue) {
+    router.get(route('studio.index'), { tab: 'orders', o_queue: queue, o_sort: 'oldest' }, { preserveScroll: false });
+}
+function refreshOverview() {
+    router.reload({ only: ['stats', 'workflow', 'attention', 'generated_at'] });
+}
 watch(currentTab, () => { selectedOrder.value = null; });
 
-const HEAD = {
-    home: ['Home', 'Your studio at a glance.'],
-    orders: ['Orders', 'Track payment and production for every order.'],
-    products: ['Products', "Manage what's for sale in your shop."],
-    drops: ['Drops', 'Sell-then-make pre-orders — produced only when enough are reserved.'],
-    showcase: ['Showcase', 'The photo gallery shown to customers.'],
-    subscribers: ['Subscribers', 'People on your newsletter list.'],
-    settings: ['Settings', "Your store's name, contacts and images."],
-};
-const title = computed(() => HEAD[currentTab.value]?.[0] || '');
-const subtitle = computed(() => HEAD[currentTab.value]?.[1] || '');
+const title = computed(() => studioSection(currentTab.value).label);
+const subtitle = computed(() => studioSection(currentTab.value).description);
 
 const getObjectURL = (file) => {
     if (!file) return null;
@@ -66,16 +70,27 @@ const selectedOrder = ref(null);
 const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
 const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false });
 const progressSnapForm = useForm({ image: null, description: '' });
-const orderArchived = computed(() => props.archived_orders.some(o => o.id === selectedOrder.value?.id));
+const orderArchived = computed(() => !!selectedOrder.value?.deleted_at);
 
+// The open order lives in the URL (?order=ID): a shareable link, and after any
+// save the server returns that order fresh as focus_order.
+function setUrlOrder(id) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('order', id); else url.searchParams.delete('order');
+    window.history.replaceState(window.history.state, '', url);
+}
 function openOrder(orderOrId) {
-    // Accept an order object (from the list) or an id (from the Home shortcuts).
-    const order = typeof orderOrId === 'object' ? orderOrId
-        : [...props.orders, ...props.archived_orders].find(o => o.id === orderOrId);
-    if (order) bindOrder(order);
+    // An order object (from the list) or an id (Home shortcuts, links).
+    const id = typeof orderOrId === 'object' ? orderOrId.id : Number(orderOrId);
+    const known = typeof orderOrId === 'object' ? orderOrId
+        : (props.orders.data || []).find(o => o.id === id) || (props.focus_order?.id === id ? props.focus_order : null);
+    setUrlOrder(id);
+    if (known) { bindOrder(known); return; }
+    router.reload({ only: ['focus_order'], data: { order: id }, onSuccess: () => { if (props.focus_order) bindOrder(props.focus_order); } });
 }
 function bindOrder(order) {
     selectedOrder.value = order;
+    copyFeedback.value = '';
     orderForm.id = order.id;
     orderForm.status = order.status;
     orderForm.internal_notes = order.internal_notes || '';
@@ -84,20 +99,37 @@ function bindOrder(order) {
     orderForm.clearErrors();
     progressSnapForm.reset();
 }
-function closeOrder() { selectedOrder.value = null; }
-// Keep the open editor in sync after a save / payment record refreshes the lists.
-watch(() => [props.orders, props.archived_orders], () => {
+function closeOrder() { selectedOrder.value = null; setUrlOrder(null); }
+// Keep the open editor in sync after a save / payment record refreshes the props.
+watch(() => [props.orders, props.focus_order], () => {
     if (!selectedOrder.value) return;
-    const fresh = [...props.orders, ...props.archived_orders].find(o => o.id === selectedOrder.value.id);
+    const id = selectedOrder.value.id;
+    const fresh = props.focus_order?.id === id ? props.focus_order : (props.orders.data || []).find(o => o.id === id);
     if (fresh) selectedOrder.value = fresh;
 });
+// Deep link: /studio?tab=orders&order=123 opens it straight away.
+onMounted(() => { if (props.focus_order) bindOrder(props.focus_order); });
 
 const isCommerceOrder = computed(() => ['standard', 'drop'].includes(selectedOrder.value?.type));
+// A shop order sent on WhatsApp: paid outside M-Pesa STK, confirmed here by the studio.
+const isWhatsAppShop = computed(() => selectedOrder.value?.type === 'standard' && selectedOrder.value?.payment_method === 'whatsapp');
+const canRecordPayment = computed(() => {
+    const o = selectedOrder.value;
+    if (!o || o.is_paid || ['Cancelled', 'Expired'].includes(o.status)) return false;
+    return !isCommerceOrder.value || isWhatsAppShop.value;
+});
+function cancelWhatsAppOrder() {
+    if (!selectedOrder.value || !confirm('Cancel this unpaid WhatsApp order? Its pieces go back on sale.')) return;
+    router.post(route('studio.order.cancel', selectedOrder.value.id), {}, { preserveScroll: true });
+}
 const orderKindLabel = computed(() => ({ standard: 'Shop order', drop: 'Drop reservation' })[selectedOrder.value?.type] || 'Custom order');
 const customerPhone = computed(() => selectedOrder.value?.whatsapp_number || selectedOrder.value?.phone || '');
 const customerWhatsApp = computed(() => {
-    const digits = String(customerPhone.value).replace(/\D/g, '').replace(/^0/, '254');
-    return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(`Hello ${selectedOrder.value?.full_name || ''}, this is Serana Closet about order ${selectedOrder.value?.cipher || ''}.`)}` : null;
+    // Custom briefs keep the number as typed: 07…, 7…, +254 7… all become 2547….
+    const raw = String(customerPhone.value).replace(/\D/g, '');
+    const digits = raw.startsWith('0') ? '254' + raw.slice(1) : /^[17]\d{8}$/.test(raw) ? '254' + raw : raw;
+    const store = page.props.store?.name || 'Serana Closet';
+    return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(`Hello ${selectedOrder.value?.full_name || ''}, this is ${store} about order ${selectedOrder.value?.cipher || ''}.`)}` : null;
 });
 const briefFields = computed(() => {
     const o = selectedOrder.value; if (!o) return [];
@@ -136,7 +168,8 @@ function submitProgressSnap() {
     });
 }
 // Copy-ready text for packing/dispatch (shop) or the workroom (bespoke / drop).
-function copyBrief() {
+const copyFeedback = ref('');
+async function copyBrief() {
     const o = selectedOrder.value;
     if (!o) return;
     const lines = [`SERANA ${orderKindLabel.value.toUpperCase()} ${o.cipher || '#' + o.id}`, `Client: ${o.full_name || '—'} · ${customerPhone.value || '—'}`];
@@ -150,7 +183,10 @@ function copyBrief() {
     const m = [['Bust', o.bust_cm], ['Waist', o.waist_cm], ['Hips', o.hips_cm], ['Length', o.length_cm], ['Height', o.height_cm || o.items_json?.height_cm]].filter(x => x[1]);
     if (m.length) lines.push('Measurements (cm): ' + m.map(([k, v]) => `${k} ${v}`).join(' · '));
     lines.push(`Stage: ${o.status || '—'} · Payment: ${paymentStatus(o).label}`, `Total: ${formatAmount(o.price_quoted || 0, page.props)}`);
-    navigator.clipboard?.writeText(lines.join('\n'));
+    try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        copyFeedback.value = 'Brief copied to clipboard.';
+    } catch { copyFeedback.value = 'Copy unavailable. Select and copy the order details manually.'; }
 }
 
 /* ───────── Products ───────── */
@@ -309,6 +345,9 @@ const siteInfoForm = useForm({
         instagram_url: page.props.theme_settings?.instagram_url ?? '',
         tiktok_url: page.props.theme_settings?.tiktok_url ?? '',
         facebook_url: page.props.theme_settings?.facebook_url ?? '',
+        x_url: page.props.theme_settings?.x_url ?? '',
+        care_phone: page.props.theme_settings?.care_phone ?? '',
+        notification_email: page.props.theme_settings?.notification_email ?? '',
     },
 });
 function saveSiteInfo() { siteInfoForm.post(route('admin.theme.bulk_update'), { preserveScroll: true }); }
@@ -330,16 +369,17 @@ function removeAsset(key) {
                 <button @click="addProduct" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Add product</button>
             </div>
             <button v-else-if="currentTab === 'showcase'" @click="addGallery" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Add photo</button>
-            <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New drop</button>
+            <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New campaign</button>
         </template>
 
-        <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" @go="goTab" @openOrder="openOrder" />
-        <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :archived="archived_orders" :selectedId="selectedOrder?.id" @select="openOrder" />
+        <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
+        <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <template v-else-if="currentTab === 'settings'">
+            <PaymentsPanel :settings="payment_settings" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
                 @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
                 @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
@@ -358,6 +398,7 @@ function removeAsset(key) {
                 <button @click="closeOrder" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
             </div>
 
+            <div class="mb-4 rounded-xl border border-white/10 p-3 text-sm"><p class="font-semibold text-white">Decision before action</p><p class="mt-1 text-slate-300">{{ selectedOrder.is_paid ? (selectedOrder.status === 'completed' ? 'Ready for dispatch: verify items, sizes and delivery details, then update the stage after handover.' : selectedOrder.status === 'shipped' ? 'Dispatched: review the saved details before contacting the customer.' : 'Payment confirmed: review the brief or packing details and update the stage as work advances.') : 'Payment not confirmed: review the quote or payment evidence before committing fulfilment. A stage change does not confirm payment.' }}</p><p class="mt-2 text-xs text-slate-400">Saved order updated: {{ selectedOrder.updated_at ? new Date(selectedOrder.updated_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) + ' (Nairobi)' : 'Unknown' }}</p></div>
             <!-- Who it is and how to reach them -->
             <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-[#57d5fc]">{{ orderKindLabel }}</p>
             <div class="grid sm:grid-cols-2 gap-3 mb-4 text-sm">
@@ -422,28 +463,32 @@ function removeAsset(key) {
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
                     </div>
                     <label v-else class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Quote (KSh)</span>
+                        <span class="block text-sm text-slate-300 mb-2">Quote (KES — Kenyan shillings)</span>
                         <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                 </div>
                 <div class="rounded-xl bg-slate-950/60 p-4 text-sm">
                     <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
                     <p class="mt-1 text-xs text-slate-500">
-                        <template v-if="isCommerceOrder">Confirmed automatically by M-Pesa. It can't be changed here.</template>
+                        <template v-if="isWhatsAppShop && !selectedOrder.is_paid">WhatsApp order. Once you’ve received {{ formatAmount(selectedOrder.price_quoted, page.props) }} (Send Money, Pochi, cash…), confirm it here: the customer gets their receipt and the stock is committed.</template>
+                        <template v-else-if="isWhatsAppShop">Confirmed by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
+                        <template v-else-if="isCommerceOrder">Confirmed automatically by M-Pesa. It can't be changed here.</template>
                         <template v-else-if="selectedOrder.is_paid">Recorded by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
                         <template v-else>Custom order payments are arranged on WhatsApp. Record the payment here once you receive it.</template>
                     </p>
-                    <form v-if="!isCommerceOrder && !selectedOrder.is_paid" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+                    <form v-if="canRecordPayment" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
                         <input v-model="paymentForm.amount" type="number" min="1" step="1" aria-label="Amount received in KSh" placeholder="Amount (KSh)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <input v-model="paymentForm.reference" aria-label="M-Pesa code or payment note" placeholder="M-Pesa code or note" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                        <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-200 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : 'Record payment' }}</button>
+                        <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-200 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : isWhatsAppShop ? 'Confirm payment' : 'Record payment' }}</button>
                     </form>
+                    <button v-if="isWhatsAppShop && !selectedOrder.is_paid && selectedOrder.status === 'Pending Payment'" type="button" @click="cancelWhatsAppOrder" class="mt-3 text-xs text-slate-400 underline hover:text-rose-300">Customer didn’t pay? Cancel order and release stock</button>
                     <p v-for="(message, field) in paymentForm.errors" :key="field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
                 </div>
                 <p v-for="(message, field) in orderForm.errors" :key="field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
 
                 <label class="block">
-                    <span class="block text-sm text-slate-300 mb-2">Private notes</span>
+                    <span class="block text-sm text-slate-300 mb-2">Private decision &amp; handover notes</span>
+                    <p class="text-xs text-slate-400 mb-2">Record the decision, reason, responsible person and agreed next step. These notes are internal; saving replaces the current text.</p>
                     <textarea v-model="orderForm.internal_notes" rows="3" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
                 </label>
 
@@ -457,9 +502,10 @@ function removeAsset(key) {
                 </div>
             </div>
 
+            <p v-if="copyFeedback" role="status" class="mt-3 text-sm text-slate-300">{{ copyFeedback }}</p>
             <!-- Actions -->
             <div class="mt-6 flex flex-wrap gap-2">
-                <button @click="saveOrder" :disabled="orderForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ orderForm.processing ? 'Saving…' : 'Save' }}</button>
+                <button @click="saveOrder" :disabled="orderForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ orderForm.processing ? 'Saving…' : 'Save order changes' }}</button>
                 <button @click="copyBrief" class="px-4 py-3 rounded-xl bg-white/5 text-slate-200 text-sm hover:bg-white/10">Copy brief</button>
                 <template v-if="!orderArchived">
                     <button @click="archiveOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400 ml-auto">Archive</button>
@@ -493,7 +539,7 @@ function removeAsset(key) {
                 </label>
                 <div class="grid sm:grid-cols-2 gap-4">
                     <label class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Price (KSh)</span>
+                        <span class="block text-sm text-slate-300 mb-2">Price (KES — Kenyan shillings)</span>
                         <input v-model="productForm.price" type="number" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                     <label class="block">
@@ -547,10 +593,10 @@ function removeAsset(key) {
                     <input type="file" accept="image/*" class="hidden" @input="(e) => { const f = e.target.files[0]; if(f){ galleryForm.image = f; galleryPreview = f; } }" />
                 </label>
                 <div class="grid sm:grid-cols-2 gap-4">
-                    <input v-model="galleryForm.client_name" placeholder="Client name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                    <input v-model="galleryForm.garment_name" placeholder="Garment name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    <label class="block text-sm text-slate-300"><span class="block mb-2">Client name (required)</span><input v-model="galleryForm.client_name" placeholder="Client name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" /></label>
+                    <label class="block text-sm text-slate-300"><span class="block mb-2">Garment name (required)</span><input v-model="galleryForm.garment_name" placeholder="Garment name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" /></label>
                 </div>
-                <textarea v-model="galleryForm.testimonial" rows="2" placeholder="Testimonial (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
+                <label class="block text-sm text-slate-300"><span class="block mb-2">Customer testimonial (optional)</span><textarea v-model="galleryForm.testimonial" rows="2" placeholder="Testimonial (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea></label>
             </div>
             <div class="mt-6 flex justify-end gap-2">
                 <button @click="showGalleryModal = false" class="px-5 py-3 rounded-xl bg-white/5 text-slate-300 text-sm">Cancel</button>
@@ -575,8 +621,8 @@ function removeAsset(key) {
             </div>
             <div class="border-t border-white/10 pt-4 space-y-3">
                 <p class="text-sm text-slate-300">{{ isEditingCategory ? 'Edit category' : 'New category' }}</p>
-                <input v-model="categoryForm.name" placeholder="Name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                <input v-model="categoryForm.description" placeholder="Short description (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                <label class="block text-sm text-slate-300"><span class="block mb-2">Category name</span><input v-model="categoryForm.name" placeholder="Name" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" /></label>
+                <label class="block text-sm text-slate-300"><span class="block mb-2">Category description (optional)</span><input v-model="categoryForm.description" placeholder="Short description (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" /></label>
                 <div class="flex gap-2 justify-end">
                     <button v-if="isEditingCategory" @click="newCategory" class="px-4 py-2.5 rounded-xl bg-white/5 text-slate-300 text-sm">New</button>
                     <button @click="submitCategory" :disabled="categoryForm.processing" class="px-5 py-2.5 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ isEditingCategory ? 'Update' : 'Add' }}</button>
@@ -588,7 +634,7 @@ function removeAsset(key) {
     <!-- ───────── Drop form ───────── -->
     <Modal :show="showDropModal" maxWidth="2xl" @close="showDropModal = false">
         <div class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
-            <h3 class="text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit drop' : 'New drop' }}</h3>
+            <h3 class="text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit pre-order campaign' : 'New pre-order campaign' }}</h3>
             <p class="text-slate-500 text-sm mb-5">Customers reserve and pay upfront; you produce once it hits the goal.</p>
             <div class="space-y-4">
                 <p v-for="(message, field) in dropForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
@@ -599,11 +645,11 @@ function removeAsset(key) {
                 </label>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Description</span>
-                    <textarea v-model="dropForm.description" rows="3" placeholder="What is it, the fabric, the vibe…" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
+                    <textarea v-model="dropForm.description" rows="3" placeholder="Describe the garment, fabric, fit and what the customer will receive." class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
                 </label>
                 <div class="grid sm:grid-cols-3 gap-4">
                     <label class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Price (KSh)</span>
+                        <span class="block text-sm text-slate-300 mb-2">Price (KES — Kenyan shillings)</span>
                         <input v-model="dropForm.price" type="number" min="0" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                     <label class="block">
@@ -615,7 +661,7 @@ function removeAsset(key) {
                         <select v-model="dropForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none">
                             <option value="draft">Draft (hidden)</option>
                             <option value="live">Live (taking reservations)</option>
-                            <option value="greenlit">Greenlit (in production)</option>
+                            <option value="greenlit">In production</option>
                             <option value="fulfilled">Fulfilled (shipped)</option>
                             <option value="closed">Closed</option>
                         </select>
@@ -643,7 +689,7 @@ function removeAsset(key) {
             </div>
             <div class="mt-6 flex justify-end gap-2">
                 <button @click="showDropModal = false" class="px-5 py-3 rounded-xl bg-white/5 text-slate-300 text-sm">Cancel</button>
-                <button @click="submitDrop" :disabled="dropForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ dropForm.processing ? 'Saving…' : 'Save drop' }}</button>
+                <button @click="submitDrop" :disabled="dropForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ dropForm.processing ? 'Saving…' : 'Save campaign' }}</button>
             </div>
         </div>
     </Modal>

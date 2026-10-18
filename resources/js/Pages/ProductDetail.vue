@@ -7,6 +7,7 @@ import { useCurrency } from '@/Composables/useCurrency';
 import { useWhatsApp } from '@/Composables/useWhatsApp';
 import { usePulseStore } from '@/Stores/usePulseStore';
 import { useBackToShop } from '@/Composables/useBackToShop';
+import { isSoldOut as soldOut, lowStockNote } from '@/Support/stock';
 
 const props = defineProps({
     product: Object
@@ -18,7 +19,8 @@ const pulse = usePulseStore();
 const { formatAmount } = useCurrency();
 const { getWhatsAppUrl } = useWhatsApp();
 
-const isSoldOut = computed(() => props.product.in_stock === false || (props.product.batch_limit != null && props.product.batch_sold >= props.product.batch_limit));
+const isSoldOut = computed(() => soldOut(props.product));
+const stockNote = computed(() => lowStockNote(props.product));
 
 // Admin-editable piece names (Studio → product specs), with plain defaults.
 const ui = computed(() => props.product.specifications?.ui || {});
@@ -94,11 +96,11 @@ const stickyAction = () => {
 // Only specs that actually say something; empty rows read as broken content.
 const techSpecs = computed(() => (props.product.specifications?.tech_specs || []).filter(spec => typeof spec === 'string' && spec.trim() !== ''));
 
-const trustHighlights = [
+const trustHighlights = computed(() => [
     { label: 'Delivery included', icon: 'local_shipping' },
-    { label: 'Pay with M-Pesa', icon: 'verified_user' },
+    page.props.payments?.mpesa ? { label: 'Pay with M-Pesa', icon: 'verified_user' } : { label: 'Order on WhatsApp', icon: 'chat' },
     { label: 'Fit help on WhatsApp', icon: 'support_agent' },
-];
+]);
 
 const allImages = computed(() => {
     const images = [];
@@ -164,7 +166,7 @@ const goTo = (index) => {
                                 <h1 class="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">{{ product.name }}</h1>
                                 <p class="shrink-0 font-headline text-2xl font-bold text-on-surface md:text-3xl">{{ formatAmount(product.price, page.props) }}</p>
                             </div>
-                            <p class="mt-2 text-sm" :class="isSoldOut ? 'text-on-surface-variant' : 'text-primary'">{{ isSoldOut ? 'Out of stock' : 'In stock · delivery included' }}</p>
+                            <p class="mt-2 text-sm" :class="isSoldOut ? 'text-on-surface-variant' : 'text-primary'">{{ isSoldOut ? 'Out of stock' : (stockNote || 'In stock') + ' · delivery included' }}</p>
                         </header>
 
                         <!-- Sizes -->

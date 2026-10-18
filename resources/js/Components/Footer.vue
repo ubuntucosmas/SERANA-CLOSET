@@ -2,16 +2,16 @@
 import { computed } from 'vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import SocialLinks from '@/Components/SocialLinks.vue';
+import { useStore } from '@/Composables/useStore';
 
 defineProps({ compact: { type: Boolean, default: false } });
 const page = usePage();
 const year = new Date().getFullYear();
-const settings = computed(() => page.props.theme_settings || {});
-const instagram = computed(() => settings.value.instagram_url || 'https://instagram.com/seranacloset');
-const tiktok = computed(() => settings.value.tiktok_url || '');
-const facebook = computed(() => settings.value.facebook_url || '');
-const address = computed(() => settings.value.contact_address || 'IMENTI HOUSE 29 • Nairobi • Worldwide');
-const studioHref = computed(() => page.props.whatsapp_number ? `https://wa.me/${page.props.whatsapp_number}` : route('contact'));
+// Contacts and socials come from the store profile (Studio → Settings).
+const { store } = useStore();
+const address = computed(() => store.value.address);
+const studioHref = computed(() => store.value.whatsapp_url || route('contact'));
 const columns = computed(() => [
     { title: 'Explore', links: [
         { label: 'All Pieces', href: route('shop') },
@@ -71,18 +71,8 @@ function backToTop() {
                             <svg class="mt-0.5 h-4 w-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>
                             <span>{{ address }}</span>
                         </address>
-                        <a :href="studioHref" :target="page.props.whatsapp_number ? '_blank' : undefined" :rel="page.props.whatsapp_number ? 'noopener' : undefined" class="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline underline-offset-4">Talk to the studio <span aria-hidden="true">↗</span></a>
-                        <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Follow Serana Closet">
-                            <a :href="instagram" target="_blank" rel="noopener" aria-label="Serana Closet on Instagram" class="footer-social">
-                                <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none" /></svg>
-                            </a>
-                            <a v-if="tiktok" :href="tiktok" target="_blank" rel="noopener" aria-label="Serana Closet on TikTok" class="footer-social">
-                                <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .52.04.77.11V9.66a6 6 0 0 0-.77-.05A5.95 5.95 0 1 0 15.9 15.5V9.01a7.5 7.5 0 0 0 4.38 1.4V7.3a4.28 4.28 0 0 1-3.68-1.48z" /></svg>
-                            </a>
-                            <a v-if="facebook" :href="facebook" target="_blank" rel="noopener" aria-label="Serana Closet on Facebook" class="footer-social">
-                                <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M14 21v-8h3l.5-4H14V7c0-1.2.4-2 2-2h2V1.5A26 26 0 0 0 15 1c-3 0-5 1.8-5 5v3H7v4h3v8h4Z" /></svg>
-                            </a>
-                        </div>
+                        <a :href="studioHref" :target="store.whatsapp_url ? '_blank' : undefined" :rel="store.whatsapp_url ? 'noopener' : undefined" class="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline underline-offset-4">Talk to the studio <span aria-hidden="true">↗</span></a>
+                        <SocialLinks class="mt-3" />
                     </section>
 
                     <nav aria-label="Footer" class="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 sm:gap-8">
@@ -99,7 +89,7 @@ function backToTop() {
             </template>
 
             <div class="flex flex-col items-start justify-between gap-2 text-xs leading-relaxed text-on-surface-variant sm:flex-row sm:items-center" :class="compact ? '' : 'border-t border-outline-variant/50 pt-4'">
-                <p>{{ settings.footer_copyright || `© ${year} Serana Closet. All rights reserved.` }}</p>
+                <p>{{ page.props.theme_settings?.footer_copyright || `© ${year} ${store.name}. All rights reserved.` }}</p>
                 <p v-if="compact">{{ address }}</p>
                 <button v-else type="button" class="inline-flex min-h-11 items-center gap-2 font-medium text-on-surface transition-colors hover:text-primary" @click="backToTop">Back to top <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" /></svg></button>
             </div>

@@ -33,8 +33,7 @@ class SendOrderConfirmation implements ShouldQueue
     {
         $order = $event->order;
 
-        $ownerEmail = config('services.store.notification_email')
-            ?: config('mail.from.address');
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
 
         try {
             if ($order->email) {

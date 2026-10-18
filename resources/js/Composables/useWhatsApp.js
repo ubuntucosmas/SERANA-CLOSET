@@ -33,7 +33,7 @@ export function useWhatsApp() {
         const formattedPrice = `${currencySymbol} ${Number(product.price).toLocaleString()}`;
 
         const lines = [
-            'Hello Serana,',
+            `Hello ${pageProps.store?.name || 'Serana'},`,
             '',
             "I'd like to enquire about this piece:",
             '',
@@ -55,7 +55,7 @@ export function useWhatsApp() {
     const getWhatsAppUrl = (product, options = {}, pageProps = {}) => {
         const message = generateProductMessage(product, options, pageProps);
         // Single managed source: the normalized store number shared from the server.
-        const whatsappNumber = pageProps.whatsapp_number || '';
+        const whatsappNumber = pageProps.store?.whatsapp || pageProps.whatsapp_number || '';
         return `https://wa.me/${whatsappNumber}?text=${rawurlencode(message)}`;
     };
 

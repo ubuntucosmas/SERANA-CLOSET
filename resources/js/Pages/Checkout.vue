@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
+import WhatsAppOrderPanel from '@/Components/WhatsAppOrderPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
@@ -41,6 +42,8 @@ const orderId = ref(null);
 const paidAmount = ref(0);
 const safaricomTransactionId = ref(null);
 const receiptUrl = ref(null);
+// Server-built payment record the customer posts to the studio on WhatsApp.
+const paidWhatsAppUrl = ref(null);
 const orderReference = ref(null);
 const frozenItems = ref([]);
 const frozenTotal = ref(0);
@@ -122,6 +125,7 @@ function applyStatus(data) {
         paidAmount.value = data.amount ?? cart.totalPrice;
         safaricomTransactionId.value = data.transaction_id;
         receiptUrl.value = data.receipt_url;
+        paidWhatsAppUrl.value = data.whatsapp_url || null;
         frozenTotal.value = cart.totalPrice;
         cart.clearBag();
         clearContext();
@@ -165,6 +169,54 @@ function firstMissingField() {
     return true;
 }
 const payTotal = computed(() => orderAmount.value ?? cart.totalPrice);
+
+// ── How to pay (Studio → Settings → Payments) ───────────────────────────────
+// M-Pesa (pay now) and/or WhatsApp (order recorded, studio confirms payment).
+const payments = computed(() => page.props.payments || { mpesa: true, whatsapp: false, default: 'mpesa' });
+const bothMethods = computed(() => payments.value.mpesa && payments.value.whatsapp);
+const requested = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('method') : null;
+const method = ref(requested === 'whatsapp' && payments.value.whatsapp ? 'whatsapp' : payments.value.default);
+watch(payments, (p) => { if (!p[method.value]) method.value = p.default; });
+const isWhatsApp = computed(() => method.value === 'whatsapp');
+const checkoutSubtitle = computed(() => whatsappOrder.value ? 'Your order is saved. Send it on WhatsApp to finish.'
+    : bothMethods.value ? 'Pay now with M-Pesa, or order on WhatsApp and pay once we confirm.'
+    : payments.value.mpesa ? 'Complete your order with M-PESA. Fast, safe, no card required.'
+    : 'Place your order, send it on WhatsApp, and pay once the studio confirms.');
+const whatsappOrder = ref(null);   // set once a WhatsApp order is recorded
+const mpesaPaused = ref(false);    // the studio paused M-Pesa mid-checkout
+const switching = ref(false);
+
+function finishWhatsApp(data) {
+    whatsappOrder.value = {
+        reference: data.reference,
+        url: data.whatsapp_url,
+        instructions: data.instructions || null,
+        holdHours: data.hold_hours || 48,
+        total: Number(data.amount ?? orderAmount.value ?? cart.totalPrice),
+        items: frozenItems.value.length ? frozenItems.value : [...cart.items],
+    };
+    cart.clearBag();
+    clearContext();
+    rememberTrackingPhone(form.value.phone);
+    isWaitingForStk.value = false;
+    mpesaPaused.value = false;
+    resumedOrder.value = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Same order, moved to WhatsApp: no duplicate, no lost stock hold.
+async function switchToWhatsApp() {
+    if (switching.value || !orderId.value) return;
+    switching.value = true;
+    try {
+        const { data } = await axios.post(route('checkout.whatsapp', orderId.value));
+        finishWhatsApp({ ...data, amount: orderAmount.value });
+    } catch (err) {
+        pulse.emit(err.response?.data?.message || 'This order could not be moved to WhatsApp. Please try again.', 'error');
+    } finally {
+        switching.value = false;
+    }
+}
 // A field's message disappears as soon as it is filled in.
 watch(form, (value) => {
     const fixed = REQUIRED.filter(([field]) => errors.value[field] && String(value[field] || '').trim());
@@ -176,7 +228,12 @@ const generalErrors = computed(() => Object.entries(errors.value).filter(([field
 
 async function handlePayment() {
     if (isProcessing.value || !cart.items.length) return;
-    if (orderId.value) { isWaitingForStk.value = true; return; }
+    if (orderId.value) {
+        // A resumed M-Pesa order: pay it, or move that same order to WhatsApp.
+        if (isWhatsApp.value) return switchToWhatsApp();
+        isWaitingForStk.value = true;
+        return;
+    }
     if (firstMissingField()) return;
     errors.value = {};
     isProcessing.value = true;
@@ -186,6 +243,7 @@ async function handlePayment() {
         // needs: ids, quantities and the customer's size selections.
         const payload = {
             ...form.value,
+            payment_method: method.value,
             items: cart.items.map(i => ({ id: i.id, quantity: i.quantity, options: i.options ?? null })),
         };
         if (!payload.height_cm) delete payload.height_cm;
@@ -200,6 +258,10 @@ async function handlePayment() {
             orderReference.value = response.data.reference;
             orderAmount.value = response.data.amount;
             frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
+            if (response.data.payment_method === 'whatsapp') {
+                finishWhatsApp(response.data);
+                return;
+            }
             saveContext();
             isWaitingForStk.value = true;
         } else {
@@ -242,6 +304,9 @@ async function initiateMpesaStk(data) {
             stkSent.value = true;
             startPolling();
             pulse.emit('We could not confirm whether the request reached M-Pesa. Check this order before trying another payment.', 'error');
+        } else if (err.response?.status === 409 && err.response.data?.code === 'mpesa_paused') {
+            // Switched off in the Studio while this customer was paying: offer WhatsApp for the same order.
+            mpesaPaused.value = true;
         } else {
             pulse.emit(err.response?.data?.message || 'M-Pesa could not start this request. Check your phone number and try again.', 'error');
         }
@@ -309,7 +374,7 @@ onUnmounted(() => {
             <!-- Lipa na M-PESA Express Checkout -->
             <div class="max-w-6xl mx-auto">
                 <!-- Header -->
-                <PageHeader kicker="Checkout" title="Secure Checkout" subtitle="Complete your order with M-PESA. Fast, safe, no card required.">
+                <PageHeader kicker="Checkout" title="Secure Checkout" :subtitle="checkoutSubtitle">
                     <template #before>
                         <Link :href="route('shop')" class="mb-4 flex w-fit items-center gap-2 text-sm text-on-surface-variant transition-colors hover:text-primary">
                             <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span> Back to Collection
@@ -317,7 +382,7 @@ onUnmounted(() => {
                     </template>
                     <template #actions>
                     <!-- Lipa na M-PESA lockup -->
-                    <div class="inline-flex items-center gap-3 rounded-2xl border border-[#4fb33f]/30 bg-[#4fb33f]/10 px-4 py-3">
+                    <div v-if="payments.mpesa && !whatsappOrder" class="inline-flex items-center gap-3 rounded-2xl border border-[#4fb33f]/30 bg-[#4fb33f]/10 px-4 py-3">
                         <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
                         <div class="leading-tight">
                             <div class="text-[9px] tracking-wider text-on-surface-variant">Powered by</div>
@@ -337,12 +402,13 @@ onUnmounted(() => {
                         <button type="button" class="action-secondary" @click="startOver">Start Over</button>
                     </div>
                 </div>
-                <p v-else-if="orderReference && !isPaid" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
+                <p v-else-if="orderReference && !isPaid && !whatsappOrder" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
                 <div v-if="generalErrors.length" role="alert" class="mb-6 rounded-xl border border-red-400/40 p-5">
                     <p class="font-semibold mb-2">Please check these details</p>
                     <p v-for="[field, messages] in generalErrors" :key="field" class="text-sm">{{ messages[0] }}</p>
                 </div>
-                <div v-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
+                <WhatsAppOrderPanel v-if="whatsappOrder" v-bind="whatsappOrder" :email="form.email" />
+                <div v-else-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
                     <h2 class="text-xl mb-3">Your bag is empty</h2>
                     <Link :href="route('shop')" class="text-primary underline">Shop Collection</Link>
                 </div>
@@ -390,7 +456,7 @@ onUnmounted(() => {
                         <div class="grid grid-cols-3 gap-2">
                             <div v-for="t in [
                                 { icon: 'lock', label: 'Encrypted' },
-                                { icon: 'verified_user', label: 'Safaricom' },
+                                payments.mpesa ? { icon: 'verified_user', label: 'Safaricom' } : { icon: 'chat', label: 'WhatsApp support' },
                                 { icon: 'receipt_long', label: 'Receipt by email' },
                             ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-4 bg-surface-container border border-white/5">
                                 <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-lg">{{ t.icon }}</span>
@@ -457,16 +523,26 @@ onUnmounted(() => {
                             </div>
                         </div>
 
-                        <!-- 2 · Pay with M-PESA -->
-                        <div class="bg-surface-container border border-[#4fb33f]/25 p-7 md:p-8">
+                        <!-- 2 · How you'll pay (M-Pesa now and/or WhatsApp) -->
+                        <div class="bg-surface-container border p-7 md:p-8" :class="isWhatsApp ? 'border-[#25D366]/30' : 'border-[#4fb33f]/25'">
                             <div class="flex items-center gap-3 mb-6">
                                 <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-xs font-black">2</span>
-                                <h2 class="tracking-wider text-xs font-bold text-on-surface">Pay with M-PESA</h2>
-                                <span class="ml-auto w-2 h-2 rounded-full bg-[#4fb33f] animate-pulse"></span>
+                                <h2 class="tracking-wider text-xs font-bold text-on-surface">{{ bothMethods ? 'How would you like to pay?' : isWhatsApp ? 'Order on WhatsApp' : 'Pay with M-PESA' }}</h2>
                             </div>
 
-                            <!-- M-PESA number -->
-                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-phone">M-PESA Number</label>
+                            <!-- Choice, only when both are offered -->
+                            <div v-if="bothMethods && !paymentBlocked" role="radiogroup" aria-label="Payment method" class="mb-6 grid gap-3 sm:grid-cols-2">
+                                <button type="button" role="radio" :aria-checked="method === 'mpesa'" @click="method = 'mpesa'" class="pay-option" :class="method === 'mpesa' ? 'pay-option-on' : ''">
+                                    <span class="material-symbols-outlined text-xl text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">smartphone</span>
+                                    <span class="text-left"><span class="block font-semibold text-on-surface">M-Pesa now</span><span class="block text-xs text-on-surface-variant">Approve a prompt on your phone. Instant.</span></span>
+                                </button>
+                                <button type="button" role="radio" :aria-checked="method === 'whatsapp'" @click="method = 'whatsapp'" class="pay-option" :class="method === 'whatsapp' ? 'pay-option-on' : ''">
+                                    <span class="material-symbols-outlined text-xl text-[#128C7E] dark:text-[#25D366]" aria-hidden="true">chat</span>
+                                    <span class="text-left"><span class="block font-semibold text-on-surface">Order on WhatsApp</span><span class="block text-xs text-on-surface-variant">Send your order, pay after we confirm.</span></span>
+                                </button>
+                            </div>
+
+                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-phone">{{ isWhatsApp ? 'Phone (WhatsApp)' : 'M-PESA Number' }}</label>
                             <div class="flex">
                                 <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#276b1d] dark:text-[#4fb33f] font-mono font-bold text-sm">+254</span>
                                 <input id="checkout-phone" autocomplete="tel" required :aria-invalid="!!errors.phone" v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
@@ -475,40 +551,45 @@ onUnmounted(() => {
 
                             <!-- How it works -->
                             <div class="flex items-center gap-1.5 mt-6 mb-6">
-                                <template v-for="(s, i) in ['Confirm order', 'Get STK prompt', 'Enter your PIN']" :key="s">
+                                <template v-for="(step, i) in (isWhatsApp ? ['Place order', 'Send on WhatsApp', 'Pay & we confirm'] : ['Confirm order', 'Get STK prompt', 'Enter your PIN'])" :key="step">
                                     <div class="flex items-center gap-2 flex-1">
                                         <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-[10px] font-black">{{ i + 1 }}</span>
-                                        <span class="text-[10px] text-on-surface-variant leading-tight">{{ s }}</span>
+                                        <span class="text-[10px] text-on-surface-variant leading-tight">{{ step }}</span>
                                     </div>
-                                    <span v-if="i < 2" class="material-symbols-outlined text-on-surface-variant/30 text-sm">chevron_right</span>
+                                    <span v-if="i < 2" class="material-symbols-outlined text-on-surface-variant/30 text-sm" aria-hidden="true">chevron_right</span>
                                 </template>
                             </div>
 
-                            <p class="text-sm text-on-surface-variant mb-5">You’ll confirm the final total, then approve it with your M-Pesa PIN on your phone.</p>
+                            <p class="text-sm text-on-surface-variant mb-5">
+                                <template v-if="isWhatsApp">We’ll record your order and hold your pieces for {{ payments.hold_hours || 48 }} hours. Then you send it on WhatsApp and pay as the studio confirms. Nothing is charged now.</template>
+                                <template v-else>You’ll confirm the final total, then approve it with your M-Pesa PIN on your phone.</template>
+                            </p>
                             <!-- Amount mismatch: no pay action until support has reviewed it -->
                             <div v-if="paymentBlocked" class="flex flex-col gap-3 sm:flex-row">
                                 <Link :href="route('track', { ref: orderReference })" class="action-primary flex-1">Track This Order</Link>
                                 <Link :href="route('contact')" class="action-secondary flex-1">Contact Support</Link>
                             </div>
-                            <!-- Pay button -->
+                            <!-- Main action -->
                             <button
                                 v-else
                                 @click="handlePayment"
-                                :disabled="isProcessing"
-                                class="action-primary w-full py-4 text-base">
-                                <template v-if="!isProcessing">
-                                    <span class="material-symbols-outlined" aria-hidden="true">lock</span>
-                                    {{ orderId ? 'Resume Payment' : `Pay ${formatAmount(payTotal)} with M-Pesa` }}
+                                :disabled="isProcessing || switching"
+                                class="w-full py-4 text-base"
+                                :class="isWhatsApp ? 'wa-action' : 'action-primary'">
+                                <template v-if="!isProcessing && !switching">
+                                    <span class="material-symbols-outlined" aria-hidden="true">{{ isWhatsApp ? 'chat' : 'lock' }}</span>
+                                    <template v-if="isWhatsApp">{{ orderId ? 'Send this order on WhatsApp' : `Place order · ${formatAmount(payTotal)}` }}</template>
+                                    <template v-else>{{ orderId ? 'Resume Payment' : `Pay ${formatAmount(payTotal)} with M-Pesa` }}</template>
                                 </template>
                                 <template v-else>
-                                    <span class="material-symbols-outlined animate-spin">progress_activity</span>
-                                    Creating your order…
+                                    <span class="material-symbols-outlined animate-spin" aria-hidden="true">progress_activity</span>
+                                    {{ isWhatsApp ? 'Placing your order…' : 'Creating your order…' }}
                                 </template>
                             </button>
 
                             <p class="text-center text-[10px] text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]">shield</span>
-                                You'll receive a secure STK push on your phone
+                                <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">shield</span>
+                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll receive a secure STK push on your phone' }}
                             </p>
                         </div>
                     </div>
@@ -574,6 +655,17 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
+                            <!-- Studio paused M-Pesa mid-checkout: keep this same order, send it on WhatsApp -->
+                            <section v-else-if="mpesaPaused && !isPaid" class="bg-surface text-on-surface border border-outline-variant rounded-3xl p-7 sm:p-9" role="alert">
+                                <p class="text-sm text-primary font-semibold mb-3">M-Pesa is paused</p>
+                                <h2 class="text-2xl font-semibold mb-3">Send this order on WhatsApp instead</h2>
+                                <p class="text-on-surface-variant mb-6">Nothing was charged. Your order {{ orderReference }} and its pieces are kept: send it on WhatsApp and pay as the studio confirms.</p>
+                                <button type="button" @click="switchToWhatsApp" :disabled="switching" class="wa-action w-full py-4">
+                                    <span class="material-symbols-outlined" aria-hidden="true">chat</span>
+                                    {{ switching ? 'Moving your order…' : 'Continue on WhatsApp' }}
+                                </button>
+                                <button type="button" @click="closePaymentModal(); mpesaPaused = false" class="block mx-auto mt-5 text-sm underline">Back to checkout</button>
+                            </section>
                             <MpesaStkPanel
                                 v-else-if="!isPaid"
                                 :amount="orderAmount ?? cart.totalPrice"
@@ -592,6 +684,7 @@ onUnmounted(() => {
                                 :receiptUrl="receiptUrl"
                                 :reference="orderReference"
                                 :email="form.email"
+                                :whatsappUrl="paidWhatsAppUrl"
                             />
                         </div>
                     </div>
@@ -603,6 +696,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.pay-option {
+    display: flex; align-items: flex-start; gap: .75rem; width: 100%;
+    border: 1px solid var(--card-border, rgba(127,127,127,.25)); border-radius: 1rem;
+    padding: 1rem; background: rgb(var(--background-rgb) / .6); transition: border-color .15s, box-shadow .15s;
+}
+.pay-option:hover { border-color: rgb(var(--primary-rgb) / .5); }
+.pay-option-on { border-color: rgb(var(--primary-rgb)); box-shadow: 0 0 0 1px rgb(var(--primary-rgb)); }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

@@ -12,7 +12,7 @@ final class PageSeo
 {
     public static function forRequest(Request $request): array
     {
-        $name = ThemeSetting::get('site_name', 'Serana Closet');
+        $name = StoreProfile::name();
         $path = $request->getPathInfo();
         $base = rtrim(config('app.url'), '/');
         $titles = ['/' => 'Serana Closet', '/shop' => 'Shop Collection', '/drops' => 'Serana Drops', '/custom-order' => 'Custom Order', '/about' => 'About Serana', '/contact' => 'Contact Serana', '/the-circle' => 'The Serana Circle'];
@@ -48,6 +48,8 @@ final class PageSeo
                 if ($seo['image']) $seo['structured_data']['image'] = self::absolute($seo['image'], $base);
             }
         }
+        // Home: tell search engines how to reach the store (phone, email, socials).
+        if ($path === '/') $seo['structured_data'] = StoreProfile::structuredData($seo['url']);
         if ($seo['image']) $seo['image'] = self::absolute($seo['image'], $base);
         return $seo;
     }

@@ -39,7 +39,7 @@ const hasDrops = computed(() => props.drops.length > 0);
     <div class="space-y-4">
         <div v-if="!hasDrops" class="text-center text-slate-500 py-16 bg-slate-900/40 rounded-2xl ring-1 ring-white/5">
             <span class="material-symbols-outlined text-3xl">bolt</span>
-            <p class="mt-2 text-sm">No drops yet. Create one to start a sell-then-make campaign.</p>
+            <p class="mt-2 text-sm">No pre-order campaigns yet. Select New campaign to set a price and production goal.</p>
         </div>
 
         <div v-for="d in drops" :key="d.id" class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl overflow-hidden">
@@ -53,9 +53,9 @@ const hasDrops = computed(() => props.drops.length > 0);
                         <div class="min-w-0">
                             <div class="flex items-center gap-2">
                                 <h3 class="text-white font-medium truncate">{{ d.title }}</h3>
-                                <span :class="['text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full', statusStyle[d.status] || 'bg-white/5 text-slate-400']">{{ d.status }}</span>
+                                <span :class="['text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full', statusStyle[d.status] || 'bg-white/5 text-slate-400']">{{ ({ draft: 'Draft — hidden', live: 'Accepting reservations', greenlit: 'In production', fulfilled: 'Dispatched', closed: 'Closed' })[d.status] || d.status }}</span>
                             </div>
-                            <p class="text-slate-500 text-xs mt-0.5">{{ formatAmount(d.price, page.props) }} · ends {{ fmtDate(d.ends_at) }}</p>
+                            <p class="text-slate-500 text-xs mt-0.5">{{ formatAmount(d.price, page.props) }} · {{ d.ends_at ? 'Deadline: ' + fmtDate(d.ends_at) : 'No deadline' }}</p>
                         </div>
                         <div class="flex gap-1 shrink-0">
                             <button @click="emit('edit', d)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-slate-200 hover:bg-white/10">Edit</button>

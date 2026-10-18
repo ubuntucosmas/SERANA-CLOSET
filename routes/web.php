@@ -27,40 +27,43 @@ Route::get('/shop',                [ShopController::class, 'index'])->name('shop
 Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.show');
 Route::get('/custom-order',        [CustomOrderController::class, 'index'])->name('custom-order');
 Route::post('/custom-orders',      [CustomOrderController::class, 'store'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:custom-orders')
     ->block(10, 10)->name('custom-orders.store');
 // Serana Drops — sell-then-make pre-orders. Reserving creates a CustomOrder
 // (type='drop') and then rides the standard M-Pesa STK flow.
 Route::get('/drops',                 [App\Http\Controllers\DropController::class, 'index'])->name('drops');
 Route::get('/drops/{drop}',          [App\Http\Controllers\DropController::class, 'show'])->name('drops.show');
 Route::post('/drops/{drop}/reserve', [App\Http\Controllers\DropController::class, 'reserve'])
-    ->middleware('throttle:20,1')
+    ->middleware('throttle:drops')
     ->block(10, 10)->name('drops.reserve');
 Route::get('/about',               fn () => Inertia::render('About'))->name('about');
 Route::get('/the-circle',          [CircleController::class, 'index'])->name('circle');
-Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware('throttle:10,1')->name('newsletter.subscribe');
+Route::post('/newsletter/subscribe', [App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware('throttle:newsletter')->name('newsletter.subscribe');
 Route::get('/contact',             fn () => Inertia::render('Contact'))->name('contact');
 Route::get('/cart',                fn () => Inertia::render('Cart'))->name('cart');
 Route::get('/checkout',            [CheckoutController::class, 'index'])->name('checkout');
 Route::post('/checkout/process',   [CheckoutController::class, 'process'])
-    ->middleware('throttle:20,1')
+    ->middleware('throttle:checkout')
     ->block(10, 10)->name('checkout.process');
+// Same order, paid via WhatsApp instead of an M-Pesa prompt (no duplicate order).
+Route::post('/checkout/{order}/whatsapp', [CheckoutController::class, 'switchToWhatsApp'])
+    ->middleware('throttle:checkout-switch')->name('checkout.whatsapp');
 
 // Public order tracking (guest-friendly). Lookup is throttled and requires
 // reference + phone, so it can't be used to enumerate orders.
 Route::get('/track',         [OrderTrackingController::class, 'index'])->name('track');
 Route::post('/track/lookup', [OrderTrackingController::class, 'lookup'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:track')
     ->name('track.lookup');
 
 // M-Pesa Secure Protocol Routes
 // Throttled: STK initiation sends a real (billable) M-Pesa prompt to a phone.
 Route::post('/payments/mpesa/stk', [MpesaController::class, 'initiate'])
-    ->middleware('throttle:6,1')
+    ->middleware('throttle:stk')
     ->name('mpesa.stk');
 // Polled every 5s by the checkout modal; 30/min accommodates that with headroom.
 Route::get('/payments/mpesa/status/{orderId}', [MpesaController::class, 'status'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:payment-status')
     ->name('mpesa.status');
 // Token-guarded callback: Safaricom posts to the URL we register, which embeds a
 // shared secret. See VerifyMpesaCallback middleware.
@@ -99,7 +102,7 @@ Route::middleware('auth')->group(function () {
         // Customer-safe projection: never ship Studio notes or payment internals.
         return Inertia::render('Profile/DesignsVault', [
             'orders' => auth()->user()->customOrders()->latest()->get()
-                ->map(fn ($o) => $o->only(['id', 'cipher', 'type', 'status', 'is_paid', 'price_quoted', 'created_at'])),
+                ->map(fn ($o) => $o->only(['id', 'cipher', 'type', 'status', 'is_paid', 'payment_method', 'price_quoted', 'created_at'])),
         ]);
     })->name('profile.designs');
 
@@ -120,6 +123,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::delete('/order/{id}/force', [StudioController::class, 'forceDelete'])->name('studio.order.force_delete');
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->name('studio.order.record_payment');
+    Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
 
     // Catalog Management
     Route::get('/catalog', [App\Http\Controllers\Admin\CatalogController::class, 'index'])->name('admin.catalog.index');
@@ -148,6 +152,8 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/theme/update', [App\Http\Controllers\Admin\ThemeController::class, 'update'])->name('admin.theme.update');
     Route::post('/theme/bulk-update', [App\Http\Controllers\Admin\ThemeController::class, 'bulkUpdate'])->name('admin.theme.bulk_update');
     Route::delete('/theme/{key}', [App\Http\Controllers\Admin\ThemeController::class, 'destroy'])->name('admin.theme.destroy');
+    Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->name('admin.payment_settings.update');
+    Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware('throttle:6,1')->name('admin.payment_settings.test_mpesa');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 

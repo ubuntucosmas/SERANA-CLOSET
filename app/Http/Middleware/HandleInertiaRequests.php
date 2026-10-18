@@ -50,11 +50,13 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'drops_enabled' => (bool) config('services.drops.enabled'),
-            'whatsapp_number' => fn () => WhatsApp::normalizeNumber(
-                ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
-            ),
+            // Who the store is and how to reach it (Studio → Settings), one source for every page.
+            'store' => fn () => \App\Support\StoreProfile::forFrontend(),
+            'whatsapp_number' => fn () => \App\Support\StoreProfile::whatsapp(),
             // Custom order options are passed only to the pages that use them.
-            'theme_settings' => fn () => collect(ThemeSetting::values())->except(\App\Support\CustomOrderOptions::KEY)->mapWithKeys(function ($value, $key) {
+            // How customers can pay right now (Studio → Settings → Payments).
+            'payments' => fn () => \App\Support\PaymentSettings::forCustomers(),
+            'theme_settings' => fn () => collect(ThemeSetting::values())->except([\App\Support\CustomOrderOptions::KEY, \App\Support\PaymentSettings::KEY])->mapWithKeys(function ($value, $key) {
                 return [$key => ThemeSetting::get($key)];
             })->all(),
             'categories' => fn () => \App\Models\Category::all()->map(function ($cat) {
