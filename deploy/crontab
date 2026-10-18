@@ -1,0 +1,8 @@
+# Serana Closet scheduler. Install with `crontab -e` as the web user (e.g. www-data);
+# replace /var/www/serana with the app path. Every minute it expires abandoned
+# checkouts, releases their stock, confirms M-Pesa payments whose callback was
+# missed, and records the heartbeat that `php artisan serana:preflight` checks.
+* * * * * cd /var/www/serana && php artisan schedule:run >> /dev/null 2>&1
+
+# Cron-only hosts (no supervisor): also drain the email queue every minute.
+# * * * * * cd /var/www/serana && php artisan queue:work --stop-when-empty --tries=3 --max-time=55 >> /dev/null 2>&1

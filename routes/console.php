@@ -18,5 +18,9 @@ Schedule::command('stock:release-expired')->everyMinute()->withoutOverlapping();
 // every-minute jobs in the same scheduler tick.
 Schedule::command('mpesa:reconcile')->everyMinute()->withoutOverlapping()->runInBackground();
 
+// Proof of life for serana:preflight: if this stops updating, nothing above runs.
+Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever(\App\Console\Commands\ProductionPreflight::HEARTBEAT, now()->timestamp))
+    ->everyMinute()->name('scheduler-heartbeat');
+
 // Greenlight or close drops once their reservation deadline passes.
 Schedule::command('drops:close-expired')->everyFiveMinutes()->withoutOverlapping();
