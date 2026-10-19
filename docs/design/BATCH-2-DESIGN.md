@@ -1,6 +1,9 @@
 # Batch 2 Design: Ledger, Deposits, Refunds, Delivery, Physical Shop (POS)
 
-> Status: **DRAFT, awaiting owner approval.** No application code is written until it is approved.
+> Status: **APPROVED 2026-10-19** with these owner decisions:
+> - **D3** (card payments), **D6** (eTIMS) and **D17** (VAT) are set aside for later. Nothing is built for them: no card-terminal flow, no `fiscal_documents`, no `tax_amount`. `card` stays a ledger method name only.
+> - **D5:** delivery options are fully Studio-managed and dynamic. No zones or fees are hard-coded. Only "Shop pickup (free)" and "Quote on WhatsApp" are seeded; the owner creates every zone, fee and free-over threshold.
+> - **All other decisions** (D1, D2, D4, D7–D16) are approved as recommended.
 > Base: `hardening/batch-1` @ `2cbf88f` (PR #1, still open, not merged into `master`). Reference: `docs/PROJECT_UNDERSTANDING.md`.
 > Conventions: all money is **whole KES as integers**. "Setting" means a Studio-editable default, never a hard-coded rule. `[CHALLENGE]` marks a place where I recommend a different approach from the brief, with the reason.
 
@@ -643,10 +646,10 @@ Design rules:
 |---|---|---|
 | D1 | **`payment_status` vs a separate `resolution` column** | Store both, as in §2.2: queries use `payment_status` (your vocabulary), and the numbers stay derivable. No behaviour difference for you |
 | D2 | **Single shop or several locations?** | Build for **one shop now** with a `location_id` on stock and tills (one row). A second shop later is configuration plus per-location stock, not a rewrite |
-| D3 | **Card payments** | **A separate card machine** (bank/PDQ), with the terminal reference entered at the till. No card integration in V1. Or "no cards" if you don't plan a machine |
+| D3 | ~~**Card payments**~~ *deferred by owner* | **A separate card machine** (bank/PDQ), with the terminal reference entered at the till. No card integration in V1. Or "no cards" if you don't plan a machine |
 | D4 | **Cashier discount limit** | **10% of the sale, capped at KES 500**, whichever is lower. Above that needs a manager PIN. Both numbers are settings |
-| D5 | **Default delivery zones and fees** *(placeholders, set your real ones)* | Shop pickup: free. Nairobi CBD: KES 200. Nairobi (other areas): KES 350, free over KES 10,000. Kiambu / Machakos / Kajiado environs: KES 500. Rest of Kenya by courier: KES 600. Outside these: quote on WhatsApp |
-| D6 | **KRA eTIMS** | **Confirm with your accountant** whether your shop and online receipts must be eTIMS invoices (it depends on registration and turnover). Design: a `fiscal_documents` hook issued after commit per receipt, plus credit notes for refunds and returns. It is not built until confirmed. If needed, it is a separate integration (OSCU/VSCU) with its own phase |
+| D5 | **Delivery zones and fees**. *Owner: fully Studio-managed, nothing hard-coded.* Was: | Shop pickup: free. Nairobi CBD: KES 200. Nairobi (other areas): KES 350, free over KES 10,000. Kiambu / Machakos / Kajiado environs: KES 500. Rest of Kenya by courier: KES 600. Outside these: quote on WhatsApp |
+| D6 | ~~**KRA eTIMS**~~ *deferred by owner* | **Confirm with your accountant** whether your shop and online receipts must be eTIMS invoices (it depends on registration and turnover). Design: a `fiscal_documents` hook issued after commit per receipt, plus credit notes for refunds and returns. It is not built until confirmed. If needed, it is a separate integration (OSCU/VSCU) with its own phase |
 | D7 | **Stock per size** | **Yes. It's essential for a physical shop:** you cannot sell the last M from a "3 left" count that doesn't know sizes. Sets with separate top and bottom sizes are the hard case. Options: (a) stock sets as two components (a set sale consumes one top unit and one bottom unit). This is flexible and matches how they're cut. (b) sell sets only in matched sizes (one variant per size). (c) every top×bottom combination (25 variants per set; not recommended). **Recommend (a)** |
 | D8 | **What `batch_limit` means after variants** | "Limited batch of 15" becomes **receiving 15 units** (a receive movement). The storefront scarcity badge reads on_hand. Products without a batch limit become `track_stock=false` (made to order; currently 8 of 11 products). Confirm that unlimited products really are made to order |
 | D9 | **Connectivity** | **V1: an online POS plus a manual fallback.** During an outage: pre-numbered paper receipt book; cash and the M-Pesa till (the customer pays on their phone; works without our internet). Only stock on the shelf can be sold. Afterwards, a manager uses a **late-entry** screen with the slip number, the original time (`occurred_at`) and the actor (audited). **Later:** an offline-capable PWA (local queue, sync, conflict handling against the shared pool). That's a much bigger change, and offline sales risk overselling items also sold online during the gap. Recommend V1 now, and revisit once outage frequency is known |
@@ -657,7 +660,7 @@ Design rules:
 | D14 | **Deposits for shop and drop orders** | **No: deposits are bespoke-only.** Shop/drop orders are paid in full. Underpayment on them follows the brief's rule (24h balance link) |
 | D15 | **Pay link lifetime** | 14 days (setting), re-issuable from the Studio. A paid order's link still shows the receipt |
 | D16 | **Discounts online** | **None in this batch.** POS only. Online promo codes are a separate feature |
-| D17 | **VAT** | Are you VAT-registered? If so, receipts must show VAT, and line amounts need a tax field. The design adds `tax_amount` on lines as nullable, unused until confirmed |
+| D17 | ~~**VAT**~~ *deferred by owner* | Are you VAT-registered? If so, receipts must show VAT, and line amounts need a tax field. The design adds `tax_amount` on lines as nullable, unused until confirmed |
 
 ---
 
