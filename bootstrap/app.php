@@ -25,7 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'mpesa.callback' => \App\Http\Middleware\VerifyMpesaCallback::class,
         ]);
 
-        $middleware->trustProxies(at: '*');
+        // Trusted proxies come from TRUSTED_PROXIES (config/trustedproxy.php),
+        // read per request by the framework's TrustProxies middleware.
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

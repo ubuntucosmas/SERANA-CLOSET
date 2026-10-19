@@ -64,6 +64,10 @@ class ProductionPreflight extends Command
             $callback = (string) config('services.mpesa.callback_url');
             $this->check(str_starts_with($callback, 'https://') && str_ends_with($callback, '/' . config('services.mpesa.callback_token')),
                 'M-Pesa callback URL is HTTPS and carries the token', 'Set MPESA_CALLBACK_URL=https://<domain>/payments/mpesa/callback/<MPESA_CALLBACK_TOKEN>.');
+            // With every proxy trusted, anyone can forge X-Forwarded-For past the allowlist.
+            $proxies = config('trustedproxy.proxies');
+            $this->check(! (config('services.mpesa.env') === 'production' && ! empty(config('services.mpesa.allowed_ips')) && in_array($proxies, ['*', '**'], true)),
+                'M-Pesa IP allowlist cannot be spoofed', 'TRUSTED_PROXIES is "*", so X-Forwarded-For can be forged past MPESA_ALLOWED_IPS. List your proxy/CDN ranges instead.', blocker: false);
         } else {
             $this->check(false, 'M-Pesa credentials', 'Not configured, so checkout offers WhatsApp only. Add the live Daraja keys when the till is approved.', blocker: false);
         }
