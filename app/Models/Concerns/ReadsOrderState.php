@@ -66,7 +66,8 @@ trait ReadsOrderState
 
     public function hasAmountMismatch(?bool $ledger = null): bool
     {
-        return ($ledger ?? self::ledgerReads()) ? $this->resolution === 'amount_mismatch' : $this->status === OrderStatus::AMOUNT_MISMATCH;
+        // Ledger: any open payment problem (mismatch, code conflict, late payment...) needs the studio.
+        return ($ledger ?? self::ledgerReads()) ? ($this->resolution ?? 'none') !== 'none' : $this->status === OrderStatus::AMOUNT_MISMATCH;
     }
 
     /** The legacy type vocabulary (standard, drop, or the garment) for screens that still use it. */
@@ -121,7 +122,8 @@ trait ReadsOrderState
             $this->fulfilment_status !== 'pending' => $this->fulfilment_status,
             $this->order_state === 'expired' => OrderStatus::EXPIRED,
             $this->order_state === 'cancelled' => OrderStatus::CANCELLED,
-            $this->resolution === 'amount_mismatch' => OrderStatus::AMOUNT_MISMATCH,
+            // Any open payment problem reads as the legacy "needs review" status.
+            ($this->resolution ?? 'none') !== 'none' => OrderStatus::AMOUNT_MISMATCH,
             $this->kind === 'bespoke' => 'pending',
             $this->isPaidUp(true) => OrderStatus::PAID,
             (bool) $this->payment_failed => OrderStatus::PAYMENT_FAILED,
@@ -189,7 +191,7 @@ trait ReadsOrderState
         match ($status) {
             OrderStatus::EXPIRED => $q->where('fulfilment_status', 'pending')->where('order_state', 'expired'),
             OrderStatus::CANCELLED => $q->where('fulfilment_status', 'pending')->where('order_state', 'cancelled'),
-            OrderStatus::AMOUNT_MISMATCH => $q->where('fulfilment_status', 'pending')->where('order_state', 'open')->where('resolution', 'amount_mismatch'),
+            OrderStatus::AMOUNT_MISMATCH => $q->where('fulfilment_status', 'pending')->where('order_state', 'open')->where('resolution', '!=', 'none'),
             // Bespoke not started, or a paid shop/drop order not started (see legacyStatus()).
             'pending' => $unsettled($q)->where(fn ($p) => $p->where('kind', 'bespoke')->orWhere(fn ($c) => $paidUp($commerce($c)))),
             OrderStatus::PAID => $paidUp($commerce($unsettled($q))),

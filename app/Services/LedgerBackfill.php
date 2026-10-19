@@ -129,7 +129,7 @@ class LedgerBackfill
      */
     private function uniqueReference(string $method, ?string $reference, int $orderId): array
     {
-        if ($reference === null || ! OrderPayment::where('method', $method)->where('external_reference', $reference)->exists()) {
+        if ($reference === null || ! OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)->exists()) {
             return [$reference, false];
         }
 

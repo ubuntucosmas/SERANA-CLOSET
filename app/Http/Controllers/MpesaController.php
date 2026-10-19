@@ -230,6 +230,16 @@ class MpesaController extends Controller
             }
         }
 
+        // One M-Pesa code is one transaction (Phase C): a code already booked on another
+        // order is never booked again here; the Studio is told and the owner alerted.
+        if ($resultCode == 0 && $receiptNumber && ($booked = $this->settlement->alreadyBooked('mpesa_stk', $receiptNumber, null))
+            && (int) $booked->custom_order_id !== (int) $order->id) {
+            $attempt?->markFailed((string) $resultCode, "M-Pesa code already recorded on order {$booked->order->cipher}");
+            $this->settlement->flagReferenceConflict($order, $receiptNumber, $booked->order);
+
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+        }
+
         // 2. Idempotency / duplicate-payment check
         if ($order->isPaidUp() || $order->legacyStatus() === OrderStatus::PAID) {
             if ($attempt && $attempt->status === PaymentAttempt::PENDING) {

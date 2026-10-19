@@ -305,7 +305,8 @@ class StudioController extends Controller
 
         if ($existing = app(OrderSettlementService::class)->alreadyBooked($data['method'], $data['reference'], null)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'reference' => "{$data['reference']} is already recorded on order {$existing->order->cipher}.",
+                'reference' => (\App\Models\OrderPayment::scopeFor($data['method']) === 'mpesa' ? 'This M-Pesa code' : 'This reference')
+                    . " is already recorded on order {$existing->order->cipher}.",
             ]);
         }
 

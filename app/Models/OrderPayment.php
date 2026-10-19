@@ -18,6 +18,16 @@ class OrderPayment extends Model
 
     public const METHODS = ['mpesa_stk', 'mpesa_manual', 'cash', 'card', 'bank', 'credit'];
 
+    /**
+     * The namespace a reference is unique in (owner decision, Phase C): one
+     * M-Pesa code is one transaction however it reached the ledger. The
+     * database computes the same value (reference_scope, generated column).
+     */
+    public static function scopeFor(string $method): string
+    {
+        return in_array($method, ['mpesa_stk', 'mpesa_manual'], true) ? 'mpesa' : $method;
+    }
+
     protected $guarded = [];
 
     protected $casts = [

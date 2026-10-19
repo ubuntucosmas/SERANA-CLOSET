@@ -195,6 +195,42 @@ class OrderSettlementService
     }
 
     /**
+     * An STK callback carried an M-Pesa code already booked on another order.
+     * One transaction is never counted twice (owner decision), so nothing is
+     * booked: the order is flagged for the Studio with the reason, and the
+     * owner is alerted after commit.
+     */
+    public function flagReferenceConflict(CustomOrder $order, string $reference, CustomOrder $bookedOn): void
+    {
+        $reason = "M-Pesa code {$reference} is already recorded on order {$bookedOn->cipher}.";
+        DB::transaction(function () use ($order, $reason) {
+            $locked = $this->lockForMoney($order);
+            DB::table('custom_orders')->where('id', $locked->id)->update(['resolution' => 'needs_resolution', 'resolution_reason' => $reason]);
+            $locked->forceFill(['resolution' => 'needs_resolution', 'resolution_reason' => $reason]);
+            $this->recompute($locked);
+        }, 3);
+
+        Log::warning("M-Pesa code conflict on Order #{$order->id}: {$reason}");
+        $this->alertOwner($order, "⚠ M-Pesa code already recorded — order {$order->cipher}",
+            "Safaricom confirmed a payment for order {$order->cipher} with M-Pesa code {$reference}, but that code is already recorded on order {$bookedOn->cipher}.\n\n"
+            . "It was not booked again. Check the M-Pesa statement: if the earlier entry on {$bookedOn->cipher} was typed by mistake, reverse it there and record this payment here.");
+    }
+
+    /** Queue a plain-text alert to the owner's inbox, if there is one. */
+    private function alertOwner(CustomOrder $order, string $subject, string $body): void
+    {
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
+        if (! $ownerEmail) {
+            return;
+        }
+        try {
+            Mail::to($ownerEmail)->queue(new \App\Mail\PaymentProblemAlertMail($order, $subject, $body));
+        } catch (\Throwable $e) {
+            Log::error("Payment problem alert could not be queued for Order #{$order->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Set what a bespoke order costs. Lines are append-only (I3): the first quote
      * is an item line, later changes are adjustment lines for the difference.
      */
@@ -269,7 +305,9 @@ class OrderSettlementService
             return $payment;
         }
 
-        return $reference !== null ? OrderPayment::where('method', $method)->where('external_reference', $reference)->first() : null;
+        return $reference !== null
+            ? OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)->first()
+            : null;
     }
 
     private function balance(CustomOrder $order): int

@@ -110,6 +110,10 @@ class LedgerVerifier
 
         if (in_array(self::MAPPING, $checks, true)) {
             foreach (LegacyOrderMap::columns($order->type, $order->status, $order->payment_method) as $column => $value) {
+                // Legacy has one "needs review" status for every open payment problem.
+                if ($column === 'resolution' && ($value !== 'none') === (($order->resolution ?? 'none') !== 'none')) {
+                    continue;
+                }
                 if ($order->{$column} !== $value) {
                     $issues[] = "{$column}: legacy implies " . var_export($value, true) . ', stored ' . var_export($order->{$column}, true);
                 }

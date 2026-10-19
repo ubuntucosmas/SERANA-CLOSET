@@ -198,7 +198,7 @@ class SettlementLedgerTest extends TestCase
         $this->actingAs($owner)->post(route('studio.order.record_payment', $first), ['amount' => 5000, 'method' => 'mpesa_manual', 'reference' => 'QSAME']);
 
         $this->post(route('studio.order.record_payment', $second), ['amount' => 5000, 'method' => 'mpesa_manual', 'reference' => 'QSAME'])
-            ->assertSessionHasErrors(['reference' => "QSAME is already recorded on order {$first->cipher}."]);
+            ->assertSessionHasErrors(['reference' => "This M-Pesa code is already recorded on order {$first->cipher}."]);
         $this->assertSame(0, $second->payments()->count());
     }
 
