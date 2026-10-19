@@ -50,6 +50,12 @@ class ProductionPreflight extends Command
         $this->check($pending === [], 'All migrations have run', 'Back up, then run php artisan migrate --force. Pending: ' . implode(', ', $pending));
         $defaults = User::whereIn('role', \App\Support\Role::STAFF)->get()->filter(fn ($u) => Hash::check('password', $u->password))->pluck('email');
         $this->check(User::where('role', \App\Support\Role::OWNER)->exists(), 'A Studio owner exists', 'Create one: php artisan serana:admin you@yourdomain --name="Your Name"');
+        // The money gate for the batch-2 cutover: ledger reads only on a ledger that matches.
+        if (config('serana.ledger_reads')) {
+            $mismatched = count(app(LedgerCheckCommand::class)->scan()['mismatches']);
+            $this->check($mismatched === 0, 'Ledger matches the legacy order fields',
+                "LEDGER_READS is on but serana:ledger-check finds {$mismatched} mismatch(es). Set LEDGER_READS=false, run php artisan serana:ledger-check and resolve them.");
+        }
         $this->check($defaults->isEmpty(), 'No staff account uses the default password', 'Reset: php artisan serana:admin <email> for ' . $defaults->implode(', '));
 
         $this->section('Email');

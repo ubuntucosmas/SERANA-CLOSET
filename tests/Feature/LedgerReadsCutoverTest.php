@@ -21,6 +21,7 @@ class LedgerReadsCutoverTest extends TestCase
         'Services/LedgerVerifier.php',
         'Services/OrderSettlementService.php',
         'Console/Commands/LedgerVerifyCommand.php',
+        'Console/Commands/LedgerCheckCommand.php', // compares legacy with the ledger: reading both is its job
     ];
 
     /** Models whose own status/type columns are not an order's. */
