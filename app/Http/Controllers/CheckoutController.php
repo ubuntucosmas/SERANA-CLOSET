@@ -123,6 +123,8 @@ class CheckoutController extends Controller
 
                 // Hold (not sell) batch stock for each item under a row lock so
                 // concurrent checkouts serialize on the product and can't oversell.
+                // Lock order: products (by id), then stock_reservations — the
+                // global order every stock path follows (CustomOrder::lockReservedProducts).
                 foreach ($quantities->sortKeys() as $productId => $quantity) {
                     $product = Product::where('id', $productId)->lockForUpdate()->first();
                     if (! $product || ! $product->in_stock) {

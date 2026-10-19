@@ -130,6 +130,8 @@ class CustomOrder extends Model
     public function commitReservations(): void
     {
         DB::transaction(function () {
+            // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
+            $this->lockReservedProducts();
             $reservations = $this->stockReservations()
                 ->whereIn('status', ['held', 'released'])
                 ->lockForUpdate()->get();
@@ -154,6 +156,8 @@ class CustomOrder extends Model
         $window = $until ?? now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
 
         return DB::transaction(function () use ($window) {
+            // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
+            $this->lockReservedProducts();
             $reservations = $this->stockReservations()
                 ->whereIn('status', ['held', 'released'])
                 ->lockForUpdate()->get();
@@ -178,6 +182,25 @@ class CustomOrder extends Model
 
             return true;
         });
+    }
+
+    /**
+     * The one global lock order for stock: products by id, then
+     * stock_reservations. Checkout locks its products and then inserts holds;
+     * a path that locked this order's holds first and a product second would
+     * deadlock against it (InnoDB gap locks on stock_reservations block the
+     * checkout's insert while the checkout holds the product). Proven on
+     * MariaDB by tests/Feature/ConcurrencyTest.
+     */
+    private function lockReservedProducts(): void
+    {
+        $productIds = $this->stockReservations()
+            ->whereIn('status', ['held', 'released'])
+            ->pluck('product_id')->unique()->sort()->values();
+
+        if ($productIds->isNotEmpty()) {
+            Product::withTrashed()->whereIn('id', $productIds)->orderBy('id')->lockForUpdate()->get(['id']);
+        }
     }
 
     /** Return this order's held stock to the pool (failed/expired payment). */
