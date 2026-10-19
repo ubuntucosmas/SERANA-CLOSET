@@ -9,8 +9,10 @@ const emit = defineEmits(['openOrder', 'go']);
 
 const money = (v) => 'KSh ' + Number(v || 0).toLocaleString('en-KE');
 const age = (d) => d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`;
-const tone = { refund_due: 'text-amber-300', needs_resolution: 'text-rose-300', amount_mismatch: 'text-rose-300', unexpected_amount: 'text-orange-300' };
-const icon = { refund_due: 'currency_exchange', needs_resolution: 'gavel', amount_mismatch: 'error', unexpected_amount: 'warning' };
+// Shades the Studio light theme remaps for contrast (app.css).
+const tone = { refund_due: 'text-amber-400', needs_resolution: 'text-rose-300', amount_mismatch: 'text-rose-300', unexpected_amount: 'text-amber-400' };
+// Only icons in the subset loaded by app.blade.php.
+const icon = { refund_due: 'paid', needs_resolution: 'hourglass_top', amount_mismatch: 'warning', unexpected_amount: 'warning' };
 function open(item) {
     if (item.kind === 'refund_due') emit('go', 'refunds');
     else emit('openOrder', item.id);
@@ -21,7 +23,7 @@ function open(item) {
     <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-4 sm:p-6 mb-5" aria-labelledby="payment-attention-title">
         <div class="flex items-center justify-between gap-3 mb-1">
             <h2 id="payment-attention-title" class="text-white font-headline text-lg sm:text-xl">Payment problems</h2>
-            <span class="rounded-full px-3 py-1 text-sm font-semibold tabular-nums" :class="count ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-slate-400'" :aria-label="`${count} payment problems`">{{ count }}</span>
+            <span class="rounded-full px-3 py-1 text-sm font-semibold tabular-nums" :class="count ? 'bg-amber-500/15 text-amber-400' : 'bg-white/5 text-slate-400'" :aria-label="`${count} payment problems`">{{ count }}</span>
         </div>
         <p class="text-slate-500 text-sm mb-4">Refunds owed, orders waiting for your decision and payments for the wrong amount. Oldest first.</p>
         <p v-if="!items.length" class="text-sm text-slate-400">Nothing to sort out. Every payment matches its order.</p>

@@ -549,10 +549,10 @@ function removeAsset(key) {
                     </p>
                     <p v-if="isCommerceOrder && (selectedOrder.amount_paid > 0 || selectedOrder.balance_due < 0)" class="mt-1 text-xs text-slate-300">
                         Total {{ formatAmount(selectedOrder.chargeable_total, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} ·
-                        <template v-if="selectedOrder.balance_due < 0"><span class="text-amber-300">Owed back {{ formatAmount(-selectedOrder.balance_due, page.props) }}</span></template>
+                        <template v-if="selectedOrder.balance_due < 0"><span class="text-amber-400">Owed back {{ formatAmount(-selectedOrder.balance_due, page.props) }}</span></template>
                         <template v-else>Balance {{ formatAmount(selectedOrder.balance_due, page.props) }}</template>
                     </p>
-                    <p v-if="selectedOrder.resolution && selectedOrder.resolution !== 'none' && selectedOrder.resolution_reason" role="status" class="mt-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-xs text-amber-200">{{ selectedOrder.resolution_reason }}</p>
+                    <p v-if="selectedOrder.resolution && selectedOrder.resolution !== 'none' && selectedOrder.resolution_reason" role="status" class="mt-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-xs text-amber-400">{{ selectedOrder.resolution_reason }}</p>
                     <form v-if="canResolve" @submit.prevent class="mt-3 rounded-xl ring-1 ring-white/10 p-3 space-y-2" aria-label="Decide what happens to this order">
                         <p class="text-xs text-slate-300">
                             <template v-if="selectedOrder.stock_problem.waiting">Waiting for the next batch. When it is back, swap the customer onto it, or refund in full.</template>
@@ -586,7 +586,7 @@ function removeAsset(key) {
                         <li v-for="row in selectedOrder.ledger_rows" :key="row.id" class="flex flex-wrap items-center gap-2">
                             <span :class="row.reversed ? 'line-through text-slate-500' : ''">{{ row.type === 'payment' ? 'Payment' : row.type === 'refund' ? 'Refund' : 'Reversal' }} {{ formatAmount(row.amount, page.props) }} · {{ row.method }}<template v-if="row.reference"> · {{ row.reference }}</template> · {{ row.at }}</span>
                             <span v-if="row.flagged" class="text-rose-300">Code also booked on another order</span>
-                            <span v-if="row.unexpected" class="text-orange-300">Differs from its prompt</span>
+                            <span v-if="row.unexpected" class="text-amber-400">Differs from its prompt</span>
                             <span v-if="row.genuine" class="text-slate-400">Confirmed genuine</span>
                             <template v-if="canReverse && row.type === 'payment' && !row.reversed">
                                 <button type="button" @click="reviewBooking(row, 'reverse')" class="underline hover:text-rose-300">Reverse</button>

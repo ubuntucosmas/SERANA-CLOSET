@@ -10,7 +10,7 @@ export const studioSections = [
         who: 'Staff handling customer orders', where: 'Order progress is available to customers through order tracking. Internal notes stay within the Studio.',
         next: 'Open an order, check its payment and details, then save the appropriate production stage.',
         when: 'Update progress when work advances. Only confirm payment after verifying money received.' },
-    { id: 'refunds', label: 'Refunds', icon: 'currency_exchange', primary: false,
+    { id: 'refunds', label: 'Refunds', icon: 'paid', primary: false,
         question: 'Who is owed money back?', description: 'Customers who paid more than they owe, with the amount, the reason and how long they have waited.',
         who: 'Owner and managers', where: 'Internal. The customer receives a refund receipt by email when a refund is recorded.',
         next: 'Send the money, then select Mark refunded and enter the method, code and reason.',

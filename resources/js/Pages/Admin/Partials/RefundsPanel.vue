@@ -57,7 +57,7 @@ function submit(row) {
                         <p class="text-sm text-slate-300 mt-2">{{ row.cause }}</p>
                     </div>
                     <div class="sm:text-right shrink-0">
-                        <p class="text-xl font-semibold text-amber-300">{{ money(row.owed) }}</p>
+                        <p class="text-xl font-semibold text-amber-400">{{ money(row.owed) }}</p>
                         <p class="text-xs text-slate-500">owed for {{ age(row.age_days) }}</p>
                         <div v-if="openId !== row.id" class="mt-3 flex flex-wrap gap-2 sm:justify-end">
                             <a v-if="row.whatsapp_url" :href="row.whatsapp_url" target="_blank" rel="noopener"
