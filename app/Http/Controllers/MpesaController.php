@@ -34,6 +34,8 @@ class MpesaController extends Controller
             $validated = $request->validate([
                 'order_id' => 'required|integer',
                 'phone' => 'required|string|max:30',
+                // A choice, never an amount (I2): the server reads what is due from the ledger.
+                'pay' => 'nullable|in:deposit,balance',
             ]);
 
             $phone = Phone::normalize($validated['phone']);
@@ -106,7 +108,7 @@ class MpesaController extends Controller
             if ($order->hasFractionalTotal()) {
                 return response()->json(['success' => false, 'message' => 'This order amount needs studio review before M-Pesa payment. Contact support with your order reference.'], 422);
             }
-            $amount = $order->total();
+            $amount = $this->amountDue($order, $validated['pay'] ?? 'balance');
             if ($amount <= 0) {
                 return response()->json(['success' => false, 'message' => 'Order has no payable amount.'], 422);
             }
@@ -144,10 +146,13 @@ class MpesaController extends Controller
                 // A retry after "Payment Failed" is live again: put the order back
                 // into the pending state the expiry and reconciliation jobs watch.
                 // Conditional, so an earlier prompt's callback that settled the
-                // order in the meantime is never overwritten.
-                CustomOrder::whereKey($order->id)
-                    ->paidUp(false)
-                    ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
+                // order in the meantime is never overwritten. Shop and drop only:
+                // a bespoke order keeps its production stage.
+                if ($order->isCommerce()) {
+                    CustomOrder::whereKey($order->id)
+                        ->paidUp(false)
+                        ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
+                }
 
                 return response()->json([
                     'success' => true,
@@ -249,6 +254,15 @@ class MpesaController extends Controller
             // we pushed. A short/forged callback must never flip is_paid.
             $expected = $attempt?->amount ?? $order->total();
             if (! is_numeric($paidAmount) || (int) round((float) $paidAmount * 100) !== $expected * 100) {
+                // Bespoke: no stock is at stake, so money in is a payment as it arrived;
+                // the balance shows any shortfall or excess (design B/C).
+                if ($order->isBespoke() && is_numeric($paidAmount) && (int) round((float) $paidAmount) > 0) {
+                    $attempt?->markPaid($receiptNumber);
+                    $this->settlement->recordPayment($order, (int) round((float) $paidAmount), 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber,
+                        $attempt, "paid KSh {$paidAmount} against a KSh {$expected} prompt", $payload);
+
+                    return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+                }
                 $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
                 $this->settlement->flagAmountMismatch($order, $expected, $paidAmount, $receiptNumber, $attempt);
 
@@ -266,8 +280,8 @@ class MpesaController extends Controller
 
             // Only fail the order when no other push could still pay it — a
             // cancelled retry must not clobber an earlier prompt the customer
-            // may have completed.
-            if (! $order->hasLivePaymentAttempts()) {
+            // may have completed. Bespoke orders keep their production stage.
+            if ($order->isCommerce() && ! $order->hasLivePaymentAttempts()) {
                 $this->settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
             }
             Log::warning("M-Pesa Payment Failed for Order #{$order->id}. Code: $resultCode");
@@ -305,6 +319,14 @@ class MpesaController extends Controller
             // the client-side cart for the figure it displays.
             'amount' => $order->total(),
             'transaction_id' => $order->mpesa_receipt_number,
+            // The ledger, for deposit and balance payments (pay page).
+            'amount_paid' => (int) $order->amount_paid,
+            'balance_due' => max(0, (int) $order->balance_due),
+            'payment_status' => $order->payment_status,
+            // The prompt the page is waiting on: pending | paid | failed.
+            'attempt_status' => $request->filled('attempt')
+                ? $order->paymentAttempts()->where('checkout_request_id', $request->query('attempt'))->value('status')
+                : null,
             // Paid only: the payment record the customer posts to the studio.
             'whatsapp_url' => $isPaid ? \App\Support\WhatsAppOrderMessage::paidLink($order) : null,
             // Signed, time-limited receipt link — only valid once payment is confirmed.
@@ -314,6 +336,21 @@ class MpesaController extends Controller
                 )
                 : null,
         ]);
+    }
+
+    /**
+     * What one STK prompt asks for (I2), from the ledger: the bespoke deposit
+     * still unpaid when the customer chose "deposit" (bespoke only, D14),
+     * otherwise the whole balance.
+     */
+    private function amountDue(CustomOrder $order, string $choice): int
+    {
+        $balance = max(0, (int) $order->balance_due);
+        $depositLeft = max(0, $order->depositRequired() - (int) $order->amount_paid);
+
+        return $choice === 'deposit' && $order->isBespoke() && $depositLeft > 0 && $depositLeft < $balance
+            ? $depositLeft
+            : $balance;
     }
 
     /**
