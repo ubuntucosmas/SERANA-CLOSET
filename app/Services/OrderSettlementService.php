@@ -87,6 +87,10 @@ class OrderSettlementService
         }, 3);
 
         // After commit: a queued listener must never see an order the database hasn't settled yet.
+        if ($result['booked']) {
+            // Every payment gets its receipt (design B), whatever the order.
+            event(new \App\Events\PaymentRecorded(CustomOrder::withTrashed()->findOrFail($order->id), $result['payment'], $rawPayload));
+        }
         if ($result['became_paid'] && $order->kind !== 'bespoke') {
             event(new MpesaWebhookHandled(CustomOrder::withTrashed()->findOrFail($order->id), $rawPayload));
         }

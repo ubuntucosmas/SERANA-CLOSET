@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\CustomOrder;
+use App\Models\OrderPayment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -13,51 +14,86 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
 
 /**
- * The paid-order receipt — sent to the customer (and copied to the owner) the
- * moment payment is confirmed. Carries the durable tracking link so the
- * customer can follow the order long after the checkout tab is closed, and
- * attaches the same luxury PDF receipt available on the tracking page.
+ * The receipt for one payment (design B): sent to the customer (owner in
+ * Bcc) for every payment, deposit or balance, on every kind of order. It
+ * shows the total, this payment, the amount paid to date and the balance,
+ * all as of this payment, and attaches the same figures as a PDF.
  */
 class OrderReceiptMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public CustomOrder $order)
+    public const METHODS = [
+        'mpesa_stk' => 'M-Pesa',
+        'mpesa_manual' => 'M-Pesa (recorded by the studio)',
+        'cash' => 'Cash',
+        'bank' => 'Bank transfer',
+        'card' => 'Card',
+        'credit' => 'Store credit',
+    ];
+
+    public function __construct(public CustomOrder $order, public ?OrderPayment $payment = null)
     {
+        $this->payment ??= $order->payments()->where('type', OrderPayment::PAYMENT)->latest('id')->first();
+    }
+
+    /** Everything the email and the PDF show, as of $payment. */
+    public static function viewData(CustomOrder $order, ?OrderPayment $payment): array
+    {
+        $upTo = fn (string $type) => (int) $order->payments()->where('type', $type)
+            ->when($payment, fn ($q) => $q->where('id', '<=', $payment->id))->sum('amount');
+        $total = (int) $order->chargeable_total;
+        $paidToDate = $upTo(OrderPayment::PAYMENT) - $upTo(OrderPayment::REFUND);
+        $balance = $total - $paidToDate;
+
+        return [
+            'order' => $order,
+            // Real line items only: raw items_json also carries non-item keys.
+            'items' => $order->items_with_urls,
+            'payment' => $payment,
+            'methodLabel' => $payment ? (self::METHODS[$payment->method] ?? $payment->method) : null,
+            'receiptNumber' => $payment
+                ? $order->cipher . '-P' . $order->payments()->where('type', OrderPayment::PAYMENT)->where('id', '<=', $payment->id)->count()
+                : $order->cipher,
+            'total' => $total,
+            'paidToDate' => $paidToDate,
+            'balance' => max(0, $balance),
+            'excess' => max(0, -$balance),
+            'paidInFull' => $total > 0 && $balance <= 0,
+            'depositPolicy' => $order->isBespoke() ? \App\Support\OrderPolicy::depositPolicy() : null,
+            'trackUrl' => URL::route('track', ['ref' => $order->cipher]),
+            'date' => $payment
+                ? $payment->occurred_at->copy()->timezone(config('app.display_timezone'))->format('M d, Y g:i A')
+                : $order->paidAtForDisplay(),
+        ];
+    }
+
+    private function data(): array
+    {
+        return self::viewData($this->order, $this->payment);
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Your Serana receipt — {$this->order->cipher}",
+            subject: $this->data()['paidInFull']
+                ? "Your Serana receipt — {$this->order->cipher}"
+                : "Payment received — {$this->order->cipher}",
         );
     }
 
     public function content(): Content
     {
-        return new Content(
-            view: 'emails.order-receipt',
-            with: [
-                'order'    => $this->order,
-                'items'    => $this->order->items_with_urls,
-                'trackUrl' => URL::route('track', ['ref' => $this->order->cipher]),
-                'date'     => $this->order->paidAtForDisplay(),
-            ],
-        );
+        return new Content(view: 'emails.order-receipt', with: $this->data());
     }
 
     public function attachments(): array
     {
-        $pdf = Pdf::loadView('receipts.luxury', [
-            'order' => $this->order,
-            // Real line items only — raw items_json also carries non-item keys
-            // (precision_sizing, drop metadata) that would render as junk rows.
-            'items' => $this->order->items_with_urls,
-            'date'  => $this->order->paidAtForDisplay(),
-        ]);
+        $data = $this->data();
+        $pdf = Pdf::loadView('receipts.luxury', $data);
 
         return [
-            Attachment::fromData(fn () => $pdf->output(), "Serana-Receipt-{$this->order->cipher}.pdf")
+            Attachment::fromData(fn () => $pdf->output(), "Serana-Receipt-{$data['receiptNumber']}.pdf")
                 ->withMime('application/pdf'),
         ];
     }

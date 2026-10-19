@@ -1,6 +1,7 @@
 @php
     $currency = \App\Models\ThemeSetting::get('currency', 'KSh');
-    $isStandard = $order->type === 'standard';
+    $isStandard = $order->isShop();
+    $money = fn ($v) => $currency . ' ' . number_format((float) $v);
     // Admin-managed store contacts — same sources as the storefront.
     $contactEmail   = \App\Support\StoreProfile::email();
     $contactAddress = \App\Support\StoreProfile::address();
@@ -39,10 +40,10 @@
                                         <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#9a9aa0;">Order reference</div>
                                         <div style="font-size:20px; font-family:'Courier New', monospace; letter-spacing:1px; color:#ffffff; margin-top:4px;">{{ $order->cipher }}</div>
                                     </td>
-                                    @if($order->price_quoted)
+                                    @if($payment)
                                     <td style="padding:18px 20px; text-align:right;">
-                                        <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#9a9aa0;">Total paid</div>
-                                        <div style="font-size:20px; color:#4fb33f; margin-top:4px;">{{ $currency }} {{ number_format((float) $order->price_quoted) }}</div>
+                                        <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#9a9aa0;">This payment</div>
+                                        <div style="font-size:20px; color:#4fb33f; margin-top:4px;">{{ $money($payment->amount) }}</div>
                                     </td>
                                     @endif
                                 </tr>
@@ -67,14 +68,28 @@
                     </tr>
                     @endif
 
-                    <!-- M-Pesa -->
-                    @if($order->mpesa_receipt_number)
+                    <!-- The money, as of this payment -->
                     <tr>
                         <td style="padding:18px 36px 0;">
-                            <div style="font-size:12px; color:#9a9aa0;">{{ $order->payment_method === 'whatsapp' ? 'Payment reference' : 'M-Pesa transaction' }}: <span style="color:#ffffff; font-weight:bold;">{{ $order->mpesa_receipt_number }}</span></div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px; color:#e8e8e8;">
+                                <tr><td style="padding:4px 0; color:#9a9aa0;">Order total</td><td style="padding:4px 0; text-align:right;">{{ $money($total) }}</td></tr>
+                                <tr><td style="padding:4px 0; color:#9a9aa0;">Paid to date</td><td style="padding:4px 0; text-align:right;">{{ $money($paidToDate) }}</td></tr>
+                                @if($excess > 0)
+                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">{{ $money($excess) }} more than the total was received. The studio will refund it.</td></tr>
+                                @elseif($paidInFull)
+                                <tr><td style="padding:4px 0; font-weight:bold;">Balance due</td><td style="padding:4px 0; text-align:right; color:#4fb33f; font-weight:bold;">Paid in full</td></tr>
+                                @else
+                                <tr><td style="padding:4px 0; font-weight:bold;">Balance due</td><td style="padding:4px 0; text-align:right; font-weight:bold;">{{ $money($balance) }}</td></tr>
+                                @endif
+                            </table>
+                            @if($payment)
+                            <div style="font-size:12px; color:#9a9aa0; margin-top:10px;">{{ $methodLabel }}@if($payment->external_reference) · reference <span style="color:#ffffff; font-weight:bold;">{{ $payment->external_reference }}</span>@endif · receipt {{ $receiptNumber }}</div>
+                            @endif
+                            @if($depositPolicy)
+                            <div style="font-size:12px; color:#9a9aa0; margin-top:8px;">{{ $depositPolicy }}</div>
+                            @endif
                         </td>
                     </tr>
-                    @endif
 
                     <!-- CTA -->
                     <tr>
