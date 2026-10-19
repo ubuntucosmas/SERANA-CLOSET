@@ -12,6 +12,10 @@ class ShopSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \LogicException('Demo seeding is restricted to local and testing environments. Provision production accounts separately.');
+        }
+
         $dresses = Category::updateOrCreate(['slug' => 'dresses'], ['name' => 'Dresses']);
         $hoodies = Category::updateOrCreate(['slug' => 'hoodies'], ['name' => 'Hoodies']);
         $corporate = Category::updateOrCreate(['slug' => 'corporate-wear'], ['name' => 'Corporate Wear']);

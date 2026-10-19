@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CustomOrder;
+use App\Models\PaymentAttempt;
 use App\Services\MpesaService;
 use App\Services\OrderSettlementService;
 use App\Support\OrderStatus;
@@ -11,52 +12,149 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Safaricom STK callbacks fail to arrive far more often than people expect. This
- * job actively asks Daraja for the final state of orders that pushed an STK but
- * never got a callback, so paying customers aren't stranded in "Pending Payment".
- * Scheduled every few minutes.
+ * job actively asks Daraja for the final state of every STK push that never got
+ * a callback, so paying customers aren't stranded in "Pending Payment".
+ *
+ * It resolves individual PaymentAttempts (not just an order's latest push), and
+ * deliberately includes EXPIRED orders: a customer can complete the prompt after
+ * the hold lapsed, and money taken must always settle or surface.
  */
 class ReconcilePendingPayments extends Command
 {
     protected $signature = 'mpesa:reconcile';
     protected $description = 'Resolve pending M-Pesa payments via STK Query when the callback never arrived';
 
+    /** Daraja result codes that mean the push is definitively not getting paid. */
+    private const FAILURE_CODES = [1032, 1037, 1025, 1, 2001];
+
     public function handle(MpesaService $mpesa, OrderSettlementService $settlement): int
     {
-        // Give the callback a grace window first; ignore ancient abandoned pushes.
-        $orders = CustomOrder::where('status', OrderStatus::PENDING_PAYMENT)
-            ->where('is_paid', false)
-            ->whereNotNull('mpesa_checkout_id')
-            ->where('created_at', '<=', now()->subMinutes(2))
-            ->where('created_at', '>=', now()->subDay())
-            ->get();
+        // Daraja spike-arrests the STK Query endpoint (~5/min, no burst). Space
+        // the queries out AND cap the batch, so a backlog can never stretch one
+        // run past its scheduling slot — the next minute's run picks up the rest.
+        $spacing = max(0, (int) config('services.mpesa.query_spacing_seconds', 13));
+        $batch   = max(1, (int) config('services.mpesa.reconcile_batch', 4));
+
+        $targets = $this->targets()->take($batch);
 
         $resolved = 0;
+        $first = true;
 
-        foreach ($orders as $order) {
-            $result = $mpesa->queryStkStatus($order->mpesa_checkout_id);
+        foreach ($targets as $target) {
+            if (! $first && $spacing > 0) {
+                sleep($spacing);
+            }
+            $first = false;
+
+            /** @var CustomOrder $order */
+            $order = $target['order'];
+            /** @var PaymentAttempt|null $attempt */
+            $attempt = $target['attempt'];
+
+            $result = $this->queryRespectingThrottle($mpesa, $target['checkout_id'], $spacing);
             $code = $result['data']['ResultCode'] ?? null;
 
             if ($code === null) {
-                continue; // network/auth hiccup or still processing — try again next run
+                continue; // network/auth/throttle hiccup or still processing — retry next run
             }
 
             if ((int) $code === 0) {
                 // The STK was pushed with a server-authoritative amount, so a
                 // confirmed success means the correct amount was paid.
+                $attempt?->markPaid();
                 if ($settlement->markPaid($order, null, $result['data'] ?? [])) {
                     $resolved++;
                     Log::info("Reconciliation: Order #{$order->id} confirmed paid via STK Query.");
                 }
-            } elseif (in_array((int) $code, [1032, 1037, 1025, 1, 2001], true)) {
-                // Cancelled / timed out / failed — release the hold.
-                $settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
-                Log::info("Reconciliation: Order #{$order->id} marked failed (code {$code}).");
+            } elseif (in_array((int) $code, self::FAILURE_CODES, true)) {
+                // Cancelled / timed out / failed — release the hold, unless some
+                // other push for this order could still pay it.
+                $attempt?->markFailed((string) $code, $result['data']['ResultDesc'] ?? null);
+                if (! $order->hasLivePaymentAttempts()) {
+                    $settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
+                }
+                Log::info("Reconciliation: Order #{$order->id} attempt marked failed (code {$code}).");
             }
             // Any other code: leave as pending and retry next run.
         }
 
-        $this->info("Reconciliation complete. Resolved {$resolved} paid order(s) of {$orders->count()} checked.");
+        $this->info("Reconciliation complete. Resolved {$resolved} paid order(s) of {$targets->count()} checked.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Everything worth asking Daraja about, newest first (customers most
+     * recently left waiting are resolved earliest). Each entry:
+     * ['order' => CustomOrder, 'checkout_id' => string, 'attempt' => ?PaymentAttempt]
+     */
+    private function targets(): \Illuminate\Support\Collection
+    {
+        // Orders a query result may still settle. EXPIRED is included on
+        // purpose — see the class docblock.
+        $reconcilable = [OrderStatus::PENDING_PAYMENT, OrderStatus::EXPIRED];
+
+        // Give the callback a grace window first; ignore ancient abandoned pushes.
+        // Any unpaid order qualifies, whatever its status: an unresolved push is
+        // what matters, and a status-based filter is how a paid retry on a
+        // "Payment Failed" order once went unsettled.
+        $attempts = PaymentAttempt::with('order')
+            ->pending()
+            ->where('created_at', '<=', now()->subMinutes(2))
+            ->where('created_at', '>=', now()->subDay())
+            ->orderByDesc('created_at')
+            ->get()
+            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->is_paid)
+            ->map(fn ($attempt) => [
+                'order'       => $attempt->order,
+                'checkout_id' => $attempt->checkout_request_id,
+                'attempt'     => $attempt,
+            ]);
+
+        // Orders from before per-attempt tracking: only a latest checkout id.
+        $legacy = CustomOrder::withTrashed()->whereIn('status', $reconcilable)
+            ->where('is_paid', false)
+            ->whereNotNull('mpesa_checkout_id')
+            ->whereDoesntHave('paymentAttempts')
+            ->where('created_at', '<=', now()->subMinutes(2))
+            ->where('created_at', '>=', now()->subDay())
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($order) => [
+                'order'       => $order,
+                'checkout_id' => $order->mpesa_checkout_id,
+                'attempt'     => null,
+            ]);
+
+        return $attempts->concat($legacy)->values();
+    }
+
+    /**
+     * Query Daraja, retrying through a spike-arrest rejection so a genuinely paid
+     * order isn't skipped just because we briefly outran Safaricom's rate limit.
+     */
+    private function queryRespectingThrottle(MpesaService $mpesa, string $checkoutId, int $spacing): array
+    {
+        $backoff = max($spacing, 13);
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $result = $mpesa->queryStkStatus($checkoutId);
+
+            if (! $this->isSpikeArrest($result)) {
+                return $result;
+            }
+
+            if ($spacing > 0) {
+                sleep($backoff);
+            }
+        }
+
+        return $result;
+    }
+
+    private function isSpikeArrest(array $result): bool
+    {
+        return ($result['data']['fault']['detail']['errorcode'] ?? null)
+            === 'policies.ratelimit.SpikeArrestViolation';
     }
 }

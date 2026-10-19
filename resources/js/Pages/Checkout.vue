@@ -1,13 +1,16 @@
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import MpesaStkPanel from '@/Components/MpesaStkPanel.vue';
 import MpesaSuccessPanel from '@/Components/MpesaSuccessPanel.vue';
+import WhatsAppOrderPanel from '@/Components/WhatsAppOrderPanel.vue';
 import { useCurrency } from '@/Composables/useCurrency';
 import { useCartStore } from '@/Stores/useCartStore';
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
+import { rememberTrackingPhone } from '@/Support/trackingMemory';
 
 const page = usePage();
 const pulse = usePulseStore();
@@ -15,8 +18,20 @@ const pulse = usePulseStore();
 const cart = useCartStore();
 const { formatAmount } = useCurrency();
 
+const errors = ref({});
+const orderAmount = ref(null);
 const isProcessing = ref(false);
 const isWaitingForStk = ref(false);
+// True only once the STK push has actually been dispatched. Kept separate from
+// isWaitingForStk (which opens the modal) so the panel gets a real transition to
+// its "check your phone" phase — otherwise it stalls on the initiating spinner.
+const stkSent = ref(false);
+// Explicit phase for the STK panel, derived from the request lifecycle.
+const stkPanelStatus = computed(() => {
+    if (stkSent.value) return 'waiting';
+    if (isProcessing.value) return 'processing';
+    return 'idle';
+});
 const isSuccess = ref(false);
 const isPaid = ref(false);
 // Shown when polling ends before the callback confirms — the payment may still
@@ -27,6 +42,8 @@ const orderId = ref(null);
 const paidAmount = ref(0);
 const safaricomTransactionId = ref(null);
 const receiptUrl = ref(null);
+// Server-built payment record the customer posts to the studio on WhatsApp.
+const paidWhatsAppUrl = ref(null);
 const orderReference = ref(null);
 const frozenItems = ref([]);
 const frozenTotal = ref(0);
@@ -35,8 +52,10 @@ let pollingInterval = null;
 const showSizing = ref(false);
 
 const form = ref({
-    email: '',
-    full_name: '',
+    request_id: crypto.randomUUID(),
+    // Signed-in shoppers shouldn't retype what we already know.
+    email: page.props.auth?.user?.email || '',
+    full_name: page.props.auth?.user?.name || '',
     address: '',
     city: '',
     phone: '',
@@ -46,25 +65,213 @@ const form = ref({
     hips_cm: '',
 });
 
-async function handlePayment() {
-    isProcessing.value = true;
+// Remember the pending order for this exact bag, so a refresh, the back button
+// or a return visit resumes it instead of creating a duplicate order.
+const STORE_KEY = 'serana_checkout';
+const CONTEXT_TTL_MS = 60 * 60 * 1000;
+const bagSignature = computed(() => JSON.stringify(cart.items.map(i => [i.id, i.quantity, i.options ?? null])));
+const resumedOrder = ref(false);
+// 'review' when M-Pesa took a different amount: paying again is blocked until support reviews it.
+const paymentBlocked = ref(null);
+
+function saveContext() {
     try {
-        const payload = { ...form.value, items: cart.items, total: cart.totalPrice };
+        const { email, full_name, address, city, phone } = form.value;
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+            sig: bagSignature.value, request_id: form.value.request_id,
+            order_id: orderId.value, reference: orderReference.value, amount: orderAmount.value,
+            items: frozenItems.value, details: { email, full_name, address, city, phone }, at: Date.now(),
+        }));
+    } catch {}
+}
+function clearContext() { try { localStorage.removeItem(STORE_KEY); } catch {} }
+
+function startOver() {
+    clearContext();
+    orderId.value = null; orderReference.value = null; orderAmount.value = null;
+    resumedOrder.value = false; paymentBlocked.value = null; errors.value = {};
+    form.value.request_id = crypto.randomUUID();
+}
+
+onMounted(async () => {
+    let ctx = null;
+    try { ctx = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch {}
+    if (!ctx) return;
+    if (ctx.sig !== bagSignature.value || Date.now() - ctx.at > CONTEXT_TTL_MS) { clearContext(); return; }
+    form.value.request_id = ctx.request_id || form.value.request_id;
+    Object.assign(form.value, ctx.details || {});
+    if (!ctx.order_id) return;
+    orderId.value = ctx.order_id; orderReference.value = ctx.reference; orderAmount.value = ctx.amount;
+    frozenItems.value = ctx.items || [];
+    resumedOrder.value = true;
+    try {
+        const { data } = await axios.get(route('mpesa.status', orderId.value));
+        applyStatus(data);
+    } catch (err) {
+        if (err.response?.status === 404) startOver();
+    }
+});
+
+// One place that turns the server's payment status into what the customer sees.
+// Returns 'paid' | 'failed' | 'blocked' | 'expired' | 'pending'.
+function applyStatus(data) {
+    if (data.reference) orderReference.value = data.reference;
+    if (data.is_paid) {
+        isPaid.value = true;
+        isWaitingForStk.value = false;
+        isSuccess.value = true;
+        resumedOrder.value = false;
+        // Server-confirmed figure — the local cart is not authoritative.
+        paidAmount.value = data.amount ?? cart.totalPrice;
+        safaricomTransactionId.value = data.transaction_id;
+        receiptUrl.value = data.receipt_url;
+        paidWhatsAppUrl.value = data.whatsapp_url || null;
+        frozenTotal.value = cart.totalPrice;
+        cart.clearBag();
+        clearContext();
+        rememberTrackingPhone(form.value.phone);
+        return 'paid';
+    }
+    if (data.status === 'Expired') {
+        // The hold lapsed: a new order is needed. Keep the delivery details.
+        startOver();
+        pulse.emit('Your earlier unpaid order expired. Review your bag and pay again to place a new order.', 'error');
+        return 'expired';
+    }
+    if (data.status === 'Amount Mismatch') {
+        paymentBlocked.value = 'review';
+        errors.value = { payment: ['M-Pesa reported a different amount for this order. Please contact support with your order reference before paying again.'] };
+        return 'blocked';
+    }
+    if (data.status === 'Payment Failed') {
+        errors.value = { payment: ['Payment was not completed. Press Resume Payment to try again, or contact support if M-Pesa shows a charge.'] };
+        return 'failed';
+    }
+    return 'pending';
+}
+
+// Required delivery fields, in screen order. Tapping Pay with gaps jumps to
+// the first one and says what is missing, instead of a silently disabled button.
+const REQUIRED = [
+    ['full_name', 'Enter your full name.'],
+    ['email', 'Enter your email so we can send your receipt.'],
+    ['address', 'Enter the delivery address.'],
+    ['city', 'Enter your town or city.'],
+    ['phone', 'Enter the M-Pesa number to charge.'],
+];
+function firstMissingField() {
+    const missing = REQUIRED.filter(([field]) => !String(form.value[field] || '').trim());
+    if (!missing.length) return false;
+    errors.value = Object.fromEntries(missing.map(([field, message]) => [field, [message]]));
+    const el = document.getElementById(`checkout-${missing[0][0]}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus({ preventScroll: true });
+    return true;
+}
+const payTotal = computed(() => orderAmount.value ?? cart.totalPrice);
+
+// ── How to pay (Studio → Settings → Payments) ───────────────────────────────
+// M-Pesa (pay now) and/or WhatsApp (order recorded, studio confirms payment).
+const payments = computed(() => page.props.payments || { mpesa: true, whatsapp: false, default: 'mpesa' });
+const bothMethods = computed(() => payments.value.mpesa && payments.value.whatsapp);
+const requested = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('method') : null;
+const method = ref(requested === 'whatsapp' && payments.value.whatsapp ? 'whatsapp' : payments.value.default);
+watch(payments, (p) => { if (!p[method.value]) method.value = p.default; });
+const isWhatsApp = computed(() => method.value === 'whatsapp');
+const checkoutSubtitle = computed(() => whatsappOrder.value ? 'Your order is saved. Send it on WhatsApp to finish.'
+    : bothMethods.value ? 'Pay now with M-Pesa, or order on WhatsApp and pay once we confirm.'
+    : payments.value.mpesa ? 'Complete your order with M-PESA. Fast, safe, no card required.'
+    : 'Place your order, send it on WhatsApp, and pay once the studio confirms.');
+const whatsappOrder = ref(null);   // set once a WhatsApp order is recorded
+const mpesaPaused = ref(false);    // the studio paused M-Pesa mid-checkout
+const switching = ref(false);
+
+function finishWhatsApp(data) {
+    whatsappOrder.value = {
+        reference: data.reference,
+        url: data.whatsapp_url,
+        instructions: data.instructions || null,
+        holdHours: data.hold_hours || 48,
+        total: Number(data.amount ?? orderAmount.value ?? cart.totalPrice),
+        items: frozenItems.value.length ? frozenItems.value : [...cart.items],
+    };
+    cart.clearBag();
+    clearContext();
+    rememberTrackingPhone(form.value.phone);
+    isWaitingForStk.value = false;
+    mpesaPaused.value = false;
+    resumedOrder.value = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Same order, moved to WhatsApp: no duplicate, no lost stock hold.
+async function switchToWhatsApp() {
+    if (switching.value || !orderId.value) return;
+    switching.value = true;
+    try {
+        const { data } = await axios.post(route('checkout.whatsapp', orderId.value));
+        finishWhatsApp({ ...data, amount: orderAmount.value });
+    } catch (err) {
+        pulse.emit(err.response?.data?.message || 'This order could not be moved to WhatsApp. Please try again.', 'error');
+    } finally {
+        switching.value = false;
+    }
+}
+// A field's message disappears as soon as it is filled in.
+watch(form, (value) => {
+    const fixed = REQUIRED.filter(([field]) => errors.value[field] && String(value[field] || '').trim());
+    if (fixed.length) errors.value = Object.fromEntries(Object.entries(errors.value).filter(([field]) => !fixed.some(([f]) => f === field)));
+}, { deep: true });
+// Field errors sit under their field; only the rest (payment, server) go in the top box.
+const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone'];
+const generalErrors = computed(() => Object.entries(errors.value).filter(([field]) => !FIELD_KEYS.includes(field)));
+
+async function handlePayment() {
+    if (isProcessing.value || !cart.items.length) return;
+    if (orderId.value) {
+        // A resumed M-Pesa order: pay it, or move that same order to WhatsApp.
+        if (isWhatsApp.value) return switchToWhatsApp();
+        isWaitingForStk.value = true;
+        return;
+    }
+    if (firstMissingField()) return;
+    errors.value = {};
+    isProcessing.value = true;
+    stkSent.value = false;
+    try {
+        // The server re-prices every line from the catalog — send only what it
+        // needs: ids, quantities and the customer's size selections.
+        const payload = {
+            ...form.value,
+            payment_method: method.value,
+            items: cart.items.map(i => ({ id: i.id, quantity: i.quantity, options: i.options ?? null })),
+        };
         if (!payload.height_cm) delete payload.height_cm;
         if (!payload.bust_cm) delete payload.bust_cm;
         if (!payload.waist_cm) delete payload.waist_cm;
         if (!payload.hips_cm) delete payload.hips_cm;
 
+        saveContext(); // a refresh mid-request re-sends the same request_id and gets this order back
         const response = await axios.post(route('checkout.process'), payload);
-        if (response.data.success) {
-            orderId.value = response.data.order_id || Date.now();
+        if (response.data.success && response.data.order_id) {
+            orderId.value = response.data.order_id;
+            orderReference.value = response.data.reference;
+            orderAmount.value = response.data.amount;
+            frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
+            if (response.data.payment_method === 'whatsapp') {
+                finishWhatsApp(response.data);
+                return;
+            }
+            saveContext();
             isWaitingForStk.value = true;
-            pulse.emit('Order created successfully.', 'success');
+        } else {
+            pulse.emit(response.data.message || 'Order processing failed.', 'error');
         }
     } catch (err) {
         console.error(err);
         if (err.response?.data?.errors) {
-            pulse.emit('Please check the form.', 'error');
+            errors.value = err.response.data.errors;
+            document.querySelector('[aria-invalid="true"]')?.focus();
         } else {
             pulse.emit(err.response?.data?.message || 'Order processing failed.', 'error');
         }
@@ -74,36 +281,48 @@ async function handlePayment() {
 }
 
 async function initiateMpesaStk(data) {
+    if (isProcessing.value || stkSent.value || paymentPending.value) return;
     isProcessing.value = true;
+    stkSent.value = false;
     paymentPending.value = false;
+    isWaitingForStk.value = true; // keep the modal open across the request
     try {
         const response = await axios.post(route('mpesa.stk'), {
             order_id: orderId.value,
             phone: data.phone
         });
         if (response.data.success) {
-            pulse.emit('STK Push sent to your phone.', 'success');
-            isWaitingForStk.value = true;
+            stkSent.value = true; // advances the panel to "check your phone"
             startPolling();
+        } else {
+            pulse.emit(response.data.message || 'Failed to initiate M-Pesa payment.', 'error');
         }
     } catch (err) {
         console.error(err);
-        pulse.emit('Failed to initiate M-Pesa payment.', 'error');
+        if (!err.response || err.response.status >= 500) {
+            paymentPending.value = true;
+            stkSent.value = true;
+            startPolling();
+            pulse.emit('We could not confirm whether the request reached M-Pesa. Check this order before trying another payment.', 'error');
+        } else if (err.response?.status === 409 && err.response.data?.code === 'mpesa_paused') {
+            // Switched off in the Studio while this customer was paying: offer WhatsApp for the same order.
+            mpesaPaused.value = true;
+        } else {
+            pulse.emit(err.response?.data?.message || 'M-Pesa could not start this request. Check your phone number and try again.', 'error');
+        }
     } finally {
         isProcessing.value = false;
     }
 }
 
 function closePaymentModal() {
-    if (pollingInterval) clearInterval(pollingInterval);
     isWaitingForStk.value = false;
     isSuccess.value = false;
-    paymentPending.value = false;
 }
 
 // Lock background scroll while the payment modal is open.
 watch(
-    [isWaitingForStk, isSuccess, isPaid],
+    [isWaitingForStk, isSuccess, isPaid, paymentPending],
     () => {
         const open = (isWaitingForStk.value && !isPaid.value) || isSuccess.value || paymentPending.value;
         if (typeof document !== 'undefined') {
@@ -124,63 +343,79 @@ function startPolling() {
         if (attempts > maxAttempts) {
             clearInterval(pollingInterval);
             isWaitingForStk.value = false;
+            stkSent.value = false;
             paymentPending.value = true;
             return;
         }
         try {
             const response = await axios.get(route('mpesa.status', orderId.value));
-            // Capture the tracking reference as soon as it's known, so the
-            // pending hand-off can show it even before payment confirms.
-            if (response.data.reference) orderReference.value = response.data.reference;
-            if (response.data.is_paid) {
+            const outcome = applyStatus(response.data);
+            if (outcome !== 'pending') {
                 clearInterval(pollingInterval);
-                isPaid.value = true;
-                isWaitingForStk.value = false;
-                isSuccess.value = true;
-                paidAmount.value = cart.totalPrice;
-                safaricomTransactionId.value = response.data.transaction_id;
-                receiptUrl.value = response.data.receipt_url;
-                frozenItems.value = [...cart.items];
-                frozenTotal.value = cart.totalPrice;
-                cart.clearBag();
-                pulse.emit('Payment Verified! Your order is now in production.', 'success');
+                stkSent.value = false;
+                paymentPending.value = false;
+                if (outcome !== 'paid') isWaitingForStk.value = false;
             }
         } catch (err) { console.error('Polling error:', err); }
     }, 5000);
 }
+onUnmounted(() => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    document.body.style.overflow = '';
+});
 </script>
 
 <template>
-    <StorefrontLayout hideMobileCard>
+    <StorefrontLayout focus>
         <Head title="Checkout — Serana" />
 
-        <main class="relative pt-28 md:pt-32 pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto min-h-screen bg-background">
+        <main class="page-container relative pb-24 min-h-screen">
 
             <!-- Lipa na M-PESA Express Checkout -->
             <div class="max-w-6xl mx-auto">
                 <!-- Header -->
-                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-10">
-                    <div>
-                        <Link :href="route('shop')" class="text-[11px] tracking-wider text-on-surface-variant hover:text-primary flex items-center gap-2 transition-colors">
-                            <span class="material-symbols-outlined text-sm">arrow_back</span> Back to Collection
+                <PageHeader kicker="Checkout" title="Secure Checkout" :subtitle="checkoutSubtitle">
+                    <template #before>
+                        <Link :href="route('shop')" class="mb-4 flex w-fit items-center gap-2 text-sm text-on-surface-variant transition-colors hover:text-primary">
+                            <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span> Back to Collection
                         </Link>
-                        <h1 class="font-headline text-4xl md:text-5xl tracking-tighter mt-4 text-on-surface">Secure Checkout</h1>
-                        <p class="text-on-surface-variant mt-2 text-sm">Complete your order with M-PESA — fast, safe, no card required.</p>
-                    </div>
+                    </template>
+                    <template #actions>
                     <!-- Lipa na M-PESA lockup -->
-                    <div class="inline-flex items-center gap-3 self-start px-4 py-3 bg-[#4fb33f]/10 border border-[#4fb33f]/30">
-                        <span class="material-symbols-outlined text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
+                    <div v-if="payments.mpesa && !whatsappOrder" class="inline-flex items-center gap-3 rounded-2xl border border-[#4fb33f]/30 bg-[#4fb33f]/10 px-4 py-3">
+                        <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-2xl" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
                         <div class="leading-tight">
                             <div class="text-[9px] tracking-wider text-on-surface-variant">Powered by</div>
-                            <div class="text-sm font-black text-[#4fb33f] tracking-tight">Lipa na M-PESA</div>
+                            <div class="text-sm font-black text-[#276b1d] dark:text-[#4fb33f] tracking-tight">Lipa na M-PESA</div>
                         </div>
                     </div>
-                </div>
+                    </template>
+                </PageHeader>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+                <div v-if="resumedOrder && !isPaid && !paymentBlocked" role="status" class="card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="font-semibold text-on-surface">You have an unpaid order for this bag</p>
+                        <p class="mt-1 text-sm text-on-surface-variant">Order <strong>{{ orderReference }}</strong> is waiting for payment. Resume it, or start over to change your details.</p>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap gap-3">
+                        <button type="button" class="action-primary" @click="handlePayment">Resume Payment</button>
+                        <button type="button" class="action-secondary" @click="startOver">Start Over</button>
+                    </div>
+                </div>
+                <p v-else-if="orderReference && !isPaid && !whatsappOrder" class="text-sm mb-5">Order Reference: <strong>{{ orderReference }}</strong> · <Link :href="route('track', { ref: orderReference })" class="text-primary underline">Track Order</Link></p>
+                <div v-if="generalErrors.length" role="alert" class="mb-6 rounded-xl border border-red-400/40 p-5">
+                    <p class="font-semibold mb-2">Please check these details</p>
+                    <p v-for="[field, messages] in generalErrors" :key="field" class="text-sm">{{ messages[0] }}</p>
+                </div>
+                <WhatsAppOrderPanel v-if="whatsappOrder" v-bind="whatsappOrder" :email="form.email" />
+                <div v-else-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
+                    <h2 class="text-xl mb-3">Your bag is empty</h2>
+                    <Link :href="route('shop')" class="text-primary underline">Shop Collection</Link>
+                </div>
+                <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
                     <!-- LEFT: Order Summary -->
-                    <aside class="lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
+                    <aside class="order-2 lg:order-1 lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
                         <div class="bg-surface-container border border-white/10 p-7 md:p-8">
                             <div class="flex items-center justify-between mb-7">
                                 <h3 class="tracking-wider text-[11px] text-on-surface-variant font-bold">Order Summary</h3>
@@ -188,12 +423,13 @@ function startPolling() {
                             </div>
 
                             <div class="space-y-5">
-                                <div v-for="item in cart.items" :key="item.id" class="flex gap-4">
+                                <div v-for="item in cart.items" :key="item.line_key" class="flex gap-4">
                                     <div class="always-dark w-16 h-20 bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
                                         <img :src="item.image" class="w-full h-full object-cover" />
                                     </div>
                                     <div class="flex-1 min-w-0 pt-0.5">
                                         <div class="text-on-surface font-medium truncate">{{ item.name }}</div>
+                                        <p v-if="item.options?.top_size || item.options?.bottom_size" class="text-xs text-on-surface-variant">{{ item.options.top_size && item.options.bottom_size ? `Top ${item.options.top_size} · Bottom ${item.options.bottom_size}` : `Size ${item.options.top_size || item.options.bottom_size}` }}</p>
                                         <div class="text-xs text-on-surface-variant mt-0.5">Qty · {{ item.quantity }}</div>
                                         <div class="text-primary font-mono text-sm mt-2">{{ formatAmount(item.price * item.quantity) }}</div>
                                     </div>
@@ -207,7 +443,7 @@ function startPolling() {
                                 </div>
                                 <div class="flex justify-between text-sm text-on-surface-variant">
                                     <span>Delivery</span>
-                                    <span class="text-[#4fb33f] font-medium">Included</span>
+                                    <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">Included</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-white/5">
                                     <span class="tracking-widest text-[11px] text-on-surface-variant">Total</span>
@@ -220,17 +456,22 @@ function startPolling() {
                         <div class="grid grid-cols-3 gap-2">
                             <div v-for="t in [
                                 { icon: 'lock', label: 'Encrypted' },
-                                { icon: 'verified_user', label: 'Safaricom' },
-                                { icon: 'bolt', label: 'Instant' },
+                                payments.mpesa ? { icon: 'verified_user', label: 'Safaricom' } : { icon: 'chat', label: 'WhatsApp support' },
+                                { icon: 'receipt_long', label: 'Receipt by email' },
                             ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-4 bg-surface-container border border-white/5">
-                                <span class="material-symbols-outlined text-[#4fb33f] text-lg">{{ t.icon }}</span>
+                                <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-lg">{{ t.icon }}</span>
                                 <span class="text-[9px] tracking-widest text-on-surface-variant font-bold">{{ t.label }}</span>
                             </div>
                         </div>
                     </aside>
 
                     <!-- RIGHT: Details + Pay -->
-                    <div class="lg:col-span-7 space-y-6">
+                    <div class="order-1 lg:order-2 lg:col-span-7 space-y-6">
+                        <!-- Phones: one line of what's being bought; the full summary follows the form. -->
+                        <button type="button" @click="cart.isOpen = true" class="card flex w-full items-center justify-between gap-3 px-5 py-4 text-left lg:hidden">
+                            <span class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }} · <span class="font-semibold text-on-surface">{{ formatAmount(cart.totalPrice) }}</span></span>
+                            <span class="text-sm font-medium text-primary">View bag</span>
+                        </button>
 
                         <!-- 1 · Delivery details -->
                         <div class="bg-surface-container border border-white/10 p-7 md:p-8">
@@ -242,23 +483,27 @@ function startPolling() {
                             <div class="space-y-5">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Full Name</label>
-                                        <input v-model="form.full_name" type="text" placeholder="Your legal name" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-full_name">Full Name</label>
+                                        <input id="checkout-full_name" autocomplete="name" required :aria-invalid="!!errors.full_name" v-model="form.full_name" type="text" placeholder="Your legal name" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.full_name" class="text-sm text-red-400 mt-2">{{ errors.full_name[0] }}</p>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Email</label>
-                                        <input v-model="form.email" type="email" placeholder="you@email.com" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-email">Email</label>
+                                        <input id="checkout-email" autocomplete="email" required :aria-invalid="!!errors.email" v-model="form.email" type="email" placeholder="you@email.com" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.email" class="text-sm text-red-400 mt-2">{{ errors.email[0] }}</p>
                                     </div>
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">Address</label>
-                                        <input v-model="form.address" type="text" placeholder="House & Street" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-address">Address</label>
+                                        <input id="checkout-address" autocomplete="street-address" required :aria-invalid="!!errors.address" v-model="form.address" type="text" placeholder="House & Street" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.address" class="text-sm text-red-400 mt-2">{{ errors.address[0] }}</p>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">City</label>
-                                        <input v-model="form.city" type="text" placeholder="Nairobi" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-city">City</label>
+                                        <input id="checkout-city" autocomplete="address-level2" required :aria-invalid="!!errors.city" v-model="form.city" type="text" placeholder="Nairobi" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
+                                        <p v-if="errors.city" class="text-sm text-red-400 mt-2">{{ errors.city[0] }}</p>
                                     </div>
                                 </div>
 
@@ -270,58 +515,81 @@ function startPolling() {
                                     </button>
                                     <div v-if="showSizing" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                         <div v-for="f in ['height_cm','bust_cm','waist_cm','hips_cm']" :key="f">
-                                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-1.5 block">{{ f.replace('_cm','') }} (cm)</label>
-                                            <input v-model="form[f]" type="number" class="w-full bg-background border border-white/10 px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+                                            <label :for="`checkout-${f}`" class="text-[10px] tracking-widest text-on-surface-variant mb-1.5 block">{{ f.replace('_cm','') }} (cm)</label>
+                                            <input :id="`checkout-${f}`" v-model="form[f]" type="number" class="w-full bg-background border border-white/10 px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 2 · Pay with M-PESA -->
-                        <div class="bg-surface-container border border-[#4fb33f]/25 p-7 md:p-8">
+                        <!-- 2 · How you'll pay (M-Pesa now and/or WhatsApp) -->
+                        <div class="bg-surface-container border p-7 md:p-8" :class="isWhatsApp ? 'border-[#25D366]/30' : 'border-[#4fb33f]/25'">
                             <div class="flex items-center gap-3 mb-6">
-                                <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#4fb33f] text-xs font-black">2</span>
-                                <h2 class="tracking-wider text-xs font-bold text-on-surface">Pay with M-PESA</h2>
-                                <span class="ml-auto w-2 h-2 rounded-full bg-[#4fb33f] animate-pulse"></span>
+                                <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-xs font-black">2</span>
+                                <h2 class="tracking-wider text-xs font-bold text-on-surface">{{ bothMethods ? 'How would you like to pay?' : isWhatsApp ? 'Order on WhatsApp' : 'Pay with M-PESA' }}</h2>
                             </div>
 
-                            <!-- M-PESA number -->
-                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block">M-PESA Number</label>
-                            <div class="flex">
-                                <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#4fb33f] font-mono font-bold text-sm">+254</span>
-                                <input v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
+                            <!-- Choice, only when both are offered -->
+                            <div v-if="bothMethods && !paymentBlocked" role="radiogroup" aria-label="Payment method" class="mb-6 grid gap-3 sm:grid-cols-2">
+                                <button type="button" role="radio" :aria-checked="method === 'mpesa'" @click="method = 'mpesa'" class="pay-option" :class="method === 'mpesa' ? 'pay-option-on' : ''">
+                                    <span class="material-symbols-outlined text-xl text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">smartphone</span>
+                                    <span class="text-left"><span class="block font-semibold text-on-surface">M-Pesa now</span><span class="block text-xs text-on-surface-variant">Approve a prompt on your phone. Instant.</span></span>
+                                </button>
+                                <button type="button" role="radio" :aria-checked="method === 'whatsapp'" @click="method = 'whatsapp'" class="pay-option" :class="method === 'whatsapp' ? 'pay-option-on' : ''">
+                                    <span class="material-symbols-outlined text-xl text-[#128C7E] dark:text-[#25D366]" aria-hidden="true">chat</span>
+                                    <span class="text-left"><span class="block font-semibold text-on-surface">Order on WhatsApp</span><span class="block text-xs text-on-surface-variant">Send your order, pay after we confirm.</span></span>
+                                </button>
                             </div>
+
+                            <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-phone">{{ isWhatsApp ? 'Phone (WhatsApp)' : 'M-PESA Number' }}</label>
+                            <div class="flex">
+                                <span class="flex items-center px-4 bg-[#4fb33f]/12 border border-r-0 border-[#4fb33f]/30 text-[#276b1d] dark:text-[#4fb33f] font-mono font-bold text-sm">+254</span>
+                                <input id="checkout-phone" autocomplete="tel" required :aria-invalid="!!errors.phone" v-model="form.phone" type="tel" inputmode="numeric" placeholder="7XX XXX XXX" class="flex-1 min-w-0 bg-background border border-white/10 px-5 py-3.5 text-on-surface font-mono placeholder:text-on-surface-variant/50 focus:border-[#4fb33f] outline-none transition-colors" />
+                            </div>
+                            <p v-if="errors.phone" class="text-sm text-red-400 mt-2">{{ errors.phone[0] }}</p>
 
                             <!-- How it works -->
                             <div class="flex items-center gap-1.5 mt-6 mb-6">
-                                <template v-for="(s, i) in ['Confirm order', 'Get STK prompt', 'Enter your PIN']" :key="s">
+                                <template v-for="(step, i) in (isWhatsApp ? ['Place order', 'Send on WhatsApp', 'Pay & we confirm'] : ['Confirm order', 'Get STK prompt', 'Enter your PIN'])" :key="step">
                                     <div class="flex items-center gap-2 flex-1">
-                                        <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4fb33f]/15 text-[#4fb33f] text-[10px] font-black">{{ i + 1 }}</span>
-                                        <span class="text-[10px] text-on-surface-variant leading-tight">{{ s }}</span>
+                                        <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-[10px] font-black">{{ i + 1 }}</span>
+                                        <span class="text-[10px] text-on-surface-variant leading-tight">{{ step }}</span>
                                     </div>
-                                    <span v-if="i < 2" class="material-symbols-outlined text-on-surface-variant/30 text-sm">chevron_right</span>
+                                    <span v-if="i < 2" class="material-symbols-outlined text-on-surface-variant/30 text-sm" aria-hidden="true">chevron_right</span>
                                 </template>
                             </div>
 
-                            <!-- Pay button -->
+                            <p class="text-sm text-on-surface-variant mb-5">
+                                <template v-if="isWhatsApp">We’ll record your order and hold your pieces for {{ payments.hold_hours || 48 }} hours. Then you send it on WhatsApp and pay as the studio confirms. Nothing is charged now.</template>
+                                <template v-else>You’ll confirm the final total, then approve it with your M-Pesa PIN on your phone.</template>
+                            </p>
+                            <!-- Amount mismatch: no pay action until support has reviewed it -->
+                            <div v-if="paymentBlocked" class="flex flex-col gap-3 sm:flex-row">
+                                <Link :href="route('track', { ref: orderReference })" class="action-primary flex-1">Track This Order</Link>
+                                <Link :href="route('contact')" class="action-secondary flex-1">Contact Support</Link>
+                            </div>
+                            <!-- Main action -->
                             <button
+                                v-else
                                 @click="handlePayment"
-                                :disabled="isProcessing || !form.full_name || !form.phone || !form.address"
-                                class="w-full py-5 bg-[#4fb33f] text-black font-black tracking-wider text-sm flex items-center justify-center gap-3 hover:bg-[#5cc94a] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_20px_40px_-12px_rgba(79,179,63,0.5)]">
-                                <template v-if="!isProcessing">
-                                    <span class="material-symbols-outlined">lock</span>
-                                    Pay {{ formatAmount(cart.totalPrice) }}
+                                :disabled="isProcessing || switching"
+                                class="w-full py-4 text-base"
+                                :class="isWhatsApp ? 'wa-action' : 'action-primary'">
+                                <template v-if="!isProcessing && !switching">
+                                    <span class="material-symbols-outlined" aria-hidden="true">{{ isWhatsApp ? 'chat' : 'lock' }}</span>
+                                    <template v-if="isWhatsApp">{{ orderId ? 'Send this order on WhatsApp' : `Place order · ${formatAmount(payTotal)}` }}</template>
+                                    <template v-else>{{ orderId ? 'Resume Payment' : `Pay ${formatAmount(payTotal)} with M-Pesa` }}</template>
                                 </template>
                                 <template v-else>
-                                    <span class="material-symbols-outlined animate-spin">progress_activity</span>
-                                    Creating your order…
+                                    <span class="material-symbols-outlined animate-spin" aria-hidden="true">progress_activity</span>
+                                    {{ isWhatsApp ? 'Placing your order…' : 'Creating your order…' }}
                                 </template>
                             </button>
 
                             <p class="text-center text-[10px] text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs text-[#4fb33f]">shield</span>
-                                You'll receive a secure STK push on your phone
+                                <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">shield</span>
+                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll receive a secure STK push on your phone' }}
                             </p>
                         </div>
                     </div>
@@ -332,13 +600,13 @@ function startPolling() {
             <teleport to="body">
                 <transition name="pay-modal">
                     <div
-                        v-if="(isWaitingForStk && orderId && !isPaid) || isSuccess"
+                        v-if="((isWaitingForStk || paymentPending) && orderId && !isPaid) || isSuccess"
                         class="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6"
                     >
                         <!-- Backdrop -->
                         <div
                             class="pay-modal-backdrop absolute inset-0 bg-black/85 backdrop-blur-md"
-                            @click="closePaymentModal"
+                            @click="!stkSent && closePaymentModal()"
                         ></div>
 
                         <!-- Dialog -->
@@ -349,10 +617,10 @@ function startPolling() {
                             <!-- Close -->
                             <button
                                 @click="closePaymentModal"
-                                class="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center bg-black/40 text-white/60 hover:text-white hover:bg-black/70 backdrop-blur-md transition-colors"
-                                title="Close"
+                                class="absolute top-4 right-4 z-50 w-11 h-11 rounded-full flex items-center justify-center bg-black/40 text-white/70 hover:text-white hover:bg-black/70 backdrop-blur-md transition-colors"
+                                aria-label="Close"
                             >
-                                <span class="material-symbols-outlined text-lg">close</span>
+                                <span class="material-symbols-outlined text-lg" aria-hidden="true">close</span>
                             </button>
 
                             <!-- Payment still confirming (polling ended before the
@@ -383,21 +651,27 @@ function startPolling() {
                                     >
                                         Track my order
                                     </Link>
-                                    <button
-                                        @click="initiateMpesaStk({ phone: form.phone })"
-                                        class="flex-1 bg-black/5 dark:bg-black text-[#191c1b] dark:text-white font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest border border-black/10 dark:border-white/10 hover:bg-black/10 transition-all"
-                                    >
-                                        Try payment again
-                                    </button>
+
                                 </div>
                             </div>
 
+                            <!-- Studio paused M-Pesa mid-checkout: keep this same order, send it on WhatsApp -->
+                            <section v-else-if="mpesaPaused && !isPaid" class="bg-surface text-on-surface border border-outline-variant rounded-3xl p-7 sm:p-9" role="alert">
+                                <p class="text-sm text-primary font-semibold mb-3">M-Pesa is paused</p>
+                                <h2 class="text-2xl font-semibold mb-3">Send this order on WhatsApp instead</h2>
+                                <p class="text-on-surface-variant mb-6">Nothing was charged. Your order {{ orderReference }} and its pieces are kept: send it on WhatsApp and pay as the studio confirms.</p>
+                                <button type="button" @click="switchToWhatsApp" :disabled="switching" class="wa-action w-full py-4">
+                                    <span class="material-symbols-outlined" aria-hidden="true">chat</span>
+                                    {{ switching ? 'Moving your order…' : 'Continue on WhatsApp' }}
+                                </button>
+                                <button type="button" @click="closePaymentModal(); mpesaPaused = false" class="block mx-auto mt-5 text-sm underline">Back to checkout</button>
+                            </section>
                             <MpesaStkPanel
                                 v-else-if="!isPaid"
-                                :amount="cart.totalPrice"
+                                :amount="orderAmount ?? cart.totalPrice"
+                                :reference="orderReference"
                                 :phone="form.phone"
-                                :isProcessing="isProcessing"
-                                :isWaiting="isWaitingForStk"
+                                :status="stkPanelStatus"
                                 @pay="initiateMpesaStk"
                                 @cancel="closePaymentModal"
                             />
@@ -409,6 +683,8 @@ function startPolling() {
                                 :transactionId="safaricomTransactionId"
                                 :receiptUrl="receiptUrl"
                                 :reference="orderReference"
+                                :email="form.email"
+                                :whatsappUrl="paidWhatsAppUrl"
                             />
                         </div>
                     </div>
@@ -420,6 +696,14 @@ function startPolling() {
 </template>
 
 <style scoped>
+.pay-option {
+    display: flex; align-items: flex-start; gap: .75rem; width: 100%;
+    border: 1px solid var(--card-border, rgba(127,127,127,.25)); border-radius: 1rem;
+    padding: 1rem; background: rgb(var(--background-rgb) / .6); transition: border-color .15s, box-shadow .15s;
+}
+.pay-option:hover { border-color: rgb(var(--primary-rgb) / .5); }
+.pay-option-on { border-color: rgb(var(--primary-rgb)); box-shadow: 0 0 0 1px rgb(var(--primary-rgb)); }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

@@ -289,3 +289,14 @@ corepack_enable: false
 # information on the commands that can be extended and the tasks you can define
 # for them. Example:
 #hooks:
+
+# Serana background jobs, as on the server: the scheduler expires abandoned
+# checkouts, releases stock and reconciles M-Pesa; the worker sends queued
+# email (caught locally by Mailpit). Logs: ddev logs -s web
+web_extra_daemons:
+    - name: "scheduler"
+      command: "php artisan schedule:work"
+      directory: /var/www/html
+    - name: "queue-worker"
+      command: "php artisan queue:work --tries=3 --sleep=3"
+      directory: /var/www/html

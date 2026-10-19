@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Services;
+
+use Stripe\StripeClient;
+use Illuminate\Support\Facades\Log;
+
+class StripeCheckoutService
+{
+    protected StripeClient $stripe;
+
+    public function __construct()
+    {
+        $this->stripe = new StripeClient(env('STRIPE_SECRET'));
+    }
+
+    /**
+     * Create a Stripe Checkout Session for a bespoke milestone payment.
+     *
+     * @param float $amount
+     * @param string $currency
+     * @param string $description
+     * @param string $successUrl
+     * @param string $cancelUrl
+     * @return \Stripe\Checkout\Session|null
+     */
+    public function createMilestoneSession(float $amount, string $currency, string $description, string $successUrl, string $cancelUrl)
+    {
+        try {
+            $session = $this->stripe->checkout->sessions->create([
+                'payment_method_types' => ['card'],
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => strtolower($currency),
+                        'product_data' => [
+                            'name' => 'Serana Bespoke: ' . $description,
+                        ],
+                        'unit_amount' => (int)($amount * 100), // Stripe expects amounts in cents
+                    ],
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'success_url' => $successUrl,
+                'cancel_url' => $cancelUrl,
+                // Automatically calculate tax based on international billing address
+                'automatic_tax' => [
+                    'enabled' => true,
+                ],
+            ]);
+
+            return $session;
+        } catch (\Exception $e) {
+            Log::error('Stripe Checkout Error: ' . $e->getMessage());
+            return null;
+        }
+    }
+}

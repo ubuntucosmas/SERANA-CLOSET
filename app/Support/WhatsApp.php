@@ -14,35 +14,15 @@ namespace App\Support;
 final class WhatsApp
 {
     /** Default country code applied to local-format numbers (Kenya). */
-    public const DEFAULT_COUNTRY_CODE = '254';
+    public const DEFAULT_COUNTRY_CODE = Phone::DEFAULT_COUNTRY_CODE;
 
     /**
      * Reduce a phone number to the bare international digits wa.me expects.
-     *
-     * Examples (default country 254):
-     *   "+254 741 589 200" → "254741589200"
-     *   "0741589200"       → "254741589200"
-     *   "741589200"        → "254741589200"
+     * Delegates to the app-wide canonical normalizer.
      */
     public static function normalizeNumber(?string $number, string $countryCode = self::DEFAULT_COUNTRY_CODE): string
     {
-        $digits = preg_replace('/\D+/', '', (string) $number);
-
-        if ($digits === '') {
-            return '';
-        }
-
-        // Local format with a trunk '0' (e.g. 0741…) → swap for country code.
-        if (str_starts_with($digits, '0')) {
-            return $countryCode . ltrim($digits, '0');
-        }
-
-        // Bare subscriber number (no country code, no trunk 0) → prepend it.
-        if (! str_starts_with($digits, $countryCode) && strlen($digits) <= 9) {
-            return $countryCode . $digits;
-        }
-
-        return $digits;
+        return Phone::normalize($number, $countryCode);
     }
 
     /**

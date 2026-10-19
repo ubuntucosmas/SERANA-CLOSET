@@ -1,6 +1,5 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
-import containerQueries from '@tailwindcss/container-queries';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -15,14 +14,15 @@ export default {
     theme: {
         extend: {
             colors: {
-                "background": "var(--background)",
-                "surface": "var(--surface)",
-                "on-surface": "var(--on-surface)",
-                "primary": "var(--primary)",
-                "outline-variant": "var(--outline-variant)",
-                "on-background": "var(--on-background)",
-                "surface-container": "var(--surface-container)",
-                "on-surface-variant": "var(--on-surface-variant)",
+                // Channel form so opacity modifiers (bg-primary/10, text-on-surface-variant/70) work.
+                "background": "rgb(var(--background-rgb) / <alpha-value>)",
+                "surface": "rgb(var(--surface-rgb) / <alpha-value>)",
+                "on-surface": "rgb(var(--on-surface-rgb) / <alpha-value>)",
+                "primary": "rgb(var(--primary-rgb) / <alpha-value>)",
+                "outline-variant": "rgb(var(--outline-variant-rgb) / <alpha-value>)",
+                "on-background": "rgb(var(--on-background-rgb) / <alpha-value>)",
+                "surface-container": "rgb(var(--surface-container-rgb) / <alpha-value>)",
+                "on-surface-variant": "rgb(var(--on-surface-variant-rgb) / <alpha-value>)",
                 // New Curator specific tokens
                 "curator-indigo": "#B9C3FF",
                 "curator-blue": "#8A9DFF",
@@ -31,20 +31,20 @@ export default {
                 "curator-muted": "#454652"
             },
             fontFamily: {
-                "headline": ["Cormorant Garamond", ...defaultTheme.fontFamily.serif],
-                "body": ["Manrope", ...defaultTheme.fontFamily.sans],
+                "headline": ["Space Grotesk", ...defaultTheme.fontFamily.sans],
+                "body": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans],
                 // Labels/UI now use the slim sans (no more terminal monospace).
-                "label": ["Manrope", ...defaultTheme.fontFamily.sans],
-                "mono": ["Manrope", ...defaultTheme.fontFamily.sans]
+                "label": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans],
+                "mono": ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans]
             },
             borderRadius: {
-                "DEFAULT": "0px",
-                "lg": "0px",
-                "xl": "0px",
+                "DEFAULT": "8px",
+                "lg": "16px",
+                "xl": "24px",
                 "full": "9999px"
             },
         },
     },
 
-    plugins: [forms, containerQueries],
+    plugins: [forms],
 };

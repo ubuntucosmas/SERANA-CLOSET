@@ -1,9 +1,10 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
+import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
     mustVerifyEmail: {
@@ -16,21 +17,24 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Profile" />
+    <Head title="Account Settings" />
 
-    <AuthenticatedLayout>
-        <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Profile
-            </h2>
-        </template>
+    <StorefrontLayout>
+        <div class="page-container">
+            <PageHeader kicker="Account" title="Account Settings" subtitle="Update your contact details and password. Each section saves separately.">
+                <template #actions>
+                    <div class="flex flex-wrap gap-3">
+                        <Link :href="route('profile.designs')" class="action-secondary">Your Orders</Link>
+                        <Link :href="route('logout')" method="post" as="button" class="action-secondary">Sign Out</Link>
+                    </div>
+                </template>
+            </PageHeader>
+        </div>
 
         <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+            <div class="page-container space-y-6">
                 <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
+                    class="bg-surface-container border border-outline-variant p-5 rounded-2xl sm:p-8"
                 >
                     <UpdateProfileInformationForm
                         :must-verify-email="mustVerifyEmail"
@@ -40,17 +44,17 @@ defineProps({
                 </div>
 
                 <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
+                    class="bg-surface-container border border-outline-variant p-5 rounded-2xl sm:p-8"
                 >
                     <UpdatePasswordForm class="max-w-xl" />
                 </div>
 
                 <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
+                    class="bg-surface-container border border-outline-variant p-5 rounded-2xl sm:p-8"
                 >
                     <DeleteUserForm class="max-w-xl" />
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </StorefrontLayout>
 </template>

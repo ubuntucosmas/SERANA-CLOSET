@@ -41,14 +41,13 @@ const closeModal = () => {
 <template>
     <section class="space-y-6">
         <header>
-            <h2 class="text-lg font-medium text-gray-900">
+            <h2 class="text-lg font-medium text-on-surface">
                 Delete Account
             </h2>
 
-            <p class="mt-1 text-sm text-gray-600">
-                Once your account is deleted, all of its resources and data will
-                be permanently deleted. Before deleting your account, please
-                download any data or information that you wish to retain.
+            <p class="mt-1 text-sm text-on-surface-variant">
+                Removes your sign-in and profile. Your orders stay with the
+                studio and can still be tracked with the order code and phone number.
             </p>
         </header>
 
@@ -57,26 +56,27 @@ const closeModal = () => {
         <Modal :show="confirmingUserDeletion" @close="closeModal">
             <div class="p-6">
                 <h2
-                    class="text-lg font-medium text-gray-900"
+                    class="text-lg font-medium text-on-surface"
                 >
                     Are you sure you want to delete your account?
                 </h2>
 
-                <p class="mt-1 text-sm text-gray-600">
-                    Once your account is deleted, all of its resources and data
-                    will be permanently deleted. Please enter your password to
-                    confirm you would like to permanently delete your account.
+                <p class="mt-1 text-sm text-on-surface-variant">
+                    Your sign-in and profile will be removed for good. Orders you
+                    have placed stay with the studio so they can still be made,
+                    delivered and tracked with the order code and your phone
+                    number. Enter your password to confirm.
                 </p>
 
                 <div class="mt-6">
                     <InputLabel
-                        for="password"
+                        for="delete-password"
                         value="Password"
                         class="sr-only"
                     />
 
                     <TextInput
-                        id="password"
+                        id="delete-password"
                         ref="passwordInput"
                         v-model="form.password"
                         type="password"

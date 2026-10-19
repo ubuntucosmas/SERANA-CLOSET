@@ -14,6 +14,10 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \LogicException('Demo seeding is restricted to local and testing environments. Provision production accounts separately.');
+        }
+
           // Primary Admin (.closet)
         User::updateOrCreate(
             ['email' => 'admin@serana.closet'],

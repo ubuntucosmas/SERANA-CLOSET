@@ -1,11 +1,12 @@
-import { computed } from 'vue';
-
 /**
- * Composable for generating algorithmic WhatsApp payloads for Serana Studio.
- * Bridges the gap between digital intent and artisan execution.
+ * Builds pre-filled WhatsApp click-to-chat links for product enquiries.
+ *
+ * Voice: the customer writing to the store — courteous, plain language,
+ * only lines that carry real information. WhatsApp *bold* is used for the
+ * few things the studio scans for (item name, price).
  */
 export function useWhatsApp() {
-    
+
     /**
      * Helper to encode URL characters correctly for WhatsApp
      */
@@ -14,43 +15,38 @@ export function useWhatsApp() {
     };
 
     /**
-     * Generates a structured message for product enquiries
+     * Generates a clear, professional enquiry message for a product.
      */
     const generateProductMessage = (product, options = {}, pageProps = {}) => {
-        const baseUrl = window.location.origin;
-        const imageUrl = product.image_url?.startsWith('http') 
-            ? product.image_url 
-            : `${baseUrl}/${product.image_url?.replace(/^\//, '')}`;
-        
-        let variantMetadata = '';
         const { topSize, bottomSize } = options;
 
+        // Only mention sizes the customer actually chose.
+        const sizeLines = [];
         if (product.garment_type === 'set') {
-            variantMetadata = `• Configuration: FULL SET\n• Hoodie Size: ${topSize || 'Unselected'}\n• Jogger Size: ${bottomSize || 'Unselected'}`;
-        } else if (product.garment_type === 'hoodie') {
-            variantMetadata = `• Configuration: SINGLE HOODIE\n• Size: ${topSize || 'Unselected'}`;
-        } else if (product.garment_type === 'jogger') {
-            variantMetadata = `• Configuration: SINGLE JOGGER\n• Size: ${bottomSize || 'Unselected'}`;
-        } else {
-            variantMetadata = `• Configuration: STANDARD\n• Size: ${topSize || bottomSize || 'Unselected'}`;
+            if (topSize) sizeLines.push(`Hoodie size: ${topSize}`);
+            if (bottomSize) sizeLines.push(`Jogger size: ${bottomSize}`);
+        } else if (topSize || bottomSize) {
+            sizeLines.push(`Size: ${topSize || bottomSize}`);
         }
 
         const currencySymbol = pageProps.currency_symbol || 'Ksh';
         const formattedPrice = `${currencySymbol} ${Number(product.price).toLocaleString()}`;
 
-        const message = `🏁 *NEW ORDER ENQUIRY* 🏁\n\n` +
-                        `*[ 01: ITEM ]*\n` +
-                        `• Name: ${product.name}\n` +
-                        `${variantMetadata}\n` +
-                        `• Price: ${formattedPrice}\n\n` +
-                        `*[ 02: REFERENCE ]*\n` +
-                        `• URL: ${window.location.href}\n` +
-                        `• Image: ${imageUrl}\n\n` +
-                        `--------------------------\n` +
-                        `I'm interested in this piece. Can you help me with the purchase?\n` +
-                        `Sent via Serana Studio.`;
+        const lines = [
+            `Hello ${pageProps.store?.name || 'Serana'},`,
+            '',
+            "I'd like to enquire about this piece:",
+            '',
+            `*${product.name}*`,
+            ...sizeLines,
+            `Price: ${formattedPrice}`,
+            '',
+            window.location.href,
+            '',
+            'Is it available? Thank you.',
+        ];
 
-        return message;
+        return lines.join('\n');
     };
 
     /**
@@ -58,7 +54,8 @@ export function useWhatsApp() {
      */
     const getWhatsAppUrl = (product, options = {}, pageProps = {}) => {
         const message = generateProductMessage(product, options, pageProps);
-        const whatsappNumber = pageProps.whatsapp_number || '254000000000';
+        // Single managed source: the normalized store number shared from the server.
+        const whatsappNumber = pageProps.store?.whatsapp || pageProps.whatsapp_number || '';
         return `https://wa.me/${whatsappNumber}?text=${rawurlencode(message)}`;
     };
 

@@ -1,53 +1,67 @@
 <template>
-    <div class="min-h-screen flex flex-col bg-background selection:bg-primary selection:text-background relative overflow-hidden">
+    <SiteSeo />
+    <div class="relative flex min-h-screen flex-col overflow-x-clip bg-background selection:bg-primary selection:text-background">
         <!-- Global Background -->
         <SectionBackground class="fixed !z-[-1]" opacity="opacity-5" :showScan="false" />
         
         <TopNavBar />
-        <CommandPortal ref="portalRef" />
-        <MobileBottomNav />
+        <MobileBottomNav v-if="!focus" />
         <CartDrawer />
         <Notification />
-        <ConciergeButton />
-        <SitePath />
 
-        <main class="flex-grow relative z-10">
+        <!-- The header is sticky and in flow, so pages start right below it;
+             .nav-clearance adds the shared top breathing gap (flushTop opts out). -->
+        <main class="flex-grow relative z-10" :class="flushTop ? '' : 'nav-clearance'">
+            <SitePath />
             <transition @enter="pageEnter" @leave="pageLeave" :css="false" mode="out-in" appear>
-                <div :key="$page.url" :class="!hideMobileCard ? 'px-0 pt-16 pb-20 md:p-0 md:pt-0 md:pb-0' : ''">
-                    <div :class="!hideMobileCard ? 'mobile-floating-card md:!bg-transparent md:!border-none md:!shadow-none md:!p-0 md:!m-0' : ''">
-                        <slot />
-                    </div>
+                <!-- Pages own their gutters via .page-container; pb-20 keeps the
+                     last content clear of the mobile bottom nav. -->
+                <div :key="$page.url" :class="focus ? '' : 'pb-24 lg:pb-0'">
+                    <slot />
                 </div>
             </transition>
         </main>
 
-        <AppFooter class="relative z-10" />
+        <AppFooter class="relative z-10" :compact="focus" />
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import SiteSeo from '@/Components/SiteSeo.vue';
 import TopNavBar from '@/Components/TopNavBar.vue';
 import AppFooter from '@/Components/Footer.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CartDrawer from '@/Components/CartDrawer.vue';
 import SectionBackground from '@/Components/SectionBackground.vue';
-import ConciergeButton from '@/Components/ConciergeButton.vue';
-import CommandPortal from '@/Components/CommandPortal.vue';
 import SitePath from '@/Components/SitePath.vue';
 import Notification from '@/Components/Notification.vue';
-import { useCartStore } from '@/Stores/useCartStore';
 import { animate } from 'animejs';
+import { onMounted, onUnmounted } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { useCartStore } from '@/Stores/useCartStore';
 
-const props = defineProps({
-    hideMobileCard: { type: Boolean, default: false }
-});
-
+// The bag lives in a store that outlives pages; any navigation (a link, the
+// Back button) closes it so it never reappears over the next page.
 const cart = useCartStore();
-const portalRef = ref(null);
-
+let stopNav = null;
+// Inertia also fires "start" for hover prefetches: ignore those, or touching
+// the bag's Checkout link as the drawer slides in would shut it instantly.
 onMounted(() => {
-    // Cart self-initializes from localStorage in useCartStore.js
+    stopNav = router.on('start', (event) => {
+        if (event.detail.visit.prefetch || !cart.isOpen) return;
+        cart.isOpen = false;
+        document.body.style.overflow = '';
+    });
+});
+onUnmounted(() => stopNav?.());
+
+// Cart self-initializes from localStorage in useCartStore.js
+defineProps({
+    // Checkout: no bottom bar, no newsletter. Nothing competes with paying.
+    focus: { type: Boolean, default: false },
+    // Full-bleed hero pages (Home, About) render under the transparent nav
+    // and skip the standard nav clearance.
+    flushTop: { type: Boolean, default: false },
 });
 
 const prefersReducedMotion =
@@ -64,10 +78,12 @@ const pageEnter = (el, done) => {
     }
     animate(el, {
         opacity: [0, 1],
-        translateY: [12, 0],
+        translateY: [8, 0],
         easing: 'easeOutQuad',
-        duration: 420,
-        onComplete: done,
+        duration: 260,
+        // A leftover transform would make position:fixed children anchor to
+        // this wrapper instead of the screen.
+        onComplete: () => { el.style.transform = ''; done(); },
     });
 };
 
@@ -80,7 +96,7 @@ const pageLeave = (el, done) => {
         opacity: [1, 0],
         translateY: [0, 6],
         easing: 'easeInQuad',
-        duration: 220,
+        duration: 140,
         onComplete: done,
     });
 };

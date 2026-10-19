@@ -47,7 +47,7 @@ class MpesaService
         }
 
         try {
-            $response = Http::withBasicAuth($this->consumerKey, $this->consumerSecret)
+            $response = Http::timeout(20)->connectTimeout(5)->withBasicAuth($this->consumerKey, $this->consumerSecret)
                 ->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials");
 
             if ($response->successful() && ($token = $response->json('access_token'))) {
@@ -57,7 +57,7 @@ class MpesaService
                 return $token;
             }
 
-            Log::error("Mpesa Access Token Error: " . $response->body());
+            Log::error('M-Pesa authentication failed.', ['status' => $response->status()]);
             return null;
         } catch (\Exception $e) {
             Log::error("Mpesa Access Token Exception: " . $e->getMessage());
@@ -76,11 +76,9 @@ class MpesaService
 
         $timestamp = now()->format('YmdHis');
         $password = base64_encode($this->shortcode . $this->passkey . $timestamp);
-        
-        // Clean phone number (Ensure it starts with 254)
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-        if (str_starts_with($phone, '0')) $phone = '254' . substr($phone, 1);
-        if (!str_starts_with($phone, '254')) $phone = '254' . $phone;
+
+        // Callers validate; this is a final belt-and-braces normalization.
+        $phone = \App\Support\Phone::normalize($phone);
 
         $payload = [
             'BusinessShortCode' => $this->shortcode,
@@ -98,7 +96,7 @@ class MpesaService
 
         try {
             // Daraja "Lipa Na M-Pesa Online" STK push endpoint.
-            $response = Http::withToken($token)
+            $response = Http::timeout(20)->connectTimeout(5)->withToken($token)
                 ->post("{$this->baseUrl}/mpesa/stkpush/v1/processrequest", $payload);
 
             if ($response->successful()) {
@@ -108,7 +106,7 @@ class MpesaService
                 ];
             }
 
-            Log::error("Mpesa STK Push Error: " . $response->body());
+            Log::error('M-Pesa initiation failed.', ['status' => $response->status()]);
             return ['success' => false, 'message' => 'STK Push initiation failed.', 'details' => $response->json()];
 
         } catch (\Exception $e) {
@@ -142,7 +140,7 @@ class MpesaService
         ];
 
         try {
-            $response = Http::withToken($token)
+            $response = Http::timeout(20)->connectTimeout(5)->withToken($token)
                 ->post("{$this->baseUrl}/mpesa/stkpushquery/v1/query", $payload);
 
             return ['success' => $response->successful(), 'data' => $response->json()];

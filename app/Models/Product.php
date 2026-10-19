@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\PublicUrl;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -25,7 +25,7 @@ class Product extends Model
         'secondary_images',
     ];
 
-    protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls', 'xray_specs'];
+    protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls'];
 
     protected $casts = [
         'price' => 'decimal:2',
@@ -35,25 +35,14 @@ class Product extends Model
         'specifications' => 'array',
         'batch_limit' => 'integer',
         'batch_sold' => 'integer',
+        // Present only after withAvailability(); MariaDB sums arrive as strings.
+        'reserved_quantity' => 'integer',
         'secondary_images' => 'array',
     ];
 
     public function getImageUrlAttribute()
     {
-        if (!$this->image_path) return null;
-        if (str_starts_with($this->image_path, 'http')) return $this->image_path;
-
-        // Dynamically select the target disk (local public vs cloud s3)
-        $targetDisk = config('filesystems.public_disk');
-        $disk = Storage::disk($targetDisk);
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
-        if ($driver === 'local') {
-            $rawPath = ltrim(str_replace('/storage/', '/', $this->image_path), '/');
-            return '/storage/' . $rawPath;
-        }
-
-        return $disk->url($this->image_path);
+        return PublicUrl::resolve($this->image_path);
     }
 
     /**
@@ -68,21 +57,10 @@ class Product extends Model
 
     public function getSecondaryImageUrlsAttribute()
     {
-        $images = $this->secondary_images ?? [];
-        $targetDisk = config('filesystems.public_disk');
-        $driver = config("filesystems.disks.{$targetDisk}.driver", 'local');
-
-        return array_map(function($path) use ($targetDisk, $driver) {
-            if (!$path) return null;
-            if (str_starts_with($path, 'http')) return $path;
-
-            if ($driver === 'local') {
-                $rawPath = ltrim(str_replace('/storage/', '/', $path), '/');
-                return '/storage/' . $rawPath;
-            }
-
-            return Storage::disk($targetDisk)->url($path);
-        }, $images);
+        return array_map(
+            fn ($path) => PublicUrl::resolve($path),
+            $this->secondary_images ?? []
+        );
     }
 
     public function getOptimizedSecondaryUrlsAttribute()
@@ -101,9 +79,31 @@ class Product extends Model
         return $this->hasMany(StockReservation::class);
     }
 
+    /**
+     * Load active holds in the same query, so listings can show true
+     * availability (sold + held) without a query per product.
+     */
+    public function scopeWithAvailability($query)
+    {
+        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()], 'quantity');
+    }
+
+    /**
+     * What a shopper sees and the Studio reports: null when unlimited.
+     * Listings must append() it after withAvailability() (see ShopController).
+     */
+    public function getAvailableStockAttribute(): ?int
+    {
+        return $this->availableStock();
+    }
+
     /** Quantity currently held by unpaid, non-expired checkouts. */
     public function reservedQuantity(): int
     {
+        if (array_key_exists('reserved_quantity', $this->attributes)) {
+            return (int) $this->attributes['reserved_quantity'];
+        }
+
         return (int) $this->reservations()->active()->sum('quantity');
     }
 
@@ -113,37 +113,10 @@ class Product extends Model
      */
     public function availableStock(): ?int
     {
-        if (!$this->batch_limit) {
+        if ($this->batch_limit === null) {
             return null;
         }
 
         return max(0, $this->batch_limit - (int) $this->batch_sold - $this->reservedQuantity());
     }
-
-    /**
-     * Standardized X-Ray Overlay Specifications.
-     * Provides structured data for the technical "X-Ray" UI overlay.
-     */
-    public function getXraySpecsAttribute()
-    {
-        $baseSpecs = $this->specifications ?? [];
-        
-        return [
-            'fabric' => $baseSpecs['fabric'] ?? 'Industrial Cotton Hybrid',
-            'weight' => $baseSpecs['fabric_weight'] ?? '420 GSM',
-            'density' => $baseSpecs['stitch_density'] ?? '12 Stitches/Inch',
-            'architecture' => $baseSpecs['architecture'] ?? 'Reinforced Double-Needle Stitching',
-            'tech_specs' => $baseSpecs['tech_specs'] ?? [
-                'Thermal Regulation Coating',
-                'Water-Resistant Membrane',
-                'Articulated Elbow Paneling'
-            ],
-            'ui' => $baseSpecs['ui'] ?? [
-                'weight_index' => 85,
-                'weight_label' => 'Optimized for structural integrity & thermal isolation'
-            ]
-        ];
-    }
-
-
 }

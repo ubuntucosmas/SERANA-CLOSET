@@ -1,8 +1,12 @@
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { ref, computed, onMounted } from "vue";
-import { Head, usePage } from "@inertiajs/vue3";
+import { Head, Link, usePage } from "@inertiajs/vue3";
+import StatusBadge from '@/Components/StatusBadge.vue';
+import { paymentStatus, fulfilmentStatus } from '@/Support/orderStatus';
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
 import { useCurrency } from "@/Composables/useCurrency";
+import { rememberTrackingPhone, recallTrackingPhone, forgetTrackingPhone } from "@/Support/trackingMemory";
 
 const props = defineProps({
     prefillReference: { type: String, default: null },
@@ -24,7 +28,7 @@ const journey = computed(() => {
     const o = order.value;
     if (!o) return null;
 
-    if (o.type === "standard") {
+    if (["standard", "drop"].includes(o.type)) {
         const steps = [
             { label: "Placed", icon: "receipt_long" },
             { label: "Paid", icon: "paid" },
@@ -38,7 +42,7 @@ const journey = computed(() => {
             else if (o.status === "completed") index = 3;
             else if (o.status === "shipped") index = 4;
         }
-        return { steps, index, awaitingPayment: !o.is_paid };
+        return { steps, index, awaitingPayment: !o.is_paid && !['Cancelled', 'Expired', 'Amount Mismatch'].includes(o.status) };
     }
 
     const steps = [
@@ -53,14 +57,15 @@ const journey = computed(() => {
 
 const payment = computed(() => {
     const o = order.value;
-    if (!o || o.type !== "standard") return null;
+    if (!o || !["standard", "drop"].includes(o.type)) return null;
     if (o.is_paid) return { label: "Paid", tone: "ok" };
     const failed = ["Payment Failed", "Amount Mismatch", "Expired"];
     if (failed.includes(o.status)) return { label: o.status, tone: "bad" };
-    return { label: "Awaiting payment", tone: "warn" };
+    return { label: "Payment Pending", tone: "warn" };
 });
 
 async function lookup() {
+    if (isLoading.value) return;
     error.value = null;
     if (!form.value.reference.trim() || !form.value.phone.trim()) {
         error.value = "Please enter both your order reference and phone number.";
@@ -70,10 +75,11 @@ async function lookup() {
     isLoading.value = true;
     try {
         const res = await axios.post(route("track.lookup"), {
-            reference: form.value.reference.trim(),
+            reference: form.value.reference.trim().toUpperCase(),
             phone: form.value.phone.trim(),
         });
         order.value = res.data.order;
+        rememberTrackingPhone(form.value.phone);
     } catch (err) {
         order.value = null;
         error.value =
@@ -86,16 +92,27 @@ async function lookup() {
     }
 }
 
+// "Track another order": same customer, usually the same number.
 function reset() {
     order.value = null;
     error.value = null;
-    form.value.phone = "";
+    form.value.reference = "";
 }
 
-// Deep-linked from a success screen (?ref=…) with the phone still in hand —
-// surface the form pre-filled; the customer just adds their number.
+const phoneRemembered = ref(false);
+function useDifferentNumber() {
+    forgetTrackingPhone();
+    form.value.phone = "";
+    phoneRemembered.value = false;
+    document.getElementById("trackorder-phone")?.focus();
+}
+
+// Deep-linked (?ref=…) from a receipt, Your Orders or the success screen: if
+// this device already knows the number, show the order straight away.
 onMounted(() => {
-    if (props.prefillReference) form.value.reference = props.prefillReference;
+    form.value.phone = recallTrackingPhone();
+    phoneRemembered.value = !!form.value.phone;
+    if (props.prefillReference && form.value.phone) lookup();
 });
 </script>
 
@@ -103,59 +120,49 @@ onMounted(() => {
     <StorefrontLayout>
         <Head title="Track Your Order | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pt-8 md:pt-32 pb-24">
-            <div class="max-w-3xl mx-auto px-6 sm:px-8">
+        <div class="bg-background text-on-surface pb-24">
+            <div class="page-container">
                 <!-- Header -->
-                <div class="mb-10 text-center">
-                    <div
-                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-wider font-medium mb-5 rounded-sm"
-                    >
-                        Order Tracking
-                    </div>
-                    <h1 class="text-5xl md:text-6xl font-light tracking-tighter leading-none">
-                        Follow your piece.
-                    </h1>
-                    <p class="mt-4 text-on-surface-variant max-w-md mx-auto">
-                        Enter your order reference and the phone number you ordered with
-                        to see payment, progress photos and your receipt.
-                    </p>
-                </div>
+                <PageHeader kicker="Order Tracking" title="Track Order" subtitle="Enter your order reference and the phone number you ordered with to see payment, progress photos and your receipt." />
 
                 <!-- Lookup form -->
                 <form
                     v-if="!order"
                     @submit.prevent="lookup"
-                    class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8 space-y-6"
+                    class="card space-y-6 p-6 md:p-8"
                 >
-                    <div>
-                        <label class="block text-sm text-on-surface-variant mb-2">Order Reference</label>
+                    <div class="grid gap-6 md:grid-cols-2"><div>
+                        <label class="block text-sm text-on-surface-variant mb-2" for="trackorder-reference">Order Reference</label>
                         <input
-                            v-model="form.reference"
+                            id="trackorder-reference" v-model="form.reference"
                             type="text"
                             placeholder="SRN-XXXXXXXX-2026"
                             autocomplete="off"
-                            class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base uppercase tracking-wider placeholder:text-on-surface-variant/50 placeholder:normal-case placeholder:tracking-normal"
+                            class="field py-3.5 text-base" style="text-transform:uppercase"
                         />
-                        <p class="text-xs text-on-surface-variant/70 mt-1.5">
+                        <p class="text-xs text-on-surface-variant mt-1.5">
                             On your WhatsApp brief, receipt, or order confirmation.
                         </p>
                     </div>
                     <div>
-                        <label class="block text-sm text-on-surface-variant mb-2">Phone Number</label>
+                        <label class="block text-sm text-on-surface-variant mb-2" for="trackorder-phone">Phone Number</label>
                         <input
-                            v-model="form.phone"
+                            id="trackorder-phone" v-model="form.phone"
                             type="tel"
                             placeholder="+254 712 345 678"
-                            class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
+                            autocomplete="tel"
+                            inputmode="tel"
+                            class="field py-3.5 text-base"
                         />
-                    </div>
+                        <button v-if="phoneRemembered" type="button" @click="useDifferentNumber" class="mt-1.5 text-xs text-on-surface-variant underline">Remembered on this device · Use a different number</button>
+                    </div></div>
 
-                    <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
+                    <p role="alert" v-if="error" class="text-red-400 text-sm">{{ error }}</p>
 
                     <button
                         type="submit"
                         :disabled="isLoading"
-                        class="w-full py-5 bg-primary hover:bg-on-surface text-background font-bold text-[11px] tracking-wider rounded-2xl transition-all disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.985]"
+                        class="action-primary w-full py-4 md:w-auto md:px-10"
                     >
                         <span>{{ isLoading ? "Locating your order…" : "Track order" }}</span>
                         <span v-if="!isLoading" class="material-symbols-outlined text-lg">search</span>
@@ -172,28 +179,24 @@ onMounted(() => {
                                     Ref {{ order.reference }}
                                 </div>
                                 <h2 class="text-2xl font-light tracking-tight mt-1">
-                                    {{ order.type === "standard" ? "Atelier Order" : "Bespoke Commission" }}
+                                    {{ order.type === "standard" ? "Shop Order" : order.type === "drop" ? "Drop Reservation" : "Custom Order" }}
                                 </h2>
                                 <p class="text-sm text-on-surface-variant mt-1">Placed {{ order.placed_at }}</p>
                             </div>
                             <div class="text-right">
-                                <span
-                                    v-if="payment"
-                                    class="inline-block px-3 py-1.5 rounded-full text-xs font-medium"
-                                    :class="{
-                                        'bg-[#4fb33f]/15 text-[#4fb33f]': payment.tone === 'ok',
-                                        'bg-amber-400/15 text-amber-300': payment.tone === 'warn',
-                                        'bg-red-400/15 text-red-300': payment.tone === 'bad',
-                                    }"
-                                >
-                                    {{ payment.label }}
-                                </span>
+                                <StatusBadge v-bind="paymentStatus(order)" />
                                 <div v-if="order.amount" class="text-2xl font-light tracking-tight mt-2">
                                     {{ money(order.amount) }}
                                 </div>
                             </div>
                         </div>
 
+                        <p class="mt-5 text-sm font-semibold">Fulfilment: {{ fulfilmentStatus(order) }}</p>
+                        <p class="mt-3 text-sm text-on-surface-variant">{{ paymentStatus(order).next }}</p>
+                        <div class="mt-5 flex flex-wrap gap-4 text-sm">
+                            <button @click="lookup" :disabled="isLoading" class="text-primary underline">{{ isLoading ? 'Checking…' : 'Refresh Status' }}</button>
+                            <Link :href="route('contact')" class="underline">Contact Support</Link>
+                        </div>
                         <!-- Timeline -->
                         <div v-if="journey" class="mt-9">
                             <div class="relative">
@@ -223,15 +226,31 @@ onMounted(() => {
                                 </div>
                             </div>
 
+                            <!-- WhatsApp order: how to pay, and a one-tap resend. -->
+                            <div v-if="journey.awaitingPayment && order.payment_method === 'whatsapp'" class="mt-6 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-4 text-sm">
+                                <p class="font-semibold text-on-surface">How to pay</p>
+                                <p class="mt-1 whitespace-pre-line text-on-surface">{{ order.payment_instructions || 'The studio will reply on WhatsApp with how to pay.' }}</p>
+                                <p class="mt-2 text-xs text-on-surface-variant">Use {{ order.reference }} as the payment reference.</p>
+                                <a v-if="order.whatsapp_url" :href="order.whatsapp_url" target="_blank" rel="noopener" class="mt-3 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 font-semibold text-[#06281c]">
+                                    <span class="material-symbols-outlined text-base" aria-hidden="true">chat</span>
+                                    Send order on WhatsApp
+                                </a>
+                            </div>
                             <p
-                                v-if="journey.awaitingPayment"
-                                class="mt-6 text-sm text-amber-300/90 bg-amber-400/10 rounded-xl px-4 py-3"
+                                v-else-if="journey.awaitingPayment"
+                                class="mt-6 text-sm text-amber-700 dark:text-amber-300/90 bg-amber-400/10 rounded-xl px-4 py-3"
                             >
                                 We haven't received payment for this order yet. If you've already
                                 paid, it can take a moment to confirm — refresh shortly.
                             </p>
                         </div>
 
+                        <!-- Paid: the payment record, in case it wasn't sent at checkout -->
+                        <a v-if="order.paid_whatsapp_url" :href="order.paid_whatsapp_url" target="_blank" rel="noopener"
+                            class="mt-8 mr-3 inline-flex items-center gap-2 rounded-2xl bg-[#25D366] px-6 py-3.5 text-[11px] font-bold tracking-wider text-[#06281c]">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">chat</span>
+                            Send payment record on WhatsApp
+                        </a>
                         <!-- Receipt -->
                         <a
                             v-if="order.receipt_url"
@@ -261,6 +280,7 @@ onMounted(() => {
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm truncate">{{ item.name }}</div>
                                     <div class="text-xs text-on-surface-variant">Qty {{ item.quantity }}</div>
+                                    <p v-if="item.size_label || item.options?.size" class="text-xs text-on-surface-variant">{{ item.size_label || ('Size ' + item.options.size) }}</p>
                                 </div>
                             </div>
                         </div>

@@ -11,19 +11,24 @@ class ReceiptController extends Controller
 {
     public function download($orderId)
     {
-        $order = CustomOrder::findOrFail($orderId);
+        // Archived orders keep their receipt: tracking still finds them and
+        // mints this signed link (archiving is a Studio tidy-up).
+        $order = CustomOrder::withTrashed()->findOrFail($orderId);
         
         // Ensure the order is paid
-        if (!$order->is_paid && $order->status !== OrderStatus::PAID) {
+        if (!$order->is_paid) {
             return back()->with('error', 'Receipts are only available for paid orders.');
         }
 
         $pdf = Pdf::loadView('receipts.luxury', [
             'order' => $order,
-            'items' => $order->items_json ?: [],
-            'date' => $order->updated_at->format('M d, Y H:i A')
+            // items_with_urls yields only real line items — raw items_json also
+            // carries non-item keys (precision_sizing, drop metadata) that would
+            // render as junk rows on the PDF.
+            'items' => $order->items_with_urls,
+            'date' => $order->paidAtForDisplay()
         ]);
 
-        return $pdf->download("Serana-Atelier-Receipt-{$order->id}.pdf");
+        return $pdf->download('Serana-Receipt-' . ($order->cipher ?? $order->id) . '.pdf');
     }
 }

@@ -2,17 +2,11 @@
     <StorefrontLayout>
         <Head>
             <title>The Studio | Contact Serana Closet</title>
-            <meta name="description" content="Connect with the Serana Studio in Nairobi. Priority WhatsApp access, custom design inquiries, and support.">
         </Head>
 
-        <main class="pt-8 md:pt-32 pb-24 px-6 sm:px-8 max-w-screen-xl mx-auto font-body">
+        <main class="page-container pb-24 font-body">
             <!-- Header Section -->
-            <header class="mb-20 text-center reveal">
-                <h1 class="serif-text text-5xl md:text-8xl dark:text-white text-on-surface mb-8 tracking-tighter font-light">The Studio <span class="text-primary luminous-glow">Connect</span></h1>
-                <p class="text-white/60 text-xl md:text-2xl max-w-2xl mx-auto font-light leading-relaxed">
-                    Direct access to the Serana Studio. Priority response for custom orders and elite acquisitions.
-                </p>
-            </header>
+            <PageHeader kicker="Contact" title="Contact" accent="Serana" subtitle="Ask about an order, sizing or a custom order. Send your message to our team on WhatsApp." />
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
                 <!-- Contact Channels -->
@@ -23,10 +17,10 @@
                                 <span class="material-symbols-outlined text-primary group-hover:text-background text-3xl">chat</span>
                             </div>
                             <div>
-                                <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Priority WhatsApp</h3>
-                                <p class="text-on-surface-variant text-sm mb-4">Direct line for instant fitting updates and new design inquiries.</p>
-                                <a :href="whatsappUrl" target="_blank" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
-                                    +254 700 000 000
+                                <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">WhatsApp</h3>
+                                <p class="text-on-surface-variant text-sm mb-4">Direct line for fitting updates and new design inquiries.</p>
+                                <a :href="whatsappUrl" target="_blank" rel="noopener" class="text-primary font-headline text-lg font-black tracking-widest hover:dark:text-white text-on-surface transition-colors">
+                                    {{ store.whatsapp_display }}
                                 </a>
                             </div>
                         </div>
@@ -36,10 +30,10 @@
                                 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-background text-3xl">mail</span>
                             </div>
                             <div>
-                                <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Electronic Dispatch</h3>
+                                <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Email</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">For press, collaborations, and formal archival inquiries.</p>
-                                <a href="mailto:studio@seranacloset.com" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">
-                                    studio@seranacloset.com
+                                <a :href="`mailto:${contactEmail}`" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">
+                                    {{ contactEmail }}
                                 </a>
                             </div>
                         </div>
@@ -52,10 +46,24 @@
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Nairobi Studio</h3>
                                 <p class="text-on-surface-variant text-sm mb-4">By Appointment Only. Experience the Serana Standard in person.</p>
                                 <p class="text-on-surface font-headline text-sm font-bold tracking-wider opacity-60">
-                                    IMENTI HOUSE 29 • Nairobi • Kenya
+                                    {{ contactAddress }}
                                 </p>
                             </div>
                         </div>
+
+                        <!-- Calls, when a separate care line is set in the Studio -->
+                        <div v-if="store.phone && store.phone !== store.whatsapp" class="flex items-start gap-8 group">
+                            <div class="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-primary text-3xl" aria-hidden="true">support_agent</span>
+                            </div>
+                            <div>
+                                <h3 class="font-headline text-xl font-bold text-on-surface mb-2">Call us</h3>
+                                <p class="text-on-surface-variant text-sm mb-4">For order help and delivery questions.</p>
+                                <a :href="`tel:+${store.phone}`" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">{{ store.phone_display }}</a>
+                            </div>
+                        </div>
+
+                        <SocialLinks item-class="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-on-surface-variant transition hover:text-primary dark:border-white/10" />
                     </div>
 
                     <!-- Studio Status -->
@@ -65,10 +73,10 @@
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                             </span>
-                            <span class="text-[11px] font-headline font-black tracking-wider text-primary">Live studio pulse</span>
+                            <span class="text-[11px] font-headline font-black tracking-wider text-primary">Studio status</span>
                         </div>
-                        <p class="text-sm text-white leading-relaxed font-light">
-                            Our artisans are currently focused on **Batch #04**. Capacity at **85%**. Response times: approx **4 hours**.
+                        <p class="text-sm text-on-surface leading-relaxed font-light">
+                            Message the studio to discuss current availability, fitting appointments or a new custom order.
                         </p>
                     </div>
                 </div>
@@ -77,37 +85,37 @@
                 <div class="glass-panel rounded-sm p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
                     <form @submit.prevent="submitForm" class="space-y-8">
                         <div class="space-y-3">
-                            <label class="text-[11px] font-headline tracking-wider text-primary font-black">Nature of inquiry</label>
-                            <select v-model="form.type" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl transition-all appearance-none outline-none">
+                            <label class="text-[11px] font-headline tracking-wider text-primary font-black" for="contact-type">Nature of inquiry</label>
+                            <select id="contact-type" v-model="form.type" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl transition-all appearance-none outline-none">
                                 <option value="bespoke">Custom Order</option>
                                 <option value="batch">Limited Batch Drop Inquiry</option>
-                                <option value="support">Artisan Support / Fitting</option>
-                                <option value="other">General Archival Request</option>
+                                <option value="support">Order Support / Fitting</option>
+                                <option value="other">General Inquiry</option>
                             </select>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div class="space-y-3">
-                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Your name</label>
-                                <input v-model="form.name" type="text" placeholder="John Doe" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
+                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black" for="contact-name">Your name</label>
+                                <input id="contact-name" v-model="form.name" type="text" placeholder="John Doe" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
                             </div>
                             <div class="space-y-3">
-                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Email address</label>
-                                <input v-model="form.email" type="email" placeholder="john@domain.com" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
+                                <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black" for="contact-email">Email address</label>
+                                <input id="contact-email" v-model="form.email" type="email" placeholder="john@domain.com" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
                             </div>
                         </div>
 
                         <div class="space-y-3">
-                            <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black">Message / specifications</label>
-                            <textarea v-model="form.message" rows="5" placeholder="Tell us about your requirements..." class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none resize-none transition-all placeholder:opacity-50" required></textarea>
+                            <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black" for="contact-message">Message / specifications</label>
+                            <textarea id="contact-message" v-model="form.message" rows="5" minlength="5" placeholder="Tell us about your requirements..." class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none resize-none transition-all placeholder:opacity-50" required></textarea>
                         </div>
 
-                        <button type="submit" :disabled="isSubmitting" class="w-full py-6 dark:bg-white dark:text-background bg-on-surface text-surface font-headline text-[12.5px] tracking-wider font-black rounded-xl hover:bg-primary hover:text-background transition-all shadow-2xl disabled:opacity-50">
-                            {{ isSubmitting ? 'Transmitting...' : 'Dispatch message' }}
+                        <button type="submit" :disabled="isSubmitting" class="action-primary w-full py-4">
+                            Open WhatsApp with Message
                         </button>
 
                         <p class="text-[10.5px] text-on-surface-variant text-center font-black">
-                            By dispatching, you agree to enter the Serana Artisan pipeline. We value discrete communication.
+                            This opens WhatsApp with your message. Review it and press Send there.
                         </p>
                     </form>
                 </div>
@@ -117,12 +125,21 @@
 </template>
 
 <script setup>
+import PageHeader from '@/Components/PageHeader.vue';
 import { reactive, ref, computed } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
+import SocialLinks from '@/Components/SocialLinks.vue';
+import { useStore } from '@/Composables/useStore';
 
 const page = usePage();
-const whatsappUrl = computed(() => `https://wa.me/${page.props.whatsapp_number}`);
+// Every contact here comes from the store profile (Studio → Settings).
+const { store } = useStore();
+const whatsappUrl = computed(() => store.value.whatsapp_url);
+
+// Admin-managed contact details, with sensible fallbacks.
+const contactEmail = computed(() => store.value.email);
+const contactAddress = computed(() => store.value.address);
 
 const isSubmitting = ref(false);
 const form = reactive({
@@ -132,18 +149,9 @@ const form = reactive({
     message: ''
 });
 
+const inquiryLabels = { bespoke: 'Custom order', batch: 'Limited batch drop', support: 'Order support / fitting', other: 'General inquiry' };
 const submitForm = () => {
-    isSubmitting.value = true;
-    
-    // Simulate API call for now or integrate with a lead controller if needed
-    setTimeout(() => {
-        isSubmitting.value = false;
-        window.dispatchEvent(new CustomEvent('serana-toast', { 
-            detail: { message: "Message dispatched to the Studio. We will respond shortly.", type: 'success' } 
-        }));
-        form.name = '';
-        form.email = '';
-        form.message = '';
-    }, 1500);
+    const message = `Hello ${store.value.name},\n\nName: ${form.name}\nEmail: ${form.email}\nAbout: ${inquiryLabels[form.type] || form.type}\n\n${form.message}`;
+    window.open(`${store.value.whatsapp_url}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
 };
 </script>

@@ -1,0 +1,3 @@
+Bespoke brief → saved reference → popup-blocked confirmation: passed (submission mocked; no message sent).
+Drop → details/size → reserve → payment → confirmation: passed (reservation/payment mocked).
+No JavaScript errors.

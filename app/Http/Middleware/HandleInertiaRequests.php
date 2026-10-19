@@ -38,6 +38,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
+            'seo' => fn () => \App\Support\PageSeo::forRequest($request),
             'auth' => [
                 'user' => fn () => $request->user()
                     ? $request->user()->only('id', 'name', 'email', 'role')
@@ -48,11 +49,15 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
-            'whatsapp_number' => fn () => WhatsApp::normalizeNumber(
-                ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'))
-            ),
-            'theme_settings' => fn () => ThemeSetting::all()->mapWithKeys(function ($item) {
-                return [$item->key => ThemeSetting::get($item->key)];
+            'drops_enabled' => (bool) config('services.drops.enabled'),
+            // Who the store is and how to reach it (Studio → Settings), one source for every page.
+            'store' => fn () => \App\Support\StoreProfile::forFrontend(),
+            'whatsapp_number' => fn () => \App\Support\StoreProfile::whatsapp(),
+            // Custom order options are passed only to the pages that use them.
+            // How customers can pay right now (Studio → Settings → Payments).
+            'payments' => fn () => \App\Support\PaymentSettings::forCustomers(),
+            'theme_settings' => fn () => collect(ThemeSetting::values())->except([\App\Support\CustomOrderOptions::KEY, \App\Support\PaymentSettings::KEY])->mapWithKeys(function ($value, $key) {
+                return [$key => ThemeSetting::get($key)];
             })->all(),
             'categories' => fn () => \App\Models\Category::all()->map(function ($cat) {
                 return [

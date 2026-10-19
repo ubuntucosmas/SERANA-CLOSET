@@ -1,192 +1,139 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { useCurrency } from '@/Composables/useCurrency';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
-import HeroSection    from '@/Components/HeroSection.vue';
-import CategoryGrid   from '@/Components/CategoryGrid.vue';
-import ProductCard    from '@/Components/ProductCard.vue';
-import CollectionRibbon from '@/Components/CollectionRibbon.vue';
-import CraftsmanshipBlock from '@/Components/CraftsmanshipBlock.vue';
-import SectionBackground from '@/Components/SectionBackground.vue';
-import { animate, stagger } from 'animejs';
+import HeroSection from '@/Components/HeroSection.vue';
+import TrustBar from '@/Components/TrustBar.vue';
+import CategoryGrid from '@/Components/CategoryGrid.vue';
+import SectionHeader from '@/Components/SectionHeader.vue';
+import ProductCard from '@/Components/ProductCard.vue';
+import HomeBespokeStory from '@/Components/HomeBespokeStory.vue';
+import { useCinematicScroll } from '@/Composables/useCinematicScroll';
+
+const cinematicRoot = ref(null);
+useCinematicScroll(cinematicRoot);
 
 const props = defineProps({
+    showcaseProducts: { type: Array, default: () => [] },
     featuredProducts: { type: Array, default: () => [] },
-    studioLoad: { type: Number, default: 0 },
-    studioCapacity: { type: Number, default: 0 },
+    featuredDrop: { type: Object, default: null },
 });
-
-onMounted(() => {
-    // Page is ready - animations handled by StorefrontLayout
-});
-
-// Newsletter form
-const form = useForm({
-    email: '',
-});
-
-function subscribeNewsletter() {
-    form.post(route('newsletter.subscribe'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            form.reset();
-        }
+const page = usePage();
+const { formatAmount } = useCurrency();
+const selectedCategory = ref('all');
+const collectionFilters = computed(() => {
+    const categories = new Map();
+    props.featuredProducts.forEach(product => {
+        if (product.category?.id) categories.set(String(product.category.id), product.category.name);
     });
-}
-
-onMounted(() => {
-    // Scroll reveals are now handled globally by the v-reveal directive
+    return [{ id: 'all', name: 'All Arrivals' }, ...[...categories].map(([id, name]) => ({ id, name }))];
 });
+const visibleProducts = computed(() => selectedCategory.value === 'all'
+    ? props.featuredProducts
+    : props.featuredProducts.filter(product => String(product.category?.id) === selectedCategory.value));
+const helpHref = computed(() => page.props.store?.whatsapp_url || route('contact'));
 </script>
 
 <template>
-    <StorefrontLayout>
-        <Head>
-            <title>Serana Closet | Custom Studio</title>
-            <meta name="description" content="Nairobi's elite bespoke fashion house. Merging traditional tailoring with futuristic digital precision. Experience the Serana Standard of custom wear.">
-        </Head>
+    <StorefrontLayout flushTop>
+        <Head title="Serana Closet | Ready-to-Wear & Custom Orders" />
+        <div ref="cinematicRoot" class="cinematic-home">
+        <HeroSection :products="showcaseProducts" />
 
-        <!-- 1. Hero -->
-        <HeroSection />
-
-        <!-- 2. Collection Ribbon (New Mobile Hook) -->
-        <CollectionRibbon :products="featuredProducts" />
-
-        <!-- 3. Categories -->
-        <section class="relative py-16 md:py-24 overflow-hidden">
-            <SectionBackground opacity="opacity-60" />
-            <div class="relative z-10">
-                <CategoryGrid />
-            </div>
+        <section data-cinema-reveal class="home-trust page-container mb-4" aria-label="Shopping with Serana">
+            <TrustBar />
         </section>
 
-        <!-- 3. The Serana Standard -->
-        <section v-reveal class="py-16 md:py-24 bg-surface px-4 sm:px-8 relative overflow-hidden">
-            <SectionBackground opacity="opacity-60" />
-            <div class="max-w-screen-xl mx-auto">
-                <CraftsmanshipBlock 
-                    subtitle="Our Quality Standard"
-                    title="Built by Hand. <br/> <span class='text-primary font-medium luminous-glow'>Perfected with Precision.</span>"
-                    description="We reject mass production. Every piece at Serana Closet is a fusion of traditional Kenyan tailoring and modern precision. We source the finest materials to ensure your garment isn't just an outfit—it's a signature piece."
-                    image="/images/white_hoodie_silver_zipper.png"
-                >
-                    <template #action>
-                        <Link :href="route('about')" class="inline-flex items-center gap-2 text-xs font-headline font-medium text-primary hover:underline underline-offset-4 mt-6">
-                            Read the Manifesto <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                        </Link>
-                    </template>
-                </CraftsmanshipBlock>
-            </div>
-        </section>
-
-        <!-- 4. Studio Pulse (Minimalist Refinement) -->
-        <section v-reveal class="py-16 md:py-24 lg:py-40 bg-background border-b dark:border-white/5 border-black/5 relative">
-            <SectionBackground opacity="opacity-60" />
-            <div class="max-w-screen-xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
-                <div class="flex items-center gap-10">
-                    <div class="space-y-2">
-                        <p class="text-[9px] font-headline font-medium tracking-wider text-primary">Live Studio Pulse</p>
-<h1 class="text-3xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9] ">
-                             <span class="split-text">Our</span> <span class="split-text"><span class="bg-gradient-to-r from-primary to-[#08CB00] bg-clip-text text-transparent font-medium">Collection</span></span>_
-                         </h1>
-                        <p class="max-w-xl text-[10px] md:text-xs dark:text-white/40 text-on-surface-variant tracking-wider font-medium leading-loose font-sans">
-                            Nairobi's high-tech maker space. Engineering high-fashion silhouettes with careful precision and digital craft.
-                        </p>
-                    </div>
+        <section id="new-arrivals" class="page-container page-section scroll-mt-24" aria-labelledby="arrivals-heading">
+            <div data-cinema-reveal class="mb-7 flex flex-wrap items-end justify-between gap-5">
+                <div>
+                    <p class="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-primary">A fresh point of view</p>
+                    <h2 id="arrivals-heading" class="section-title">New Arrivals</h2>
+                    <p class="section-sub">Meet your next wardrobe regular.</p>
                 </div>
-
-                <div class="flex flex-wrap gap-8 text-left">
-                    <div class="space-y-2">
-                        <p class="text-[10.5px] font-headline tracking-wider text-primary mb-1 font-medium">Est.</p>
-                        <p class="text-4xl font-headline font-medium dark:text-white text-on-surface dark:text-white text-on-surface">2022</p>
-                    </div>
-                    <div class="space-y-2 pl-8 border-l dark:border-white/5 border-black/5">
-                        <span class="block text-[8px] font-headline font-medium tracking-wider text-primary/60">Studio Load</span>
-                        <span class="text-4xl font-headline font-medium dark:text-white text-on-surface tracking-tighter">{{ studioLoad }} <span class="dark:text-white/40 text-black/40 font-light text-xl">pcs</span></span>
-                    </div>
-                    <div class="space-y-2 pl-8 border-l dark:border-white/5 border-black/5">
-                        <span class="block text-[8px] font-headline font-medium tracking-wider text-primary/60">Capacity</span>
-                        <span class="text-4xl font-headline font-medium text-primary tracking-tighter">{{ studioCapacity }}%</span>
-                    </div>
-                </div>
-
-                <Link :href="route('custom-order')" class="hidden lg:flex items-center gap-6 px-10 py-5 border dark:border-white/10 border-black/10 rounded-sm text-[10px] font-headline font-medium tracking-wider hover:bg-white hover:text-background transition-all">
-                    Book Custom <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                </Link>
-            </div>
-        </section>
-
-        <!-- 5. Featured Products -->
-        <section v-reveal data-reveal-stagger=".product-card-container" class="py-16 md:py-32 lg:py-48 px-8 max-w-screen-2xl mx-auto relative bg-surface-container/50 overflow-hidden">
-            <SectionBackground opacity="opacity-60" :showScan="false" />
-            <div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-12 relative z-10">
-                <div class="space-y-6">
-                    <div class="inline-flex items-center gap-3 text-primary font-sans tracking-wider text-[9px] font-medium">
-                        <span class="w-8 h-px bg-primary/40"></span>
-                        Our Quality story
-                    </div>
-                    <h2 class="text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter ">
-                        Every stitch_ <span class="dark:text-white text-on-surface/20">tells a story</span>
-                    </h2>
-                </div>
-                <Link :href="route('shop')" class="text-primary font-headline text-[10px] tracking-wider font-medium border-b border-primary/20 pb-2 hover:border-primary hover:dark:text-white text-on-surface transition-all">
-                    Shop All
-                </Link>
+                <Link :href="route('shop')" class="link-more min-h-11">Shop the Full Collection <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span></Link>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 relative z-10">
-                <div v-for="product in featuredProducts" :key="product.id" class="product-card-container opacity-0">
+            <div v-if="featuredProducts.length" class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-2" role="group" aria-label="Filter new arrivals by collection">
+                    <button v-for="category in collectionFilters" :key="category.id" type="button" :aria-pressed="selectedCategory === category.id" aria-controls="home-arrival-grid" @click="selectedCategory = category.id" class="arrival-filter min-h-11 rounded-full border px-4 py-2 text-xs font-semibold transition-colors sm:text-sm" :class="selectedCategory === category.id ? 'border-on-surface bg-on-surface text-background' : 'border-outline-variant/60 bg-transparent text-on-surface-variant hover:border-primary hover:text-on-surface'">
+                        {{ category.name }}
+                    </button>
+                </div>
+                <p class="text-xs text-on-surface-variant" role="status">{{ visibleProducts.length }} {{ visibleProducts.length === 1 ? 'piece' : 'pieces' }} in this edit</p>
+            </div>
+            <div v-if="featuredProducts.length" id="home-arrival-grid" class="grid grid-cols-2 items-stretch gap-3 sm:gap-6 lg:grid-cols-4">
+                <div v-for="(product, index) in visibleProducts" :key="product.id" data-cinema-reveal :data-cinema-delay="(index % 4) * 85" class="min-w-0">
                     <ProductCard :product="product" />
                 </div>
             </div>
+            <div v-else class="card p-8 text-center">
+                <h3 class="text-lg font-semibold text-on-surface">The next edit is on its way.</h3>
+                <p class="mt-2 text-sm text-on-surface-variant">Have something particular in mind? Share it with the studio.</p>
+                <Link :href="route('custom-order')" class="action-secondary mt-5">Start a Custom Order</Link>
+            </div>
         </section>
 
-        <!-- 6. Newsletter / Studio Circle CTA -->
-        <section v-reveal class="bg-surface dark:text-white text-on-surface py-16 md:py-32 lg:py-48 px-8 overflow-hidden relative border-t dark:border-white/5 border-black/5">
-            <SectionBackground texture="/images/black_zip_up_hoodie_gray_bg.png" opacity="opacity-[0.15]" />
-            
-            <div class="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-24 relative z-10">
-                <div class="space-y-10">
-                    <div class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider reveal-item opacity-0">
-                        <span class="w-12 h-px bg-primary/40"></span>
-                        Ready to shop?
-                        <span class="w-12 h-px bg-primary/40"></span>
-                    </div>
-                    <h2 class="font-headline text-4xl lg:text-[7rem] font-medium dark:text-white text-on-surface leading-[0.9] tracking-tighter">The Serana <br/><span class="dark:text-white/40 text-black/40 font-light">Circle.</span></h2>
-                    <p class="text-sm dark:text-white/40 text-on-surface-variant leading-loose  max-w-md font-sans tracking-widest text-[10px] font-medium">
-                        Our pieces are not just made; they are carefully built. We merge high-tech design with the soul of Kenyan makers to create something truly unique.
-                    </p>
-                    <form @submit.prevent="subscribeNewsletter" class="flex flex-col gap-6 max-w-md">
-                        <div class="flex flex-col sm:flex-row gap-4">
-                             <input
-                                v-model="form.email"
-                                type="email"
-                                placeholder="ENTER YOUR EMAIL..."
-                                class="flex-grow bg-white/5 dark:border-white/10 border-black/10 text-[11px] font-headline font-medium tracking-wider px-8 py-5 rounded-sm focus:border-primary/50 focus:ring-0 transition-all dark:text-white text-on-surface placeholder:dark:text-white text-on-surface/20"
-                                required
-                            />
-                            <button type="submit" :disabled="form.processing" class="bg-primary text-background px-10 py-5 rounded-sm font-headline text-[11px] tracking-wider font-medium hover:bg-white transition-all shrink-0">
-                                Join
-                            </button>
-                        </div>
-                        <div class="text-[10px] font-headline font-medium tracking-wider dark:text-white text-on-surface/30">
-                            Est. Nairobi · {{ new Date().getFullYear() - 2 }}
-                        </div>
-                        <p v-if="form.wasSuccessful" class="text-primary text-[11px] font-medium tracking-wider animate-pulse">◆ WELCOME. You are now part of the Inner Circle.</p>
-                    </form>
+        <div data-cinema-stagger=".section-head, .card" class="cinema-collection-scene border-y border-outline-variant/40 bg-surface/40">
+            <CategoryGrid title="Find Your Direction" subtitle="A whole wardrobe of possibilities. Start with what feels like you." />
+        </div>
+
+        <section v-if="featuredDrop" class="page-container page-section" aria-labelledby="featured-drop-heading">
+            <Link data-cinema-reveal="image" :href="route('drops.show', featuredDrop.slug)" class="card card-hover group grid overflow-hidden md:grid-cols-2">
+                <div class="card-media aspect-[16/10] rounded-none md:aspect-auto">
+                    <img v-if="featuredDrop.image_url" :src="featuredDrop.image_url" :alt="featuredDrop.title" loading="lazy" class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
-                <!-- Decorative image -->
-                <div class="hidden md:block relative aspect-square group">
-                    <div class="absolute inset-0 bg-primary/20 rounded-full blur-[120px] group-hover:bg-primary/30 transition-all duration-1000"></div>
-                    <div class="relative z-10 w-full h-full aspect-square rounded-full border dark:border-white/10 border-black/10 overflow-hidden">
-                        <img
-                            class="w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105"
-                            src="/images/black_zip_up_hoodie_gray_bg.png"
-                        />
+                <div class="flex flex-col justify-center p-7 md:p-12">
+                    <span class="kicker self-start"><span class="kicker-dot"></span> Live Drop</span>
+                    <h2 id="featured-drop-heading" class="mt-5 font-headline text-3xl font-semibold text-on-surface md:text-4xl">{{ featuredDrop.title }}</h2>
+                    <p class="mt-2 text-xl font-semibold text-primary">{{ formatAmount(featuredDrop.price, page.props) }}</p>
+                    <p class="mt-4 max-w-md text-sm leading-relaxed text-on-surface-variant">Reserve before we make it. Production starts when the campaign reaches its goal.</p>
+                    <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10" aria-hidden="true">
+                        <div class="h-full bg-primary" :style="{ width: featuredDrop.funded_percent + '%' }"></div>
                     </div>
+                    <p class="mt-2 text-xs text-on-surface-variant">{{ featuredDrop.reserved_count }} of {{ featuredDrop.target_quantity }} reserved</p>
+                    <span class="action-primary mt-6 self-start">View Drop & Reserve <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span></span>
+                </div>
+            </Link>
+        </section>
+
+        <HomeBespokeStory />
+
+        <section data-cinema-reveal class="page-container pb-14 pt-3 sm:pb-20" aria-labelledby="home-help-heading">
+            <div class="flex flex-col justify-between gap-6 border-t border-outline-variant/50 pt-8 sm:flex-row sm:items-center">
+                <div>
+                    <h2 id="home-help-heading" class="font-headline text-xl font-semibold text-on-surface">A little guidance goes a long way.</h2>
+                    <p class="mt-2 text-sm text-on-surface-variant">Need a second opinion on sizing, or an update on your order?</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <a :href="helpHref" :target="page.props.store?.whatsapp_url ? '_blank' : undefined" rel="noopener" class="action-secondary">Ask the Studio <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span></a>
+                    <Link :href="route('track')" class="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-primary hover:underline">Track Order</Link>
                 </div>
             </div>
         </section>
+        </div>
     </StorefrontLayout>
 </template>
 
+<style scoped>
+/* Only enhance elements registered by the homepage motion controller. */
+.cinematic-home :deep([data-cinema-waiting]) { opacity: 0; }
+.cinematic-home :deep([data-cinema-waiting]:focus-within) { opacity: 1; }
+.cinematic-home :deep([data-cinema-depth]) { translate: 0 var(--cinema-y, 0px); }
+.cinematic-home :deep(.cinema-image-pan) { transform: scale(1.12); }
+@media (prefers-reduced-motion: reduce) {
+    .cinematic-home :deep([data-cinema-waiting]) { opacity: 1; }
+    .cinematic-home :deep([data-cinema-depth]) { translate: none; }
+    .cinematic-home :deep(.cinema-image-pan) { transform: none; }
+}
+
+@media (max-width: 639px) {
+    .home-trust :deep(.card) { padding: 1rem; }
+    .home-trust :deep(ul) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; }
+    .home-trust :deep(li) { align-items: center; gap: .5rem; }
+    .home-trust :deep(.icon-tile) { width: 2rem; height: 2rem; border-radius: .625rem; }
+    .home-trust :deep(p:first-child) { font-size: .6875rem; line-height: 1.5; }
+    .home-trust :deep(p + p) { display: none; }
+}
+</style>

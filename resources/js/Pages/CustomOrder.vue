@@ -1,12 +1,14 @@
 <script setup>
-import { ref, reactive } from "vue";
+import PageHeader from '@/Components/PageHeader.vue';
+import { ref, reactive, onUnmounted } from "vue";
 import { Head } from "@inertiajs/vue3";
 import StorefrontLayout from "@/Layouts/StorefrontLayout.vue";
-import SizingIntelligence from "@/Components/SizingIntelligence.vue";
+import SizingFigure from "@/Components/SizingFigure.vue";
 
 const props = defineProps({
     baseProduct: { type: Object, default: null },
-    showcaseProducts: { type: Array, default: () => [] },
+    // Managed in Studio → Settings → Custom order options.
+    options: { type: Object, default: () => ({ garments: [], fabrics: [], colours: [] }) },
 });
 
 const isSubmitting = ref(false);
@@ -19,49 +21,14 @@ const submitted = ref(false);
 const whatsappUrl = ref(null);
 const reference = ref(null);
 
-const fieldLabel = (key) => {
-    const base = key.replace("_cm", "");
-    return base.charAt(0).toUpperCase() + base.slice(1);
-};
+// Measurement guidance now lives inside SizingFigure.
 
-const measurementGuidance = {
-    height_cm:
-        "Stand straight, barefoot against a wall. Measure from the crown of your head straight down to the floor.",
-    bust_cm:
-        "Wrap the tape around the fullest part of your chest. Keep it parallel to the floor and breathe normally.",
-    waist_cm:
-        "Locate your natural waist (the narrowest point, usually above the navel) and measure around it.",
-    hips_cm:
-        "Measure around the widest part of your hips, approximately 20cm below the waistline.",
-    length_cm:
-        "Decide your preferred garment length and measure from the shoulder seam straight down to that point.",
-};
-
-const outfitTypes = [
-    "Dress",
-    "Hoodie",
-    "Suit",
-    "Corporate",
-    "Casual",
-    "Gown",
-    "Blazer",
-];
-const eliteColors = [
-    { name: "Midnight", hex: "#0a0a0a" },
-    { name: "Optic White", hex: "#f8f8f8" },
-    { name: "Electric Cyan", hex: "#57d5fc" },
-    { name: "Desert Sand", hex: "#e2cba3" },
-    { name: "Deep Navy", hex: "#0f172a" },
-    { name: "Charcoal", hex: "#1f2937" },
-];
-const fabrics = [
-    { name: "Premium Cotton" },
-    { name: "Italian Wool" },
-    { name: "Silk Charmeuse" },
-    { name: "Japanese Denim" },
-];
+const garments = props.options.garments || [];
+const fabrics = props.options.fabrics || [];
+const colours = props.options.colours || [];
 
 const form = reactive({
+    request_id: crypto.randomUUID(),
     full_name: "",
     whatsapp_number: "",
     location: "",
@@ -82,38 +49,61 @@ const form = reactive({
 });
 
 const validationErrors = ref({});
+// Local date (not UTC) so "today" is right in Nairobi late at night.
+const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 // Pre-fill from a product the client arrived from (e.g. "Make this custom").
 if (props.baseProduct) {
     form.notes = `Inspired by: ${props.baseProduct.name}`;
-    const match = outfitTypes.find(
-        (t) => t.toLowerCase() === String(props.baseProduct.garment_type || "").toLowerCase()
-    );
-    if (match) form.outfit_type = match;
+    // A product's garment_type (set / hoodie / jogger) picks the matching garment.
+    const match = garments.find((g) => g.key === props.baseProduct.garment_type);
+    if (match) form.outfit_type = match.label;
 }
 
 function triggerFileInput() {
     fileInput.value?.click();
 }
 
-function handleFileSelect(e) {
-    const files = Array.from(e.target.files || []);
-    form.images = [...form.images, ...files].slice(0, 6); // max 6
+// One preview URL per file, made once and revoked when the file goes.
+// (Creating them in the template minted new blob URLs on every keystroke.)
+const previews = ref([]);
+const isDragging = ref(false);
+const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
+function addFiles(files) {
+    const room = 6 - form.images.length;
+    const accepted = Array.from(files || []).filter((file) => ACCEPTED.includes(file.type));
+    if (accepted.length < (files?.length || 0)) {
+        globalError.value = "Some files were skipped. Use JPG, PNG, WEBP or PDF. On iPhone, set Camera → Formats → Most Compatible.";
+    }
+    accepted.slice(0, room).forEach((file) => {
+        form.images.push(file);
+        previews.value.push({ url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null, name: file.name });
+    });
 }
 
-function getObjectURL(file) {
-    return file ? URL.createObjectURL(file) : "";
+function handleFileSelect(e) {
+    addFiles(e.target.files);
+    e.target.value = ""; // picking the same file again still fires change
+}
+
+function handleDrop(e) {
+    isDragging.value = false;
+    addFiles(e.dataTransfer?.files);
 }
 
 function removeImage(index) {
-    // Revoke the object URL to free memory
-    if (form.images[index]) {
-        try {
-            URL.revokeObjectURL(getObjectURL(form.images[index]));
-        } catch (e) {}
-    }
+    const preview = previews.value[index];
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+    previews.value.splice(index, 1);
     form.images.splice(index, 1);
 }
+
+function releasePreviews() {
+    previews.value.forEach((p) => p.url && URL.revokeObjectURL(p.url));
+    previews.value = [];
+}
+onUnmounted(releasePreviews);
 
 function validateField(field) {
     // simple client validation
@@ -125,6 +115,7 @@ function validateField(field) {
 }
 
 async function submitOrder() {
+    if (isSubmitting.value) return;
     validationErrors.value = {};
     if (!form.full_name || !form.whatsapp_number) {
         if (!form.full_name)
@@ -163,11 +154,7 @@ async function submitOrder() {
             reference.value = response.data.reference;
 
             // Free preview memory now that the files are uploaded.
-            form.images.forEach((file) => {
-                try {
-                    URL.revokeObjectURL(getObjectURL(file));
-                } catch (e) {}
-            });
+            releasePreviews();
 
             // Show the confirmation panel (works even if the popup is blocked),
             // then optimistically try to open WhatsApp in a new tab.
@@ -176,9 +163,14 @@ async function submitOrder() {
             window.open(whatsappUrl.value, "_blank");
         }
     } catch (err) {
-        globalError.value =
-            err.response?.data?.message ||
-            "Something went wrong. Please try again.";
+        // Put each server message under its own field where we have one.
+        const fieldErrors = err.response?.status === 422 ? err.response.data?.errors : null;
+        if (fieldErrors) {
+            validationErrors.value = Object.fromEntries(Object.entries(fieldErrors).map(([k, v]) => [k.split(".")[0], v[0]]));
+        }
+        globalError.value = err.response?.status === 413
+            ? "Your photos are too large to send together. Try fewer or smaller images (under 10MB each)."
+            : (err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
         isSubmitting.value = false;
     }
@@ -192,6 +184,8 @@ function resetForm() {
             form[k] = null;
         else form[k] = "";
     });
+    releasePreviews();
+    form.request_id = crypto.randomUUID(); // a new brief gets its own duplicate-protection key
     validationErrors.value = {};
     globalError.value = null;
     whatsappUrl.value = null;
@@ -202,29 +196,12 @@ function resetForm() {
 
 <template>
     <StorefrontLayout>
-        <Head title="Private Commission | Serana Closet" />
+        <Head title="Custom Order | Serana Closet" />
 
-        <div class="min-h-screen bg-background text-on-surface pt-8 md:pt-32 pb-24">
-            <div class="max-w-5xl mx-auto px-6 sm:px-8">
+        <div class="min-h-screen bg-background text-on-surface pb-24">
+            <div class="page-container">
                 <!-- Modern Header -->
-                <div v-if="!submitted" class="mb-12 text-center">
-                    <div
-                        class="inline-block px-5 py-1.5 bg-primary/10 text-primary text-[10px] tracking-wider font-medium mb-5 rounded-sm"
-                    >
-                        Private Commission
-                    </div>
-                    <h1
-                        class="text-6xl md:text-7xl font-light tracking-tighter leading-none"
-                    >
-                        Begin your bespoke piece.
-                    </h1>
-                    <p
-                        class="mt-4 text-lg text-on-surface-variant max-w-md mx-auto"
-                    >
-                        A private briefing for the atelier. We craft it
-                        perfectly.
-                    </p>
-                </div>
+                <PageHeader v-if="!submitted" kicker="Custom Order" title="Start Your" accent="Custom Order" subtitle="Tell us what you have in mind. We’ll discuss the design, quote and timing with you." />
 
                 <!-- The Form -->
                 <form v-if="!submitted" @submit.prevent="submitOrder" class="space-y-7">
@@ -242,10 +219,10 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >Full Name</label
-                                >
+                                     for="customorder-full_name">Full Name</label>
                                 <input
-                                    v-model="form.full_name"
+                                    id="customorder-full_name" v-model="form.full_name"
+                                    autocomplete="name"
                                     @blur="validateField('full_name')"
                                     type="text"
                                     required
@@ -262,25 +239,28 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >WhatsApp Number</label
-                                >
+                                     for="customorder-whatsapp_number">WhatsApp Number</label>
                                 <input
-                                    v-model="form.whatsapp_number"
+                                    id="customorder-whatsapp_number" v-model="form.whatsapp_number"
                                     type="tel"
+                                    autocomplete="tel"
                                     required
+                                    :aria-invalid="!!validationErrors.whatsapp_number"
                                     class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
                                     placeholder="+254 712 345 678"
                                 />
+                                <p v-if="validationErrors.whatsapp_number" class="text-red-400 text-sm mt-1">
+                                    {{ validationErrors.whatsapp_number }}
+                                </p>
                             </div>
                         </div>
 
                         <div class="mt-6">
                             <label
                                 class="block text-sm text-on-surface-variant mb-2"
-                                >City / Country</label
-                            >
+                                 for="customorder-location">City / Country</label>
                             <input
-                                v-model="form.location"
+                                id="customorder-location" v-model="form.location"
                                 type="text"
                                 class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base placeholder:text-on-surface-variant/50"
                                 placeholder="Nairobi, Kenya"
@@ -299,36 +279,34 @@ function resetForm() {
                         </div>
 
                         <div>
-                            <label
-                                class="block text-sm text-on-surface-variant mb-3"
-                                >What are we making?</label
-                            >
-                            <div class="flex flex-wrap gap-2">
+                            <p id="customorder-garment-label" class="block text-sm text-on-surface-variant mb-3">What are we making?</p>
+                            <div class="flex flex-wrap gap-2" role="group" aria-labelledby="customorder-garment-label">
                                 <button
-                                    v-for="type in outfitTypes"
-                                    :key="type"
+                                    v-for="garment in garments"
+                                    :key="garment.key"
                                     type="button"
-                                    @click="form.outfit_type = type"
+                                    @click="form.outfit_type = form.outfit_type === garment.label ? '' : garment.label"
+                                    :aria-pressed="form.outfit_type === garment.label"
                                     class="px-6 py-2.5 rounded-full border text-sm transition-all"
                                     :class="
-                                        form.outfit_type === type
+                                        form.outfit_type === garment.label
                                             ? 'bg-primary text-black border-primary'
-                                            : 'border-white/20 hover:border-white/40 hover:text-on-surface'
+                                            : 'border-black/15 dark:border-white/20 hover:border-black/40 dark:hover:border-white/40 hover:text-on-surface'
                                     "
                                 >
-                                    {{ type }}
+                                    {{ garment.label }}
                                 </button>
                             </div>
+                            <p v-if="validationErrors.outfit_type" class="text-red-400 text-sm mt-2">{{ validationErrors.outfit_type }}</p>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >Occasion</label
-                                >
+                                    >Occasion</label>
                                 <input
-                                    v-model="form.occasion"
+                                    id="customorder-occasion" v-model="form.occasion"
                                     type="text"
                                     placeholder="Wedding, Gala, Daily wear..."
                                     class="w-full bg-background border border-white/20 focus:border-primary px-5 py-4 rounded-2xl"
@@ -337,12 +315,12 @@ function resetForm() {
                             <div>
                                 <label
                                     class="block text-sm text-on-surface-variant mb-2"
-                                    >When do you need it?</label
-                                >
+                                     for="customorder-deadline">When do you need it?</label>
                                 <input
-                                    v-model="form.deadline"
+                                    id="customorder-deadline" v-model="form.deadline"
                                     type="date"
-                                    class="w-full bg-background border border-white/20 focus:border-primary px-5 py-4 rounded-xl text-white"
+                                    :min="today"
+                                    class="w-full bg-background border border-black/15 dark:border-white/20 focus:border-primary px-5 py-4 rounded-xl text-on-surface"
                                 />
                             </div>
                         </div>
@@ -360,7 +338,7 @@ function resetForm() {
                                     03 — Precision mapping
                                 </div>
                                 <p class="text-on-surface-variant text-sm mt-1">
-                                    Smart guidance for perfect bespoke fit
+                                    Guidance for a perfect custom fit
                                     (optional)
                                 </p>
                             </div>
@@ -385,12 +363,17 @@ function resetForm() {
                                         :key="m[1]"
                                     >
                                         <label
-                                            class="block text-xs text-white/50 mb-1.5"
+                                            :for="`customorder-${m[1]}`"
+                                            class="block text-xs text-on-surface-variant mb-1.5"
                                             >{{ m[0] }} (cm)</label
                                         >
                                         <input
+                                            :id="`customorder-${m[1]}`"
                                             v-model="form[m[1]]"
                                             type="number"
+                                            inputmode="decimal"
+                                            :min="m[1] === 'height_cm' ? 50 : m[1] === 'length_cm' ? 10 : 30"
+                                            max="250"
                                             placeholder="—"
                                             @focus="activeField = m[1]"
                                             @blur="activeField = null"
@@ -398,27 +381,14 @@ function resetForm() {
                                         />
                                     </div>
                                 </div>
-
-                                <!-- Live Guidance - Simple & Below Fields -->
-                                <div
-                                    v-if="
-                                        activeField &&
-                                        measurementGuidance[activeField]
-                                    "
-                                    class="mt-2.5 text-sm text-white/80 bg-black/30 px-3 py-2 rounded-lg"
-                                >
-                                    <span class="text-primary font-medium"
-                                        >{{ fieldLabel(activeField) }}:</span
-                                    >
-                                    {{ measurementGuidance[activeField] }}
-                                </div>
                             </div>
 
-                            <!-- Precision Mapping Visual (Simple Figure) -->
+                            <!-- Guided sizing figure -->
                             <div class="lg:col-span-7">
-                                <SizingIntelligence
+                                <SizingFigure
                                     :active-field="activeField"
                                     :measurements="form"
+                                    @pick="activeField = $event"
                                 />
                             </div>
                         </div>
@@ -437,32 +407,28 @@ function resetForm() {
                         <div class="mb-8">
                             <label
                                 class="block text-sm text-on-surface-variant mb-3"
-                                >Preferred Fabric</label
+                                 >Preferred Fabric</label
                             >
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div
+                            <div v-if="fabrics.length" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <button
                                     v-for="fabric in fabrics"
-                                    :key="fabric.name"
-                                    @click="
-                                        form.fabric_preference = fabric.name
-                                    "
-                                    class="cursor-pointer rounded-2xl border px-5 py-6 text-center transition-all flex flex-col items-center justify-center"
+                                    :key="fabric"
+                                    type="button"
+                                    @click="form.fabric_preference = form.fabric_preference === fabric ? '' : fabric"
+                                    :aria-pressed="form.fabric_preference === fabric"
+                                    class="rounded-2xl border px-5 py-6 text-center transition-all flex flex-col items-center justify-center"
                                     :class="
-                                        form.fabric_preference === fabric.name
+                                        form.fabric_preference === fabric
                                             ? 'border-primary bg-primary/5 text-primary'
-                                            : 'border-white/10 hover:border-white/30 hover:bg-white/[0.015]'
+                                            : 'border-black/10 dark:border-white/10 hover:border-black/30 dark:hover:border-white/30'
                                     "
                                 >
-                                    <div
-                                        class="text-xs tracking-wider text-white/40 mb-1"
-                                    >
-                                        FABRIC
-                                    </div>
-                                    <div class="font-medium text-lg">
-                                        {{ fabric.name }}
-                                    </div>
-                                </div>
+                                    <span class="text-xs tracking-wider text-on-surface-variant mb-1">FABRIC</span>
+                                    <span class="font-medium text-lg">{{ fabric }}</span>
+                                </button>
                             </div>
+                            <p v-else class="text-sm text-on-surface-variant">We’ll suggest fabrics when we discuss your order on WhatsApp.</p>
+                            <p v-if="validationErrors.fabric_preference" class="text-red-400 text-sm mt-2">{{ validationErrors.fabric_preference }}</p>
                         </div>
 
                         <div>
@@ -470,26 +436,29 @@ function resetForm() {
                                 class="block text-sm text-on-surface-variant mb-3"
                                 >Colour Direction</label
                             >
-                            <div class="flex flex-wrap gap-3">
+                            <p v-if="!colours.length" class="text-sm text-on-surface-variant">Tell us the colour you have in mind in the notes below.</p>
+                            <div v-else class="flex flex-wrap gap-3">
                                 <button
-                                    v-for="color in eliteColors"
+                                    v-for="color in colours"
                                     :key="color.name"
                                     type="button"
-                                    @click="form.selected_color = color.name"
+                                    @click="form.selected_color = form.selected_color === color.name ? '' : color.name"
+                                    :aria-pressed="form.selected_color === color.name"
                                     class="flex items-center gap-3 px-5 py-2.5 rounded-full border text-sm transition-all"
                                     :class="
                                         form.selected_color === color.name
                                             ? 'border-primary bg-primary/10 text-primary'
-                                            : 'border-white/20 hover:border-white/50'
+                                            : 'border-black/15 dark:border-white/20 hover:border-black/40 dark:hover:border-white/50'
                                     "
                                 >
                                     <div
-                                        class="w-6 h-6 rounded-full border border-white/20 shadow-inner"
+                                        class="w-6 h-6 rounded-full border border-black/20 dark:border-white/20 shadow-inner"
                                         :style="{ backgroundColor: color.hex }"
                                     ></div>
                                     {{ color.name }}
                                 </button>
                             </div>
+                            <p v-if="validationErrors.selected_color" class="text-red-400 text-sm mt-2">{{ validationErrors.selected_color }}</p>
                         </div>
                     </div>
 
@@ -510,25 +479,33 @@ function resetForm() {
                                 >Upload reference images (optional)</label
                             >
                             <div
+                                role="button"
+                                tabindex="0"
                                 @click="triggerFileInput"
-                                class="border-2 border-dashed border-white/20 hover:border-primary/60 rounded-2xl p-7 text-center cursor-pointer transition-all"
+                                @keydown.enter.prevent="triggerFileInput"
+                                @keydown.space.prevent="triggerFileInput"
+                                @dragover.prevent="isDragging = true"
+                                @dragleave.prevent="isDragging = false"
+                                @drop.prevent="handleDrop"
+                                class="border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all"
+                                :class="isDragging ? 'border-primary bg-primary/5' : 'border-black/15 dark:border-white/20 hover:border-primary/60'"
                             >
                                 <span
                                     class="material-symbols-outlined text-4xl text-on-surface-variant/50 mb-2"
                                     >add_photo_alternate</span
                                 >
-                                <p class="text-white/60">
-                                    Click or drop images here
+                                <p class="text-on-surface-variant">
+                                    {{ isDragging ? 'Drop to add' : 'Tap to add photos, or drop them here' }}
                                 </p>
-                                <p class="text-xs text-white/40 mt-1">
-                                    Up to 6 images • JPG, PNG, PDF
+                                <p class="text-xs text-on-surface-variant mt-1">
+                                    Up to 6 images • JPG, PNG, WEBP or PDF, 10MB each
                                 </p>
                             </div>
                             <input
                                 type="file"
                                 ref="fileInput"
                                 multiple
-                                accept="image/*,.pdf"
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
                                 @change="handleFileSelect"
                                 class="hidden"
                             />
@@ -538,20 +515,27 @@ function resetForm() {
                                 class="flex flex-wrap gap-3 mt-4"
                             >
                                 <div
-                                    v-for="(file, i) in form.images"
-                                    :key="i"
+                                    v-for="(preview, i) in previews"
+                                    :key="preview.url || preview.name + i"
                                     class="relative w-20 h-20 bg-black rounded-xl overflow-hidden border border-white/10"
                                 >
                                     <img
-                                        :src="getObjectURL(file)"
+                                        v-if="preview.url"
+                                        :src="preview.url"
+                                        :alt="`Reference ${i + 1}`"
                                         class="w-full h-full object-cover"
                                     />
+                                    <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1 p-1 text-white/80">
+                                        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                                        <span class="w-full truncate text-center text-[10px]">{{ preview.name }}</span>
+                                    </div>
                                     <button
                                         type="button"
                                         @click.stop="removeImage(i)"
-                                        class="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-xs"
+                                        :aria-label="`Remove ${preview.name}`"
+                                        class="absolute top-0.5 right-0.5 w-8 h-8 bg-black/70 text-white rounded-full flex items-center justify-center"
                                     >
-                                        ×
+                                        <span class="material-symbols-outlined text-base" aria-hidden="true">close</span>
                                     </button>
                                 </div>
                             </div>
@@ -560,10 +544,9 @@ function resetForm() {
                         <div>
                             <label
                                 class="block text-sm text-on-surface-variant mb-2"
-                                >Anything else we should know?</label
-                            >
+                                >Anything else we should know?</label>
                             <textarea
-                                v-model="form.notes"
+                                id="customorder-notes" v-model="form.notes"
                                 rows="3"
                                 placeholder="Special requests, fit preferences, deadline pressure..."
                                 class="w-full bg-background border border-white/20 focus:border-primary px-4 py-3 rounded-xl text-sm resize-y"
@@ -571,40 +554,17 @@ function resetForm() {
                         </div>
                     </div>
 
-                    <!-- Priority Pass -->
-                    <div
-                        class="flex items-center justify-between bg-surface border border-white/10 rounded-3xl px-7 py-5"
-                    >
-                        <div>
-                            <div class="font-medium">Expedite my order</div>
-                            <div class="text-sm text-on-surface-variant">
-                                Skip the standard queue (+KSh 1,500)
-                            </div>
-                        </div>
-                        <label
-                            class="relative inline-flex items-center cursor-pointer"
-                        >
-                            <input
-                                type="checkbox"
-                                v-model="form.priority_pass"
-                                class="sr-only peer"
-                            />
-                            <div
-                                class="w-11 h-6 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"
-                            ></div>
-                        </label>
-                    </div>
-
+                    <p class="text-sm text-on-surface-variant">Your name and WhatsApp number are required. Measurements and other details are optional. No payment is taken here; the studio will confirm the design, price and timing with you on WhatsApp.</p>
                     <!-- Submit -->
                     <button
                         type="submit"
                         :disabled="isSubmitting"
-                        class="w-full py-6 bg-primary hover:bg-on-surface text-background font-bold text-[11px] tracking-wider rounded-2xl transition-all disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.985]"
+                        class="action-primary w-full py-4"
                     >
                         <span>{{
                             isSubmitting
-                                ? "Sending to the atelier…"
-                                : "Send brief to the atelier"
+                                ? "Saving Request…"
+                                : "Send My Custom Order"
                         }}</span>
                         <span
                             v-if="!isSubmitting"
@@ -614,10 +574,9 @@ function resetForm() {
                     </button>
 
                     <p
-                        class="text-center text-xs text-on-surface-variant/70 tracking-wider"
+                        class="text-center text-xs text-on-surface-variant tracking-wider"
                     >
-                        We’ll receive your brief on WhatsApp and reply within a
-                        few hours.
+                        Your request is saved first. Open WhatsApp to send the brief to the studio and discuss the quote and timing.
                     </p>
 
                     <div
@@ -631,11 +590,11 @@ function resetForm() {
                 <!-- Success / Brief Sent -->
                 <div v-else class="max-w-xl mx-auto text-center py-10">
                     <div class="w-20 h-20 mx-auto flex items-center justify-center bg-[#4fb33f]/12 border border-[#4fb33f]/30 mb-8">
-                        <span class="material-symbols-outlined text-[#4fb33f] text-4xl" style="font-variation-settings:'FILL' 1">task_alt</span>
+                        <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-4xl" style="font-variation-settings:'FILL' 1">task_alt</span>
                     </div>
-                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Your brief is ready.</h2>
+                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Custom Order Saved</h2>
                     <p class="text-on-surface-variant leading-relaxed mb-10">
-                        We’ve opened WhatsApp so you can send your commission brief to the atelier.
+                        We’ve opened WhatsApp so you can send your order details to the studio.
                         If it didn’t open automatically, tap the button below — then just hit send.
                     </p>
 
@@ -654,7 +613,7 @@ function resetForm() {
                         <div class="text-[10px] font-mono uppercase tracking-widest text-on-surface-variant">Your order reference</div>
                         <div class="text-xl font-mono tracking-wider text-on-surface mt-1">{{ reference }}</div>
                         <p class="text-sm text-on-surface-variant mt-3">
-                            Keep this safe. Track your commission's progress anytime with your
+                            Keep this safe. Track your custom order's progress anytime with your
                             reference and WhatsApp number —
                             <a :href="route('track', { ref: reference })" class="text-primary hover:underline">track your order</a>.
                         </p>
@@ -667,7 +626,7 @@ function resetForm() {
                             class="text-sm text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-2"
                         >
                             <span class="material-symbols-outlined text-base">add</span>
-                            Start another commission
+                            Start another custom order
                         </button>
                     </div>
                 </div>

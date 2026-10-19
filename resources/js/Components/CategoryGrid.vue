@@ -1,78 +1,49 @@
 <script setup>
+import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import SectionHeader from '@/Components/SectionHeader.vue';
+
+const props = defineProps({
+    limit: { type: Number, default: 6 },
+    title: { type: String, default: 'Shop By Category' },
+    subtitle: { type: String, default: 'Find the right piece faster, one collection at a time.' },
+});
 
 const page = usePage();
+const categories = computed(() => (page.props.categories || []).slice(0, props.limit));
 
-const getCategoryBanner = (category) => {
-    if (category.banner_url) return category.banner_url;
-
-    const slug = category.slug;
-    const categoryBannerMap = {
-        'mens-collection': 'cat_men_bg',
-        'ladies-wear': 'cat_women_bg',
-        'accessories': 'cat_acc_bg',
-        'kids-collection': 'cat_kids_bg',
-        'casual-collection': 'cat_casual_bg',
-        'hoodies': 'cat_hoodies_bg',
-        'dresses': 'cat_dresses_bg',
-        'corporate-wear': 'cat_corporate_bg'
-    };
-
-    const bannerKey = categoryBannerMap[slug];
-    const legacyBanner = bannerKey ? page.props.theme_settings[bannerKey] : null;
-
-    if (legacyBanner) return legacyBanner;
-
-    // Fallback based on common keywords if no specific banner exists
-    if (slug.includes('men')) return page.props.theme_settings.cat_men_bg || '/images/navy_contrast_set.png';
-    if (slug.includes('women') || slug.includes('ladies') || slug.includes('dresses')) return page.props.theme_settings.cat_women_bg || '/images/hero_editorial.png';
-    if (slug.includes('kids')) return page.props.theme_settings.cat_kids_bg || '/images/ready_to_wear_rack.png';
-
-    return '/images/detailed_texture.png';
+// Admin banner first, then the legacy per-category theme images, then a small
+// local fallback (all under 100KB; the large hero PNGs are deliberately avoided).
+const legacyKeys = {
+    'mens-collection': 'cat_men_bg', 'ladies-wear': 'cat_women_bg', 'accessories': 'cat_acc_bg',
+    'kids-collection': 'cat_kids_bg', 'casual-collection': 'cat_casual_bg', 'hoodies': 'cat_hoodies_bg',
+    'dresses': 'cat_dresses_bg', 'corporate-wear': 'cat_corporate_bg',
 };
+const fallbacks = ['/images/hero_editorial.png', '/images/navy_contrast_set.png', '/images/ready_to_wear_rack.png', '/images/beige_contrast_set.png', '/images/category_ladies.png', '/images/detailed_texture.png'];
+
+function banner(category, i) {
+    if (category.banner_url) return category.banner_url;
+    const legacy = page.props.theme_settings?.[legacyKeys[category.slug]];
+    return legacy || fallbacks[i % fallbacks.length];
+}
 </script>
 
 <template>
-    <section id="services" class="py-40 px-8 max-w-screen-2xl mx-auto">
-<header class="mb-16 max-w-2xl">
-            <div class="slide-eyebrow mb-4">The Archive</div>
-            <h2 class="slide-title font-light tracking-tighter leading-[0.9]">Collections_</h2>
-            <p class="slide-desc mt-4 max-w-lg">Curated selections of crafted garments.</p>
-        </header>
-
-        <!-- Catalog Simplified Grid -->
-        <!-- Strategic 6-Chapter Archive Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            
-            <!-- Dynamic Category Cards -->
-            <article v-for="category in ($page.props.categories || [])" 
-                v-reveal
-                class="h-[320px] md:h-[450px] bg-transparent border dark:border-white/5 border-black/5 rounded-sm overflow-hidden group relative"
+    <section v-if="categories.length" class="page-container page-section">
+        <SectionHeader :title="title" :subtitle="subtitle" :href="route('shop')" />
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <Link
+                v-for="(category, i) in categories"
+                :key="category.id"
+                :href="route('shop', { category: category.slug })"
+                class="card card-hover group flex flex-col p-3 text-center sm:p-4"
             >
-                <img 
-                    :alt="category.name" 
-                    class="absolute inset-0 w-full h-full object-cover transition-all duration-1000 scale-100 group-hover:scale-105" 
-                    :src="getCategoryBanner(category)"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
-                <div class="absolute inset-0 p-10 flex flex-col justify-end">
-                    <h3 class="text-3xl font-headline font-light dark:text-white text-on-surface mb-3 tracking-tighter">{{ category.name }}_</h3>
-                    <Link :href="route('shop', {category: category.slug})" class="text-primary font-headline font-medium text-[9px] tracking-wider flex items-center gap-4 hover:translate-x-2 transition-transform">
-                        View collection <span class="material-symbols-outlined text-sm">arrow_right_alt</span>
-                    </Link>
-                </div>
-            </article>
-
-            <!-- 06: Custom Story (CTA) -->
-            <article class="bg-background/40 border border-primary/15 overflow-hidden reveal-stagger">
-                <div class="absolute inset-0 bg-primary/5"></div>
-                <div class="relative inset-0 p-10 flex flex-col justify-center items-start">
-                    <h3 class="text-4xl font-display font-light dark:text-white text-on-surface mb-4 leading-tight tracking-tighter">Order <br/> <span class="text-primary tracking-wider font-medium">Custom_</span></h3>
-                    <p class="text-xs dark:text-white/40 text-on-surface-variant font-light mb-8 max-w-xs leading-relaxed tracking-wider">Hand-carved identities.</p>
-                    <Link :href="route('custom-order')" class="btn-primary px-8 py-4">Get started_</Link>
-                </div>
-            </article>
-            
+                <span class="card-media mb-3 block aspect-square">
+                    <img :src="banner(category, i)" alt="" loading="lazy" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                </span>
+                <span class="text-sm font-semibold text-on-surface transition-colors group-hover:text-primary">{{ category.name }}</span>
+                <span class="mt-0.5 text-xs text-on-surface-variant">Shop now</span>
+            </Link>
         </div>
     </section>
 </template>

@@ -41,7 +41,7 @@ class OrderReceiptMail extends Mailable
                 'order'    => $this->order,
                 'items'    => $this->order->items_with_urls,
                 'trackUrl' => URL::route('track', ['ref' => $this->order->cipher]),
-                'date'     => optional($this->order->updated_at)->format('M d, Y H:i'),
+                'date'     => $this->order->paidAtForDisplay(),
             ],
         );
     }
@@ -50,8 +50,10 @@ class OrderReceiptMail extends Mailable
     {
         $pdf = Pdf::loadView('receipts.luxury', [
             'order' => $this->order,
-            'items' => $this->order->items_json ?: [],
-            'date'  => optional($this->order->updated_at)->format('M d, Y H:i A'),
+            // Real line items only — raw items_json also carries non-item keys
+            // (precision_sizing, drop metadata) that would render as junk rows.
+            'items' => $this->order->items_with_urls,
+            'date'  => $this->order->paidAtForDisplay(),
         ]);
 
         return [

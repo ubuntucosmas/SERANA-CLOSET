@@ -40,8 +40,10 @@ class PasswordResetLinkController extends Controller
             $request->only('email')
         );
 
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        // Same answer whether or not the address has an account, so this form
+        // can't be used to find out who shops here. Throttling still reports.
+        if (in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
+            return back()->with('status', 'If an account uses that email, we’ve sent a link to reset the password. Check your inbox and spam folder.');
         }
 
         throw ValidationException::withMessages([

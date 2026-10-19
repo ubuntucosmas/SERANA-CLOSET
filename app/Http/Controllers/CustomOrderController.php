@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SubmissionReceipt;
+
 use App\Models\CustomOrder;
 use App\Models\Product;
 use App\Models\ThemeSetting;
+use App\Support\CustomOrderOptions;
 use App\Support\WhatsApp;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -30,32 +34,48 @@ class CustomOrderController extends Controller
         }
 
         return Inertia::render('CustomOrder', [
-            'showcaseProducts' => Product::latest()->take(6)->get(),
-            'baseProduct' => $targetProduct
+            'baseProduct' => $targetProduct,
+            // Garment, fabric and colour choices are managed in Studio → Settings.
+            'options' => CustomOrderOptions::forCustomers(),
         ]);
     }
 
     public function store(Request $request)
     {
+        // Only choices the studio currently offers are accepted.
+        $allowed = CustomOrderOptions::allowedValues();
+
         $validated = $request->validate([
+            'request_id' => 'nullable|uuid',
             'full_name' => 'required|string|max:255',
             'whatsapp_number' => 'required|string|max:20',
             'location' => 'nullable|string|max:255',
-            'outfit_type' => 'nullable|string|max:100',
-            'fabric_preference' => 'nullable|string|max:100',
-            'selected_color' => 'nullable|string|max:100',
+            'outfit_type' => ['nullable', 'string', Rule::in($allowed['outfit_type'])],
+            'fabric_preference' => ['nullable', 'string', Rule::in($allowed['fabric_preference'])],
+            'selected_color' => ['nullable', 'string', Rule::in($allowed['selected_color'])],
             'notes' => 'nullable|string',
-            'bust_cm' => 'nullable|numeric',
-            'waist_cm' => 'nullable|numeric',
-            'hips_cm' => 'nullable|numeric',
-            'length_cm' => 'nullable|numeric',
-            'height_cm' => 'nullable|numeric',
-            'deadline' => 'nullable|string',
+            'bust_cm' => 'nullable|numeric|between:30,250',
+            'waist_cm' => 'nullable|numeric|between:30,250',
+            'hips_cm' => 'nullable|numeric|between:30,250',
+            'length_cm' => 'nullable|numeric|between:10,250',
+            'height_cm' => 'nullable|numeric|between:50,250',
+            'deadline' => 'nullable|date|after_or_equal:today',
             'occasion' => 'nullable|string|max:100',
             'selected_fit' => 'nullable|string|max:50',
-            'images.*' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+            'images' => 'nullable|array|max:6',
+            'images.*' => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf|max:10240',
             'priority_pass' => 'nullable',
+        ], [
+            'outfit_type.in' => 'That garment is no longer offered. Please choose another.',
+            'fabric_preference.in' => 'That fabric is no longer offered. Please choose another.',
+            'selected_color.in' => 'That colour is no longer offered. Please choose another.',
+            'images.max' => 'You can attach up to 6 reference images.',
+            'images.*.mimes' => 'Reference images must be JPG, PNG, WEBP or PDF. On iPhone, share the photo as JPG.',
+            'images.*.max' => 'Each reference image must be 10MB or smaller.',
+            'images.*.uploaded' => 'A reference image could not be uploaded. Try a smaller photo (under 10MB).',
         ]);
+
+        if ($saved = SubmissionReceipt::recall($request, 'bespoke', $validated)) return response()->json($saved);
 
         try {
             $priorityPass = filter_var($request->priority_pass, FILTER_VALIDATE_BOOLEAN);
@@ -103,14 +123,17 @@ class CustomOrderController extends Controller
             //    client previews and sends, so it reads warm yet stays scannable.
             $message = $this->buildBrief($order, $validated, $priorityPass, $imagePaths);
 
-            $storePhone = ThemeSetting::get('whatsapp_number', config('services.whatsapp.number'));
-            $whatsappUrl = WhatsApp::link($storePhone, $message);
+            $whatsappUrl = \App\Support\StoreProfile::whatsappLink($message);
 
-            return response()->json([
+            // 3. Alert the owner: the brief reaches WhatsApp only if the
+            //    customer presses Send there.
+            self::alertOwner($order, $message);
+
+            return response()->json(SubmissionReceipt::remember($request, 'bespoke', $validated, [
                 'success' => true,
                 'whatsapp_url' => $whatsappUrl,
                 'reference' => $order->cipher,
-            ]);
+            ]));
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("🚨 [CustomOrder_Fault] " . $e->getMessage(), [
                 'full_name' => $validated['full_name'],
@@ -124,43 +147,58 @@ class CustomOrderController extends Controller
         }
     }
 
+    private static function alertOwner(CustomOrder $order, string $brief): void
+    {
+        $owner = \App\Support\StoreProfile::notificationEmail();
+        if (! $owner) {
+            return;
+        }
+        try {
+            \Illuminate\Support\Facades\Mail::to($owner)->queue(new \App\Mail\NewCustomOrderAlertMail($order, $brief));
+        } catch (\Throwable $e) {
+            // Never fail the brief over email; it's in the Studio either way.
+            \Illuminate\Support\Facades\Log::warning('Custom order alert could not be queued.', ['order_id' => $order->id, 'exception' => get_class($e)]);
+        }
+    }
+
     /**
-     * Compose the WhatsApp commission brief.
+     * Compose the WhatsApp custom-order brief the client sends to the studio.
      *
-     * Formatted for a phone screen: WhatsApp *bold* headers, only the lines
-     * that carry real information (no walls of "N/A"), and a clear Priority
-     * Pass flag so the atelier never misses an expedited request. Optional
-     * sections collapse gracefully when the client leaves them blank.
+     * Written in the client's voice (they press send), formatted for a phone
+     * screen: WhatsApp *bold* section headers, only lines that carry real
+     * information (no walls of "N/A"), and a clear Priority flag so the
+     * studio never misses an expedited request. Optional sections collapse
+     * gracefully when the client leaves them blank.
      */
     private function buildBrief(CustomOrder $order, array $validated, bool $priorityPass, array $imagePaths): string
     {
-        $rule = "──────────────────";
         $lines = [];
 
-        $lines[] = "✨ *SERANA ATELIER*";
-        $lines[] = "_Bespoke Commission Brief_";
-        $lines[] = "Ref {$order->cipher} · Order #{$order->id}";
-        $lines[] = $rule;
+        $lines[] = "Hello Serana,";
+        $lines[] = "";
+        $lines[] = "I'd like to place a custom order. Here is my brief:";
+        $lines[] = "";
+        $lines[] = "*Reference:* {$order->cipher}";
 
         // — Client —
         $lines[] = "\n*Client*";
-        $lines[] = "• {$order->full_name}";
-        $lines[] = "• {$order->whatsapp_number}";
+        $lines[] = "Name: {$order->full_name}";
+        $lines[] = "Phone: {$order->whatsapp_number}";
         if (!empty($validated['location'])) {
-            $lines[] = "• {$validated['location']}";
+            $lines[] = "Location: {$validated['location']}";
         }
 
         // — The piece —
         $lines[] = "\n*The Piece*";
-        $lines[] = "• " . strtoupper($order->type);
+        $lines[] = "Type: " . ucfirst($order->type);
         if (!empty($validated['occasion'])) {
-            $lines[] = "• Occasion · {$validated['occasion']}";
+            $lines[] = "Occasion: {$validated['occasion']}";
         }
         if (!empty($validated['deadline'])) {
-            $lines[] = "• Needed by · {$validated['deadline']}";
+            $lines[] = "Needed by: {$validated['deadline']}";
         }
         if ($priorityPass) {
-            $lines[] = "• ⚡ *Priority Pass* — expedited queue";
+            $lines[] = "*Priority Pass* — expedited request";
         }
 
         // — Measurements (only what was given) —
@@ -174,28 +212,28 @@ class CustomOrderController extends Controller
 
         $lines[] = "\n*Measurements*";
         if (empty($measurements)) {
-            $lines[] = "_To be taken at the first fitting._";
+            $lines[] = "To be taken at the first fitting.";
         } else {
             foreach ($measurements as $label => $value) {
-                $lines[] = "• {$label} · {$value} cm";
+                $lines[] = "{$label}: {$value} cm";
             }
         }
 
         // — Design —
         $lines[] = "\n*Design*";
-        $lines[] = "• Fit · " . ($validated['selected_fit'] ?? 'Regular');
-        $lines[] = "• Fabric · " . ($order->fabric_preference ?: 'To be discussed');
-        $lines[] = "• Colour · " . ($validated['selected_color'] ?? 'To be discussed');
+        $lines[] = "Fit: " . ($validated['selected_fit'] ?? 'Regular');
+        $lines[] = "Fabric: " . ($order->fabric_preference ?: 'To be discussed');
+        $lines[] = "Colour: " . ($validated['selected_color'] ?? 'To be discussed');
 
         // — Notes —
         if (!empty($validated['notes'])) {
             $lines[] = "\n*Notes*";
-            $lines[] = "_{$validated['notes']}_";
+            $lines[] = $validated['notes'];
         }
 
         // — References —
         if (count($imagePaths) > 0) {
-            $lines[] = "\n*References* (" . count($imagePaths) . ")";
+            $lines[] = "\n*Reference images* (" . count($imagePaths) . ")";
             $base = rtrim(config('app.url'), '/');
             foreach ($imagePaths as $index => $path) {
                 $url = $base . '/storage/' . ltrim($path, '/');
@@ -203,8 +241,7 @@ class CustomOrderController extends Controller
             }
         }
 
-        $lines[] = "\n" . $rule;
-        $lines[] = "Reply to confirm and we'll begin crafting. ✦";
+        $lines[] = "\nLooking forward to your confirmation. Thank you.";
 
         return implode("\n", $lines);
     }

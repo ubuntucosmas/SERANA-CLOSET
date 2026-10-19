@@ -1,0 +1,70 @@
+{
+  "checks": [
+    {
+      "width": 320,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 375,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 390,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 430,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 768,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 1024,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 1440,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "width": 1920,
+      "status": 200,
+      "overflow": false,
+      "headings": 1,
+      "images": []
+    },
+    {
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "reducedMotion": true,
+      "pressed": "true"
+    }
+  ],
+  "errors": [],
+  "interactions": "look switching, collection filters, light theme and reduced motion checked"
+}

@@ -1,177 +1,163 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue';
-import { usePage, Link } from '@inertiajs/vue3';
-import { animate, stagger } from 'animejs';
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { useCurrency } from '@/Composables/useCurrency';
 
+const props = defineProps({ products: { type: Array, default: () => [] } });
 const page = usePage();
-
-const dynamicBackgrounds = computed(() => {
-    const list = [
-        '/images/detailed_texture.png',
-        '/images/black_cloth_texture.png',
-        '/images/black_zip_up_hoodie_gray_bg.png'
-    ];
-    if (page.props.theme_settings.hero_bg) {
-        list.unshift(page.props.theme_settings.hero_bg);
+const { formatAmount } = useCurrency();
+const showcase = ref(null);
+const order = ref([]);
+const activeLook = ref(0);
+const paused = ref(false);
+const hovered = ref(false);
+const focused = ref(false);
+const visible = ref(false);
+const hidden = ref(false);
+const reducedMotion = ref(true);
+let timer;
+let observer;
+let motionQuery;
+const fallback = computed(() => ({
+    id: 'editorial', image_url: page.props.theme_settings?.focal_1_bg || '/images/hero_editorial.png',
+    name: 'The Serana Edit', category: 'Considered pieces. Effortless combinations.',
+}));
+const looks = computed(() => order.value.length ? order.value : [fallback.value]);
+const currentLook = computed(() => looks.value[activeLook.value] || looks.value[0]);
+const nextLook = computed(() => looks.value[(activeLook.value + 1) % looks.value.length]);
+const playing = computed(() => looks.value.length > 1 && !paused.value && !hovered.value && !focused.value && visible.value && !hidden.value && !reducedMotion.value);
+function shuffle(products, previousId = null) {
+    const result = [...products];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
     }
-    return list;
-});
-
-const focalImages = computed(() => {
-    const defaults = [
-        { src: '/images/hero_editorial.png', label: 'Signature Collection • Midnight Silk' },
-        { src: '/images/black_white_hoodies_showcase.png', label: 'Luminous Series • High-Contrast Hoodies' },
-        { src: '/images/ready_to_wear_rack.png', label: 'Ready-To-Wear • Nairobi HQ' }
-    ];
-
-    const dynamic = [];
-    for (let i = 1; i <= 3; i++) {
-        const src = page.props.theme_settings[`focal_${i}_bg`];
-        const label = page.props.theme_settings[`focal_${i}_label`];
-        if (src) {
-            dynamic.push({ src, label: label || 'Featured Collection' });
-        }
-    }
-
-    return dynamic.length > 0 ? dynamic : defaults;
-});
-
-const currentBgIndex = ref(0);
-const currentFocalIndex = ref(0);
-
+    if (result.length > 1 && result[0].id === previousId) [result[0], result[1]] = [result[1], result[0]];
+    return result;
+}
+watch(() => props.products, products => { order.value = shuffle(products); activeLook.value = 0; }, { immediate: true });
+function advance() {
+    if (activeLook.value === looks.value.length - 1) {
+        order.value = shuffle(order.value, currentLook.value.id);
+        activeLook.value = 0;
+    } else activeLook.value++;
+}
+function select(direction) {
+    paused.value = true;
+    activeLook.value = (activeLook.value + direction + looks.value.length) % looks.value.length;
+}
+watch([playing, currentLook], () => {
+    clearTimeout(timer);
+    if (playing.value) timer = setTimeout(advance, 6500);
+}, { flush: 'post' });
+function syncMotion() { reducedMotion.value = motionQuery.matches; }
+function syncVisibility() { hidden.value = document.hidden; }
 onMounted(() => {
-    // Initial Reveal Animations
-    animate('.reveal-hero-item', {
-        opacity: [0, 1],
-        translateY: [30, 0],
-        duration: 1200,
-        delay: (el, i) => i * 100, // Faster stagger
-        easing: 'easeOutExpo'
-    });
-
-    // Slow cinematic alternation
-    setInterval(() => {
-        currentBgIndex.value = (currentBgIndex.value + 1) % dynamicBackgrounds.value.length;
-        currentFocalIndex.value = (currentFocalIndex.value + 1) % focalImages.value.length;
-    }, 12000);
+    motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    syncMotion(); syncVisibility();
+    motionQuery.addEventListener('change', syncMotion);
+    document.addEventListener('visibilitychange', syncVisibility);
+    observer = new IntersectionObserver(([entry]) => { visible.value = entry.isIntersecting; }, { threshold: 0.2 });
+    observer.observe(showcase.value);
 });
+onBeforeUnmount(() => {
+    clearTimeout(timer);
+    observer?.disconnect();
+    motionQuery?.removeEventListener('change', syncMotion);
+    document.removeEventListener('visibilitychange', syncVisibility);
+});
+const onImageError = event => {
+    if (!event.target.src.endsWith('/images/hero_editorial.png')) event.target.src = '/images/hero_editorial.png';
+};
 </script>
 
 <template>
-    <section id="home" class="relative w-full min-h-[90svh] lg:min-h-screen overflow-hidden bg-background always-dark px-4 sm:px-8 flex items-end pb-12 sm:pb-24 pt-28 sm:pt-32">
-        <!-- Background Image -->
-        <div class="absolute inset-0 z-0 overflow-hidden">
-            <transition name="fade-extreme">
-                <img :key="dynamicBackgrounds[currentBgIndex]" :src="dynamicBackgrounds[currentBgIndex]" class="absolute inset-0 w-full h-full object-cover scale-110 opacity-20 blur-[1px] grayscale" alt="Serana Studio" />
-            </transition>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+    <section data-cinema-scene class="home-hero relative isolate overflow-hidden pb-12 pt-8 sm:pb-16 sm:pt-12 lg:pb-20 lg:pt-14" aria-labelledby="home-heading">
+        <div v-if="page.props.theme_settings?.hero_bg" class="hero-background" aria-hidden="true">
+            <img :src="page.props.theme_settings.hero_bg" alt="" width="1920" height="1080" class="h-full w-full object-cover" @error="onImageError" />
         </div>
-
-        <!-- Hero Content (Grid Layout) -->
-        <div class="relative z-40 w-full max-w-screen-2xl mx-auto px-4 sm:px-8 h-full">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-end h-full pb-10 lg:pb-20">
-                
-                <!-- Text Context Content (Left) -->
-                <div class="lg:col-span-6 relative z-20 space-y-10 pb-12">
-                    <!-- Badge -->
-                    <!-- <div class="reveal-hero-item opacity-0 flex items-center gap-3 text-[#B9C3FF] text-[9px] font-headline font-bold tracking-[0.5em] uppercase">
-                        <span class="w-8 h-px bg-[#B9C3FF]/30"></span>
-                        Est. Nairobi · {{ new Date().getFullYear() }} Collection_
-                    </div> -->
-
-                    <!-- Main Heading -->
-                    <h1 class="reveal-hero-item opacity-0 font-headline text-5xl sm:text-6xl md:text-[8rem] font-medium leading-[0.85] dark:text-white text-on-surface tracking-tighter">
-                        Crafting your<br/>
-                        <span class=" font-light dark:text-white/40 text-on-surface-variant">perfect design</span>
-                    </h1>
-
-                    <!-- Subtitle -->
-                    <p class="reveal-hero-item opacity-0 text-lg md:text-xl dark:text-white/40 text-on-surface-variant max-w-lg leading-relaxed font-light border-l border-primary/20 pl-10">
-                        Careful tailoring for the modern style. From signature custom orders to limited drops, we make clothes with excellent craft.
+        <div class="hero-halo" aria-hidden="true"></div>
+        <div class="page-container relative">
+            <div class="grid items-center gap-10 lg:grid-cols-[.95fr_1.05fr] lg:gap-12 xl:gap-20">
+                <div class="relative z-10 max-w-xl lg:py-8">
+                    <p data-cinema-reveal class="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[.16em] text-on-surface-variant">
+                        <span class="h-px w-8 bg-primary" aria-hidden="true"></span>
+                        Serana Closet · Nairobi
                     </p>
-
-                    <!-- Actions -->
-                    <div class="reveal-hero-item opacity-0 flex flex-wrap gap-4 sm:gap-8 pt-4 lg:pt-6">
-                        <Link :href="route('custom-order')" class="btn-primary flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
-                            Start Order
+                    <h1 data-cinema-reveal data-cinema-delay="80" id="home-heading" class="font-headline text-[clamp(3rem,6.4vw,6.4rem)] font-semibold leading-[1.02] tracking-[-.065em] text-on-surface">
+                        Good style.<br />
+                        <span class="hero-heading-accent">Entirely you.</span>
+                    </h1>
+                    <p data-cinema-reveal data-cinema-delay="160" class="mt-6 max-w-[27rem] text-base leading-relaxed text-on-surface-variant sm:text-lg">
+                        Pieces you’ll reach for. Details that feel like you. Discover the collection, or let’s make something personal.
+                    </p>
+                    <div class="mt-8 flex flex-wrap items-center gap-4">
+                        <Link :href="route('shop')" class="action-primary group">
+                            Shop Collection
+                            <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1" aria-hidden="true">arrow_forward</span>
                         </Link>
-                        <Link :href="route('shop')" class="btn-outline flex-grow sm:flex-grow-0 text-center px-8 lg:px-14 py-5 lg:py-6">
-                            Open Shop
+                        <Link :href="route('custom-order')" class="hero-bespoke-link inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-on-surface">
+                            Start a Custom Order
+                            <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span>
                         </Link>
+                    </div>
+                    <div class="mt-9 flex items-center gap-3 border-t border-outline-variant/50 pt-5 text-sm text-on-surface-variant lg:mt-12">
+                        <span class="material-symbols-outlined text-xl text-primary" aria-hidden="true">gesture</span>
+                        <p>Ready to wear. Room to make it your own.</p>
                     </div>
                 </div>
 
-                <!-- Asymmetrical Cinematic Imagery (Right) -->
-                <div class="lg:col-span-6 relative h-full min-h-[300px] lg:min-h-[500px] flex items-center justify-center lg:justify-end z-10 w-full group/hero reveal-hero-item">
-                    <!-- Alternating Primary Main Image -->
-                    <div class="relative w-full max-w-[280px] lg:max-w-md aspect-[3/4] rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] lg:shadow-[0_60px_150px_rgba(0,0,0,1)] z-10 group-hover/hero:scale-[1.02] transition-transform duration-1000 translate-y-6 lg:translate-y-12 bg-transparent">
-                        <transition name="fade-mid" mode="out-in">
-                            <img 
-                                :key="focalImages[currentFocalIndex].src" 
-                                :src="focalImages[currentFocalIndex].src" 
-                                class="w-full h-full object-cover"
-                                :fetchpriority="currentFocalIndex === 0 ? 'high' : 'auto'"
-                             />
-                        </transition>
-                        
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                        
-                        <div class="absolute bottom-6 lg:bottom-10 left-6 lg:left-10 right-6 lg:right-10 px-2 lg:block hidden">
-                            <transition name="fade-fast" mode="out-in">
-                                <span :key="focalImages[currentFocalIndex].label" class="inline-block bg-background/80 backdrop-blur-2xl text-primary text-[8px] lg:text-[9px] font-headline font-medium tracking-[0.3em] lg:tracking-[0.4em] px-4 lg:px-8 py-3 lg:py-4 border border-primary/20 rounded-sm shadow-2xl">
-                                    {{ focalImages[currentFocalIndex].label }}
-                                </span>
-                            </transition>
-                        </div>
+                <div ref="showcase" data-cinema-reveal="image" data-cinema-delay="80" class="hero-editorial relative min-w-0 pb-4 pl-5 sm:pl-10 lg:pl-8" role="region" aria-roledescription="carousel" aria-label="Available collection showcase" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="focused = $event.currentTarget.contains($event.relatedTarget)">
+                    <div data-cinema-depth="28" class="hero-image-frame relative ml-auto aspect-[4/5] max-h-[590px] w-[91%] overflow-hidden rounded-[1.75rem] bg-surface-container">
+                        <Transition name="look-change" @before-leave="el => { el.inert = true; }">
+                            <div :key="currentLook.id" class="showcase-slide always-dark absolute inset-0" role="group" aria-roledescription="slide" :aria-label="`${activeLook + 1} of ${looks.length}`">
+                                <img :src="currentLook.image_url" :alt="currentLook.name" fetchpriority="high" width="640" height="800" class="h-full w-full object-cover" @error="onImageError" />
+                                <div class="showcase-overlay absolute inset-x-0 bottom-0 px-5 pb-6 pt-24 text-white sm:px-7">
+                                    <p class="mb-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/80">{{ currentLook.category || 'The Serana Collection' }}</p>
+                                    <h2 class="line-clamp-2 font-headline text-2xl font-medium leading-tight sm:text-3xl">{{ currentLook.name }}</h2>
+                                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                        <p v-if="currentLook.price != null" class="text-lg font-semibold tracking-tight">{{ formatAmount(currentLook.price, page.props) }}</p>
+                                        <Link :href="currentLook.slug ? route('shop.show', currentLook.slug) : route('shop')" class="showcase-link inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 text-xs font-semibold text-black">
+                                            {{ currentLook.slug ? 'View Piece' : 'Shop Collection' }}
+                                            <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </Transition>
                     </div>
-
-                    <!-- Secondary Floating Details Image - Hidden on mobile for Zen -->
-                    <div class="absolute -bottom-6 lg:-bottom-10 -left-4 lg:left-0 w-32 lg:w-64 aspect-square rounded-sm overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] z-20 grayscale hover:grayscale-0 transition-all duration-1000 -rotate-3 hover:rotate-0 hover:scale-110 hidden lg:block">
-                        <img :src="$page.props.theme_settings.hero_detail_bg || '/images/detailed_texture.png'" class="w-full h-full object-cover" />
+                    <div v-if="looks.length > 1" data-cinema-depth="-54" class="hero-inset pointer-events-none absolute left-0 top-[12%] w-[30%] max-w-[170px] rotate-[-7deg] overflow-hidden rounded-2xl border-[5px] border-background bg-surface-container shadow-2xl" aria-hidden="true">
+                        <img :src="nextLook.image_url" alt="" loading="lazy" width="200" height="260" class="aspect-[3/4] w-full object-cover" @error="onImageError" />
+                    </div>
+                    <div class="relative ml-auto mt-5 flex w-[91%] items-center justify-between gap-2">
+                        <p class="text-xs font-medium tracking-wide text-on-surface-variant">{{ products.length ? 'From the collection' : 'The Serana Edit' }} <span v-if="looks.length > 1" class="ml-2 tabular-nums">{{ String(activeLook + 1).padStart(2, '0') }} / {{ String(looks.length).padStart(2, '0') }}</span></p>
+                        <div v-if="looks.length > 1" class="flex gap-1" role="group" aria-label="Showcase controls">
+                            <button type="button" class="showcase-control" aria-label="Previous product" @click="select(-1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
+                            <button v-if="!reducedMotion" type="button" class="showcase-control" :aria-label="paused ? 'Play product rotation' : 'Pause product rotation'" @click="paused = !paused"><span class="material-symbols-outlined text-lg" aria-hidden="true">{{ paused ? 'play_arrow' : 'pause' }}</span></button>
+                            <button type="button" class="showcase-control" aria-label="Next product" @click="select(1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
     </section>
 </template>
 
-
 <style scoped>
-.fade-extreme-enter-active, .fade-extreme-leave-active {
-    transition: opacity 4000ms ease;
-}
-.fade-extreme-enter-from, .fade-extreme-leave-to {
-    opacity: 0;
-}
-
-.fade-mid-enter-active, .fade-mid-leave-active {
-    transition: opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-mid-enter-from, .fade-mid-leave-to {
-    opacity: 0;
-}
-
-.fade-fast-enter-active, .fade-fast-leave-active {
-    transition: all 800ms ease;
-}
-.fade-fast-enter-from {
-    opacity: 0;
-    transform: translateY(10px);
-}
-.fade-fast-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
-
-@keyframes scan {
-    0% { transform: translateY(-100%); opacity: 0; }
-    10% { opacity: 0.2; }
-    50% { opacity: 0.1; }
-    100% { transform: translateY(100vh); opacity: 0; }
-}
-
-.animate-scan {
-    animation: scan 12s linear infinite;
-}
+.hero-background { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+.hero-background img { opacity: .38; }
+.hero-background::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--background) 0%, transparent 85%), linear-gradient(0deg, var(--background), transparent 65%); }
+.hero-halo { position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 76% 38%, rgba(0, 98, 255, .12), transparent 55%); pointer-events: none; }
+.showcase-overlay { background: linear-gradient(transparent, rgba(0,0,0,.7) 40%, rgba(0,0,0,.92)); }
+.showcase-control { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--outline-variant); border-radius: 50%; color: var(--on-surface); }
+.showcase-control:hover { border-color: var(--primary); color: var(--primary); }
+.showcase-control:focus-visible, .showcase-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.hero-heading-accent { color: var(--primary); }
+.hero-image-frame { box-shadow: 0 30px 90px -45px rgba(0, 98, 255, .3); }
+.hero-bespoke-link { text-decoration: underline; text-decoration-color: var(--outline-variant); text-underline-offset: 6px; }
+.hero-bespoke-link:hover { text-decoration-color: var(--primary); }
+.look-change-enter-active, .look-change-leave-active { transition: opacity .8s cubic-bezier(.22, 1, .36, 1); }
+.look-change-leave-active { pointer-events: none; }
+.look-change-enter-from, .look-change-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .look-change-enter-active, .look-change-leave-active { transition: none; } }
 </style>
