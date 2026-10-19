@@ -104,6 +104,25 @@ class ConcurrencyTest extends TestCase
         $this->assertSame(0, $product->fresh()->availableStock());
     }
 
+    /** I13 under real concurrency: the callback and the reconciler settling the same STK attempt book it once. */
+    public function test_the_callback_and_the_reconciler_racing_on_one_attempt_book_it_once(): void
+    {
+        $product = $this->product(batchLimit: 3);
+        $order = $this->unpaidOrderHolding($product, 'held');
+        $attempt = $order->paymentAttempts()->create(['checkout_request_id' => 'ws_RACE', 'phone' => '254712345678', 'amount' => 2500, 'status' => 'pending']);
+
+        $results = $this->whileHoldingProduct($product, [
+            ['pay-attempt', "{$order->id}:{$attempt->id}:safaricom"],
+            ['pay-attempt', "{$order->id}:{$attempt->id}:system"],
+        ]);
+
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([false, true], collect($results)->pluck('booked')->sort()->values()->all(), json_encode($results));
+        $this->assertSame(1, collect($results)->sum('paid_events'), 'one receipt event');
+        $this->assertSame(1, $order->payments()->count());
+        $this->assertSame(['paid', 2500, 1], [$order->fresh()->payment_status, $order->fresh()->amount_paid, $product->fresh()->batch_sold]);
+    }
+
     public function test_a_checkout_that_loses_a_deadlock_retries_and_succeeds_once(): void
     {
         $product = $this->product(batchLimit: 3);
@@ -136,11 +155,11 @@ class ConcurrencyTest extends TestCase
         $product = $this->product(batchLimit: 3);
         $paying = $this->unpaidOrderHolding($product, 'held');
 
-        // Settlement claims the order and waits for the product; the adversary
-        // locks the order's holds and then wants the claimed order row.
+        // Settlement takes the product, then the holds, then the order row (N9).
+        // The adversary inverts that: it takes the order row, then wants the product.
         $results = $this->whileHoldingProduct($product, [
             ['settle', (string) $paying->id],
-            ['lock-holds-then-order', (string) $paying->id],
+            ['lock-order-then-product', "{$paying->id}:{$product->id}"],
         ]);
 
         [$settle, $adversary] = $results;

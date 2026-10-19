@@ -178,11 +178,11 @@ class PaymentMethodsTest extends TestCase
         $order = CustomOrder::find($id);
 
         // Wrong amount: refused, nothing changes.
-        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 2000, 'reference' => 'QK9'])
+        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 2000, 'method' => 'mpesa_manual', 'reference' => 'QK9'])
             ->assertSessionHasErrors('amount');
         $this->assertFalse($order->fresh()->is_paid);
 
-        $this->post(route('studio.order.record_payment', $order), ['amount' => 2500, 'reference' => 'QK9XYZ'])->assertSessionHas('success');
+        $this->post(route('studio.order.record_payment', $order), ['amount' => 2500, 'method' => 'mpesa_manual', 'reference' => 'QK9XYZ'])->assertSessionHas('success');
 
         $order->refresh();
         $this->assertTrue($order->is_paid);

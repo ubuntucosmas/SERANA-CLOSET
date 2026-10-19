@@ -15,6 +15,9 @@ class LedgerSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** These tests insert raw ledger rows to prove the constraints, not consistency. */
+    protected array $ledgerChecks = [];
+
     private function order(): CustomOrder
     {
         return CustomOrder::create(['full_name' => 'A', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'price_quoted' => 5000]);

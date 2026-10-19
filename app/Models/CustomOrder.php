@@ -236,6 +236,17 @@ class CustomOrder extends Model
         }
     }
 
+    /**
+     * The first two steps of the global lock order (design N9): this order's
+     * products by id, then its stock holds. The settlement service takes the
+     * order row after this (OrderSettlementService::lockForMoney).
+     */
+    public function lockStock(): void
+    {
+        $this->lockReservedProducts();
+        $this->stockReservations()->whereIn('status', ['held', 'released'])->orderBy('id')->lockForUpdate()->get(['id']);
+    }
+
     /** Return this order's held stock to the pool (failed/expired payment). */
     public function releaseReservations(): void
     {

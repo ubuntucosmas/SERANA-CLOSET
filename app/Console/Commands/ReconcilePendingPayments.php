@@ -62,7 +62,10 @@ class ReconcilePendingPayments extends Command
                 // The STK was pushed with a server-authoritative amount, so a
                 // confirmed success means the correct amount was paid.
                 $attempt?->markPaid();
-                if ($settlement->markPaid($order, null, $result['data'] ?? [])) {
+                // STK Query returns no receipt code; the attempt links the money.
+                $booked = $settlement->recordPayment($order, $attempt?->amount, 'mpesa_stk', \App\Support\Actor::system(),
+                    null, $attempt, 'confirmed by STK query', $result['data'] ?? []);
+                if ($booked['became_paid']) {
                     $resolved++;
                     Log::info("Reconciliation: Order #{$order->id} confirmed paid via STK Query.");
                 }

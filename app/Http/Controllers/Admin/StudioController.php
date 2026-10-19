@@ -154,7 +154,13 @@ class StudioController extends Controller
         }
         unset($validated['is_paid']);
         \App\Support\Audit::changes('order.updated', $order, $validated);
-        $order->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
+        // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
+        if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->price_quoted) {
+            app(OrderSettlementService::class)->setQuote($order, (int) round((float) $validated['price_quoted']),
+                \App\Support\Actor::user($request->user()), 'Quote set in the Studio');
+        }
+        unset($validated['price_quoted']);
+        $order->refresh()->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
 
         return back()->with('success', 'Order updated successfully.');
     }
@@ -219,36 +225,67 @@ class StudioController extends Controller
         if ($order->is_paid) {
             return back()->with('error', 'This order is already marked as paid.');
         }
+        $data = $this->validatedPayment($request);
+        if ($order->chargeable_total <= 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Add the quote before recording a payment.']);
+        }
+
+        // Booked against the balance; the quote is never overwritten (design B).
+        try {
+            $result = app(OrderSettlementService::class)->recordPayment($order, (int) $data['amount'], $data['method'],
+                \App\Support\Actor::user($request->user()), $data['reference'], null, null, [], limitToBalance: true);
+        } catch (\DomainException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['amount' => $e->getMessage()]);
+        }
+        if (! $result['booked']) {
+            return back()->with('error', 'This payment is already recorded.');
+        }
+
+        $this->appendNote($order, sprintf('[%s] Payment recorded by %s: KSh %s, ref %s',
+            now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
+            number_format($data['amount']), $data['reference']));
+        \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => (int) $data['amount'], 'reference' => $data['reference']]);
+
+        $balance = (int) $order->fresh()->balance_due;
+
+        return back()->with('success', $balance > 0
+            ? 'Payment recorded. Balance due: KSh ' . number_format($balance) . '.'
+            : 'Payment recorded. The order is fully paid.');
+    }
+
+    /** Amount, method and reference for money staff record by hand; a reference is booked once (N4). */
+    private function validatedPayment(Request $request): array
+    {
         $data = $request->validate([
             'amount' => ['required', 'integer', 'min:1'],
+            'method' => ['required', \Illuminate\Validation\Rule::in(OrderSettlementService::MANUAL_METHODS)],
             'reference' => ['required', 'string', 'max:100'],
         ], [
             'amount.integer' => 'Enter the amount in whole shillings.',
+            'method.required' => 'Choose how this was paid.',
+            'method.in' => 'Choose how this was paid: M-Pesa, cash or bank.',
             'reference.required' => 'Add the M-Pesa code or a short note about how this was paid.',
         ]);
 
-        $note = sprintf('[%s] Payment recorded by %s: KSh %s, ref %s',
-            now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
-            number_format($data['amount']), $data['reference']);
-
-        $claimed = CustomOrder::whereKey($order->id)->where('is_paid', false)->update([
-            'is_paid' => true,
-            'paid_at' => now(),
-            'price_quoted' => $data['amount'],
-            'mpesa_receipt_number' => mb_substr($data['reference'], 0, 100),
-            'internal_notes' => trim(($order->internal_notes ? $order->internal_notes . "\n" : '') . $note),
-        ]);
-        if ($claimed) {
-            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => (int) $data['amount'], 'reference' => $data['reference']]);
+        if ($existing = app(OrderSettlementService::class)->alreadyBooked($data['method'], $data['reference'], null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reference' => "{$data['reference']} is already recorded on order {$existing->order->cipher}.",
+            ]);
         }
 
-        return back()->with($claimed ? 'success' : 'error', $claimed ? 'Payment recorded.' : 'This order is already marked as paid.');
+        return $data;
+    }
+
+    private function appendNote(CustomOrder $order, string $note): void
+    {
+        $order->refresh();
+        $order->update(['internal_notes' => trim(($order->internal_notes ? $order->internal_notes . "\n" : '') . $note)]);
     }
 
     /**
      * A WhatsApp shop order is paid outside M-Pesa STK (Send Money, Pochi, cash
-     * on delivery…). Confirming it runs the same settlement as an M-Pesa
-     * callback: paid_at, stock committed once, receipt email, tracking.
+     * on delivery…). Confirming it books the money through the same settlement
+     * as an M-Pesa callback: paid_at, stock committed once, receipt email, tracking.
      */
     private function confirmWhatsAppPayment(Request $request, CustomOrder $order)
     {
@@ -259,13 +296,7 @@ class StudioController extends Controller
             return back()->with('error', 'This order was cancelled. Ask the customer to order again.');
         }
         $total = (int) round((float) $order->price_quoted);
-        $data = $request->validate([
-            'amount' => ['required', 'integer', 'min:1'],
-            'reference' => ['required', 'string', 'max:100'],
-        ], [
-            'amount.integer' => 'Enter the amount in whole shillings.',
-            'reference.required' => 'Add the M-Pesa code or a short note about how this was paid.',
-        ]);
+        $data = $this->validatedPayment($request);
         if ((int) $data['amount'] !== $total) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'amount' => 'This order’s total is KSh ' . number_format($total) . '. Confirm once the full amount has been received.',
@@ -274,18 +305,16 @@ class StudioController extends Controller
 
         // Re-claim stock if the hold lapsed; money already received is recorded either way.
         $stockOk = $order->secureStockForPayment();
-        $order->update(['internal_notes' => trim(($order->internal_notes ? $order->internal_notes . "\n" : '') . sprintf(
-            '[%s] WhatsApp payment confirmed by %s: KSh %s, ref %s',
+        $this->appendNote($order, sprintf('[%s] WhatsApp payment confirmed by %s: KSh %s, ref %s',
             now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
-            number_format($total), $data['reference']))]);
-        $settled = app(OrderSettlementService::class)->markPaid($order, mb_substr($data['reference'], 0, 100));
-        if ($settled) {
-            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
-        }
+            number_format($total), $data['reference']));
+        $settled = app(OrderSettlementService::class)->recordPayment($order, $total, $data['method'],
+            \App\Support\Actor::user($request->user()), $data['reference'])['became_paid'];
 
         if (! $settled) {
             return back()->with('error', 'This order is already marked as paid.');
         }
+        \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
 
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'

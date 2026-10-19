@@ -59,7 +59,7 @@ class AuditLogTest extends TestCase
     {
         $order = $this->brief(['price_quoted' => 4500, 'status' => 'designing']);
 
-        $this->actingAs($this->owner())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'reference' => 'QK12ABC']);
+        $this->actingAs($this->owner())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'method' => 'mpesa_manual', 'reference' => 'QK12ABC']);
 
         $log = AuditLog::where('action', 'payment.recorded')->sole();
         $this->assertSame(['amount' => 4500, 'reference' => 'QK12ABC'], $log->after);

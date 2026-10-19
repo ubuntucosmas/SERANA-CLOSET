@@ -13,7 +13,7 @@ abstract class TestCase extends BaseTestCase
      *
      * @var list<string>
      */
-    protected array $ledgerChecks = [\App\Services\LedgerVerifier::MAPPING];
+    protected array $ledgerChecks = [\App\Services\LedgerVerifier::MAPPING, \App\Services\LedgerVerifier::MONEY];
 
     protected function tearDown(): void
     {

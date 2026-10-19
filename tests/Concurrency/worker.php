@@ -8,12 +8,13 @@
  *   php tests/Concurrency/worker.php checkout '<json checkout payload>'
  *   php tests/Concurrency/worker.php secure-stock <order id>
  *   php tests/Concurrency/worker.php settle <order id>
+ *   php tests/Concurrency/worker.php pay-attempt <order id>:<attempt id>:<safaricom|system>
  *
  * Adversaries (test-only: take locks in the wrong order on purpose, to force
  * a deadlock on the app's first attempt). Each first writes throwaway rows so
  * InnoDB picks the app's lighter transaction as the deadlock victim:
  *   php tests/Concurrency/worker.php block-holds-then-product <product id>
- *   php tests/Concurrency/worker.php lock-holds-then-order <order id>
+ *   php tests/Concurrency/worker.php lock-order-then-product <order id>:<product id>
  *
  * App actions also report how many transaction rollbacks they went through.
  * The parent test passes the database and app settings through the
@@ -66,6 +67,14 @@ try {
         $app->make(ConsoleKernel::class)->bootstrap();
         $order = CustomOrder::findOrFail((int) $arg);
         echo json_encode(['status' => 200, 'settled' => app(OrderSettlementService::class)->markPaid($order, 'RCPT-RACE'), 'rollbacks' => $rollbacks, 'paid_events' => $paidEvents]);
+    } elseif ($action === 'pay-attempt') {
+        // The callback (safaricom) or the reconciler (system) settling one STK attempt.
+        [$orderId, $attemptId, $who] = explode(':', $arg);
+        $app->make(ConsoleKernel::class)->bootstrap();
+        $attempt = \App\Models\PaymentAttempt::findOrFail((int) $attemptId);
+        $result = app(OrderSettlementService::class)->recordPayment(CustomOrder::findOrFail((int) $orderId), $attempt->amount, 'mpesa_stk',
+            $who === 'system' ? \App\Support\Actor::system() : \App\Support\Actor::safaricom(), $who === 'system' ? null : 'RCPT-RACE', $attempt);
+        echo json_encode(['status' => 200, 'booked' => $result['booked'], 'became_paid' => $result['became_paid'], 'paid_events' => $paidEvents]);
     } elseif ($action === 'block-holds-then-product') {
         // Gap-lock all of stock_reservations (blocks any new hold), then want the product.
         $app->make(ConsoleKernel::class)->bootstrap();
@@ -75,13 +84,15 @@ try {
         DB::select('SELECT id FROM products WHERE id = ? FOR UPDATE', [(int) $arg]);
         DB::rollBack();
         echo json_encode(['status' => 200, 'victim' => false]);
-    } elseif ($action === 'lock-holds-then-order') {
-        // Lock the order's holds, then want the order row settlement has claimed.
+    } elseif ($action === 'lock-order-then-product') {
+        // Against the global order (products, holds, then the order row): take
+        // the order row first, then want the product settlement holds.
+        [$orderId, $productId] = array_map('intval', explode(':', $arg));
         $app->make(ConsoleKernel::class)->bootstrap();
         DB::beginTransaction();
         $weigh();
-        DB::select('SELECT id FROM stock_reservations WHERE custom_order_id = ? FOR UPDATE', [(int) $arg]);
-        DB::select('SELECT id FROM custom_orders WHERE id = ? FOR UPDATE', [(int) $arg]);
+        DB::select('SELECT id FROM custom_orders WHERE id = ? FOR UPDATE', [$orderId]);
+        DB::select('SELECT id FROM products WHERE id = ? FOR UPDATE', [$productId]);
         DB::rollBack();
         echo json_encode(['status' => 200, 'victim' => false]);
     } else {

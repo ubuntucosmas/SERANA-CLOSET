@@ -230,8 +230,10 @@ class MpesaController extends Controller
             if ($attempt && $attempt->status === PaymentAttempt::PENDING) {
                 if ($resultCode == 0) {
                     // The customer paid a second prompt for an already-paid order:
-                    // record it — this is a refund owed, not a success to celebrate.
+                    // book it — the ledger then shows a refund owed, not a success.
                     $attempt->markPaid($receiptNumber);
+                    $this->settlement->recordPayment($order, is_numeric($paidAmount) ? (int) round((float) $paidAmount) : $attempt->amount,
+                        'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber, $attempt, 'paid again: the order was already paid', $payload);
                     Log::warning("M-Pesa Callback: duplicate successful payment for already-paid Order #{$order->id}. — refund may be owed.");
                 } else {
                     $attempt->markFailed((string) $resultCode, $stkCallback['ResultDesc'] ?? null);
@@ -248,14 +250,14 @@ class MpesaController extends Controller
             $expected = $attempt?->amount ?? (int) round((float) $order->price_quoted);
             if (! is_numeric($paidAmount) || (int) round((float) $paidAmount * 100) !== $expected * 100) {
                 $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
-                $this->settlement->flagAmountMismatch($order, $expected, $paidAmount);
+                $this->settlement->flagAmountMismatch($order, $expected, $paidAmount, $receiptNumber, $attempt);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
             }
 
-            // Marks paid, commits held stock to sold, and dispatches the event.
+            // Books the payment; becoming paid commits held stock and sends the receipt.
             $attempt?->markPaid($receiptNumber);
-            $this->settlement->markPaid($order, $receiptNumber, $payload);
+            $this->settlement->recordPayment($order, $expected, 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber, $attempt, null, $payload);
             Log::info("M-Pesa Payment Successful for Order #{$order->id}.");
 
         } else {
