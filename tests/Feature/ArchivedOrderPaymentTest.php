@@ -53,7 +53,7 @@ class ArchivedOrderPaymentTest extends TestCase
 
     public function test_paid_callback_settles_and_restores_an_archived_order(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         $product = Product::create(['name' => 'Jacket', 'slug' => 'jacket', 'price' => 5000, 'batch_limit' => 2, 'batch_sold' => 0, 'in_stock' => true]);
         $order = $this->order();
         $order->stockReservations()->create(['product_id' => $product->id, 'quantity' => 1, 'status' => 'held', 'expires_at' => now()->addMinutes(10)]);
@@ -72,7 +72,7 @@ class ArchivedOrderPaymentTest extends TestCase
 
     public function test_reconciliation_settles_an_archived_order_when_the_callback_is_lost(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         Http::fake(['*oauth/v1/generate*' => Http::response(['access_token' => 'fake']), '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0'])]);
         $order = $this->order();
         $this->attempt($order)->forceFill(['created_at' => now()->subMinutes(5)])->save();

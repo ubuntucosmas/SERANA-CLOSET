@@ -40,7 +40,7 @@ class ReleaseExpiredReservations extends Command
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q
                 ->where('created_at', '>=', now()->subMinutes($window)))
             ->where('created_at', '<=', now()->subMinutes($window))
-            ->update(['status' => OrderStatus::EXPIRED]);
+            ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
 
         // WhatsApp orders wait for the studio to confirm payment: they expire only
         // after their own (longer) window, whether or not they held any stock.
@@ -51,7 +51,7 @@ class ReleaseExpiredReservations extends Command
             ->get();
         foreach ($staleWhatsApp as $order) {
             $order->releaseReservations();
-            $expiredOrders += CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::EXPIRED]);
+            $expiredOrders += CustomOrder::whereKey($order->id)->where('is_paid', false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
         }
 
         $this->info("Released {$released} reservation(s); expired {$expiredOrders} order(s).");

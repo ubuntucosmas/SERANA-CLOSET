@@ -23,7 +23,7 @@ class PaidWhatsAppRecordTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         ThemeSetting::set('whatsapp_number', '0711 222 333');
     }
 

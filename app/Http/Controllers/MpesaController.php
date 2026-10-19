@@ -147,7 +147,7 @@ class MpesaController extends Controller
                 // order in the meantime is never overwritten.
                 CustomOrder::whereKey($order->id)
                     ->where('is_paid', false)
-                    ->update(['status' => OrderStatus::PENDING_PAYMENT]);
+                    ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
 
                 return response()->json([
                     'success' => true,

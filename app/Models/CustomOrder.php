@@ -90,6 +90,20 @@ class CustomOrder extends Model
                 $order->{$column} ??= $value;
             }
         });
+        // Model saves that change a legacy field keep the split columns in step
+        // (bulk updates merge LegacyOrderMap::forStatus() themselves).
+        static::updating(function ($order) {
+            if ($order->isDirty('status')) {
+                $order->fill(array_diff_key(\App\Support\LegacyOrderMap::forStatus($order->status), ['status' => true]));
+            }
+            if ($order->isDirty('payment_method')) {
+                $order->channel = \App\Support\LegacyOrderMap::channel($order->payment_method);
+            }
+            if ($order->isDirty('type')) {
+                $order->kind = \App\Support\LegacyOrderMap::kind($order->type);
+                $order->garment = \App\Support\LegacyOrderMap::garment($order->type);
+            }
+        });
         // ...and so do its lines and ledger, by the same rules as the backfill.
         static::created(fn ($order) => app(\App\Services\LedgerBackfill::class)->order($order));
     }

@@ -34,10 +34,9 @@ class OrderSettlementService
                 ->update([
                     'is_paid'              => true,
                     'paid_at'              => now(),
-                    'status'               => OrderStatus::PAID,
                     'mpesa_receipt_number' => $receiptNumber ?? $order->mpesa_receipt_number,
                     'deleted_at'           => null,
-                ]);
+                ] + \App\Support\LegacyOrderMap::forStatus(OrderStatus::PAID));
 
             if ($claimed === 0) {
                 return false;
@@ -71,7 +70,7 @@ class OrderSettlementService
         $updated = CustomOrder::withTrashed()->whereKey($order->id)
             ->where('is_paid', false)
             ->when($status !== OrderStatus::AMOUNT_MISMATCH, fn ($q) => $q->where('status', '!=', OrderStatus::AMOUNT_MISMATCH))
-            ->update(['status' => $status]);
+            ->update(\App\Support\LegacyOrderMap::forStatus($status));
 
         if ($updated > 0) {
             $order->refresh();

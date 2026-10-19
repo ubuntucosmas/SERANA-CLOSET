@@ -154,7 +154,7 @@ class StudioController extends Controller
         }
         unset($validated['is_paid']);
         \App\Support\Audit::changes('order.updated', $order, $validated);
-        $order->update($validated);
+        $order->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
 
         return back()->with('success', 'Order updated successfully.');
     }
@@ -299,7 +299,7 @@ class StudioController extends Controller
             return back()->with('error', 'Only unpaid WhatsApp orders can be cancelled here.');
         }
         $order->releaseReservations();
-        CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::CANCELLED]);
+        CustomOrder::whereKey($order->id)->where('is_paid', false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::CANCELLED));
         \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->status], ['status' => OrderStatus::CANCELLED]);
 
         return back()->with('success', 'Order cancelled. Its stock is back on sale.');

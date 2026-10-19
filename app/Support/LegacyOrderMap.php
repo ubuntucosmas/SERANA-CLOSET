@@ -48,6 +48,21 @@ final class LegacyOrderMap
         return $status === OrderStatus::AMOUNT_MISMATCH ? 'amount_mismatch' : 'none';
     }
 
+    /**
+     * Dual-write (design §2.3, A3): every legacy status write merges this into
+     * the same UPDATE, so the split columns can never lag behind, including
+     * on bulk and conditional updates that bypass model events.
+     */
+    public static function forStatus(string $status): array
+    {
+        return [
+            'status' => $status,
+            'order_state' => self::orderState($status),
+            'fulfilment_status' => self::fulfilment($status),
+            'resolution' => self::resolution($status),
+        ];
+    }
+
     /** All split columns implied by a legacy row. */
     public static function columns(?string $type, ?string $status, ?string $paymentMethod): array
     {

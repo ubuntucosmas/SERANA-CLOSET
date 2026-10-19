@@ -243,7 +243,7 @@ class CheckoutController extends Controller
             return response()->json(['success' => false, 'message' => 'An item in this order sold out meanwhile. Please review your bag and check out again.'], 409);
         }
 
-        $order->update(['payment_method' => PaymentSettings::WHATSAPP, 'status' => OrderStatus::PENDING_PAYMENT]);
+        $order->update(['payment_method' => PaymentSettings::WHATSAPP, 'channel' => 'whatsapp'] + \App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
         self::sendOrderPlacedMail($order);
 
         return response()->json([
@@ -292,7 +292,7 @@ class CheckoutController extends Controller
             ->get()
             ->each(function (CustomOrder $order) {
                 $order->releaseReservations();
-                CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::EXPIRED]);
+                CustomOrder::whereKey($order->id)->where('is_paid', false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
             });
     }
 }

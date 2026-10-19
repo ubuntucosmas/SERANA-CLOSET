@@ -168,6 +168,7 @@ class LedgerBackfillTest extends TestCase
 
     public function test_the_backfill_migration_reverses_cleanly(): void
     {
+        $this->ledgerChecks = []; // builds drift on purpose
         $id = $this->legacy(['status' => 'Expired', 'price_quoted' => 5000, 'items_json' => $this->items(['id' => 1, 'name' => 'Set', 'price' => 5000, 'quantity' => 1])]);
         $before = (array) DB::table('custom_orders')->where('id', $id)->first(['status', 'type', 'is_paid', 'price_quoted', 'payment_method']);
         $migration = require database_path('migrations/2026_10_19_000004_backfill_order_ledger.php');
@@ -187,6 +188,7 @@ class LedgerBackfillTest extends TestCase
 
     public function test_verify_reports_drift_between_legacy_and_new_columns(): void
     {
+        $this->ledgerChecks = []; // builds drift on purpose
         $id = $this->legacy(['status' => 'Pending Payment', 'price_quoted' => 5000, 'items_json' => $this->items(['id' => 1, 'name' => 'Set', 'price' => 5000, 'quantity' => 1])]);
         $this->backfill();
 
