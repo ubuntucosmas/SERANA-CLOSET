@@ -131,7 +131,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url'])
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -235,7 +235,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url']);
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows']);
 
         return [
             'data' => $orders->all(),
@@ -356,6 +356,34 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /** Owner: reverse a booking that should not count, with a reason (Phase C). */
+    public function reversePayment(Request $request, OrderPayment $payment)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], ['reason.required' => 'Say why this booking should not count.']);
+        try {
+            $reversal = app(OrderSettlementService::class)->reversePayment($payment, \App\Support\Actor::user($request->user()), $data['reason']);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        \App\Support\Audit::record('payment.reversed', $payment->order, ['payment_id' => $payment->id, 'amount' => $payment->amount, 'reference' => $payment->external_reference],
+            ['reversal_id' => $reversal->id], $data['reason']);
+
+        return back()->with('success', 'Booking reversed. The order’s figures are updated.');
+    }
+
+    /** Owner: confirm a flagged booking is a genuine, separate payment, with a reason. */
+    public function confirmPayment(Request $request, OrderPayment $payment)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
+        if (\Illuminate\Support\Facades\DB::table('payment_reviews')->where('order_payment_id', $payment->id)->exists() || $payment->reversal()->exists()) {
+            return back()->with('error', 'This booking is already reviewed.');
+        }
+        app(OrderSettlementService::class)->confirmGenuine($payment, \App\Support\Actor::user($request->user()), $data['reason']);
+        \App\Support\Audit::record('payment.confirmed_genuine', $payment->order, [], ['payment_id' => $payment->id, 'reference' => $payment->external_reference], $data['reason']);
+
+        return back()->with('success', 'Booking confirmed as a genuine payment.');
     }
 
     /** Why a bespoke order may not move to $stage yet (N7), or null when it may. */

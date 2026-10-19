@@ -59,6 +59,12 @@ class OrderSettlementService
             $wasPaid = (bool) $locked->is_paid;
             $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason);
 
+            // Booking the very code that was in conflict here settles the conflict.
+            if ($reference !== null && $locked->resolution === 'needs_resolution' && str_starts_with((string) $locked->resolution_reason, "M-Pesa code {$reference} ")) {
+                DB::table('custom_orders')->where('id', $locked->id)->update(['resolution' => 'none', 'resolution_reason' => null]);
+                $locked->forceFill(['resolution' => 'none', 'resolution_reason' => null]);
+            }
+
             // A full, correct payment settles a legacy amount mismatch, as it did before the ledger.
             if ($locked->resolution === 'amount_mismatch' && $this->balance($locked) <= 0) {
                 DB::table('custom_orders')->where('id', $locked->id)->update(['resolution' => 'none']);
@@ -216,6 +222,48 @@ class OrderSettlementService
             . "It was not booked again. Check the M-Pesa statement: if the earlier entry on {$bookedOn->cipher} was typed by mistake, reverse it there and record this payment here.");
     }
 
+    /**
+     * Reverse a booking that should not count (owner decision, Phase C): a
+     * 'reversal' row pointing at it, with actor and reason. Not money out.
+     * Each payment is reversed at most once, and refunds plus reversals never
+     * exceed what was paid (N2).
+     */
+    public function reversePayment(OrderPayment $payment, Actor $actor, string $reason): OrderPayment
+    {
+        return DB::transaction(function () use ($payment, $actor, $reason) {
+            $locked = $this->lockForMoney($payment->order);
+            $payment = OrderPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            if ($payment->type !== OrderPayment::PAYMENT) {
+                throw new \DomainException('Only a payment booking can be reversed.');
+            }
+            if ($payment->reversal()->exists()) {
+                throw new \DomainException('This booking is already reversed.');
+            }
+            ['payments' => $payments, 'refunds' => $refunds] = $locked->ledgerSums();
+            if ($refunds > $payments - $payment->amount) {
+                throw new \DomainException('Refunds already paid on this order exceed what would remain. Reversing it would break the ledger.');
+            }
+
+            $reversal = OrderPayment::create([
+                'custom_order_id' => $locked->id, 'type' => OrderPayment::REVERSAL, 'amount' => $payment->amount,
+                'method' => $payment->method, 'external_reference' => null, 'reverses_payment_id' => $payment->id,
+                'actor_type' => $actor->type, 'actor_id' => $actor->id, 'reason' => $reason, 'occurred_at' => now(),
+            ]);
+            $this->recompute($locked);
+
+            return $reversal;
+        }, 3);
+    }
+
+    /** Confirm a flagged booking is genuine (two real payments), with a reason. Money is unchanged. */
+    public function confirmGenuine(OrderPayment $payment, Actor $actor, string $reason): void
+    {
+        DB::table('payment_reviews')->insert([
+            'order_payment_id' => $payment->id, 'decision' => 'genuine', 'actor_type' => $actor->type,
+            'actor_id' => $actor->id, 'reason' => $reason, 'created_at' => now(),
+        ]);
+    }
+
     /** Queue a plain-text alert to the owner's inbox, if there is one. */
     private function alertOwner(CustomOrder $order, string $subject, string $body): void
     {
@@ -272,8 +320,8 @@ class OrderSettlementService
     {
         $derived = OrderLedger::derive(
             (int) $order->lines()->sum('amount'),
-            (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount'),
-            (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount'),
+            $order->ledgerSums()['payments'],
+            $order->ledgerSums()['refunds'],
             $order->resolution ?? OrderLedger::RESOLUTION_NONE,
         );
         $money = array_diff_key($derived, ['is_paid' => true]);
@@ -305,21 +353,29 @@ class OrderSettlementService
             return $payment;
         }
 
+        // A reversed booking no longer holds its code (it may be booked again, marked).
         return $reference !== null
-            ? OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)->first()
+            ? OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)
+                ->where('type', OrderPayment::PAYMENT)->notReversed()->first()
             : null;
     }
 
     private function balance(CustomOrder $order): int
     {
-        $net = (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount')
-            - (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount');
+        ['payments' => $payments, 'refunds' => $refunds] = $order->ledgerSums();
+        $net = $payments - $refunds;
 
         return (int) $order->lines()->sum('amount') - $net;
     }
 
     private function book(CustomOrder $order, string $type, int $amount, string $method, Actor $actor, ?string $reference, ?PaymentAttempt $attempt, ?string $reason): OrderPayment
     {
+        // The row of a reversed booking keeps its code (append-only); a rebooking is marked and traceable.
+        if ($reference !== null && ($reversed = OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))
+            ->where('external_reference', $reference)->first())) {
+            $reference = "{$reference}#after-reversal-{$reversed->id}";
+        }
+
         return OrderPayment::create([
             'custom_order_id' => $order->id,
             'type' => $type,

@@ -149,6 +149,24 @@ class CustomOrder extends Model
         return min($total, $this->deposit_override ?? (int) round($total * \App\Support\OrderPolicy::depositPercent() / 100));
     }
 
+    /** The order's ledger for the Studio: every booking, and whether it was reversed, confirmed or is flagged. */
+    public function getLedgerRowsAttribute(): array
+    {
+        $reviews = \Illuminate\Support\Facades\DB::table('payment_reviews')->whereIn('order_payment_id', $this->payments()->pluck('id'))->pluck('decision', 'order_payment_id');
+        $reversed = $this->payments()->whereNotNull('reverses_payment_id')->pluck('reverses_payment_id')->flip();
+
+        return $this->payments()->orderBy('id')->get()->map(fn (OrderPayment $p) => [
+            'id' => $p->id, 'type' => $p->type, 'amount' => $p->amount, 'method' => $p->method,
+            'reference' => $p->external_reference, 'actor' => $p->actor_type, 'reason' => $p->reason,
+            'at' => $p->occurred_at?->copy()->timezone(config('app.display_timezone'))->format('d M Y, H:i'),
+            'reversed' => $reversed->has($p->id),
+            'genuine' => ($reviews[$p->id] ?? null) === 'genuine',
+            // Booked past the unique index by the backfill: the code is also on another order.
+            'flagged' => $p->type === OrderPayment::PAYMENT && str_contains((string) $p->external_reference, \App\Services\LedgerBackfill::DUPLICATE_MARK)
+                && ! $reversed->has($p->id) && ! isset($reviews[$p->id]),
+        ])->all();
+    }
+
     public function getDepositRequiredAttribute(): int
     {
         return $this->depositRequired();
@@ -206,6 +224,22 @@ class CustomOrder extends Model
     public function payments()
     {
         return $this->hasMany(OrderPayment::class);
+    }
+
+    /**
+     * The ledger's two sums (N1, N2), optionally as of a ledger row:
+     * payments counted (minus reversed bookings) and refunds paid out.
+     *
+     * @return array{payments: int, refunds: int}
+     */
+    public function ledgerSums(?int $upToId = null): array
+    {
+        $sum = fn (string $type) => (int) $this->payments()->where('type', $type)->when($upToId, fn ($q) => $q->where('id', '<=', $upToId))->sum('amount');
+
+        return [
+            'payments' => $sum(OrderPayment::PAYMENT) - $sum(OrderPayment::REVERSAL),
+            'refunds' => $sum(OrderPayment::REFUND),
+        ];
     }
 
     /**

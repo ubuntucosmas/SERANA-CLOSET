@@ -146,6 +146,16 @@ const paymentForm = useForm({ amount: '', method: 'mpesa_manual', reference: '' 
 // A bespoke order's deposit: the policy share unless owner/manager set it (with a reason).
 const depositForm = useForm({ deposit: '', reason: '' });
 const canSetDeposit = computed(() => !isCommerceOrder.value && page.props.auth?.user?.abilities?.includes('deposit.override'));
+// The order's ledger (Phase C): owner may reverse a booking or confirm a flagged one genuine, with a reason.
+const canReverse = computed(() => page.props.auth?.user?.abilities?.includes('ledger.reverse'));
+function reviewBooking(row, action) {
+    const question = action === 'reverse'
+        ? `Reverse this KSh ${Number(row.amount).toLocaleString()} booking? It will stop counting as money received. Reason:`
+        : 'Confirm this is a genuine, separate payment. Reason:';
+    const reason = window.prompt(question);
+    if (!reason) return;
+    router.post(route(action === 'reverse' ? 'studio.payment.reverse' : 'studio.payment.confirm', row.id), { reason }, { preserveScroll: true });
+}
 // The customer's signed pay link (design B): copy it, or send it prefilled on WhatsApp.
 const payLinkCopied = ref(false);
 async function copyPayLink() {
@@ -499,6 +509,17 @@ function removeAsset(key) {
                         <button type="submit" :disabled="depositForm.processing || !depositForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Set deposit</button>
                     </form>
                     <p v-for="(message, field) in depositForm.errors" :key="'d' + field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
+                    <ul v-if="selectedOrder.ledger_rows?.length" class="mt-3 space-y-1 text-xs text-slate-300" aria-label="Payments on this order">
+                        <li v-for="row in selectedOrder.ledger_rows" :key="row.id" class="flex flex-wrap items-center gap-2">
+                            <span :class="row.reversed ? 'line-through text-slate-500' : ''">{{ row.type === 'payment' ? 'Payment' : row.type === 'refund' ? 'Refund' : 'Reversal' }} {{ formatAmount(row.amount, page.props) }} · {{ row.method }}<template v-if="row.reference"> · {{ row.reference }}</template> · {{ row.at }}</span>
+                            <span v-if="row.flagged" class="text-rose-300">Code also booked on another order</span>
+                            <span v-if="row.genuine" class="text-slate-400">Confirmed genuine</span>
+                            <template v-if="canReverse && row.type === 'payment' && !row.reversed">
+                                <button type="button" @click="reviewBooking(row, 'reverse')" class="underline hover:text-rose-300">Reverse</button>
+                                <button v-if="row.flagged" type="button" @click="reviewBooking(row, 'confirm')" class="underline">Confirm genuine</button>
+                            </template>
+                        </li>
+                    </ul>
                     <div v-if="selectedOrder.pay_link && selectedOrder.balance_due > 0" class="mt-3 flex flex-wrap gap-2">
                         <button type="button" @click="copyPayLink" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">{{ payLinkCopied ? 'Pay link copied' : 'Copy pay link' }}</button>
                         <a v-if="selectedOrder.pay_whatsapp_url" :href="selectedOrder.pay_whatsapp_url" target="_blank" rel="noopener" class="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-400">Send quote &amp; pay link on WhatsApp</a>

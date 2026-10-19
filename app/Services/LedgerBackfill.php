@@ -40,8 +40,7 @@ class LedgerBackfill
             }
 
             $chargeable = (int) $order->lines()->sum('amount');
-            $payments = (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount');
-            $refunds = (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount');
+            ['payments' => $payments, 'refunds' => $refunds] = $order->ledgerSums();
             $derived = OrderLedger::derive($chargeable, $payments, $refunds, $columns['resolution']);
             unset($derived['is_paid']); // legacy column: left as it is
 

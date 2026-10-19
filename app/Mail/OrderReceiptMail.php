@@ -40,10 +40,9 @@ class OrderReceiptMail extends Mailable
     /** Everything the email and the PDF show, as of $payment. */
     public static function viewData(CustomOrder $order, ?OrderPayment $payment): array
     {
-        $upTo = fn (string $type) => (int) $order->payments()->where('type', $type)
-            ->when($payment, fn ($q) => $q->where('id', '<=', $payment->id))->sum('amount');
+        $sums = $order->ledgerSums($payment?->id);
         $total = (int) $order->chargeable_total;
-        $paidToDate = $upTo(OrderPayment::PAYMENT) - $upTo(OrderPayment::REFUND);
+        $paidToDate = $sums['payments'] - $sums['refunds'];
         $balance = $total - $paidToDate;
 
         return [

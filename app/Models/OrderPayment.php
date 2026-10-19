@@ -15,6 +15,8 @@ class OrderPayment extends Model
 
     public const PAYMENT = 'payment';
     public const REFUND = 'refund';
+    /** Cancels a booking that should not count (not money out). Points at the payment it reverses. */
+    public const REVERSAL = 'reversal';
 
     public const METHODS = ['mpesa_stk', 'mpesa_manual', 'cash', 'card', 'bank', 'credit'];
 
@@ -45,6 +47,16 @@ class OrderPayment extends Model
     public function order()
     {
         return $this->belongsTo(CustomOrder::class, 'custom_order_id')->withTrashed();
+    }
+
+    public function reversal()
+    {
+        return $this->hasOne(self::class, 'reverses_payment_id');
+    }
+
+    public function scopeNotReversed($query)
+    {
+        return $query->whereNotExists(fn ($q) => $q->selectRaw(1)->from('order_payments as r')->whereColumn('r.reverses_payment_id', 'order_payments.id'));
     }
 
     public function attempt()
