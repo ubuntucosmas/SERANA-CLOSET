@@ -58,6 +58,9 @@ class OrderReceiptMail extends Mailable
             'paidToDate' => $paidToDate,
             'balance' => max(0, $balance),
             'excess' => max(0, -$balance),
+            // This payment arrived on an order that was already settled.
+            'paidTwice' => $payment && $total > 0 && $total - ($paidToDate - $payment->amount) <= 0,
+            'refundDays' => \App\Support\OrderPolicy::refundWorkingDays(),
             'paidInFull' => $total > 0 && $balance <= 0,
             'depositPolicy' => $order->isBespoke() ? \App\Support\OrderPolicy::depositPolicy() : null,
             'trackUrl' => URL::route('track', ['ref' => $order->cipher]),

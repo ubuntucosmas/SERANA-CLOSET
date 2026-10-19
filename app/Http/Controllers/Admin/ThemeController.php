@@ -73,6 +73,8 @@ class ThemeController extends Controller
         $validated = $request->validate(\App\Support\OrderPolicy::rules(), [
             'deposit_percent.between' => 'The deposit is a share of the quote, from 0 to 100%.',
             'pay_link_days.between' => 'A pay link can last from 1 to 90 days.',
+            'refund_working_days.between' => 'Promise refunds within 1 to 14 working days.',
+            'resolution_days.between' => 'A payment problem can wait from 1 to 30 days before it becomes a refund.',
         ]);
         $before = \App\Support\OrderPolicy::forStudio();
         \App\Support\OrderPolicy::save($validated);

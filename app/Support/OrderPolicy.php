@@ -17,6 +17,10 @@ class OrderPolicy
 
     public const DEFAULT_DEPOSIT_PERCENT = 50;
     public const DEFAULT_PAY_LINK_DAYS = 14;
+    /** Working days the studio promises to send an owed refund within (Phase C). */
+    public const DEFAULT_REFUND_WORKING_DAYS = 2;
+    /** Days a payment problem may wait for a decision before it becomes a refund (Phase C). */
+    public const DEFAULT_RESOLUTION_DAYS = 3;
     public const DEFAULT_DEPOSIT_POLICY = 'Deposit refundable until work starts (designing); non-refundable after.';
 
     private static function saved(): array
@@ -38,6 +42,16 @@ class OrderPolicy
         return (int) (self::saved()['pay_link_days'] ?? self::DEFAULT_PAY_LINK_DAYS);
     }
 
+    public static function refundWorkingDays(): int
+    {
+        return (int) (self::saved()['refund_working_days'] ?? self::DEFAULT_REFUND_WORKING_DAYS);
+    }
+
+    public static function resolutionDays(): int
+    {
+        return (int) (self::saved()['resolution_days'] ?? self::DEFAULT_RESOLUTION_DAYS);
+    }
+
     public static function depositPolicy(): string
     {
         return trim((string) (self::saved()['deposit_policy'] ?? '')) ?: self::DEFAULT_DEPOSIT_POLICY;
@@ -49,6 +63,8 @@ class OrderPolicy
             'deposit_percent' => self::depositPercent(),
             'pay_link_days' => self::payLinkDays(),
             'deposit_policy' => self::depositPolicy(),
+            'refund_working_days' => self::refundWorkingDays(),
+            'resolution_days' => self::resolutionDays(),
         ];
     }
 
@@ -58,6 +74,8 @@ class OrderPolicy
             'deposit_percent' => ['required', 'integer', 'between:0,100'],
             'pay_link_days' => ['required', 'integer', 'between:1,90'],
             'deposit_policy' => ['nullable', 'string', 'max:300'],
+            'refund_working_days' => ['nullable', 'integer', 'between:1,14'],
+            'resolution_days' => ['nullable', 'integer', 'between:1,30'],
         ];
     }
 
@@ -67,6 +85,8 @@ class OrderPolicy
             'deposit_percent' => (int) $validated['deposit_percent'],
             'pay_link_days' => (int) $validated['pay_link_days'],
             'deposit_policy' => trim((string) ($validated['deposit_policy'] ?? '')),
+            'refund_working_days' => (int) ($validated['refund_working_days'] ?? self::DEFAULT_REFUND_WORKING_DAYS),
+            'resolution_days' => (int) ($validated['resolution_days'] ?? self::DEFAULT_RESOLUTION_DAYS),
         ]));
     }
 }

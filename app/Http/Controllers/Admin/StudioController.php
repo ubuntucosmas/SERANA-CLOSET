@@ -415,7 +415,24 @@ class StudioController extends Controller
                 'cause' => $o->refund_cause ?? 'Paid more than is owed',
                 'since' => $o->refund_due_since?->toIso8601String(),
                 'age_days' => $o->refund_due_since ? (int) $o->refund_due_since->diffInDays(now()) : 0,
+                'whatsapp_url' => ($o->whatsapp_number ?: $o->phone)
+                    ? \App\Support\WhatsApp::link($o->whatsapp_number ?: $o->phone, $this->refundMessage($o)) : null,
             ])->all();
+    }
+
+    /** The prefilled WhatsApp message telling a customer their refund is coming. */
+    private function refundMessage(CustomOrder $order): string
+    {
+        $days = \App\Support\OrderPolicy::refundWorkingDays();
+        $why = match ($order->refund_cause) {
+            'Paid twice' => 'Your payment came through twice.',
+            null => 'You paid more than the order total.',
+            default => rtrim($order->refund_cause, '.') . '.',
+        };
+
+        return sprintf('Hi %s, this is %s about order %s. %s We will refund KSh %s to you within %d working %s.',
+            strtok((string) $order->full_name, ' ') ?: 'there', \App\Support\StoreProfile::name(), $order->cipher, $why,
+            number_format(-(int) $order->balance_due), $days, $days === 1 ? 'day' : 'days');
     }
 
     /** Owner: reverse a booking that should not count, with a reason (Phase C). */

@@ -75,7 +75,7 @@
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Order total</td><td style="padding:4px 0; text-align:right;">{{ $money($total) }}</td></tr>
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Paid to date</td><td style="padding:4px 0; text-align:right;">{{ $money($paidToDate) }}</td></tr>
                                 @if($excess > 0)
-                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">{{ $money($excess) }} more than the total was received. The studio will refund it.</td></tr>
+                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">@if($paidTwice)We received this payment twice. @else{{ $money($excess) }} more than the total was received. @endif{{ $money($excess) }} will be refunded to you within {{ $refundDays }} working {{ $refundDays === 1 ? 'day' : 'days' }}.</td></tr>
                                 @elseif($paidInFull)
                                 <tr><td style="padding:4px 0; font-weight:bold;">Balance due</td><td style="padding:4px 0; text-align:right; color:#4fb33f; font-weight:bold;">Paid in full</td></tr>
                                 @else

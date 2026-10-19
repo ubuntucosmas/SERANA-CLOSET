@@ -59,8 +59,12 @@ function submit(row) {
                     <div class="sm:text-right shrink-0">
                         <p class="text-xl font-semibold text-amber-300">{{ money(row.owed) }}</p>
                         <p class="text-xs text-slate-500">owed for {{ age(row.age_days) }}</p>
-                        <button v-if="openId !== row.id" type="button" @click="start(row)"
-                            class="mt-3 px-4 py-2 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Mark refunded</button>
+                        <div v-if="openId !== row.id" class="mt-3 flex flex-wrap gap-2 sm:justify-end">
+                            <a v-if="row.whatsapp_url" :href="row.whatsapp_url" target="_blank" rel="noopener"
+                                class="px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 text-slate-200 hover:bg-white/10">Tell the customer on WhatsApp</a>
+                            <button type="button" @click="start(row)"
+                                class="px-4 py-2 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">Mark refunded</button>
+                        </div>
                     </div>
                 </div>
 

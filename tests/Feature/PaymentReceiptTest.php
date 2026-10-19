@@ -98,7 +98,9 @@ class PaymentReceiptTest extends TestCase
         app(OrderSettlementService::class)->recordPayment($order, 5000, 'mpesa_stk', Actor::safaricom(), 'R2');
 
         $this->assertCount(2, $this->receipts());
-        $this->receipts()[1]->assertSeeInHtml('KSh 5,000 more than the total was received');
+        // Phase C: a second full payment is "paid twice", with the refund promise.
+        $this->receipts()[1]->assertSeeInHtml('We received this payment twice');
+        $this->receipts()[1]->assertSeeInHtml('KSh 5,000 will be refunded to you within 2 working days');
     }
 
     public function test_the_pdf_receipt_shows_the_same_figures(): void
