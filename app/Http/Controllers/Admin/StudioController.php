@@ -167,6 +167,11 @@ class StudioController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
         }
         if ($commerce && $validated['status'] !== $currentStatus) {
+            // A part-paid shop order (a short payment, or a swap to a dearer item) never moves on, owner or not.
+            if ((int) $order->amount_paid > 0 && (int) $order->balance_due > 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'KSh ' . number_format((int) $order->balance_due)
+                    . ' is still owed on this order. Take the balance before it leaves the studio.']);
+            }
             if (! $order->isPaidUp() || ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
             }
