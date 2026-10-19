@@ -112,7 +112,9 @@ class CheckoutController extends Controller
             $snapshotItems['precision_sizing'] = $sizingProvided;
         }
 
-        // Atomic order creation with stock holds
+        // Atomic order creation with stock holds. Up to 3 attempts: a deadlock
+        // rolls the whole transaction back, and this closure only touches the
+        // database (mail and the session come after it), so re-running is safe.
         try {
             $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp) {
                 // A prompt is paid in minutes; a WhatsApp order needs time to arrange payment.
@@ -171,7 +173,7 @@ class CheckoutController extends Controller
                 }
 
                 return $order;
-            });
+            }, 3);
         } catch (\DomainException $e) {
             // Stock race: someone else claimed the last unit(s) mid-checkout.
             return response()->json([

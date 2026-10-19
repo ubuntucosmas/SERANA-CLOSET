@@ -104,6 +104,58 @@ class ConcurrencyTest extends TestCase
         $this->assertSame(0, $product->fresh()->availableStock());
     }
 
+    public function test_a_checkout_that_loses_a_deadlock_retries_and_succeeds_once(): void
+    {
+        $product = $this->product(batchLimit: 3);
+        // An unrelated hold, so the adversary has index records to gap-lock.
+        $this->unpaidOrderHolding($this->product(batchLimit: 3, slug: 'other'), 'held');
+
+        // Checkout takes the product; the adversary blocks new holds and then
+        // wants the product: a deadlock that InnoDB resolves against checkout.
+        $results = $this->whileHoldingProduct($product, [
+            ['checkout', $this->checkoutPayload($product, 'Retry Buyer')],
+            ['block-holds-then-product', (string) $product->id],
+        ]);
+
+        [$checkout, $adversary] = $results;
+        $this->assertFalse($adversary['victim'] ?? true, json_encode($results));
+        $this->assertSame(200, $checkout['status'], json_encode($results));
+        $this->assertGreaterThanOrEqual(1, $checkout['rollbacks'], 'the first attempt should have been rolled back: ' . json_encode($results));
+
+        // Exactly one order and one hold despite the retry.
+        $orders = CustomOrder::where('full_name', 'Retry Buyer')->get();
+        $this->assertCount(1, $orders);
+        $holds = StockReservation::where('product_id', $product->id)->get();
+        $this->assertCount(1, $holds);
+        $this->assertSame($orders->first()->id, $holds->first()->custom_order_id);
+        $this->assertSame(2, $product->fresh()->availableStock());
+    }
+
+    public function test_a_settlement_that_loses_a_deadlock_retries_and_settles_once(): void
+    {
+        $product = $this->product(batchLimit: 3);
+        $paying = $this->unpaidOrderHolding($product, 'held');
+
+        // Settlement claims the order and waits for the product; the adversary
+        // locks the order's holds and then wants the claimed order row.
+        $results = $this->whileHoldingProduct($product, [
+            ['settle', (string) $paying->id],
+            ['lock-holds-then-order', (string) $paying->id],
+        ]);
+
+        [$settle, $adversary] = $results;
+        $this->assertFalse($adversary['victim'] ?? true, json_encode($results));
+        $this->assertSame(200, $settle['status'], json_encode($results));
+        $this->assertTrue($settle['settled'], json_encode($results));
+        $this->assertGreaterThanOrEqual(1, $settle['rollbacks'], 'the first attempt should have been rolled back: ' . json_encode($results));
+        $this->assertSame(1, $settle['paid_events'], 'one settlement event, after commit');
+
+        $paying->refresh();
+        $this->assertTrue($paying->is_paid);
+        $this->assertSame(1, $product->fresh()->batch_sold, 'stock committed exactly once');
+        $this->assertSame(['committed'], $paying->stockReservations()->pluck('status')->all());
+    }
+
     /**
      * Lock the product row, start each worker in turn (waiting until it is
      * blocked on a lock before starting the next), release, collect results.
@@ -190,10 +242,10 @@ class ConcurrencyTest extends TestCase
             . ' Worker output: ' . collect($running)->map(fn ($p) => $p->latestOutput() . $p->latestErrorOutput())->implode(' | '));
     }
 
-    private function product(int $batchLimit): Product
+    private function product(int $batchLimit, string $slug = 'last-hoodie'): Product
     {
         return Product::create([
-            'name' => 'Last Hoodie', 'slug' => 'last-hoodie', 'description' => 'One left.',
+            'name' => "Hoodie {$slug}", 'slug' => $slug, 'description' => 'One left.',
             'price' => 2500, 'in_stock' => true, 'batch_limit' => $batchLimit, 'batch_sold' => 0,
         ]);
     }

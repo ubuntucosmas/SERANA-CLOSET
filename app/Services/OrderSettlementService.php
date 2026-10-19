@@ -47,7 +47,9 @@ class OrderSettlementService
             $order->commitReservations();
 
             return true;
-        });
+        // Up to 3 attempts on deadlock: the closure is database-only (the event
+        // fires below, after commit), so a rolled-back attempt leaves no trace.
+        }, 3);
 
         // Dispatched only after the transaction commits: a queued listener must
         // never observe (or serialize) an order the database hasn't settled yet.
