@@ -68,18 +68,19 @@ class OrderSettlementService
             $derived = $this->recompute($locked);
             $becamePaid = ! $wasPaid && $derived['is_paid'];
             if ($becamePaid) {
-                $legacy = [
-                    'is_paid' => true,
-                    'paid_at' => now(),
+                $settled = [
                     'mpesa_receipt_number' => $reference ?? $locked->mpesa_receipt_number,
                     // Money that arrives for an order the Studio archived brings it back.
                     'deleted_at' => null,
+                    'payment_failed' => false,
                 ];
-                // Shop and drop orders are "Paid"; bespoke work keeps its production stage.
+                // A paid shop or drop order is open again (a late payment); bespoke work keeps its stage.
                 if ($locked->kind !== 'bespoke') {
-                    $legacy += LegacyOrderMap::forStatus(OrderStatus::PAID);
+                    $settled['order_state'] = 'open';
                 }
-                DB::table('custom_orders')->where('id', $locked->id)->update($legacy);
+                DB::table('custom_orders')->where('id', $locked->id)->update($settled);
+                $locked->forceFill($settled);
+                $this->recompute($locked); // project the legacy columns from the settled state
                 $locked->commitReservations();
             }
 
@@ -225,8 +226,11 @@ class OrderSettlementService
     }
 
     /**
-     * Recompute the stored money columns from lines and ledger (N1). Call with
-     * the order locked; the legacy is_paid is not touched here.
+     * Recompute the stored money columns from lines and ledger (N1), and project
+     * the legacy columns from them: the legacy is_paid and status follow the
+     * ledger (Phase C: refunds, reversals and cancellations can legitimately
+     * take an order out of "paid"). paid_at records the first time it was paid.
+     * Call with the order locked; the instance is refreshed with what is stored.
      */
     public function recompute(CustomOrder $order): array
     {
@@ -236,7 +240,16 @@ class OrderSettlementService
             (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount'),
             $order->resolution ?? OrderLedger::RESOLUTION_NONE,
         );
-        DB::table('custom_orders')->where('id', $order->id)->update(array_diff_key($derived, ['is_paid' => true]));
+        $money = array_diff_key($derived, ['is_paid' => true]);
+        $order->forceFill($money);
+
+        $legacy = ['is_paid' => $derived['is_paid'], 'status' => $order->legacyStatus(true)];
+        if ($derived['is_paid'] && $order->paid_at === null) {
+            $legacy['paid_at'] = now();
+        }
+
+        DB::table('custom_orders')->where('id', $order->id)->update($money + $legacy);
+        $order->forceFill($legacy)->syncOriginalAttributes(array_keys($money + $legacy));
 
         return $derived;
     }
