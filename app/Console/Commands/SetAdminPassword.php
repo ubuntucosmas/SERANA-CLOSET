@@ -70,6 +70,7 @@ class SetAdminPassword extends Command
         $user->role = $role ?? ($user->exists ? $user->role : \App\Support\Role::OWNER);
         $user->remember_token = Str::random(60);
         $user->save();
+        \App\Support\Audit::record('staff.saved', $user, [], ['email' => $email, 'role' => $user->role, 'password_changed' => true]);
 
         // Database sessions: end every existing sign-in for this account.
         if (config('session.driver') === 'database') {

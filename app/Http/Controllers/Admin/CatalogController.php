@@ -62,7 +62,8 @@ class CatalogController extends Controller
 
         $validated['slug'] = Str::slug($validated['name']);
         
-        Product::create($validated);
+        $product = Product::create($validated);
+        \App\Support\Audit::record('product.created', $product, [], $product->only(['name', 'price', 'batch_limit', 'in_stock']));
 
         return back()->with('success', 'Product added to the shop.');
     }
@@ -123,6 +124,8 @@ class CatalogController extends Controller
         }
 
         $validated['slug'] = Str::slug($validated['name']);
+        // Price and stock are money/stock-sensitive: audit what changed.
+        \App\Support\Audit::changes('product.updated', $product, array_intersect_key($validated, array_flip(['price', 'batch_limit', 'in_stock'])));
         $product->update($validated);
 
         return back()->with('success', 'Collection piece updated successfully.');
@@ -131,12 +134,14 @@ class CatalogController extends Controller
     public function destroyProduct(Product $product)
     {
         $product->delete();
+        \App\Support\Audit::record('product.archived', $product);
         return back()->with('success', 'Product moved to archive (Unpublished).');
     }
 
     public function restoreProduct(Product $product)
     {
         $product->restore();
+        \App\Support\Audit::record('product.restored', $product);
         return back()->with('success', 'Product restored to collection (Published).');
     }
 
@@ -154,6 +159,7 @@ class CatalogController extends Controller
             }
         }
 
+        \App\Support\Audit::record('product.purged', $product, $product->only(['name', 'slug', 'price', 'batch_limit', 'batch_sold']));
         $product->forceDelete();
         return back()->with('success', 'Product and all associated assets permanently purged.');
     }

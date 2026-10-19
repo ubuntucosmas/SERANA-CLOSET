@@ -153,6 +153,7 @@ class StudioController extends Controller
             }
         }
         unset($validated['is_paid']);
+        \App\Support\Audit::changes('order.updated', $order, $validated);
         $order->update($validated);
 
         return back()->with('success', 'Order updated successfully.');
@@ -237,6 +238,9 @@ class StudioController extends Controller
             'mpesa_receipt_number' => mb_substr($data['reference'], 0, 100),
             'internal_notes' => trim(($order->internal_notes ? $order->internal_notes . "\n" : '') . $note),
         ]);
+        if ($claimed) {
+            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => (int) $data['amount'], 'reference' => $data['reference']]);
+        }
 
         return back()->with($claimed ? 'success' : 'error', $claimed ? 'Payment recorded.' : 'This order is already marked as paid.');
     }
@@ -275,6 +279,9 @@ class StudioController extends Controller
             now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
             number_format($total), $data['reference']))]);
         $settled = app(OrderSettlementService::class)->markPaid($order, mb_substr($data['reference'], 0, 100));
+        if ($settled) {
+            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
+        }
 
         if (! $settled) {
             return back()->with('error', 'This order is already marked as paid.');
@@ -293,6 +300,7 @@ class StudioController extends Controller
         }
         $order->releaseReservations();
         CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::CANCELLED]);
+        \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->status], ['status' => OrderStatus::CANCELLED]);
 
         return back()->with('success', 'Order cancelled. Its stock is back on sale.');
     }
@@ -307,6 +315,7 @@ class StudioController extends Controller
         }
 
         $order->delete();
+        \App\Support\Audit::record('order.archived', $order);
         return back()->with('success', 'Order moved to the archive.');
     }
 
@@ -314,6 +323,7 @@ class StudioController extends Controller
     {
         $order = CustomOrder::withTrashed()->findOrFail($id);
         $order->restore();
+        \App\Support\Audit::record('order.restored', $order);
         return back()->with('success', 'Order restored to active registry.');
     }
 
@@ -334,6 +344,7 @@ class StudioController extends Controller
             }
         }
         
+        \App\Support\Audit::record('order.purged', $order, $order->only(['cipher', 'full_name', 'type', 'status', 'price_quoted']));
         $order->forceDelete();
         return back()->with('success', 'Order and associated visual assets permanently purged.');
     }
