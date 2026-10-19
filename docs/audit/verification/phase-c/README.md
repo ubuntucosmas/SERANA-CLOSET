@@ -64,3 +64,15 @@ The owner reversed both double bookings in the Studio, each with a reason (`02`,
 **Found while updating an old test:** a fractional amount (KSh 4,999.75 against a KSh 5,000 prompt) would have rounded into a full shop settlement under the new over/under rule. Fractional amounts keep the old flag-for-review rule (`5ea00dd`).
 
 **Not an app problem:** the first run's expiry checks used MySQL `NOW()`, which is Nairobi time in ddev; the app stores UTC. The harness now uses `UTC_TIMESTAMP()`. No app query uses `NOW()`.
+
+## Follow-ups before merge (2026-10-19)
+
+| Follow-up | How it was checked | Evidence |
+|---|---|---|
+| Short shop payment hold is a Studio setting (Orders & deposits, default 24h, 1–168) | Tests: a 12h setting holds 12h, the balance email says "12 hours", and the order expires after 12h. Owner only, validated | `ShopAmountMismatchTest` |
+| A cancelled custom order keeps its stage ("Cancelled at: sewing"), reads `Cancelled`, and the Studio won't move it | Tests for every stage (pending, designing, sewing, completed). Email shows "Cancelled at: Designing" when the deposit is kept | `CancelledOrderQueuesTest`, `BespokeCancellationTest` |
+| Cancelled orders are in no Studio queue or count | Test, both read modes: all six work queues, the Home counts, new orders and in production, the attention snapshot, every stage list | `CancelledOrderQueuesTest` |
+| A shop order with a balance owed can't move to any stage, shipped included | Tests: a short payment and a swap to a dearer item. The block already existed; the message now says "KSh 1,000 is still owed on this order. Take the balance before it leaves the studio." It ships once paid | `ShopShippingBlockTest` |
+| The receipt for a payment whose item sold out doesn't read as a confirmed order | Live on ddev: real callback, real email and PDF from Mailpit. Subject "Payment received — SRN-…"; "…is no longer available… We've sent you a separate email with your options"; PDF status "Payment received · Item unavailable", no "Paid in full". A normal receipt is unchanged (test) | `28-email-receipt-item-unavailable.html`, `29-receipt-item-unavailable.pdf` |
+
+**Seen during this check:** the local queue worker was still running the old receipt class against the new template and failed the job ("Undefined variable $unavailable"). After `queue:restart`, the retry delivered it. Production deploys already run `queue:restart` (`deploy/deploy.sh`).

@@ -661,6 +661,7 @@ Design rules:
 | D15 | **Pay link lifetime** | 14 days (setting), re-issuable from the Studio. A paid order's link still shows the receipt |
 | D16 | **Discounts online** | **None in this batch.** POS only. Online promo codes are a separate feature |
 | D17 | ~~**VAT**~~ *deferred by owner* | Are you VAT-registered? If so, receipts must show VAT, and line amounts need a tax field. The design adds `tax_amount` on lines as nullable, unused until confirmed |
+| D18 | **Drops: open question (paused behind `DROPS_ENABLED`)** | Whether and when paid Drops return is the owner's call; the failed-target and refund policy is still undecided (see *Drops Launch Decision* in `docs/audit/V1-RELEASE-REPORT.md`). **Before Drops are re-enabled, their wrong-amount handling must be brought in line with shop orders** (Phase C): today a Drop paid the wrong amount is still flagged for review with its hold released, while a shop order paid more is settled with the excess owed back, and one paid less becomes a part payment with a balance pay link and a timed hold. Drop pay links, the Payment problems list and the Refunds queue must cover Drops too |
 
 ---
 
@@ -850,12 +851,12 @@ Each phase gets its own branch and PR, small commits, tests first, and must be g
 Migration 000006 refuses to run if a code is already booked under both M-Pesa methods.
 
 **Judgement calls the owner may want to revisit:**
-- **Drop orders keep the old amount-mismatch rule** (flag for review, holds released). Drops are paused and have no stock to hold.
+- **Drop orders keep the old amount-mismatch rule** (flag for review, holds released) for now. Drops are paused. Bringing them in line with shop orders is a precondition for re-enabling them (D18).
 - **The duplicate-payment notice is the receipt for that payment**, not a separate email, so the customer gets one message per payment.
-- **A late payment whose item sold out still gets its payment receipt**, alongside the sold-out notice. The receipt confirms the money; the notice explains the item.
-- **24 hours for a short shop payment is fixed** (`BALANCE_HOLD_HOURS`), as the brief said. The refund promise and the resolution days are Studio settings.
-- **Cancelling resets the production stage to "pending".** The stage it reached is in the audit trail and the cancellation line's reason. This keeps the legacy status mapping (`Cancelled`) consistent.
-- **The ship block for money owed back applies to custom orders** (C5). A shop order paid twice can still be packed: its refund is separate from the goods.
+- **A late payment whose item sold out still gets its payment receipt**, alongside the sold-out notice. The receipt (email and PDF) says "Payment received", that the item is no longer available, and points to the separate email for the options; it never reads as a confirmed order.
+- **The hold for a short shop payment is a Studio setting** (Orders & deposits, default 24 hours), like the refund promise and the resolution days.
+- **Cancelling keeps the production stage it reached.** The Studio shows "Cancelled at: <stage>" and won't move it, and the cancellation email says it when the deposit is kept. The cancelled order state takes it out of every queue and count in both read modes; legacy `status` reads `Cancelled`.
+- **The ship block for money owed back applies to custom orders** (C5). A shop order paid twice can still be packed: its refund is separate from the goods. A shop order with a **balance owed** (short payment, or a swap to a dearer item) can't move to any stage, shipped included, owner or not.
 - **Orders waiting for the next batch aren't on the problems list** and the overdue job leaves them alone. They are a decision already made.
 
 **Verification:** `docs/audit/verification/phase-c/README.md`. Before: `ledger-check` 2 mismatches (the two legacy double bookings). After: 0.
