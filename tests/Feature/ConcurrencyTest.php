@@ -182,13 +182,56 @@ class ConcurrencyTest extends TestCase
      * @param  list<array{0: string, 1: string}>  $jobs
      * @return list<array<string, mixed>>
      */
+    /** Phase C, N2 under real concurrency: two Mark-refunded clicks for the whole amount refund it once. */
+    public function test_two_refunds_racing_for_what_is_owed_refund_it_once(): void
+    {
+        $order = CustomOrder::create(['full_name' => 'Paid Twice', 'phone' => '254712345678', 'whatsapp_number' => '254712345678',
+            'type' => 'standard', 'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2500, 'is_paid' => false]);
+        app(\App\Services\OrderSettlementService::class)->recordPayment($order, 2500, 'mpesa_stk', \App\Support\Actor::safaricom(), 'QRACE1');
+        app(\App\Services\OrderSettlementService::class)->recordPayment($order->fresh(), 2500, 'mpesa_stk', \App\Support\Actor::safaricom(), 'QRACE2');
+
+        $results = $this->whileHolding(fn () => CustomOrder::whereKey($order->id)->lockForUpdate()->first(), [
+            ['refund', "{$order->id}:2500:QREFA"],
+            ['refund', "{$order->id}:2500:QREFB"],
+        ]);
+
+        $this->assertSame([false, true], collect($results)->pluck('refunded')->sort()->values()->all(), json_encode($results));
+        $this->assertSame(1, $order->payments()->where('type', 'refund')->count());
+        $this->assertSame(['paid', 0], [$order->fresh()->payment_status, $order->fresh()->balance_due]);
+    }
+
+    /** Phase C, I8 under real concurrency: two late payments for the last unit sell it once; the other waits for the studio. */
+    public function test_two_late_payments_racing_for_the_last_unit_never_oversell(): void
+    {
+        $product = $this->product(batchLimit: 1);
+        $first = $this->unpaidOrderHolding($product, 'released');
+        $second = $this->unpaidOrderHolding($product, 'released');
+
+        $results = $this->whileHoldingProduct($product, [
+            ['settle-ref', "{$first->id}:QLATEA"],
+            ['settle-ref', "{$second->id}:QLATEB"],
+        ]);
+
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([false, true], collect($results)->pluck('became_paid')->sort()->values()->all(), json_encode($results));
+        $this->assertSame(1, $product->fresh()->batch_sold, 'never past the batch limit');
+        $states = collect([$first->fresh(), $second->fresh()])->map(fn ($o) => [$o->payment_status, $o->amount_paid])->sort()->values()->all();
+        $this->assertSame([['needs_resolution', 2500], ['paid', 2500]], $states);
+    }
+
     private function whileHoldingProduct(Product $product, array $jobs): array
+    {
+        return $this->whileHolding(fn () => Product::whereKey($product->id)->lockForUpdate()->first(), $jobs);
+    }
+
+    /** Hold a row lock ($lock), start each worker and wait until it queues on the lock, then let go. */
+    private function whileHolding(\Closure $lock, array $jobs): array
     {
         $running = [];
 
         DB::beginTransaction();
         try {
-            Product::whereKey($product->id)->lockForUpdate()->first();
+            $lock();
 
             foreach ($jobs as $i => [$action, $arg]) {
                 $running[] = $this->startWorker($action, $arg);
