@@ -574,6 +574,30 @@ class StudioController extends Controller
         return back()->with('success', 'Deposit set to KSh ' . number_format($order->fresh()->depositRequired()) . '.');
     }
 
+    /**
+     * Cancel a bespoke order with a reason (rule N8): before designing the
+     * deposit is owed back; from designing on it is kept and only what was
+     * paid above it is owed back. The customer is emailed which applied.
+     */
+    public function cancelBespoke(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], ['reason.required' => 'Say why the order is cancelled.']);
+        if (! $order->isBespoke()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['reason' => 'Only custom orders are cancelled here.']);
+        }
+        try {
+            $outcome = app(OrderSettlementService::class)->cancelBespoke($order, \App\Support\Actor::user($request->user()), $data['reason']);
+        } catch (\DomainException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['reason' => $e->getMessage()]);
+        }
+        \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->legacyStatus()], $outcome, $data['reason']);
+
+        return back()->with('success', 'Order cancelled.'
+            . ($outcome['retained'] > 0 ? ' Deposit of KSh ' . number_format($outcome['retained']) . ' retained.' : '')
+            . ($outcome['owed_back'] > 0 ? ' KSh ' . number_format($outcome['owed_back']) . ' is owed back (Refunds).' : '')
+            . ' The customer has been emailed.');
+    }
+
     /** Cancel an unpaid WhatsApp order: stock goes back on sale. */
     public function cancelOrder(CustomOrder $order)
     {

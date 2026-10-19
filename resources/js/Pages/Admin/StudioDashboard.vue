@@ -168,6 +168,25 @@ function resolveOrder(action) {
     resolveForm.action = action;
     resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size') });
 }
+// Cancel a custom order (N8): before designing the deposit is refunded; from designing on it is kept.
+const canCancelBespoke = computed(() => {
+    const o = selectedOrder.value;
+    return !!o && !isCommerceOrder.value && o.order_state !== 'cancelled' && o.fulfilment_status !== 'shipped'
+        && page.props.auth?.user?.abilities?.includes('money.record');
+});
+function cancelBespoke() {
+    const o = selectedOrder.value;
+    const paid = Number(o.amount_paid || 0);
+    const started = ['designing', 'sewing', 'completed'].includes(o.fulfilment_status);
+    const kept = started ? Math.min(Number(o.deposit_required || 0), paid) : 0;
+    const back = paid - kept;
+    const outcome = paid === 0 ? 'Nothing has been paid, so nothing is refunded.'
+        : started ? `Work has started, so the deposit of KSh ${kept.toLocaleString()} is kept${back > 0 ? ` and KSh ${back.toLocaleString()} is owed back` : ''}.`
+        : `Work hasn't started, so all KSh ${paid.toLocaleString()} paid is owed back.`;
+    const reason = window.prompt(`Cancel order ${o.cipher}? ${outcome} The customer is emailed.\n\nReason:`);
+    if (!reason) return;
+    router.post(route('studio.order.cancel_bespoke', o.id), { reason }, { preserveScroll: true });
+}
 // The customer's signed pay link (design B): copy it, or send it prefilled on WhatsApp.
 const payLinkCopied = ref(false);
 async function copyPayLink() {
@@ -619,6 +638,7 @@ function removeAsset(key) {
             <div class="mt-6 flex flex-wrap gap-2">
                 <button @click="saveOrder" :disabled="orderForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ orderForm.processing ? 'Saving…' : 'Save order changes' }}</button>
                 <button @click="copyBrief" class="px-4 py-3 rounded-xl bg-white/5 text-slate-200 text-sm hover:bg-white/10">Copy brief</button>
+                <button v-if="canCancelBespoke" type="button" @click="cancelBespoke" class="px-4 py-3 rounded-xl bg-rose-500/10 text-rose-300 text-sm hover:bg-rose-500/20">Cancel order</button>
                 <template v-if="!orderArchived">
                     <button @click="archiveOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400 ml-auto">Archive</button>
                 </template>

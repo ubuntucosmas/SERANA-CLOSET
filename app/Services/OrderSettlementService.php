@@ -397,17 +397,71 @@ class OrderSettlementService
     public function cancelForRefund(CustomOrder $order, Actor $actor, string $reason, string $cause, string $state = 'cancelled'): void
     {
         DB::transaction(function () use ($order, $actor, $reason, $cause, $state) {
-            $locked = $this->lockForMoney($order);
-            $locked->releaseReservations();
-            $chargeable = (int) $locked->lines()->sum('amount');
-            if ($chargeable !== 0) {
-                $this->line($locked, OrderLine::ADJUSTMENT, 'Order cancelled', 1, -$chargeable, $actor, $reason);
-            }
-            $this->clearResolution($locked);
-            DB::table('custom_orders')->where('id', $locked->id)->update(['order_state' => $state]);
-            $locked->forceFill(['order_state' => $state]);
-            $this->recompute($locked, $cause);
+            $this->closeOrder($this->lockForMoney($order), $actor, $reason, $cause, $state);
         }, 3);
+    }
+
+    /**
+     * Cancel a bespoke order (rule N8). Before designing, everything paid is
+     * owed back. From designing on, the deposit (up to what was paid) is kept
+     * as a retained line with the reason, and anything above it is owed back.
+     * The customer is told which applied, after commit.
+     *
+     * @return array{stage: string, retained: int, owed_back: int}
+     */
+    public function cancelBespoke(CustomOrder $order, Actor $actor, string $reason): array
+    {
+        $outcome = DB::transaction(function () use ($order, $actor, $reason) {
+            $locked = $this->lockForMoney($order);
+            if ($locked->order_state === 'cancelled') {
+                throw new \DomainException('This order is already cancelled.');
+            }
+            if ($locked->fulfilment_status === 'shipped') {
+                throw new \DomainException('This order has already left the studio.');
+            }
+            $stage = (string) $locked->fulfilment_status;
+            $started = in_array($stage, ['designing', 'sewing', 'completed'], true);
+            $retained = $started ? min($locked->depositRequired(), max(0, (int) $locked->amount_paid)) : 0;
+
+            $this->closeOrder($locked, $actor, $reason,
+                $started ? 'Cancelled after work started: paid above the deposit' : 'Cancelled before work started', 'cancelled', $retained);
+
+            return ['stage' => $stage, 'retained' => $retained, 'owed_back' => max(0, -(int) $locked->balance_due)];
+        }, 3);
+
+        $fresh = CustomOrder::withTrashed()->findOrFail($order->id);
+        if ($fresh->email) {
+            try {
+                Mail::to($fresh->email)->queue(new \App\Mail\BespokeCancelledMail($fresh, $outcome['retained'], $outcome['owed_back']));
+            } catch (\Throwable $e) {
+                Log::error("Cancellation notice could not be queued for Order #{$fresh->id}: " . $e->getMessage());
+            }
+        }
+
+        return $outcome;
+    }
+
+    /**
+     * Close a locked order: held stock back on sale, a cancelling line takes
+     * the total to $retained (a kept deposit, as its own line), and anything
+     * paid above that is owed back with $cause.
+     */
+    private function closeOrder(CustomOrder $locked, Actor $actor, string $reason, string $cause, string $state, int $retained = 0): void
+    {
+        $locked->releaseReservations();
+        $chargeable = (int) $locked->lines()->sum('amount');
+        if ($chargeable !== 0) {
+            $this->line($locked, OrderLine::ADJUSTMENT, 'Order cancelled', 1, -$chargeable, $actor, $reason);
+        }
+        if ($retained > 0) {
+            $this->line($locked, OrderLine::RETAINED_DEPOSIT, 'Deposit retained', 1, $retained, $actor, $reason);
+        }
+        $this->clearResolution($locked);
+        // The stage it reached stays in the audit trail; a closed order is no longer in production.
+        $closed = ['order_state' => $state, 'fulfilment_status' => 'pending', 'price_quoted' => $retained];
+        DB::table('custom_orders')->where('id', $locked->id)->update($closed);
+        $locked->forceFill($closed);
+        $this->recompute($locked, $cause);
     }
 
     /** The studio will wait for the next batch: the order stays open, its paid money held, with the note. */

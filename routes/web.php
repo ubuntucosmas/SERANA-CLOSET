@@ -134,6 +134,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
+    Route::post('/order/{order}/cancel-bespoke', [StudioController::class, 'cancelBespoke'])->middleware('can:money.record')->name('studio.order.cancel_bespoke');
     Route::post('/order/{order}/resolve', [StudioController::class, 'resolveOrder'])->middleware('can:money.record')->name('studio.order.resolve');
     Route::post('/order/{order}/refund', [StudioController::class, 'recordRefund'])->middleware('can:refunds.mark')->name('studio.order.refund');
     Route::post('/payment/{payment}/reverse', [StudioController::class, 'reversePayment'])->middleware('can:ledger.reverse')->name('studio.payment.reverse');
