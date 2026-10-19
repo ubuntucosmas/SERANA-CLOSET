@@ -804,3 +804,17 @@ Each phase gets its own branch and PR, small commits, tests first, and must be g
 - **`hasFractionalTotal()`** is a legacy-only guard. It goes away with `price_quoted`.
 - **New orders still take the legacy fields as input** (`CustomOrder::created` builds lines from `items_json`/`price_quoted`). Phases B and D create lines explicitly (deposit, delivery), and that's where the bridge is retired.
 - **Production:** run `serana:ledger:verify` on the server's data, then set `LEDGER_READS=true`, and keep a release cycle with 0 differences before A5.
+
+## 11. Phase B as built (2026-10-19, branch `phase-b/deposits`)
+
+| Step | Commit | What |
+|---|---|---|
+| B1 policy | `da9f7fa` | `OrderPolicy`: deposit share (50%), pay-link lifetime (14 days) and the deposit rule, owner only. Per-order deposit override for owner or manager, with a reason (audited). Shop and drop orders have no deposit (D14) |
+| B2 guards | `4d5b6cd` | N7: bespoke work starts only with a quote and the deposit paid, and ships only with nothing owed. Owner override with a reason, audited |
+| B3 STK choice | `23fd0f6` | The STK endpoint takes `deposit` or `balance`, never an amount. Bespoke orders never enter shop payment states, and a bespoke payment of a different amount is booked as it arrived. Status polling reports the ledger and the prompt's state |
+| B4 pay link | `c966054` | Signed `/pay/{reference}` page (quote lines, total, paid, balance, deposit rule, M-Pesa). Opening it grants ownership for the STK endpoints. An expired link shows nothing about the order. Studio: copy link, and a prefilled WhatsApp message |
+| B5 receipts | `c22452e` | `PaymentRecorded` after every booked payment, with an email and PDF receipt showing the total, this payment, paid to date and the balance (as of that payment), plus the deposit rule for bespoke orders |
+
+**Moved to Phase C:** cancelling a bespoke order. The deposit is refunded before `designing` and retained after (N8). Both outcomes need the refund flow (refund requests, Mark refunded), so they're built together. The rule is already shown on the pay page, the quote message and every receipt.
+
+**Reads:** deposits, amount paid and balance are new concepts with no legacy equivalent. They're read from the ledger columns directly, not through the `LEDGER_READS` switch.
