@@ -107,6 +107,18 @@ class CustomOrder extends Model
         return $this->hasMany(PaymentAttempt::class);
     }
 
+    /** What is owed: the order's total is the sum of these (design §2.1). */
+    public function lines()
+    {
+        return $this->hasMany(OrderLine::class);
+    }
+
+    /** Money in and out (the ledger). */
+    public function payments()
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
+
     /**
      * Is any STK push for this order still awaiting its outcome (or already
      * paid)? While one is, a *different* attempt failing must not fail the
