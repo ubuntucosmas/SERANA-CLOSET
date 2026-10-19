@@ -26,7 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Trusted proxies come from TRUSTED_PROXIES (config/trustedproxy.php),
-        // read per request by the framework's TrustProxies middleware.
+        // read per request by the framework's TrustProxies middleware. Appended
+        // after it: report forwarded headers from proxies that list misses.
+        $middleware->append(\App\Http\Middleware\WarnOnUntrustedForwardedHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

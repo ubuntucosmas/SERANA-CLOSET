@@ -40,6 +40,10 @@ class ProductionPreflight extends Command
         // Every file channel reads LOG_LEVEL; daily is the production one.
         $this->check(config('logging.channels.daily.level', 'debug') !== 'debug', 'Log level is not debug', 'Set LOG_LEVEL=warning and LOG_STACK=daily.', blocker: false);
         $this->check(! config('services.drops.enabled'), 'Paid Drops are off for launch', 'Set DROPS_ENABLED=false until a drop policy is published.', blocker: false);
+        // Requests record this (WarnOnUntrustedForwardedHeaders): the CLI can't see the proxy itself.
+        $proxy = Cache::get(\App\Http\Middleware\WarnOnUntrustedForwardedHeaders::SEEN_KEY);
+        $this->check(! $proxy, 'Requests reach the app through a trusted proxy only',
+            'forwarded headers arrived from untrusted ' . ($proxy['remote_addr'] ?? '?') . ' in the last 24 hours. If that is your CDN or load balancer, add its ranges to TRUSTED_PROXIES.', blocker: false);
 
         $this->section('Database');
         $pending = $this->pendingMigrations();
