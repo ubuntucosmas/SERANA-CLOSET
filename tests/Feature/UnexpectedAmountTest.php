@@ -50,7 +50,7 @@ class UnexpectedAmountTest extends TestCase
     private function attention(): array
     {
         return $this->actingAs(User::factory()->create(['role' => Role::OWNER]))->get(route('studio.index'))
-            ->viewData('page')['props']['attention']['awaiting'];
+            ->viewData('page')['props']['attention']['payments']; // Phase C: the payment Attention list
     }
 
     public function test_a_different_amount_is_recorded_flagged_for_the_studio_and_alerted(): void
@@ -65,7 +65,7 @@ class UnexpectedAmountTest extends TestCase
         // On the Attention list, with what was paid against what was asked.
         $item = collect($this->attention())->firstWhere('reference', $order->cipher);
         $this->assertNotNull($item, 'the order is on the Attention list');
-        $this->assertSame('Unexpected amount: KSh 3,000 paid against a KSh 5,000 prompt', $item['next_action']);
+        $this->assertSame('Unexpected amount: KSh 3,000 paid against a KSh 5,000 prompt', $item['detail']);
 
         // And the owner is told.
         Mail::assertQueued(UnexpectedAmountAlertMail::class, fn ($mail) => $mail->hasTo('owner@serana.test')
@@ -92,7 +92,7 @@ class UnexpectedAmountTest extends TestCase
         $this->pay(5000);
 
         Mail::assertNotQueued(UnexpectedAmountAlertMail::class);
-        $this->assertNull(collect($this->attention())->first(fn ($item) => str_starts_with($item['next_action'], 'Unexpected amount')));
+        $this->assertNull(collect($this->attention())->first(fn ($item) => str_starts_with($item['detail'], 'Unexpected amount')));
     }
 
     public function test_without_an_owner_inbox_it_is_still_flagged_in_the_studio(): void
@@ -104,6 +104,6 @@ class UnexpectedAmountTest extends TestCase
 
         Mail::assertNotQueued(UnexpectedAmountAlertMail::class);
         $this->assertNotNull(collect($this->attention())->first(fn ($item) => $item['reference'] === $order->cipher
-            && str_starts_with($item['next_action'], 'Unexpected amount')));
+            && str_starts_with($item['detail'], 'Unexpected amount')));
     }
 }

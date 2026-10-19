@@ -27,6 +27,7 @@ class CustomOrder extends Model
         'deposit_override' => 'integer',
         'paid_at' => 'datetime',
         'refund_due_since' => 'datetime',
+        'resolution_since' => 'datetime',
     ];
 
     protected $appends = ['inspiration_urls', 'items_with_urls', 'deposit_required'];
@@ -156,7 +157,9 @@ class CustomOrder extends Model
         $reviews = \Illuminate\Support\Facades\DB::table('payment_reviews')->whereIn('order_payment_id', $this->payments()->pluck('id'))->pluck('decision', 'order_payment_id');
         $reversed = $this->payments()->whereNotNull('reverses_payment_id')->pluck('reverses_payment_id')->flip();
 
-        return $this->payments()->orderBy('id')->get()->map(fn (OrderPayment $p) => [
+        $bespoke = $this->kind === 'bespoke';
+
+        return $this->payments()->with('attempt')->orderBy('id')->get()->map(fn (OrderPayment $p) => [
             'id' => $p->id, 'type' => $p->type, 'amount' => $p->amount, 'method' => $p->method,
             'reference' => $p->external_reference, 'actor' => $p->actor_type, 'reason' => $p->reason,
             'at' => $p->occurred_at?->copy()->timezone(config('app.display_timezone'))->format('d M Y, H:i'),
@@ -164,6 +167,9 @@ class CustomOrder extends Model
             'genuine' => ($reviews[$p->id] ?? null) === 'genuine',
             // Booked past the unique index by the backfill: the code is also on another order.
             'flagged' => $p->type === OrderPayment::PAYMENT && str_contains((string) $p->external_reference, \App\Services\LedgerBackfill::DUPLICATE_MARK)
+                && ! $reversed->has($p->id) && ! isset($reviews[$p->id]),
+            // A bespoke M-Pesa payment that differs from its prompt, not yet confirmed (Phase C Attention list).
+            'unexpected' => $bespoke && $p->type === OrderPayment::PAYMENT && $p->attempt && (int) $p->attempt->amount !== $p->amount
                 && ! $reversed->has($p->id) && ! isset($reviews[$p->id]),
         ])->all();
     }

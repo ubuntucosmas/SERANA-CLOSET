@@ -22,6 +22,7 @@ import PaymentsPanel from './Partials/PaymentsPanel.vue';
 import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 import RefundsPanel from './Partials/RefundsPanel.vue';
+import PaymentAttention from './Partials/PaymentAttention.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -439,6 +440,7 @@ function removeAsset(key) {
             <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New campaign</button>
         </template>
 
+        <PaymentAttention v-if="currentTab === 'home'" :items="attention.payments || []" :count="attention.payments_count || 0" @openOrder="openOrder" @go="goTab" />
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
         <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
@@ -584,10 +586,11 @@ function removeAsset(key) {
                         <li v-for="row in selectedOrder.ledger_rows" :key="row.id" class="flex flex-wrap items-center gap-2">
                             <span :class="row.reversed ? 'line-through text-slate-500' : ''">{{ row.type === 'payment' ? 'Payment' : row.type === 'refund' ? 'Refund' : 'Reversal' }} {{ formatAmount(row.amount, page.props) }} · {{ row.method }}<template v-if="row.reference"> · {{ row.reference }}</template> · {{ row.at }}</span>
                             <span v-if="row.flagged" class="text-rose-300">Code also booked on another order</span>
+                            <span v-if="row.unexpected" class="text-orange-300">Differs from its prompt</span>
                             <span v-if="row.genuine" class="text-slate-400">Confirmed genuine</span>
                             <template v-if="canReverse && row.type === 'payment' && !row.reversed">
                                 <button type="button" @click="reviewBooking(row, 'reverse')" class="underline hover:text-rose-300">Reverse</button>
-                                <button v-if="row.flagged" type="button" @click="reviewBooking(row, 'confirm')" class="underline">Confirm genuine</button>
+                                <button v-if="row.flagged || row.unexpected" type="button" @click="reviewBooking(row, 'confirm')" class="underline">Confirm genuine</button>
                             </template>
                         </li>
                     </ul>

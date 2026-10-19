@@ -87,34 +87,9 @@ class StudioController extends Controller
                         . ($p->reservedQuantity() ? ' · ' . $p->reservedQuantity() . ' on hold awaiting payment' : '')]),
         ];
 
-        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal.
-        $unexpected = OrderPayment::query()
-            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
-            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
-            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
-            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
-            ->latest('order_payments.id')
-            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
-        if ($unexpected->isNotEmpty()) {
-            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
-            $attention['awaiting'] = $unexpected->map(fn ($p) => [
-                'id' => $p->custom_order_id, 'full_name' => $orders[$p->custom_order_id]->full_name, 'amount' => (int) $p->amount,
-                'reference' => $orders[$p->custom_order_id]->cipher, 'created_at' => $p->created_at,
-                'next_action' => 'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt',
-            ])->concat($attention['awaiting'])->values();
-        }
-
-        // A customer who paid twice is owed a refund; surface it until handled.
-        $duplicatePaid = PaymentAttempt::where('status', PaymentAttempt::PAID)
-            ->selectRaw('custom_order_id, COUNT(*) as paid_count')->groupBy('custom_order_id')
-            ->havingRaw('COUNT(*) > 1')->pluck('paid_count', 'custom_order_id');
-        if ($duplicatePaid->isNotEmpty()) {
-            $refunds = CustomOrder::withTrashed()->whereIn('id', $duplicatePaid->keys())->get()->map(fn ($o) => [
-                'id' => $o->id, 'full_name' => $o->full_name, 'amount' => $o->total(), 'reference' => $o->cipher,
-                'next_action' => 'Paid ' . $duplicatePaid[$o->id] . ' times: refund owed',
-            ]);
-            $attention['awaiting'] = $refunds->concat($attention['awaiting'])->values();
-        }
+        // Phase C: every payment problem, oldest first, with the count for the dashboard.
+        $attention['payments'] = $this->paymentAttention();
+        $attention['payments_count'] = count($attention['payments']);
 
         return Inertia::render('Admin/StudioDashboard', [
             'stats'      => $stats,
@@ -416,6 +391,54 @@ class StudioController extends Controller
         return back()->with('success', $still > 0
             ? 'Refund recorded. KSh ' . number_format($still) . ' is still owed to the customer.'
             : 'Refund recorded. Nothing more is owed to the customer.');
+    }
+
+    /**
+     * The payment Attention list (Phase C): refunds owed, orders waiting for a
+     * decision, amount mismatches and unexpected bespoke amounts not yet
+     * confirmed by the owner. Oldest first.
+     */
+    private function paymentAttention(): array
+    {
+        $item = fn (CustomOrder $o, string $kind, string $label, string $detail, int $amount, $since) => [
+            'id' => $o->id, 'reference' => $o->cipher, 'full_name' => $o->full_name, 'kind' => $kind, 'label' => $label,
+            'detail' => $detail, 'amount' => $amount, 'since' => $since?->toIso8601String(),
+            'age_days' => $since ? (int) $since->diffInDays(now()) : 0,
+        ];
+
+        $items = collect();
+        CustomOrder::withTrashed()->where(fn ($q) => $q->where('balance_due', '<', 0)->orWhereIn('resolution', ['needs_resolution', 'amount_mismatch']))
+            ->get()->each(function (CustomOrder $o) use ($items, $item) {
+                if ((int) $o->balance_due < 0) {
+                    $items->push($item($o, 'refund_due', 'Refund owed', $o->refund_cause ?? 'Paid more than is owed', -(int) $o->balance_due, $o->refund_due_since ?? $o->updated_at));
+                }
+                if ($o->resolution === 'needs_resolution') {
+                    $items->push($item($o, 'needs_resolution', 'Needs a decision', $o->resolution_reason ?? 'Payment needs review', (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
+                }
+                if ($o->resolution === 'amount_mismatch') {
+                    $items->push($item($o, 'amount_mismatch', 'Amount mismatch', 'Paid KSh ' . number_format((int) $o->amount_paid) . ' of KSh ' . number_format((int) $o->chargeable_total) . ': review the payment',
+                        (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
+                }
+            });
+
+        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal until the owner confirms it.
+        $unexpected = OrderPayment::query()
+            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
+            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
+            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
+            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
+            ->whereNotExists(fn ($q) => $q->selectRaw(1)->from('payment_reviews')->whereColumn('payment_reviews.order_payment_id', 'order_payments.id'))
+            ->notReversed()
+            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
+        if ($unexpected->isNotEmpty()) {
+            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
+            foreach ($unexpected as $p) {
+                $items->push($item($orders[$p->custom_order_id], 'unexpected_amount', 'Unexpected amount',
+                    'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt', (int) $p->amount, $p->created_at));
+            }
+        }
+
+        return $items->sortBy([['since', 'asc'], ['id', 'asc']])->values()->all();
     }
 
     /** Every order that owes the customer money, oldest first (owner and manager). */

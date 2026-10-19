@@ -175,7 +175,7 @@ class OrderSettlementService
             }
 
             $updated = CustomOrder::withTrashed()->whereKey($locked->id)->where('is_paid', false)
-                ->update(LegacyOrderMap::forStatus(OrderStatus::AMOUNT_MISMATCH));
+                ->update(LegacyOrderMap::forStatus(OrderStatus::AMOUNT_MISMATCH) + ['resolution_code' => 'amount_mismatch', 'resolution_since' => now()]);
             if ($updated > 0) {
                 $locked->refresh();
                 $locked->releaseReservations();
