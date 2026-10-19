@@ -65,6 +65,7 @@ class PaymentReversalTest extends TestCase
         $this->assertSame('QA artefact: one KSh 3,000 payment on the statement', AuditLog::where('action', 'payment.reversed')->sole()->reason);
         Mail::assertNothingQueued(); // not money out: no refund receipt
         $this->artisan('serana:ledger-check')->assertSuccessful();
+        $this->artisan('serana:ledger:verify')->doesntExpectOutputToContain('booked on more than one order')->assertSuccessful();
     }
 
     public function test_confirming_a_booking_genuine_clears_the_check_without_changing_money(): void
@@ -78,6 +79,7 @@ class PaymentReversalTest extends TestCase
         $this->assertSame('genuine', DB::table('payment_reviews')->where('order_payment_id', $payment->id)->value('decision'));
         $this->assertSame(1, AuditLog::where('action', 'payment.confirmed_genuine')->count());
         $this->artisan('serana:ledger-check')->assertSuccessful();
+        $this->artisan('serana:ledger:verify')->doesntExpectOutputToContain('booked on more than one order')->assertSuccessful();
     }
 
     public function test_a_booking_is_reversed_once_and_only_by_the_owner_with_a_reason(): void
