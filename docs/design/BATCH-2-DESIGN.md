@@ -767,3 +767,40 @@ Each phase gets its own branch and PR, small commits, tests first, and must be g
 | Lock-order regressions as new services appear | One `StockService::lock()` entry point; the ConcurrencyTest harness reused per phase; a code comment at every lock site |
 | Losing I1–I13 coverage while rewriting | I-tests are updated in place (renamed to say which invariant they prove), never deleted. A checklist in each PR maps I/N invariants to test names |
 | A failed rollback after cutover | Legacy columns are kept and dual-written until A5. A5 is a separate PR after a clean release cycle |
+
+---
+
+## 10. Phase A as built (2026-10-19, branch `phase-a/ledger`)
+
+| Step | Commit | What |
+|---|---|---|
+| A0 roles | `5450baa` | owner, manager, cashier; matrix in `App\Support\Role`, enforced as Gates; `admin → owner` migration (reversible); `serana:admin --role` |
+| A0 audit | `9c4a99b` | append-only `audit_logs`, wired into money, stock and permission actions |
+| A1 schema | `c119240` | `order_lines`, `order_payments` (append-only; unique per STK attempt and per method + reference; FK refuses to delete an order with money), split columns, `OrderLedger::derive` |
+| A2 backfill | `99973ba` | `LegacyOrderMap`, `LedgerBackfill` (migration 000004, `serana:ledger:backfill`), `serana:ledger:verify` |
+| A3a dual-write | `0d2e30b` | `LegacyOrderMap::forStatus()` on every legacy status write; verifier after every test |
+| A3b single writer | `17a3c7b` | `OrderSettlementService::recordPayment` books every payment once; lock order N9 fixed; Studio Record payment books against the balance and never overwrites the quote; quote edits append lines |
+| A4 reads | `fa9f3cd` | `ReadsOrderState` adapter, `LEDGER_READS` switch (default off), static test that nothing reads legacy columns directly |
+
+**Deviations from §8, and why**
+- **Roles and audit moved into Phase A** (as recommended), because B and C need "owner/manager only".
+- **`payment_failed` column.** Legacy "Payment Failed" isn't derivable for orders from before per-attempt tracking, so the split model stores it. It's folded into the unreleased schema migration 000003, because migration 000004 runs current application code (see the `LedgerBackfill` docblock).
+- **Amount mismatch now books the money** (when Safaricom reports the amount) instead of only logging it. Holds are still released, as before, until Phase C changes that rule.
+- **A payment on an already-paid order is booked**, so `payment_status` shows `refund_due`. No customer message yet (Phase C).
+- **Bespoke Record payment requires a method** (M-Pesa, cash, bank; card waits for D3), books part-payments (`deposit_paid`), and refuses an order with no quote yet. Receipts for bespoke payments come in Phase B.
+- **Drop prices must be whole shillings** at entry, like the catalogue.
+- **ConcurrencyTest's settlement adversary was changed** to invert the *new* lock order (order row, then product). The old one no longer forms a cycle. That's the point of the fix.
+
+**Proof that the dual-run is consistent**
+- **After every passing test**, `LedgerVerifier` checks every order in the test database for three things:
+  - mapping: the split columns agree with the legacy columns;
+  - money: lines, ledger and derived columns agree;
+  - reads: every adapter, and every status set the app queries, gives the same answer from both sources.
+- **CI runs every suite four ways:** SQLite and MariaDB, each with `LEDGER_READS` off and on.
+- **Local data copy:** 129 orders, 0 differences. Two references are booked on more than one order, both from QA data: `QKWA123TEST` (orders 106 and 4214) and `TJQA7PAID1` (orders 4224 and 4225). They're marked and listed by `serana:ledger:verify` for owner review.
+
+**Open before A5 (dropping `status`, `type`, `is_paid`, `price_quoted`)**
+- **Studio and Vue still read the legacy fields from JSON.** The Studio order list and focus order send raw models, and Vue reads `is_paid`, `status`, `type` and `price_quoted` in OrdersPanel, StudioDashboard, DropsPanel, TrackOrder, DesignsVault, Checkout, DropDetail, MpesaStkPanel, and `orderStatus.js`/`orderImages.js`. The values are correct (dual-written and verified), but they must come from adapter fields before the columns can go.
+- **`hasFractionalTotal()`** is a legacy-only guard. It goes away with `price_quoted`.
+- **New orders still take the legacy fields as input** (`CustomOrder::created` builds lines from `items_json`/`price_quoted`). Phases B and D create lines explicitly (deposit, delivery), and that's where the bridge is retired.
+- **Production:** run `serana:ledger:verify` on the server's data, then set `LEDGER_READS=true`, and keep a release cycle with 0 differences before A5.
