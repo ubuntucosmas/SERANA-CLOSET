@@ -123,6 +123,7 @@ class StudioController extends Controller
             'leads'             => Lead::latest()->get(['id', 'email', 'created_at']),
             'custom_order_options' => \App\Support\CustomOrderOptions::all(),
             'payment_settings'  => PaymentSettings::forStudio(),
+            'order_policy'      => \App\Support\OrderPolicy::forStudio(),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -321,6 +322,27 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /** One bespoke order's deposit (owner or manager), with a reason. Null returns to the policy share. */
+    public function setDeposit(Request $request, CustomOrder $order)
+    {
+        if (! $order->isBespoke()) {
+            return back()->with('error', 'Only bespoke orders take a deposit. Shop and Drop orders are paid in full.');
+        }
+        $data = $request->validate([
+            'deposit' => ['nullable', 'integer', 'min:0', 'max:' . max(0, (int) $order->chargeable_total)],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'deposit.max' => 'The deposit cannot be more than the quote (KSh ' . number_format((int) $order->chargeable_total) . ').',
+            'reason.required' => 'Say why this order’s deposit differs.',
+        ]);
+
+        $before = $order->depositRequired();
+        $order->update(['deposit_override' => $data['deposit']]);
+        \App\Support\Audit::record('order.deposit_set', $order, ['deposit' => $before], ['deposit' => $order->fresh()->depositRequired()], $data['reason']);
+
+        return back()->with('success', 'Deposit set to KSh ' . number_format($order->fresh()->depositRequired()) . '.');
     }
 
     /** Cancel an unpaid WhatsApp order: stock goes back on sale. */

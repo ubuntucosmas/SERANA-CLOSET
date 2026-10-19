@@ -19,6 +19,7 @@ import SubscribersPanel from './Partials/SubscribersPanel.vue';
 import SettingsPanel from './Partials/SettingsPanel.vue';
 import CustomOrderOptionsPanel from './Partials/CustomOrderOptionsPanel.vue';
 import PaymentsPanel from './Partials/PaymentsPanel.vue';
+import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 
 const props = defineProps({
@@ -37,6 +38,7 @@ const props = defineProps({
     archived_gallery: { type: Array, default: () => [] },
     leads: { type: Array, default: () => [] },
     custom_order_options: { type: Object, default: () => ({ garments: [], fabrics: [], colours: [] }) },
+    order_policy: { type: Object, default: () => ({ deposit_percent: 50, pay_link_days: 14, deposit_policy: '' }) },
     payment_settings: { type: Object, default: () => ({ mpesa_enabled: true, whatsapp_enabled: true, instructions: '', whatsapp_hold_hours: 48, hold_options: [12, 24, 48, 72], mpesa_configured: false, mpesa_env: 'sandbox', prompts_in_progress: 0 }) },
     drops: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
@@ -139,6 +141,13 @@ const briefFields = computed(() => {
         ['Fit', j.selected_fit], ['Fabric', o.fabric_preference], ['Colour', j.selected_color], ['Inspired by', j.source_product]].filter(f => f[1]);
 });
 const paymentForm = useForm({ amount: '', method: 'mpesa_manual', reference: '' });
+// A bespoke order's deposit: the policy share unless owner/manager set it (with a reason).
+const depositForm = useForm({ deposit: '', reason: '' });
+const canSetDeposit = computed(() => !isCommerceOrder.value && page.props.auth?.user?.abilities?.includes('deposit.override'));
+function setDeposit() {
+    depositForm.transform(d => ({ ...d, deposit: d.deposit === '' ? null : d.deposit }))
+        .put(route('studio.order.deposit', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => depositForm.reset() });
+}
 watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { paymentForm.reset(); paymentForm.clearErrors(); paymentForm.amount = o?.balance_due > 0 ? o.balance_due : (o?.price_quoted ? Math.round(o.price_quoted) : ''); } }); // the balance, now that part-payments exist
 function recordPayment() {
     if (!selectedOrder.value) return;
@@ -380,6 +389,7 @@ function removeAsset(key) {
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
+            <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
                 @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
                 @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
@@ -389,10 +399,10 @@ function removeAsset(key) {
 
     <!-- ───────── Order detail ───────── -->
     <Modal :show="!!selectedOrder" maxWidth="2xl" @close="closeOrder">
-        <div v-if="selectedOrder" class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
+        <div v-if="selectedOrder" class="bg-slate-900 text-slate-200 p-4 sm:p-6 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
             <div class="flex items-start justify-between gap-4 mb-5">
                 <div>
-                    <h3 class="text-xl font-headline text-white">{{ selectedOrder.full_name || 'Customer' }}</h3>
+                    <h3 class="text-lg sm:text-xl font-headline text-white">{{ selectedOrder.full_name || 'Customer' }}</h3>
                     <p class="text-slate-500 text-xs font-mono">{{ selectedOrder.reference || selectedOrder.cipher || ('#' + selectedOrder.id) }}</p>
                 </div>
                 <button @click="closeOrder" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
@@ -469,6 +479,15 @@ function removeAsset(key) {
                 </div>
                 <div class="rounded-xl bg-slate-950/60 p-4 text-sm">
                     <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
+                    <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
+                        Deposit {{ formatAmount(selectedOrder.deposit_required, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} · Balance {{ formatAmount(Math.max(0, selectedOrder.balance_due), page.props) }}
+                    </p>
+                    <form v-if="canSetDeposit && selectedOrder.chargeable_total > 0" @submit.prevent="setDeposit" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1.6fr_auto]">
+                        <input v-model="depositForm.deposit" type="number" min="0" step="1" aria-label="Deposit for this order in KSh" placeholder="Deposit (KSh, blank = policy)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <input v-model="depositForm.reason" aria-label="Why this deposit differs" placeholder="Reason" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <button type="submit" :disabled="depositForm.processing || !depositForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Set deposit</button>
+                    </form>
+                    <p v-for="(message, field) in depositForm.errors" :key="'d' + field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
                     <p class="mt-1 text-xs text-slate-500">
                         <template v-if="isWhatsAppShop && !selectedOrder.is_paid">WhatsApp order. Once you’ve received {{ formatAmount(selectedOrder.price_quoted, page.props) }} (Send Money, Pochi, cash…), confirm it here: the customer gets their receipt and the stock is committed.</template>
                         <template v-else-if="isWhatsAppShop">Confirmed by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
@@ -525,8 +544,8 @@ function removeAsset(key) {
 
     <!-- ───────── Product form ───────── -->
     <Modal :show="showProductModal" maxWidth="2xl" @close="showProductModal = false">
-        <div class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
-            <h3 class="text-xl font-headline text-white mb-5">{{ isEditingProduct ? 'Edit product' : 'Add product' }}</h3>
+        <div class="bg-slate-900 text-slate-200 p-4 sm:p-6 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
+            <h3 class="text-lg sm:text-xl font-headline text-white mb-5">{{ isEditingProduct ? 'Edit product' : 'Add product' }}</h3>
             <div class="space-y-4">
                 <label class="block mb-4">
                     <span class="block text-sm text-slate-300 mb-2">Garment Type (required)</span>
@@ -587,8 +606,8 @@ function removeAsset(key) {
 
     <!-- ───────── Gallery form ───────── -->
     <Modal :show="showGalleryModal" maxWidth="lg" @close="showGalleryModal = false">
-        <div class="bg-slate-900 text-slate-200 p-6">
-            <h3 class="text-xl font-headline text-white mb-5">{{ isEditingGallery ? 'Edit photo' : 'Add photo' }}</h3>
+        <div class="bg-slate-900 text-slate-200 p-4 sm:p-6">
+            <h3 class="text-lg sm:text-xl font-headline text-white mb-5">{{ isEditingGallery ? 'Edit photo' : 'Add photo' }}</h3>
             <div class="space-y-4">
                 <p v-for="(message, field) in galleryForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
                 <p v-for="(message, field) in categoryForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
@@ -612,8 +631,8 @@ function removeAsset(key) {
 
     <!-- ───────── Categories ───────── -->
     <Modal :show="showCategoryModal" maxWidth="lg" @close="showCategoryModal = false">
-        <div class="bg-slate-900 text-slate-200 p-6">
-            <h3 class="text-xl font-headline text-white mb-5">Categories</h3>
+        <div class="bg-slate-900 text-slate-200 p-4 sm:p-6">
+            <h3 class="text-lg sm:text-xl font-headline text-white mb-5">Categories</h3>
             <div class="space-y-2 mb-5 max-h-52 overflow-y-auto">
                 <div v-for="c in categories" :key="c.id" class="flex items-center justify-between bg-slate-950/60 rounded-xl px-4 py-3">
                     <span class="text-sm text-white">{{ c.name }}</span>
@@ -638,8 +657,8 @@ function removeAsset(key) {
 
     <!-- ───────── Drop form ───────── -->
     <Modal :show="showDropModal" maxWidth="2xl" @close="showDropModal = false">
-        <div class="bg-slate-900 text-slate-200 p-6 max-h-[85vh] overflow-y-auto">
-            <h3 class="text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit pre-order campaign' : 'New pre-order campaign' }}</h3>
+        <div class="bg-slate-900 text-slate-200 p-4 sm:p-6 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
+            <h3 class="text-lg sm:text-xl font-headline text-white mb-1">{{ isEditingDrop ? 'Edit pre-order campaign' : 'New pre-order campaign' }}</h3>
             <p class="text-slate-500 text-sm mb-5">Customers reserve and pay upfront; you produce once it hits the goal.</p>
             <div class="space-y-4">
                 <p v-for="(message, field) in dropForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>

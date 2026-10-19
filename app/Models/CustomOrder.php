@@ -24,10 +24,11 @@ class CustomOrder extends Model
         'chargeable_total' => 'integer',
         'amount_paid' => 'integer',
         'balance_due' => 'integer',
+        'deposit_override' => 'integer',
         'paid_at' => 'datetime',
     ];
 
-    protected $appends = ['inspiration_urls', 'items_with_urls'];
+    protected $appends = ['inspiration_urls', 'items_with_urls', 'deposit_required'];
 
     /**
      * getInspirationUrlsAttribute
@@ -131,6 +132,26 @@ class CustomOrder extends Model
     public function paymentAttempts()
     {
         return $this->hasMany(PaymentAttempt::class);
+    }
+
+    /**
+     * What must be paid before work starts (design B, D14). Bespoke: the order's
+     * override, or the policy share of the quote, in whole shillings. Shop and
+     * drop orders have no deposit: they are paid in full.
+     */
+    public function depositRequired(): int
+    {
+        $total = (int) $this->chargeable_total;
+        if ($this->kind !== 'bespoke') {
+            return $total;
+        }
+
+        return min($total, $this->deposit_override ?? (int) round($total * \App\Support\OrderPolicy::depositPercent() / 100));
+    }
+
+    public function getDepositRequiredAttribute(): int
+    {
+        return $this->depositRequired();
     }
 
     /** What is owed: the order's total is the sum of these (design §2.1). */
