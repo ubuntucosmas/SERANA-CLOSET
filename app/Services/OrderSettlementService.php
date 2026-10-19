@@ -144,6 +144,8 @@ class OrderSettlementService
 
             $updated = CustomOrder::withTrashed()->whereKey($locked->id)
                 ->where('is_paid', false)
+                // Money already received (a part payment) keeps its order and its held stock.
+                ->where('amount_paid', '<=', 0)
                 ->when($status !== OrderStatus::AMOUNT_MISMATCH, fn ($q) => $q->where('status', '!=', OrderStatus::AMOUNT_MISMATCH))
                 ->update(LegacyOrderMap::forStatus($status));
 
@@ -335,6 +337,55 @@ class OrderSettlementService
         } catch (\Throwable $e) {
             Log::error("Refund receipt could not be queued for Order #{$order->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * A shop order paid short (Phase C): the stock stays held for
+     * BALANCE_HOLD_HOURS while the customer pays the rest by pay link. If the
+     * stock can no longer be held (it sold out after the hold lapsed), the
+     * order waits for the studio like any late payment.
+     */
+    public function holdForBalance(CustomOrder $order): void
+    {
+        $outcome = DB::transaction(function () use ($order) {
+            $locked = $this->lockForMoney($order);
+            if ((int) $locked->balance_due <= 0 || $locked->resolution !== 'none') {
+                return null;
+            }
+            if (! $locked->secureStockForPayment(now()->addHours(self::BALANCE_HOLD_HOURS))) {
+                $gone = $locked->stockReservations()->whereIn('status', ['held', 'released'])->with('product')->get()
+                    ->map(fn ($r) => $r->product?->name ?? 'An item')->unique()->values()->all();
+                $this->openResolution($locked, 'needs_resolution', 'stock_gone',
+                    'Paid short after the hold lapsed: ' . implode(', ', $gone) . ' sold out in the meantime.');
+                $this->recompute($locked);
+
+                return ['stock_gone' => $gone];
+            }
+
+            return ['held' => true];
+        }, 3);
+
+        $fresh = CustomOrder::withTrashed()->findOrFail($order->id);
+        if (isset($outcome['stock_gone'])) {
+            $this->tellStockGone($fresh, $outcome['stock_gone']);
+
+            return;
+        }
+        if ($outcome === null) {
+            return;
+        }
+
+        if ($fresh->email) {
+            try {
+                Mail::to($fresh->email)->queue(new \App\Mail\BalanceDueMail($fresh));
+            } catch (\Throwable $e) {
+                Log::error("Balance notice could not be queued for Order #{$fresh->id}: " . $e->getMessage());
+            }
+        }
+        $this->alertOwner($fresh, "Paid short — order {$fresh->cipher}",
+            "Order {$fresh->cipher} was paid KSh " . number_format((int) $fresh->amount_paid) . ' of KSh ' . number_format((int) $fresh->chargeable_total)
+            . '. The stock is held for ' . self::BALANCE_HOLD_HOURS . " hours and the customer has a pay link for the balance of KSh "
+            . number_format((int) $fresh->balance_due) . ".\n\nIf the balance is not paid by then, the order expires and what was received is owed back (Studio → Refunds).");
     }
 
     /**

@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
+ * Phase C: a short shop payment is now a part payment (ShopAmountMismatchTest);
+ * the owner is alerted with PaymentProblemAlertMail. AmountMismatchAlertMail
+ * remains for orders still on the old rule (drops).
+ *
  * The owner alert for a wrong-amount payment must not be sent inside
  * Safaricom's callback request: a slow SMTP server would delay or fail the
  * callback. It is queued instead; settlement is unchanged.
@@ -44,20 +48,16 @@ class AmountMismatchAlertTest extends TestCase
             ]],
         ]]])->assertOk()->assertExactJson(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
 
-        // Settlement exactly as before.
+        // Phase C (changed on purpose): a short shop payment is a part payment, not a dead end.
         $order->refresh();
-        $this->assertSame(OrderStatus::AMOUNT_MISMATCH, $order->status);
+        $this->assertSame(['deposit_paid', 4000, 1000], [$order->payment_status, $order->amount_paid, $order->balance_due]);
         $this->assertFalse($order->is_paid);
-        $this->assertSame('released', $order->stockReservations()->first()->status);
-        $this->assertSame(PaymentAttempt::FAILED, $attempt->fresh()->status);
-        $this->assertSame('Amount mismatch', $attempt->fresh()->result_desc);
+        $this->assertSame('held', $order->stockReservations()->first()->status, 'held for the balance');
+        $this->assertSame(PaymentAttempt::PAID, $attempt->fresh()->status);
 
         // Queued, never sent inside the callback.
-        Mail::assertNothingSent();
-        Mail::assertQueued(AmountMismatchAlertMail::class, function (AmountMismatchAlertMail $mail) use ($order) {
-            return $mail->hasTo('owner@serana.test') && $mail->order->is($order)
-                && $mail->expected === 5000 && (string) $mail->paid === '4000' && $mail->tries === 3;
-        });
+        Mail::assertNotSent(\App\Mail\PaymentProblemAlertMail::class);
+        Mail::assertQueued(\App\Mail\PaymentProblemAlertMail::class, fn ($mail) => $mail->hasTo('owner@serana.test') && $mail->order->is($order));
     }
 
     /** With the real mailer (not Mail::fake, which ignores raw mail), nothing is delivered during the callback. */
@@ -79,7 +79,7 @@ class AmountMismatchAlertTest extends TestCase
 
         $this->assertCount(0, app('mailer')->getSymfonyTransport()->messages(), 'mail was delivered inside the callback');
         \Illuminate\Support\Facades\Queue::assertPushed(\Illuminate\Mail\SendQueuedMailable::class,
-            fn ($job) => $job->mailable instanceof AmountMismatchAlertMail);
+            fn ($job) => $job->mailable instanceof \App\Mail\PaymentProblemAlertMail);
     }
 
     public function test_the_alert_tells_the_owner_what_was_paid_and_what_to_do(): void

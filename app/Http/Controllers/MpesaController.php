@@ -277,6 +277,20 @@ class MpesaController extends Controller
 
                     return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
                 }
+                // Shop (Phase C): the money is real. More settles the order and the excess is owed
+                // back; less is a part payment with the stock held a day for the balance.
+                // Whole shillings only: a fractional amount is never rounded into a settlement.
+                if ($order->isShop() && is_numeric($paidAmount) && (float) $paidAmount >= 1 && floor((float) $paidAmount) == (float) $paidAmount) {
+                    $paid = (int) round((float) $paidAmount);
+                    $attempt?->markPaid($receiptNumber);
+                    $booked = $this->settlement->recordPayment($order, $paid, 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber,
+                        $attempt, "paid KSh {$paid} against a KSh {$expected} prompt", $payload);
+                    if ($booked['booked'] && $paid < $expected) {
+                        $this->settlement->holdForBalance($order);
+                    }
+
+                    return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+                }
                 $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
                 $this->settlement->flagAmountMismatch($order, $expected, $paidAmount, $receiptNumber, $attempt);
 
