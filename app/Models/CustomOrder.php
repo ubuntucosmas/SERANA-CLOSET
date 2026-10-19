@@ -84,7 +84,14 @@ class CustomOrder extends Model
     {
         static::creating(function ($order) {
             $order->cipher = 'SRN-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('Y');
+            // Dual-run (design §2.3): the split columns follow the legacy fields
+            // the order is created with.
+            foreach (\App\Support\LegacyOrderMap::columns($order->type ?? 'custom', $order->status ?? 'pending', $order->payment_method) as $column => $value) {
+                $order->{$column} ??= $value;
+            }
         });
+        // ...and so do its lines and ledger, by the same rules as the backfill.
+        static::created(fn ($order) => app(\App\Services\LedgerBackfill::class)->order($order));
     }
 
     public function progressSnaps()
