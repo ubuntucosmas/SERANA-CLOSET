@@ -36,6 +36,8 @@ final class Role
         'fulfilment.override' => [self::OWNER],
         // Reverse a booking that should not count, or confirm it genuine (Phase C).
         'ledger.reverse' => [self::OWNER],
+        // The Refunds queue: record money sent back to a customer (never automatic).
+        'refunds.mark' => [self::OWNER, self::MANAGER],
     ];
 
     public static function allows(?string $role, string $ability): bool

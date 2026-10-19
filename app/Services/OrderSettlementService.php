@@ -57,6 +57,8 @@ class OrderSettlementService
             }
 
             $wasPaid = (bool) $locked->is_paid;
+            // Why any excess is owed back: money on an order already settled is a second payment.
+            $cause = $balance <= 0 ? 'Paid twice' : 'Paid more than the total';
             $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason);
 
             // Booking the very code that was in conflict here settles the conflict.
@@ -71,7 +73,7 @@ class OrderSettlementService
                 $locked->resolution = 'none';
             }
 
-            $derived = $this->recompute($locked);
+            $derived = $this->recompute($locked, $cause);
             $becamePaid = ! $wasPaid && $derived['is_paid'];
             if ($becamePaid) {
                 $settled = [
@@ -255,6 +257,72 @@ class OrderSettlementService
         }, 3);
     }
 
+    /**
+     * Record money the studio sent back to a customer (the Refunds queue).
+     * Never automatic: a person records it, with method, code and reason. No
+     * more than is owed (so refunds never exceed payments, N2); the code is
+     * unique in its namespace like any payment code. A partial refund leaves
+     * the order refund_due for the rest. The refund receipt is queued after
+     * commit.
+     */
+    public function recordRefund(CustomOrder $order, int $amount, string $method, Actor $actor, string $reference, string $reason): OrderPayment
+    {
+        $refund = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $reason) {
+            $locked = $this->lockForMoney($order);
+            $owed = -$this->balance($locked);
+            if ($owed <= 0) {
+                throw new \DomainException('Nothing is owed to the customer on this order.');
+            }
+            if ($amount < 1 || $amount > $owed) {
+                throw new \DomainException('Only KSh ' . number_format($owed) . ' is owed to the customer.');
+            }
+            if ($holder = $this->referenceHolder($method, $reference)) {
+                throw new \DomainException((OrderPayment::scopeFor($method) === 'mpesa' ? 'This M-Pesa code' : 'This reference')
+                    . " is already recorded on order {$holder->order->cipher}.");
+            }
+
+            $refund = $this->book($locked, OrderPayment::REFUND, $amount, $method, $actor, $reference, null, $reason);
+            $this->recompute($locked);
+
+            return $refund;
+        }, 3);
+
+        $this->sendRefundReceipt(CustomOrder::withTrashed()->findOrFail($order->id), $refund);
+
+        return $refund;
+    }
+
+    /** The ledger row that holds this code in its namespace: a live payment or any refund. */
+    public function referenceHolder(string $method, ?string $reference): ?OrderPayment
+    {
+        if ($reference === null) {
+            return null;
+        }
+
+        return OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)
+            ->where(fn ($q) => $q->where('type', OrderPayment::REFUND)->orWhere(fn ($p) => $p->where('type', OrderPayment::PAYMENT)->notReversed()))
+            ->first();
+    }
+
+    /** The refund receipt (with PDF) to the customer, owner in Bcc; best-effort, queued. */
+    private function sendRefundReceipt(CustomOrder $order, OrderPayment $refund): void
+    {
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
+        $to = $order->email ?: $ownerEmail;
+        if (! $to) {
+            return;
+        }
+        try {
+            $mailer = Mail::to($to);
+            if ($order->email && $ownerEmail) {
+                $mailer->bcc($ownerEmail);
+            }
+            $mailer->queue(new \App\Mail\RefundReceiptMail($order, $refund));
+        } catch (\Throwable $e) {
+            Log::error("Refund receipt could not be queued for Order #{$order->id}: " . $e->getMessage());
+        }
+    }
+
     /** Confirm a flagged booking is genuine (two real payments), with a reason. Money is unchanged. */
     public function confirmGenuine(OrderPayment $payment, Actor $actor, string $reason): void
     {
@@ -315,8 +383,13 @@ class OrderSettlementService
      * ledger (Phase C: refunds, reversals and cancellations can legitimately
      * take an order out of "paid"). paid_at records the first time it was paid.
      * Call with the order locked; the instance is refreshed with what is stored.
+     *
+     * When the ledger first shows more paid than charged, the order joins the
+     * Refunds queue: refund_due_since is stamped and refund_cause records why
+     * ($refundCause, from the caller that made it so). Both clear once nothing
+     * is owed back.
      */
-    public function recompute(CustomOrder $order): array
+    public function recompute(CustomOrder $order, ?string $refundCause = null): array
     {
         $derived = OrderLedger::derive(
             (int) $order->lines()->sum('amount'),
@@ -330,6 +403,15 @@ class OrderSettlementService
         $legacy = ['is_paid' => $derived['is_paid'], 'status' => $order->legacyStatus(true)];
         if ($derived['is_paid'] && $order->paid_at === null) {
             $legacy['paid_at'] = now();
+        }
+        if ($derived['balance_due'] < 0) {
+            if ($order->refund_due_since === null) {
+                $legacy['refund_due_since'] = now();
+                $legacy['refund_cause'] = $refundCause ?? $order->refund_cause ?? 'Paid more than is owed';
+            }
+        } elseif ($order->refund_due_since !== null || $order->refund_cause !== null) {
+            $legacy['refund_due_since'] = null;
+            $legacy['refund_cause'] = null;
         }
 
         DB::table('custom_orders')->where('id', $order->id)->update($money + $legacy);

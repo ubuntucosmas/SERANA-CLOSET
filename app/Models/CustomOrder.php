@@ -26,6 +26,7 @@ class CustomOrder extends Model
         'balance_due' => 'integer',
         'deposit_override' => 'integer',
         'paid_at' => 'datetime',
+        'refund_due_since' => 'datetime',
     ];
 
     protected $appends = ['inspiration_urls', 'items_with_urls', 'deposit_required'];

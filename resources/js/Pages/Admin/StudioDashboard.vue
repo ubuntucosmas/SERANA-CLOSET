@@ -21,6 +21,7 @@ import CustomOrderOptionsPanel from './Partials/CustomOrderOptionsPanel.vue';
 import PaymentsPanel from './Partials/PaymentsPanel.vue';
 import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
+import RefundsPanel from './Partials/RefundsPanel.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -41,6 +42,7 @@ const props = defineProps({
     order_policy: { type: Object, default: () => ({ deposit_percent: 50, pay_link_days: 14, deposit_policy: '' }) },
     payment_settings: { type: Object, default: () => ({ mpesa_enabled: true, whatsapp_enabled: true, instructions: '', whatsapp_hold_hours: 48, hold_options: [12, 24, 48, 72], mpesa_configured: false, mpesa_env: 'sandbox', prompts_in_progress: 0 }) },
     drops: { type: Array, default: () => [] },
+    refunds: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
 });
 
@@ -404,6 +406,7 @@ function removeAsset(key) {
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
+        <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />

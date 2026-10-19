@@ -142,6 +142,7 @@ class StudioController extends Controller
             'custom_order_options' => \App\Support\CustomOrderOptions::all(),
             'payment_settings'  => PaymentSettings::forStudio(),
             'order_policy'      => \App\Support\OrderPolicy::forStudio(),
+            'refunds'           => fn () => $this->refundQueue($request),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -356,6 +357,65 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /**
+     * Owner or manager: record money sent back to the customer (the Refunds
+     * queue). Method, code and reason are required; a part refund leaves the
+     * rest in the queue. The customer gets a refund receipt.
+     */
+    public function recordRefund(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'method' => ['required', \Illuminate\Validation\Rule::in(OrderSettlementService::MANUAL_METHODS)],
+            'reference' => ['required', 'string', 'max:100'],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'amount.integer' => 'Enter the amount in whole shillings.',
+            'method.required' => 'Choose how the refund was sent.',
+            'method.in' => 'Choose how the refund was sent: M-Pesa, cash or bank.',
+            'reference.required' => 'Add the M-Pesa code or a short note about how it was sent.',
+            'reason.required' => 'Say why this refund is being made.',
+        ]);
+
+        try {
+            $refund = app(OrderSettlementService::class)->recordRefund($order, (int) $data['amount'], $data['method'],
+                \App\Support\Actor::user($request->user()), $data['reference'], $data['reason']);
+        } catch (\DomainException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                str_contains($e->getMessage(), 'already recorded') ? 'reference' : 'amount' => $e->getMessage(),
+            ]);
+        }
+        \App\Support\Audit::record('refund.recorded', $order, [], ['refund_id' => $refund->id, 'amount' => $refund->amount,
+            'method' => $refund->method, 'reference' => $refund->external_reference], $data['reason']);
+
+        $still = max(0, -(int) $order->fresh()->balance_due);
+
+        return back()->with('success', $still > 0
+            ? 'Refund recorded. KSh ' . number_format($still) . ' is still owed to the customer.'
+            : 'Refund recorded. Nothing more is owed to the customer.');
+    }
+
+    /** Every order that owes the customer money, oldest first (owner and manager). */
+    private function refundQueue(Request $request): array
+    {
+        if (! $request->user()->can('refunds.mark')) {
+            return [];
+        }
+
+        return CustomOrder::withTrashed()->where('balance_due', '<', 0)->orderBy('refund_due_since')->orderBy('id')->get()
+            ->map(fn (CustomOrder $o) => [
+                'id' => $o->id,
+                'reference' => $o->cipher,
+                'customer' => $o->full_name,
+                'phone' => $o->whatsapp_number ?: $o->phone,
+                'email' => $o->email,
+                'owed' => -(int) $o->balance_due,
+                'cause' => $o->refund_cause ?? 'Paid more than is owed',
+                'since' => $o->refund_due_since?->toIso8601String(),
+                'age_days' => $o->refund_due_since ? (int) $o->refund_due_since->diffInDays(now()) : 0,
+            ])->all();
     }
 
     /** Owner: reverse a booking that should not count, with a reason (Phase C). */
