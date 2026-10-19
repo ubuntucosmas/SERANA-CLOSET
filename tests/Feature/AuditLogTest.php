@@ -34,7 +34,8 @@ class AuditLogTest extends TestCase
         $owner = $this->owner();
         $order = $this->brief();
 
-        $this->actingAs($owner)->put(route('studio.update', $order), ['status' => 'designing', 'price_quoted' => 6000, 'internal_notes' => 'Linen'])
+        // Quote and notes change; the stage stays (starting work now needs the deposit, design N7).
+        $this->actingAs($owner)->put(route('studio.update', $order), ['status' => 'pending', 'price_quoted' => 6000, 'internal_notes' => 'Linen'])
             ->assertSessionHasNoErrors();
 
         $log = AuditLog::where('action', 'order.updated')->sole();
@@ -42,8 +43,8 @@ class AuditLogTest extends TestCase
         $this->assertSame($owner->id, $log->actor_id);
         $this->assertTrue($log->subject->is($order));
         // Loose for the uncast decimal: SQLite returns 0, MariaDB '0.00'.
-        $this->assertEquals(['status' => 'pending', 'price_quoted' => 0, 'internal_notes' => null], $log->before);
-        $this->assertSame(['status' => 'designing', 'internal_notes' => 'Linen', 'price_quoted' => 6000], $log->after);
+        $this->assertEquals(['internal_notes' => null, 'price_quoted' => 0], $log->before);
+        $this->assertSame(['internal_notes' => 'Linen', 'price_quoted' => 6000], $log->after);
     }
 
     public function test_an_unchanged_save_records_nothing(): void

@@ -73,7 +73,8 @@ class ReconcilePendingPayments extends Command
                 // Cancelled / timed out / failed — release the hold, unless some
                 // other push for this order could still pay it.
                 $attempt?->markFailed((string) $code, $result['data']['ResultDesc'] ?? null);
-                if (! $order->hasLivePaymentAttempts()) {
+                // Bespoke orders keep their production stage.
+                if ($order->isCommerce() && ! $order->hasLivePaymentAttempts()) {
                     $settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
                 }
                 Log::info("Reconciliation: Order #{$order->id} attempt marked failed (code {$code}).");

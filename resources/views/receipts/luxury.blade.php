@@ -8,7 +8,7 @@
     $storePhone     = \App\Support\StoreProfile::phone();
     $storeName      = \App\Support\StoreProfile::name();
     $trackUrl       = rtrim(config('app.url'), '/') . '/track';
-    $isBespoke      = $order->type !== 'standard';
+    $isBespoke      = ! $order->isShop();
 @endphp
 <!DOCTYPE html>
 <html>
@@ -105,7 +105,8 @@
                 <div class="label">Receipt Details</div>
                 <div class="value">Reference: <strong>{{ $order->cipher ?? ('ORD-' . $order->id) }}</strong></div>
                 <div class="value muted">Issued: {{ $date }}</div>
-                <div class="value" style="color:#1c7a1c; font-weight:bold;">Status: Paid</div>
+                <div class="value">Receipt: {{ $receiptNumber }}</div>
+                <div class="value" style="color:#1c7a1c; font-weight:bold;">Status: {{ $paidInFull ? 'Paid in full' : 'Part-paid' }}</div>
             </td>
         </tr>
     </table>
@@ -130,34 +131,49 @@
             </tr>
             @empty
             <tr>
-                <td><strong>{{ $isBespoke ? 'Custom order — ' . ucfirst($order->type) : 'Order #' . $order->id }}</strong></td>
+                <td><strong>{{ $isBespoke ? 'Custom order — ' . ucfirst($order->garment ?? 'bespoke') : 'Order #' . $order->id }}</strong></td>
                 <td class="qty">1</td>
-                <td class="num">{{ $currency }} {{ number_format((float) $order->price_quoted, 2) }}</td>
-                <td class="num">{{ $currency }} {{ number_format((float) $order->price_quoted, 2) }}</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $total, 2) }}</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $total, 2) }}</td>
             </tr>
             @endforelse
         </tbody>
     </table>
 
     <div class="total-row">
-        <div class="label">Total Paid</div>
-        <div class="total-amount">{{ $currency }} {{ number_format((float) $order->price_quoted, 2) }}</div>
+        <div class="label">Order total</div>
+        <div class="value">{{ $currency }} {{ number_format((float) $total, 2) }}</div>
+        @if($payment)
+        <div class="label" style="margin-top:10px;">This payment</div>
+        <div class="value">{{ $currency }} {{ number_format((float) $payment->amount, 2) }}</div>
+        @endif
+        <div class="label" style="margin-top:10px;">Paid to date</div>
+        <div class="value">{{ $currency }} {{ number_format((float) $paidToDate, 2) }}</div>
+        <div class="label" style="margin-top:10px;">Balance due</div>
+        <div class="total-amount">{{ $paidInFull ? 'Paid in full' : $currency . ' ' . number_format((float) $balance, 2) }}</div>
+        @if($excess > 0)
+        <div class="value" style="color:#a15c00;">{{ $currency }} {{ number_format((float) $excess, 2) }} more than the total was received. The studio will refund it.</div>
+        @endif
     </div>
 
-    @if($order->mpesa_receipt_number)
+    @if($payment)
     <div class="mpesa">
         <table style="width: 100%;">
             <tr>
                 <td>
-                    <div class="label" style="color:#1c7a1c;">{{ $order->payment_method === 'whatsapp' ? 'Payment Reference' : 'M-Pesa Confirmation Code' }}</div>
-                    <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px;">{{ $order->mpesa_receipt_number }}</div>
+                    <div class="label" style="color:#1c7a1c;">{{ $methodLabel }}</div>
+                    <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px;">{{ $payment->external_reference ?? 'Reference to follow' }}</div>
                 </td>
                 <td style="text-align: right; vertical-align: bottom;">
-                    <div class="value muted" style="font-size: 10px;">{{ $order->payment_method === 'whatsapp' ? 'Payment confirmed by the studio (WhatsApp order)' : 'Paid via M-Pesa (Safaricom)' }}</div>
+                    <div class="value muted" style="font-size: 10px;">Received {{ $date }}</div>
                 </td>
             </tr>
         </table>
     </div>
+    @endif
+
+    @if($depositPolicy)
+    <div class="value muted" style="margin-top:12px;">{{ $depositPolicy }}</div>
     @endif
 
     <div class="footer">

@@ -67,6 +67,20 @@ class ThemeController extends Controller
         return back()->with('success', 'Store settings updated.');
     }
 
+    /** Studio → Settings → Orders: deposit share, pay-link lifetime and the deposit rule. */
+    public function updateOrderPolicy(Request $request)
+    {
+        $validated = $request->validate(\App\Support\OrderPolicy::rules(), [
+            'deposit_percent.between' => 'The deposit is a share of the quote, from 0 to 100%.',
+            'pay_link_days.between' => 'A pay link can last from 1 to 90 days.',
+        ]);
+        $before = \App\Support\OrderPolicy::forStudio();
+        \App\Support\OrderPolicy::save($validated);
+        \App\Support\Audit::record('settings.order_policy.updated', null, $before, \App\Support\OrderPolicy::forStudio());
+
+        return back()->with('success', 'Order policy updated.');
+    }
+
     /** Studio → Settings → Payments: M-Pesa and WhatsApp ordering switches. */
     public function updatePaymentSettings(Request $request)
     {

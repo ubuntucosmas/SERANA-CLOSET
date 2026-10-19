@@ -123,4 +123,14 @@ class OrderTrackingTest extends TestCase
         $this->assertCount(1, $progress);
         $this->assertSame('First fitting', $progress[0]['description']);
     }
+
+    /** Batch 2 Phase B: tracking shows what a bespoke customer has paid and still owes. */
+    public function test_tracking_shows_the_amount_paid_and_the_balance(): void
+    {
+        $order = $this->order(['type' => 'Gown', 'status' => 'designing', 'price_quoted' => 10000]);
+        app(\App\Services\OrderSettlementService::class)->recordPayment($order, 4000, 'cash', \App\Support\Actor::system(), 'cash-dep');
+
+        $this->postJson(route('track.lookup'), ['reference' => $order->cipher, 'phone' => '254700000000'])
+            ->assertOk()->assertJsonPath('order.amount_paid', 4000)->assertJsonPath('order.balance_due', 6000);
+    }
 }

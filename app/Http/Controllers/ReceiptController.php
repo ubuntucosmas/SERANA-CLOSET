@@ -20,14 +20,9 @@ class ReceiptController extends Controller
             return back()->with('error', 'Receipts are only available for paid orders.');
         }
 
-        $pdf = Pdf::loadView('receipts.luxury', [
-            'order' => $order,
-            // items_with_urls yields only real line items — raw items_json also
-            // carries non-item keys (precision_sizing, drop metadata) that would
-            // render as junk rows on the PDF.
-            'items' => $order->items_with_urls,
-            'date' => $order->paidAtForDisplay()
-        ]);
+        // The same figures as the emailed receipts, as of the latest payment.
+        $latest = $order->payments()->where('type', \App\Models\OrderPayment::PAYMENT)->latest('id')->first();
+        $pdf = Pdf::loadView('receipts.luxury', \App\Mail\OrderReceiptMail::viewData($order, $latest));
 
         return $pdf->download('Serana-Receipt-' . ($order->cipher ?? $order->id) . '.pdf');
     }

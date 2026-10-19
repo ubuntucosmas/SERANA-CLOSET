@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomOrder;
 use App\Models\OrderProgressSnap;
 use App\Models\PaymentAttempt;
+use App\Models\OrderPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -86,6 +87,23 @@ class StudioController extends Controller
                         . ($p->reservedQuantity() ? ' · ' . $p->reservedQuantity() . ' on hold awaiting payment' : '')]),
         ];
 
+        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal.
+        $unexpected = OrderPayment::query()
+            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
+            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
+            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
+            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
+            ->latest('order_payments.id')
+            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
+        if ($unexpected->isNotEmpty()) {
+            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
+            $attention['awaiting'] = $unexpected->map(fn ($p) => [
+                'id' => $p->custom_order_id, 'full_name' => $orders[$p->custom_order_id]->full_name, 'amount' => (int) $p->amount,
+                'reference' => $orders[$p->custom_order_id]->cipher, 'created_at' => $p->created_at,
+                'next_action' => 'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt',
+            ])->concat($attention['awaiting'])->values();
+        }
+
         // A customer who paid twice is owed a refund; surface it until handled.
         $duplicatePaid = PaymentAttempt::where('status', PaymentAttempt::PAID)
             ->selectRaw('custom_order_id, COUNT(*) as paid_count')->groupBy('custom_order_id')
@@ -113,7 +131,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -123,6 +141,7 @@ class StudioController extends Controller
             'leads'             => Lead::latest()->get(['id', 'email', 'created_at']),
             'custom_order_options' => \App\Support\CustomOrderOptions::all(),
             'payment_settings'  => PaymentSettings::forStudio(),
+            'order_policy'      => \App\Support\OrderPolicy::forStudio(),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -135,6 +154,7 @@ class StudioController extends Controller
             'internal_notes' => 'nullable|string',
             'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
+            'override_reason' => 'nullable|string|max:255',
         ]);
 
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
@@ -153,7 +173,18 @@ class StudioController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
             }
         }
-        unset($validated['is_paid']);
+        $overrideReason = trim((string) ($validated['override_reason'] ?? ''));
+        unset($validated['is_paid'], $validated['override_reason']);
+
+        // N7: bespoke work starts once the deposit is paid and leaves once it is paid in full.
+        if (! $commerce && $validated['status'] !== $currentStatus && ($blocked = $this->fulfilmentBlock($order, $validated['status']))) {
+            if ($overrideReason === '' || ! $request->user()->can('fulfilment.override')) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => $blocked]);
+            }
+            \App\Support\Audit::record('fulfilment.override', $order,
+                ['status' => $currentStatus, 'balance_due' => max(0, (int) $order->balance_due)], ['status' => $validated['status']], $overrideReason);
+        }
+
         \App\Support\Audit::changes('order.updated', $order, $validated);
         // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
         if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
@@ -203,8 +234,11 @@ class StudioController extends Controller
             ->when($request->input('o_sort') === 'oldest', fn ($query) => $query->oldest(), fn ($query) => $query->latest())
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
+        // Pay link and WhatsApp message for quoted bespoke orders (design B).
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url']);
+
         return [
-            'data' => $page->items(),
+            'data' => $orders->all(),
             'page' => $page->currentPage(),
             'last_page' => $page->lastPage(),
             'total' => $page->total(),
@@ -321,6 +355,48 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /** Why a bespoke order may not move to $stage yet (N7), or null when it may. */
+    private function fulfilmentBlock(CustomOrder $order, string $stage): ?string
+    {
+        $working = ['designing', 'sewing', 'completed'];
+        if (! in_array($stage, [...$working, 'shipped'], true)) {
+            return null;
+        }
+        if ((int) $order->chargeable_total <= 0) {
+            return 'Set the quote before work starts.';
+        }
+        if ($stage === 'shipped') {
+            return $order->balance_due > 0
+                ? 'KSh ' . number_format($order->balance_due) . ' is still owed. Take the balance before it leaves the studio.'
+                : null;
+        }
+
+        return (int) $order->amount_paid < $order->depositRequired()
+            ? 'Take the deposit (KSh ' . number_format($order->depositRequired()) . ') before work starts.'
+            : null;
+    }
+
+    /** One bespoke order's deposit (owner or manager), with a reason. Null returns to the policy share. */
+    public function setDeposit(Request $request, CustomOrder $order)
+    {
+        if (! $order->isBespoke()) {
+            return back()->with('error', 'Only bespoke orders take a deposit. Shop and Drop orders are paid in full.');
+        }
+        $data = $request->validate([
+            'deposit' => ['nullable', 'integer', 'min:0', 'max:' . max(0, (int) $order->chargeable_total)],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'deposit.max' => 'The deposit cannot be more than the quote (KSh ' . number_format((int) $order->chargeable_total) . ').',
+            'reason.required' => 'Say why this order’s deposit differs.',
+        ]);
+
+        $before = $order->depositRequired();
+        $order->update(['deposit_override' => $data['deposit']]);
+        \App\Support\Audit::record('order.deposit_set', $order, ['deposit' => $before], ['deposit' => $order->fresh()->depositRequired()], $data['reason']);
+
+        return back()->with('success', 'Deposit set to KSh ' . number_format($order->fresh()->depositRequired()) . '.');
     }
 
     /** Cancel an unpaid WhatsApp order: stock goes back on sale. */

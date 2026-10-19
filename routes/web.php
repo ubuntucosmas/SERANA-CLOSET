@@ -49,6 +49,11 @@ Route::post('/checkout/process',   [CheckoutController::class, 'process'])
 Route::post('/checkout/{order}/whatsapp', [CheckoutController::class, 'switchToWhatsApp'])
     ->middleware('throttle:checkout-switch')->name('checkout.whatsapp');
 
+// Customer pay link (signed, expiring; checked in the controller so an expired
+// link shows a friendly page). Opening it lets this browser pay this order.
+Route::get('/pay/{order:cipher}', [App\Http\Controllers\PayController::class, 'show'])
+    ->middleware('throttle:track')->name('pay');
+
 // Public order tracking (guest-friendly). Lookup is throttled and requires
 // reference + phone, so it can't be used to enumerate orders.
 Route::get('/track',         [OrderTrackingController::class, 'index'])->name('track');
@@ -105,6 +110,8 @@ Route::middleware('auth')->group(function () {
                 ->map(fn ($o) => $o->only(['id', 'cipher', 'payment_method', 'created_at']) + [
                     // Read through the order adapter (LEDGER_READS), in the vocabulary the page uses.
                     'type' => $o->legacyType(), 'status' => $o->legacyStatus(), 'is_paid' => $o->isPaidUp(), 'price_quoted' => $o->total(),
+                    // Deposits: what is paid and still owed.
+                    'amount_paid' => (int) $o->amount_paid, 'balance_due' => max(0, (int) $o->balance_due),
                 ]),
         ]);
     })->name('profile.designs');
@@ -127,6 +134,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
+    Route::put('/order/{order}/deposit', [StudioController::class, 'setDeposit'])->middleware('can:deposit.override')->name('studio.order.deposit');
 
     // Catalog Management
     Route::get('/catalog', [App\Http\Controllers\Admin\CatalogController::class, 'index'])->name('admin.catalog.index');
@@ -157,6 +165,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::delete('/theme/{key}', [App\Http\Controllers\Admin\ThemeController::class, 'destroy'])->name('admin.theme.destroy');
     Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->middleware('can:settings.payments')->name('admin.payment_settings.update');
     Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware(['can:settings.payments', 'throttle:6,1'])->name('admin.payment_settings.test_mpesa');
+    Route::put('/order-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateOrderPolicy'])->middleware('can:settings.policies')->name('admin.order_policy.update');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 

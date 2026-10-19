@@ -24,10 +24,11 @@ class CustomOrder extends Model
         'chargeable_total' => 'integer',
         'amount_paid' => 'integer',
         'balance_due' => 'integer',
+        'deposit_override' => 'integer',
         'paid_at' => 'datetime',
     ];
 
-    protected $appends = ['inspiration_urls', 'items_with_urls'];
+    protected $appends = ['inspiration_urls', 'items_with_urls', 'deposit_required'];
 
     /**
      * getInspirationUrlsAttribute
@@ -131,6 +132,68 @@ class CustomOrder extends Model
     public function paymentAttempts()
     {
         return $this->hasMany(PaymentAttempt::class);
+    }
+
+    /**
+     * What must be paid before work starts (design B, D14). Bespoke: the order's
+     * override, or the policy share of the quote, in whole shillings. Shop and
+     * drop orders have no deposit: they are paid in full.
+     */
+    public function depositRequired(): int
+    {
+        $total = (int) $this->chargeable_total;
+        if ($this->kind !== 'bespoke') {
+            return $total;
+        }
+
+        return min($total, $this->deposit_override ?? (int) round($total * \App\Support\OrderPolicy::depositPercent() / 100));
+    }
+
+    public function getDepositRequiredAttribute(): int
+    {
+        return $this->depositRequired();
+    }
+
+    /**
+     * The customer's pay link (design B, D15): signed, valid for the policy's
+     * days, for a quoted bespoke order. A paid order's link still shows it paid.
+     */
+    public function payLink(): ?string
+    {
+        if (! $this->isBespoke() || (int) $this->chargeable_total <= 0 || $this->order_state !== 'open') {
+            return null;
+        }
+
+        return URL::temporarySignedRoute('pay', now()->addDays(\App\Support\OrderPolicy::payLinkDays()), ['order' => $this->cipher]);
+    }
+
+    public function getPayLinkAttribute(): ?string
+    {
+        return $this->payLink();
+    }
+
+    /** A wa.me link to the customer with the quote and their pay link, for the Studio to send. */
+    public function getPayWhatsappUrlAttribute(): ?string
+    {
+        $link = $this->payLink();
+        if (! $link || ! Phone::normalize($this->whatsapp_number ?: $this->phone)) {
+            return null;
+        }
+
+        $money = fn (int $v) => 'KSh ' . number_format($v);
+        $firstName = strtok(trim((string) $this->full_name), ' ') ?: 'there';
+        $depositLeft = max(0, $this->depositRequired() - (int) $this->amount_paid);
+        $lines = ["Hello {$firstName},", '', 'Your ' . \App\Support\StoreProfile::name() . " quote is ready (order {$this->cipher}"
+            . ($this->garment ? ", {$this->garment}" : '') . ').', '', 'Total: ' . $money((int) $this->chargeable_total)];
+        if ((int) $this->amount_paid > 0) {
+            $lines[] = 'Paid so far: ' . $money((int) $this->amount_paid);
+        }
+        $lines[] = $depositLeft > 0 && $depositLeft < (int) $this->balance_due
+            ? 'Deposit to start: ' . $money($depositLeft) . ' · Balance after: ' . $money((int) $this->balance_due - $depositLeft)
+            : 'Balance due: ' . $money(max(0, (int) $this->balance_due));
+        array_push($lines, '', "Pay securely by M-Pesa here: {$link}", '', \App\Support\OrderPolicy::depositPolicy());
+
+        return \App\Support\WhatsApp::link(Phone::normalize($this->whatsapp_number ?: $this->phone), implode("\n", $lines));
     }
 
     /** What is owed: the order's total is the sum of these (design §2.1). */
@@ -304,6 +367,9 @@ class CustomOrder extends Model
             'paid_whatsapp_url' => $isPaid && $this->isCommerce()
                 ? \App\Support\WhatsAppOrderMessage::paidLink($this) : null,
             'amount'      => $this->total() ?: null,
+            // The ledger: what has been paid and what is still owed (deposits).
+            'amount_paid' => (int) $this->amount_paid,
+            'balance_due' => max(0, (int) $this->balance_due),
             'items'       => $this->trackingItems(),
             'progress'    => $this->progressSnaps()->latest()->get()->map(fn ($snap) => [
                 'image_url'   => $snap->image_url,

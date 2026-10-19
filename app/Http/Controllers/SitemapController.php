@@ -26,7 +26,7 @@ class SitemapController extends Controller
 
     public function robots()
     {
-        $lines = ['User-agent: *', 'Disallow: /studio', 'Disallow: /profile', 'Disallow: /my-vault', 'Disallow: /checkout', 'Disallow: /cart', 'Disallow: /track', 'Disallow: /payments', 'Disallow: /orders', 'Sitemap: '.rtrim(config('app.url'), '/').'/sitemap.xml'];
+        $lines = ['User-agent: *', 'Disallow: /studio', 'Disallow: /profile', 'Disallow: /my-vault', 'Disallow: /checkout', 'Disallow: /cart', 'Disallow: /track', 'Disallow: /pay', 'Disallow: /payments', 'Disallow: /orders', 'Sitemap: '.rtrim(config('app.url'), '/').'/sitemap.xml'];
         return response(implode("\n", $lines)."\n")->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 }

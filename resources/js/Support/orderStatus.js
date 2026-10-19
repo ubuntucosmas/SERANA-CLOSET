@@ -6,6 +6,11 @@ export function paymentStatus(order) {
     if (order.status === 'Cancelled') return { label: 'Order Cancelled', tone: 'warning', next: 'This order was cancelled and nothing was charged. Place a new order any time.' };
     if (order.status === 'Expired') return { label: 'Payment Window Expired', tone: 'warning', next: 'Contact support if you paid. Otherwise, return to the shop to place a new order.' };
     if (!['standard', 'drop'].includes(order.type)) {
+        // Part-paid bespoke work: a deposit is in, the balance comes before dispatch.
+        if (Number(order.amount_paid ?? 0) > 0 && Number(order.balance_due ?? 0) > 0) {
+            const balance = Number(order.balance_due).toLocaleString('en-US');
+            return { label: 'Deposit Paid', tone: 'pending', next: `Deposit received. The balance of KSh ${balance} is due before your order leaves the studio.` };
+        }
         const quoted = Number(order.amount ?? order.price_quoted ?? 0) > 0;
         return quoted
             ? { label: 'Quote Ready', tone: 'pending', next: 'Your quote is ready. The studio will share how to pay on WhatsApp, and this page updates once payment is recorded.' }

@@ -21,6 +21,7 @@ class LedgerReadsCutoverTest extends TestCase
         'Services/LedgerVerifier.php',
         'Services/OrderSettlementService.php',
         'Console/Commands/LedgerVerifyCommand.php',
+        'Console/Commands/LedgerCheckCommand.php', // compares legacy with the ledger: reading both is its job
     ];
 
     /** Models whose own status/type columns are not an order's. */
@@ -60,9 +61,9 @@ class LedgerReadsCutoverTest extends TestCase
         $this->assertSame([], $found, "Legacy order columns read directly:\n" . implode("\n", $found));
     }
 
-    /** A write of a legacy key (the dual-write), or a Drop, stock hold or payment attempt column. */
+    /** A write of a legacy key (the dual-write), or a Drop, stock hold, payment attempt or ledger row (payments()) column. */
     private function isLegacyWriteOrDropOrAttempt(string $line): bool
     {
-        return (bool) preg_match("/('(status|type|is_paid|price_quoted)'\\s*=>\\s*(?!\\$\\w+->)|Drop::|PaymentAttempt::|\\\$drop->|\\\$attempt->status|reservation|'held'|'released'|'committed')/i", $line);
+        return (bool) preg_match("/('(status|type|is_paid|price_quoted)'\\s*=>\\s*(?!\\$\\w+->)|Drop::|PaymentAttempt::|payments\\(\\)|\\\$drop->|\\\$attempt->status|reservation|'held'|'released'|'committed')/i", $line);
     }
 }

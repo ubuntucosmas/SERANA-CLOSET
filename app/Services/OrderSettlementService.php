@@ -87,6 +87,10 @@ class OrderSettlementService
         }, 3);
 
         // After commit: a queued listener must never see an order the database hasn't settled yet.
+        if ($result['booked']) {
+            // Every payment gets its receipt (design B), whatever the order.
+            event(new \App\Events\PaymentRecorded(CustomOrder::withTrashed()->findOrFail($order->id), $result['payment'], $rawPayload));
+        }
         if ($result['became_paid'] && $order->kind !== 'bespoke') {
             event(new MpesaWebhookHandled(CustomOrder::withTrashed()->findOrFail($order->id), $rawPayload));
         }
@@ -165,6 +169,27 @@ class OrderSettlementService
             Mail::to($ownerEmail)->queue(new \App\Mail\AmountMismatchAlertMail($order, $expected, $paid));
         } catch (\Throwable $e) {
             Log::error("Amount-mismatch alert email could not be queued for Order #{$order->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * A bespoke M-Pesa payment arrived for a different amount than its prompt.
+     * It is booked as received (recordPayment); this tells the owner, after
+     * commit, because a customer cannot change an STK amount. The Studio's
+     * Attention list shows it too (StudioController::index).
+     */
+    public function alertUnexpectedAmount(CustomOrder $order, int $prompted, int $paid, ?string $reference): void
+    {
+        Log::warning("Unexpected M-Pesa amount on bespoke Order #{$order->id}.", ['prompted' => $prompted, 'paid' => $paid, 'reference' => $reference]);
+
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
+        if (! $ownerEmail) {
+            return;
+        }
+        try {
+            Mail::to($ownerEmail)->queue(new \App\Mail\UnexpectedAmountAlertMail($order, $prompted, $paid, $reference));
+        } catch (\Throwable $e) {
+            Log::error("Unexpected-amount alert could not be queued for Order #{$order->id}: " . $e->getMessage());
         }
     }
 

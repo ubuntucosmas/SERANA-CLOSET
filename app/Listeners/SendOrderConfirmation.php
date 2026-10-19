@@ -2,7 +2,7 @@
 
 namespace App\Listeners;
 
-use App\Events\MpesaWebhookHandled;
+use App\Events\PaymentRecorded;
 use App\Mail\OrderReceiptMail;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Emails the paid-order receipt to the customer and copies the owner, the
- * instant payment is confirmed. Runs off the MpesaWebhookHandled event so it
- * fires for both the live callback and the reconciliation job.
+ * Emails the receipt for each payment to the customer and copies the owner
+ * (design B: every payment, deposit or balance, on every kind of order). Runs
+ * off PaymentRecorded, so the callback, reconciliation and the Studio all
+ * send it the same way.
  *
  * Queued: the event fires inside Safaricom's callback request, and a slow SMTP
  * round-trip there would make Safaricom time out and retry the callback.
@@ -29,9 +30,10 @@ class SendOrderConfirmation implements ShouldQueue
 
     public function backoff(): array { return [30, 120]; }
 
-    public function handle(MpesaWebhookHandled $event): void
+    public function handle(PaymentRecorded $event): void
     {
         $order = $event->order;
+        $payment = $event->payment;
 
         $ownerEmail = \App\Support\StoreProfile::notificationEmail();
 
@@ -42,10 +44,10 @@ class SendOrderConfirmation implements ShouldQueue
                 if ($ownerEmail) {
                     $mailer->bcc($ownerEmail);
                 }
-                $mailer->send(new OrderReceiptMail($order));
+                $mailer->send(new OrderReceiptMail($order, $payment));
             } elseif ($ownerEmail) {
                 // No customer email (e.g. a bespoke order) — owner still gets it.
-                Mail::to($ownerEmail)->send(new OrderReceiptMail($order));
+                Mail::to($ownerEmail)->send(new OrderReceiptMail($order, $payment));
             }
         } catch (\Throwable $e) {
             Log::error('Order receipt delivery failed; queued retry required.', ['order_id' => $order->id, 'exception' => get_class($e)]);

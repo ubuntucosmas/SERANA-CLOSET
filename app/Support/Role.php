@@ -28,6 +28,12 @@ final class Role
         'money.record' => [self::OWNER, self::MANAGER],
         // Staff accounts and roles.
         'staff.manage' => [self::OWNER],
+        // Order policies: deposit share, pay-link lifetime, deposit rule (design §5: owner only).
+        'settings.policies' => [self::OWNER],
+        // One bespoke order's deposit.
+        'deposit.override' => [self::OWNER, self::MANAGER],
+        // Start work without the deposit, or ship with a balance owed (N7), with a reason.
+        'fulfilment.override' => [self::OWNER],
     ];
 
     public static function allows(?string $role, string $ability): bool
