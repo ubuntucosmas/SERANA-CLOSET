@@ -48,7 +48,7 @@ ddev has no outbound DNS, so real M-Pesa prompts can't be sent locally. The test
 
 ```bash
 ddev exec php artisan test        # SQLite (MariaDB-only concurrency tests skip)
-node --test tests/Frontend/
+node --test 'tests/Frontend/*.test.mjs'
 
 # Same PHP suite on MariaDB. Tests wipe the database, so use one whose name contains "test":
 ddev exec 'mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS testing; GRANT ALL ON testing.* TO \"db\"@\"%\""'

@@ -32,7 +32,7 @@ Serana Closet is a single-tenant Laravel 12 + Inertia/Vue 3 web shop for a Nairo
 | PDF | barryvdh/laravel-dompdf (receipts) | `app/Http/Controllers/ReceiptController.php` |
 | Images | intervention/image 3 (GD), WebP re-encode at upload | `app/Services/ImageOptimizer.php` |
 | Storage | `public` disk locally/prod example; S3/R2 supported (`league/flysystem-aws-s3-v3`) | `config/filesystems.php:16-17` |
-| CI | GitHub Actions: build, `php artisan test`, `node --test tests/Frontend/` (PHP 8.2, Node 22) | `.github/workflows/ci.yml` |
+| CI | GitHub Actions: build, `php artisan test`, `node --test 'tests/Frontend/*.test.mjs'` (PHP 8.2, Node 22) | `.github/workflows/ci.yml` |
 
 ### Run locally (verified path)
 
@@ -48,7 +48,7 @@ ddev exec php artisan test      # SQLite: 203 pass, 5 MariaDB-only concurrency t
 # Same suite on MariaDB (needs a database whose name contains "test"; tests wipe it):
 ddev exec 'mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS testing; GRANT ALL ON testing.* TO \"db\"@\"%\""'
 ddev exec 'DB_CONNECTION=mariadb DB_DATABASE=testing php artisan test --fail-on-skipped'   # 208 pass
-node --test tests/Frontend/     # 21 tests
+node --test 'tests/Frontend/*.test.mjs'   # 21 tests
 ```
 
 - There is no host PHP. Everything goes through `ddev exec`.

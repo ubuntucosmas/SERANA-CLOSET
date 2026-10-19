@@ -69,4 +69,4 @@ jobs:
           DB_PASSWORD: testing
 
       - name: Frontend tests
-        run: node --test tests/Frontend/
+        run: node --test 'tests/Frontend/*.test.mjs'
