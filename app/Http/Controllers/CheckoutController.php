@@ -206,7 +206,7 @@ class CheckoutController extends Controller
             'message'  => 'Order created. Proceed to payment',
             'order_id' => $order->id,
             'reference' => $order->cipher,
-            'amount' => (float) $order->price_quoted,
+            'amount' => $order->total(),
             'items' => $snapshotItems,
             'payment_method' => $method,
             'whatsapp_url' => $isWhatsApp ? WhatsAppOrderMessage::link($order) : null,
@@ -223,15 +223,15 @@ class CheckoutController extends Controller
     {
         $owned = in_array((int) $order->id, array_map('intval', (array) $request->session()->get('serana.order_ids', [])), true)
             || (auth()->check() && (int) $order->user_id === (int) auth()->id());
-        abort_unless($owned && $order->type === 'standard', 404);
+        abort_unless($owned && $order->isShop(), 404);
 
         if (! PaymentSettings::whatsappAvailable()) {
             return response()->json(['success' => false, 'message' => 'Ordering on WhatsApp is not available right now.'], 409);
         }
-        if ($order->is_paid) {
+        if ($order->isPaidUp()) {
             return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
         }
-        if (! in_array($order->status, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED], true)) {
+        if (! in_array($order->legacyStatus(), [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED], true)) {
             return response()->json(['success' => false, 'message' => 'This order can no longer be changed. Please check out again.'], 409);
         }
         // Never while a prompt may still be answered: that payment would settle the order too.
@@ -283,16 +283,16 @@ class CheckoutController extends Controller
         }
 
         CustomOrder::whereIn('id', $ids)
-            ->where('type', 'standard')
-            ->where('is_paid', false)
+            ->ofKind('shop')
+            ->paidUp(false)
             // A WhatsApp order is waiting on the studio, not abandoned.
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
-            ->whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
+            ->withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q->where('status', \App\Models\PaymentAttempt::PENDING))
             ->get()
             ->each(function (CustomOrder $order) {
                 $order->releaseReservations();
-                CustomOrder::whereKey($order->id)->where('is_paid', false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
+                CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
             });
     }
 }

@@ -102,7 +102,10 @@ Route::middleware('auth')->group(function () {
         // Customer-safe projection: never ship Studio notes or payment internals.
         return Inertia::render('Profile/DesignsVault', [
             'orders' => auth()->user()->customOrders()->latest()->get()
-                ->map(fn ($o) => $o->only(['id', 'cipher', 'type', 'status', 'is_paid', 'payment_method', 'price_quoted', 'created_at'])),
+                ->map(fn ($o) => $o->only(['id', 'cipher', 'payment_method', 'created_at']) + [
+                    // Read through the order adapter (LEDGER_READS), in the vocabulary the page uses.
+                    'type' => $o->legacyType(), 'status' => $o->legacyStatus(), 'is_paid' => $o->isPaidUp(), 'price_quoted' => $o->total(),
+                ]),
         ]);
     })->name('profile.designs');
 

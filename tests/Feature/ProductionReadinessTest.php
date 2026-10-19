@@ -107,6 +107,8 @@ class ProductionReadinessTest extends TestCase
 
     public function test_paid_status_text_alone_never_issues_a_receipt_or_confirms_payment(): void
     {
+        // Builds a row the ledger cannot have (status 'Paid', is_paid false): it proves the text alone confers nothing.
+        $this->ledgerChecks = [\App\Services\LedgerVerifier::MAPPING, \App\Services\LedgerVerifier::MONEY];
         $order = $this->order(['status' => OrderStatus::PAID, 'is_paid' => false]);
         $this->withSession(['serana.order_ids' => [$order->id]])->getJson(route('mpesa.status', $order->id))
             ->assertJsonPath('is_paid', false)->assertJsonPath('receipt_url', null);

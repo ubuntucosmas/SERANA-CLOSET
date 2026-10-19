@@ -67,6 +67,8 @@ class LedgerBackfillTest extends TestCase
         $bespokeRecorded = $this->legacy(['type' => 'Gown', 'status' => 'sewing', 'is_paid' => true, 'price_quoted' => 12000, 'mpesa_receipt_number' => 'QK1']);
         $drop = $this->legacy(['type' => 'drop', 'status' => 'Paid', 'is_paid' => true, 'price_quoted' => 3500, 'items_json' => json_encode(['drop' => 'Night Run', 'size' => 'M'])]);
         $this->attempt($drop, 'paid', 3500, 'RCPT3');
+        $failed = $this->legacy(['status' => 'Payment Failed', 'price_quoted' => 5000, 'mpesa_checkout_id' => 'ws_OLD',
+            'items_json' => $this->items(['id' => 1, 'name' => 'Set', 'price' => 5000, 'quantity' => 1])]);
         $archived = $this->legacy(['status' => 'completed', 'is_paid' => true, 'price_quoted' => 5000, 'deleted_at' => now(),
             'items_json' => $this->items(['id' => 1, 'name' => 'Set', 'price' => 5000, 'quantity' => 1])]);
         $this->attempt($archived, 'paid', 5000, 'RCPT4');
@@ -87,7 +89,7 @@ class LedgerBackfillTest extends TestCase
         $this->assertSame([['payment', 7000, 'mpesa_stk', 'RCPT1']], $o($paidShop)->payments()->get()->map(fn ($p) => [$p->type, $p->amount, $p->method, $p->external_reference])->all());
         $this->assertNotNull($o($paidShop)->payments()->first()->payment_attempt_id);
 
-        $expect($expired, ['order_state' => 'expired', 'payment_status' => 'unpaid', 'amount_paid' => 0, 'balance_due' => 5000]);
+        $expect($expired, ['order_state' => 'expired', 'payment_status' => 'unpaid', 'amount_paid' => 0, 'balance_due' => 5000, 'payment_failed' => false]);
         $expect($mismatch, ['resolution' => 'amount_mismatch', 'payment_status' => 'amount_mismatch', 'amount_paid' => 0]);
         $this->assertSame(0, $o($mismatch)->payments()->count(), 'the amount actually paid was never stored');
         $expect($waCancelled, ['channel' => 'whatsapp', 'order_state' => 'cancelled', 'payment_status' => 'unpaid']);
@@ -101,6 +103,8 @@ class LedgerBackfillTest extends TestCase
         $expect($drop, ['kind' => 'drop', 'payment_status' => 'paid', 'chargeable_total' => 3500]);
         $this->assertSame(['Drop: Night Run (M)'], $o($drop)->lines()->pluck('description')->all());
         $expect($archived, ['fulfilment_status' => 'completed', 'payment_status' => 'paid']);
+        // A failed prompt is a fact only the legacy status holds for pre-attempt orders.
+        $expect($failed, ['order_state' => 'open', 'payment_status' => 'unpaid', 'payment_failed' => true]);
 
         // The legacy columns are never touched.
         $this->assertSame('Paid', DB::table('custom_orders')->where('id', $paidShop)->value('status'));

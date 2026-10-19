@@ -34,7 +34,7 @@ class LedgerSchemaTest extends TestCase
     public function test_orders_carry_the_split_status_and_money_columns(): void
     {
         $this->assertTrue(Schema::hasColumns('custom_orders', [
-            'kind', 'garment', 'channel', 'order_state', 'fulfilment_status', 'payment_status', 'resolution',
+            'kind', 'garment', 'channel', 'order_state', 'fulfilment_status', 'payment_status', 'resolution', 'payment_failed',
             'chargeable_total', 'amount_paid', 'balance_due',
         ]));
         $this->assertTrue(Schema::hasColumns('order_lines', ['custom_order_id', 'line_type', 'product_id', 'description', 'quantity', 'unit_amount', 'amount', 'actor_type', 'actor_id', 'reason', 'reverses_line_id', 'meta']));

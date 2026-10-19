@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Used by the backfill migration, by serana:ledger:backfill, and for each new
  * order while the legacy columns are still the input (CustomOrder::created).
+ *
+ * Migration 000004 runs this code, so it may only write columns created by
+ * migration 000003 or earlier: a column added later needs its own migration
+ * and backfill, or fresh installs fail at 000004.
  */
 class LedgerBackfill
 {
@@ -42,6 +46,8 @@ class LedgerBackfill
             unset($derived['is_paid']); // legacy column: left as it is
 
             DB::table('custom_orders')->where('id', $order->id)->update($columns + $derived);
+            // The caller's instance sees what was stored (a new order is read right after create).
+            $order->forceFill($columns + $derived)->syncOriginalAttributes(array_keys($columns + $derived));
         });
 
         return $report;

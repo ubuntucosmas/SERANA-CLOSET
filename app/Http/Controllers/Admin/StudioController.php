@@ -39,12 +39,12 @@ class StudioController extends Controller
         $stats = [
             // Abandoned checkouts (expired) and cancelled orders are not demand.
             'new_orders_week'   => CustomOrder::where('created_at', '>=', $weekAgo)
-                                        ->whereNotIn('status', [OrderStatus::EXPIRED, OrderStatus::CANCELLED])->count(),
+                                        ->whereNot(fn ($q) => $q->withLegacyStatus([OrderStatus::EXPIRED, OrderStatus::CANCELLED]))->count(),
             // Money received in the last 7 days (archived orders still count).
-            'revenue_week'      => (float) CustomOrder::withTrashed()->where('is_paid', true)
-                                        ->where('paid_at', '>=', $weekAgo)->sum('price_quoted'),
+            'revenue_week'      => (float) CustomOrder::withTrashed()->paidUp()
+                                        ->where('paid_at', '>=', $weekAgo)->sum(CustomOrder::totalColumn()),
             // Being made right now; new briefs awaiting a quote are not "in production".
-            'in_production'     => CustomOrder::whereIn('status', array_values(array_diff($activeStages, ['pending'])))->count(),
+            'in_production'     => CustomOrder::withLegacyStatus(array_values(array_diff($activeStages, ['pending'])))->count(),
             'subscribers_total' => Lead::count(),
         ];
 
@@ -59,21 +59,21 @@ class StudioController extends Controller
 
         $attention = [
             'awaiting' => CustomOrder::where(function ($query) {
-                $query->whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::PAID, 'pending']);
+                $query->withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::PAID, 'pending']);
             })->latest()->take(12)->get()
                 ->map(fn ($o) => [
                     'id' => $o->id,
                     'full_name' => $o->full_name,
-                    'amount' => $o->price_quoted,
+                    'amount' => $o->total(),
                     'reference' => $o->cipher,
                     'created_at' => $o->created_at,
-                    'status' => $o->status,
-                    'is_paid' => $o->is_paid,
-                    'next_action' => $o->is_paid ? 'Ready for fulfilment'
-                        : ($o->payment_method === PaymentSettings::WHATSAPP && $o->status === OrderStatus::PENDING_PAYMENT ? 'WhatsApp order: confirm payment'
-                        : ($o->status === OrderStatus::AMOUNT_MISMATCH ? 'Review payment amount'
-                        : ($o->status === OrderStatus::PAYMENT_FAILED ? 'Follow up on failed payment'
-                        : ($o->status === 'pending' ? 'Review custom order' : 'Awaiting payment confirmation')))),
+                    'status' => $o->legacyStatus(),
+                    'is_paid' => $o->isPaidUp(),
+                    'next_action' => $o->isPaidUp() ? 'Ready for fulfilment'
+                        : ($o->payment_method === PaymentSettings::WHATSAPP && $o->legacyStatus() === OrderStatus::PENDING_PAYMENT ? 'WhatsApp order: confirm payment'
+                        : ($o->hasAmountMismatch() ? 'Review payment amount'
+                        : ($o->legacyStatus() === OrderStatus::PAYMENT_FAILED ? 'Follow up on failed payment'
+                        : ($o->legacyStatus() === 'pending' ? 'Review custom order' : 'Awaiting payment confirmation')))),
                 ]),
             // Switched off by staff, or a limited batch with two or fewer units a
             // shopper can still buy (unpaid holds count as taken).
@@ -92,7 +92,7 @@ class StudioController extends Controller
             ->havingRaw('COUNT(*) > 1')->pluck('paid_count', 'custom_order_id');
         if ($duplicatePaid->isNotEmpty()) {
             $refunds = CustomOrder::withTrashed()->whereIn('id', $duplicatePaid->keys())->get()->map(fn ($o) => [
-                'id' => $o->id, 'full_name' => $o->full_name, 'amount' => $o->price_quoted, 'reference' => $o->cipher,
+                'id' => $o->id, 'full_name' => $o->full_name, 'amount' => $o->total(), 'reference' => $o->cipher,
                 'next_action' => 'Paid ' . $duplicatePaid[$o->id] . ' times: refund owed',
             ]);
             $attention['awaiting'] = $refunds->concat($attention['awaiting'])->values();
@@ -137,25 +137,26 @@ class StudioController extends Controller
             'is_paid' => 'nullable|boolean',
         ]);
 
-        if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->is_paid) {
+        if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);
         }
-        $commerce = in_array($order->type, ['standard', 'drop'], true);
-        if (($order->is_paid || $commerce) && array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->price_quoted) {
+        $commerce = $order->isCommerce();
+        $currentStatus = $order->legacyStatus();
+        if (($order->isPaidUp() || $commerce) && array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'A checkout or paid order’s total cannot be changed.']);
         }
-        if ($validated['status'] !== $order->status && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
+        if ($validated['status'] !== $currentStatus && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
         }
-        if ($commerce && $validated['status'] !== $order->status) {
-            if (! $order->is_paid || ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
+        if ($commerce && $validated['status'] !== $currentStatus) {
+            if (! $order->isPaidUp() || ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
             }
         }
         unset($validated['is_paid']);
         \App\Support\Audit::changes('order.updated', $order, $validated);
         // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
-        if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->price_quoted) {
+        if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
             app(OrderSettlementService::class)->setQuote($order, (int) round((float) $validated['price_quoted']),
                 \App\Support\Actor::user($request->user()), 'Quote set in the Studio');
         }
@@ -179,8 +180,9 @@ class StudioController extends Controller
 
         $page = StudioWorkflow::apply(CustomOrder::query(), $request->input('o_queue'))
             ->when($request->boolean('o_archived'), fn ($query) => $query->onlyTrashed())
-            ->when($filter === 'shop', fn ($query) => $query->where('type', 'standard'))
-            ->when($filter === 'custom', fn ($query) => $query->where('type', '!=', 'standard'))
+            ->when($filter === 'shop', fn ($query) => $query->ofKind('shop'))
+            // "Custom" has always meant anything that isn't a shop order (drops included).
+            ->when($filter === 'custom', fn ($query) => $query->ofKind('bespoke', 'drop'))
             ->when($q !== '', function ($query) use ($q) {
                 $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
                 $digits = preg_replace('/\D/', '', $q);
@@ -216,13 +218,13 @@ class StudioController extends Controller
 
     public function recordPayment(Request $request, CustomOrder $order)
     {
-        if ($order->type === 'standard' && $order->payment_method === PaymentSettings::WHATSAPP) {
+        if ($order->isShop() && $order->payment_method === PaymentSettings::WHATSAPP) {
             return $this->confirmWhatsAppPayment($request, $order);
         }
-        if (in_array($order->type, ['standard', 'drop'], true)) {
+        if ($order->isCommerce()) {
             return back()->with('error', 'Shop orders and Drop reservations are confirmed automatically by M-Pesa.');
         }
-        if ($order->is_paid) {
+        if ($order->isPaidUp()) {
             return back()->with('error', 'This order is already marked as paid.');
         }
         $data = $this->validatedPayment($request);
@@ -289,13 +291,13 @@ class StudioController extends Controller
      */
     private function confirmWhatsAppPayment(Request $request, CustomOrder $order)
     {
-        if ($order->is_paid) {
+        if ($order->isPaidUp()) {
             return back()->with('error', 'This order is already marked as paid.');
         }
-        if (in_array($order->status, [OrderStatus::CANCELLED], true)) {
+        if ($order->isCancelled()) {
             return back()->with('error', 'This order was cancelled. Ask the customer to order again.');
         }
-        $total = (int) round((float) $order->price_quoted);
+        $total = $order->total();
         $data = $this->validatedPayment($request);
         if ((int) $data['amount'] !== $total) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -324,11 +326,11 @@ class StudioController extends Controller
     /** Cancel an unpaid WhatsApp order: stock goes back on sale. */
     public function cancelOrder(CustomOrder $order)
     {
-        if ($order->is_paid || $order->payment_method !== PaymentSettings::WHATSAPP || $order->status !== OrderStatus::PENDING_PAYMENT) {
+        if ($order->isPaidUp() || $order->payment_method !== PaymentSettings::WHATSAPP || $order->legacyStatus() !== OrderStatus::PENDING_PAYMENT) {
             return back()->with('error', 'Only unpaid WhatsApp orders can be cancelled here.');
         }
         $order->releaseReservations();
-        CustomOrder::whereKey($order->id)->where('is_paid', false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::CANCELLED));
+        CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::CANCELLED));
         \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->status], ['status' => OrderStatus::CANCELLED]);
 
         return back()->with('success', 'Order cancelled. Its stock is back on sale.');
@@ -339,7 +341,7 @@ class StudioController extends Controller
         if ($order->paymentAttempts()->where('status', PaymentAttempt::PENDING)->exists()) {
             return back()->with('error', 'This order has an M-Pesa payment still in progress. Archive it after the payment succeeds, fails or expires.');
         }
-        if ($order->is_paid && ! in_array($order->status, OrderStatus::PRODUCTION_TERMINAL, true)) {
+        if ($order->isPaidUp() && ! in_array($order->legacyStatus(), OrderStatus::PRODUCTION_TERMINAL, true)) {
             return back()->with('error', 'Paid orders can be archived once they are completed or dispatched.');
         }
 
@@ -362,7 +364,8 @@ class StudioController extends Controller
 
         // Payment records are financial evidence: an order with any payment
         // history (or that was paid) is kept in the archive, never purged.
-        if ($order->is_paid || $order->paymentAttempts()->exists()) {
+        // Money on the books (or any STK attempt) is evidence: never purged.
+        if ($order->isPaidUp() || $order->payments()->exists() || $order->paymentAttempts()->exists()) {
             return back()->with('error', 'Orders with payment history cannot be permanently deleted. They stay in the archive as a record.');
         }
 

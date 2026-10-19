@@ -13,12 +13,17 @@ use Illuminate\Support\Facades\URL;
 class CustomOrder extends Model
 {
     use SoftDeletes;
+    use Concerns\ReadsOrderState;
     protected $guarded = [];
 
     protected $casts = [
         'inspiration_image_paths' => 'array',
         'items_json' => 'array',
         'is_paid' => 'boolean',
+        'payment_failed' => 'boolean',
+        'chargeable_total' => 'integer',
+        'amount_paid' => 'integer',
+        'balance_due' => 'integer',
         'paid_at' => 'datetime',
     ];
 
@@ -280,25 +285,25 @@ class CustomOrder extends Model
      */
     public function publicTrackingPayload(): array
     {
-        $isPaid = (bool) $this->is_paid;
+        $isPaid = $this->isPaidUp();
 
         return [
             'reference'   => $this->cipher,
             'placed_at'   => optional($this->created_at)->timezone(config('app.display_timezone'))->format('M d, Y'),
-            'type'        => $this->type,
-            'status'      => $this->status,
+            'type'        => $this->legacyType(),
+            'status'      => $this->legacyStatus(),
             'is_paid'     => $isPaid,
             'payment_method' => $this->payment_method,
             // How to pay a WhatsApp order, as set in Studio → Payments.
             'payment_instructions' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP
                 ? (\App\Support\PaymentSettings::instructions() ?: null) : null,
-            'whatsapp_url' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP && $this->type === 'standard'
-                && ! in_array($this->status, [OrderStatus::EXPIRED, OrderStatus::CANCELLED], true)
+            'whatsapp_url' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP && $this->isShop()
+                && ! $this->isExpired() && ! $this->isCancelled()
                 ? \App\Support\WhatsAppOrderMessage::link($this) : null,
             // Paid orders: post the payment record to the studio, if it was missed at checkout.
-            'paid_whatsapp_url' => $isPaid && in_array($this->type, ['standard', 'drop'], true)
+            'paid_whatsapp_url' => $isPaid && $this->isCommerce()
                 ? \App\Support\WhatsAppOrderMessage::paidLink($this) : null,
-            'amount'      => $this->price_quoted ? (float) $this->price_quoted : null,
+            'amount'      => $this->total() ?: null,
             'items'       => $this->trackingItems(),
             'progress'    => $this->progressSnaps()->latest()->get()->map(fn ($snap) => [
                 'image_url'   => $snap->image_url,
@@ -314,11 +319,11 @@ class CustomOrder extends Model
     /** Item names + quantities for ready-to-wear orders (no-op for bespoke). */
     private function trackingItems(): array
     {
-        if ($this->type === 'drop') {
+        if ($this->isDrop()) {
             return [['name' => $this->items_json['drop'] ?? 'Drop Reservation', 'quantity' => 1,
-                'options' => ['size' => $this->items_json['size'] ?? null], 'price' => $this->price_quoted]];
+                'options' => ['size' => $this->items_json['size'] ?? null], 'price' => $this->total()]];
         }
-        if ($this->type !== 'standard') return [];
+        if (! $this->isShop()) return [];
 
         return collect($this->items_with_urls)->map(fn ($item) => [
             'name'      => $item['name'] ?? 'Item',

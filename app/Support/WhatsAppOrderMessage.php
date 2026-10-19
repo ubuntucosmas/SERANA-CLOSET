@@ -26,7 +26,7 @@ class WhatsAppOrderMessage
         }
 
         $lines[] = '';
-        $lines[] = '*Total: ' . $money($order->price_quoted) . '* (delivery included)';
+        $lines[] = '*Total: ' . $money($order->total()) . '* (delivery included)';
         $lines[] = '';
         $lines[] = '*Deliver to*';
         $lines[] = "{$order->full_name} · {$order->phone}";
@@ -53,7 +53,7 @@ class WhatsAppOrderMessage
      */
     public static function paidText(CustomOrder $order): ?string
     {
-        if (! $order->is_paid) {
+        if (! $order->isPaidUp()) {
             return null;
         }
 
@@ -65,16 +65,16 @@ class WhatsAppOrderMessage
             // Reconciliation confirms a payment without Safaricom's code; the
             // customer has it in their M-Pesa SMS, so ask for it plainly.
             '*M-Pesa code: ' . ($order->mpesa_receipt_number ?: '[add the code from your M-Pesa SMS]') . '*',
-            'Amount paid: ' . $money($order->price_quoted),
+            'Amount paid: ' . $money($order->total()),
             'Paid on: ' . $order->paidAtForDisplay('M d, Y g:i A') . ' (Nairobi)',
         ];
         if ($paidFrom) $lines[] = 'Paid from: ' . StoreProfile::display(Phone::normalize($paidFrom));
 
         $items = [];
-        if ($order->type === 'drop') {
+        if ($order->isDrop()) {
             $items[] = '1. ' . ($order->items_json['drop'] ?? 'Drop reservation')
                 . (! empty($order->items_json['size']) ? "\n    Size {$order->items_json['size']}" : '');
-        } elseif ($order->type === 'standard') {
+        } elseif ($order->isShop()) {
             foreach (array_values(array_filter($order->items_json ?? [], fn ($i) => is_array($i) && ! empty($i['name']))) as $i => $item) {
                 $qty = (int) ($item['quantity'] ?? 1);
                 $line = ($i + 1) . ". {$item['name']} ×{$qty} — " . $money(($item['price'] ?? 0) * $qty);
@@ -84,7 +84,7 @@ class WhatsAppOrderMessage
         }
         if ($items) array_push($lines, '', '*Items*', ...$items);
 
-        if ($order->type === 'standard') {
+        if ($order->isShop()) {
             array_push($lines, '', '*Deliver to*', "{$order->full_name} · " . StoreProfile::display(Phone::normalize($order->phone)),
                 trim("{$order->address}, {$order->city}", ', '));
         }

@@ -37,7 +37,7 @@ class TestMailConfiguration extends Command
             $this->warn('Set MAIL_MAILER=smtp and your MAIL_* / STORE_NOTIFICATION_EMAIL creds in .env first.');
         }
 
-        $order = CustomOrder::where('is_paid', true)->latest()->first()
+        $order = CustomOrder::paidUp()->latest()->first()
             ?? $this->sampleOrder();
 
         $this->line("Sending receipt for reference <info>{$order->cipher}</info> to <info>{$email}</info>…");

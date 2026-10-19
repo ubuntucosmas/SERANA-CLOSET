@@ -16,7 +16,7 @@ class ReceiptController extends Controller
         $order = CustomOrder::withTrashed()->findOrFail($orderId);
         
         // Ensure the order is paid
-        if (!$order->is_paid) {
+        if (! $order->isPaidUp()) {
             return back()->with('error', 'Receipts are only available for paid orders.');
         }
 

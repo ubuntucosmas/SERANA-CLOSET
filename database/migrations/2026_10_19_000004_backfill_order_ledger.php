@@ -28,7 +28,7 @@ return new class extends Migration
         DB::table('custom_orders')->update([
             'kind' => null, 'garment' => null, 'channel' => null,
             'order_state' => 'open', 'fulfilment_status' => 'pending',
-            'payment_status' => 'unpaid', 'resolution' => 'none',
+            'payment_status' => 'unpaid', 'resolution' => 'none', 'payment_failed' => false,
             'chargeable_total' => 0, 'amount_paid' => 0, 'balance_due' => 0,
         ]);
     }

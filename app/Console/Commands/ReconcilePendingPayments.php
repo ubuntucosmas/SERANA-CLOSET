@@ -107,7 +107,7 @@ class ReconcilePendingPayments extends Command
             ->where('created_at', '>=', now()->subDay())
             ->orderByDesc('created_at')
             ->get()
-            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->is_paid)
+            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->isPaidUp())
             ->map(fn ($attempt) => [
                 'order'       => $attempt->order,
                 'checkout_id' => $attempt->checkout_request_id,
@@ -115,8 +115,8 @@ class ReconcilePendingPayments extends Command
             ]);
 
         // Orders from before per-attempt tracking: only a latest checkout id.
-        $legacy = CustomOrder::withTrashed()->whereIn('status', $reconcilable)
-            ->where('is_paid', false)
+        $legacy = CustomOrder::withTrashed()->withLegacyStatus($reconcilable)
+            ->paidUp(false)
             ->whereNotNull('mpesa_checkout_id')
             ->whereDoesntHave('paymentAttempts')
             ->where('created_at', '<=', now()->subMinutes(2))

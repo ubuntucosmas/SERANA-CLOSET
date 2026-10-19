@@ -60,6 +60,7 @@ final class LegacyOrderMap
             'order_state' => self::orderState($status),
             'fulfilment_status' => self::fulfilment($status),
             'resolution' => self::resolution($status),
+            'payment_failed' => $status === OrderStatus::PAYMENT_FAILED,
         ];
     }
 
@@ -73,6 +74,7 @@ final class LegacyOrderMap
             'order_state' => self::orderState($status),
             'fulfilment_status' => self::fulfilment($status),
             'resolution' => self::resolution($status),
+            'payment_failed' => $status === OrderStatus::PAYMENT_FAILED,
         ];
     }
 }

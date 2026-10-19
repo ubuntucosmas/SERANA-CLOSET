@@ -22,6 +22,9 @@ return new class extends Migration
             $table->string('fulfilment_status', 24)->default('pending');
             $table->string('payment_status', 24)->default('unpaid');     // derived from the ledger
             $table->string('resolution', 24)->default('none');           // none | needs_resolution | amount_mismatch | waiting_restock
+            // Legacy "Payment Failed": the latest M-Pesa prompt failed and nothing else is in flight.
+            // Pre-attempt orders have no attempt rows to show it, so it is stored.
+            $table->boolean('payment_failed')->default(false);
             $table->integer('chargeable_total')->default(0);             // whole KES, derived
             $table->integer('amount_paid')->default(0);                  // whole KES, derived
             $table->integer('balance_due')->default(0);                  // whole KES, derived
@@ -79,7 +82,7 @@ return new class extends Migration
             $table->dropIndex(['order_state', 'created_at']);
             $table->dropIndex(['fulfilment_status']);
             $table->dropIndex(['kind']);
-            $table->dropColumn(['kind', 'garment', 'channel', 'order_state', 'fulfilment_status', 'payment_status', 'resolution', 'chargeable_total', 'amount_paid', 'balance_due']);
+            $table->dropColumn(['kind', 'garment', 'channel', 'order_state', 'fulfilment_status', 'payment_status', 'resolution', 'payment_failed', 'chargeable_total', 'amount_paid', 'balance_due']);
         });
     }
 };
