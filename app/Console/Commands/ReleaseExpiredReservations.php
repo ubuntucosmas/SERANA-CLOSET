@@ -60,7 +60,7 @@ class ReleaseExpiredReservations extends Command
         // day it was held: it expires, its stock is back on sale, and what was
         // received is owed back (Studio → Refunds). No money moves here.
         $settlement = app(\App\Services\OrderSettlementService::class);
-        $hours = \App\Services\OrderSettlementService::BALANCE_HOLD_HOURS;
+        $hours = \App\Support\OrderPolicy::balanceHoldHours();
         CustomOrder::ofKind('shop')->where('order_state', 'open')->where('resolution', 'none')
             ->where('amount_paid', '>', 0)->where('balance_due', '>', 0)
             ->whereDoesntHave('stockReservations', fn ($q) => $q->active())

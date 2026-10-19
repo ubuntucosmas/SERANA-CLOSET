@@ -31,9 +31,6 @@ class OrderSettlementService
     /** Methods staff may record by hand. Card waits for the owner (design D3). */
     public const MANUAL_METHODS = ['mpesa_manual', 'cash', 'bank'];
 
-    /** How long stock is held for a customer who owes a balance on a shop order (Phase C). */
-    public const BALANCE_HOLD_HOURS = 24;
-
     /**
      * Book money received for an order, exactly once per STK attempt and per
      * (method, reference) (I13, N4). $amount null means "whatever is still due
@@ -340,8 +337,8 @@ class OrderSettlementService
     }
 
     /**
-     * A shop order paid short (Phase C): the stock stays held for
-     * BALANCE_HOLD_HOURS while the customer pays the rest by pay link. If the
+     * A shop order paid short (Phase C): the stock stays held for the
+     * policy's balance hold hours (Studio setting, default 24) while the customer pays the rest by pay link. If the
      * stock can no longer be held (it sold out after the hold lapsed), the
      * order waits for the studio like any late payment.
      */
@@ -352,7 +349,7 @@ class OrderSettlementService
             if ((int) $locked->balance_due <= 0 || $locked->resolution !== 'none') {
                 return null;
             }
-            if (! $locked->secureStockForPayment(now()->addHours(self::BALANCE_HOLD_HOURS))) {
+            if (! $locked->secureStockForPayment(now()->addHours(OrderPolicy::balanceHoldHours()))) {
                 $gone = $locked->stockReservations()->whereIn('status', ['held', 'released'])->with('product')->get()
                     ->map(fn ($r) => $r->product?->name ?? 'An item')->unique()->values()->all();
                 $this->openResolution($locked, 'needs_resolution', 'stock_gone',
@@ -384,7 +381,7 @@ class OrderSettlementService
         }
         $this->alertOwner($fresh, "Paid short — order {$fresh->cipher}",
             "Order {$fresh->cipher} was paid KSh " . number_format((int) $fresh->amount_paid) . ' of KSh ' . number_format((int) $fresh->chargeable_total)
-            . '. The stock is held for ' . self::BALANCE_HOLD_HOURS . " hours and the customer has a pay link for the balance of KSh "
+            . '. The stock is held for ' . OrderPolicy::balanceHoldHours() . " hours and the customer has a pay link for the balance of KSh "
             . number_format((int) $fresh->balance_due) . ".\n\nIf the balance is not paid by then, the order expires and what was received is owed back (Studio → Refunds).");
     }
 
@@ -513,7 +510,7 @@ class OrderSettlementService
             $from->update(['status' => 'cancelled']);
             if ($to->batch_limit !== null) {
                 $locked->stockReservations()->create(['product_id' => $to->id, 'quantity' => $quantity, 'status' => 'held',
-                    'expires_at' => now()->addHours(self::BALANCE_HOLD_HOURS)]);
+                    'expires_at' => now()->addHours(OrderPolicy::balanceHoldHours())]);
             }
 
             // The order's item snapshot follows, so receipts and tracking show what is coming.

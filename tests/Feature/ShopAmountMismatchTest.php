@@ -8,7 +8,10 @@ use App\Mail\PaymentProblemAlertMail;
 use App\Models\CustomOrder;
 use App\Models\PaymentAttempt;
 use App\Models\Product;
+use App\Support\OrderPolicy;
 use App\Support\OrderStatus;
+use App\Support\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -153,5 +156,43 @@ class ShopAmountMismatchTest extends TestCase
         $this->assertSame(['needs_resolution', 'stock_gone', 4000], [$fresh->payment_status, $fresh->resolution_code, $fresh->amount_paid]);
         $this->assertSame(1, $this->product->fresh()->batch_sold);
         Mail::assertNotQueued(BalanceDueMail::class);
+    }
+
+    public function test_the_short_payment_hold_follows_the_studio_setting(): void
+    {
+        OrderPolicy::save(['deposit_percent' => 50, 'pay_link_days' => 14, 'deposit_policy' => '', 'balance_hold_hours' => 12]);
+        $order = $this->order();
+        $this->prompt($order, 'ws_UNDER');
+
+        $this->stkCallback('ws_UNDER', 4000, 'QUNDER1');
+
+        $hold = $order->stockReservations()->sole();
+        $this->assertTrue($hold->expires_at->between(now()->addHours(11), now()->addHours(13)), 'held for 12 hours');
+        Mail::assertQueued(BalanceDueMail::class, function (BalanceDueMail $mail) {
+            $mail->assertSeeInHtml('12 hours');
+
+            return true;
+        });
+
+        $this->travel(11)->hours();
+        $this->artisan('stock:release-expired')->assertSuccessful();
+        $this->assertSame('deposit_paid', $order->fresh()->payment_status);
+        $this->travel(2)->hours();
+        $this->artisan('stock:release-expired')->assertSuccessful();
+        $this->assertSame(['expired', 'refund_due'], [$order->fresh()->order_state, $order->fresh()->payment_status]);
+    }
+
+    public function test_the_owner_sets_the_short_payment_hold_and_it_is_validated(): void
+    {
+        $owner = User::factory()->create(['role' => Role::OWNER]);
+        $policy = ['deposit_percent' => 50, 'pay_link_days' => 14, 'deposit_policy' => ''];
+        $this->assertSame(24, OrderPolicy::balanceHoldHours(), 'default 24 hours');
+        $this->assertSame(24, OrderPolicy::forStudio()['balance_hold_hours']);
+
+        $this->actingAs($owner)->put(route('admin.order_policy.update'), $policy + ['balance_hold_hours' => 0])->assertSessionHasErrors('balance_hold_hours');
+        $this->actingAs($owner)->put(route('admin.order_policy.update'), $policy + ['balance_hold_hours' => 169])->assertSessionHasErrors('balance_hold_hours');
+        $this->actingAs($owner)->put(route('admin.order_policy.update'), $policy + ['balance_hold_hours' => 48])->assertSessionHasNoErrors();
+        $this->assertSame(48, OrderPolicy::balanceHoldHours());
+        $this->actingAs(User::factory()->create(['role' => Role::MANAGER]))->put(route('admin.order_policy.update'), $policy + ['balance_hold_hours' => 6])->assertForbidden();
     }
 }

@@ -21,6 +21,8 @@ class OrderPolicy
     public const DEFAULT_REFUND_WORKING_DAYS = 2;
     /** Days a payment problem may wait for a decision before it becomes a refund (Phase C). */
     public const DEFAULT_RESOLUTION_DAYS = 3;
+    /** Hours a short-paid shop order's stock is held for the balance (Phase C). */
+    public const DEFAULT_BALANCE_HOLD_HOURS = 24;
     public const DEFAULT_DEPOSIT_POLICY = 'Deposit refundable until work starts (designing); non-refundable after.';
 
     private static function saved(): array
@@ -52,6 +54,11 @@ class OrderPolicy
         return (int) (self::saved()['resolution_days'] ?? self::DEFAULT_RESOLUTION_DAYS);
     }
 
+    public static function balanceHoldHours(): int
+    {
+        return (int) (self::saved()['balance_hold_hours'] ?? self::DEFAULT_BALANCE_HOLD_HOURS);
+    }
+
     public static function depositPolicy(): string
     {
         return trim((string) (self::saved()['deposit_policy'] ?? '')) ?: self::DEFAULT_DEPOSIT_POLICY;
@@ -65,6 +72,7 @@ class OrderPolicy
             'deposit_policy' => self::depositPolicy(),
             'refund_working_days' => self::refundWorkingDays(),
             'resolution_days' => self::resolutionDays(),
+            'balance_hold_hours' => self::balanceHoldHours(),
         ];
     }
 
@@ -76,6 +84,7 @@ class OrderPolicy
             'deposit_policy' => ['nullable', 'string', 'max:300'],
             'refund_working_days' => ['nullable', 'integer', 'between:1,14'],
             'resolution_days' => ['nullable', 'integer', 'between:1,30'],
+            'balance_hold_hours' => ['nullable', 'integer', 'between:1,168'],
         ];
     }
 
@@ -87,6 +96,7 @@ class OrderPolicy
             'deposit_policy' => trim((string) ($validated['deposit_policy'] ?? '')),
             'refund_working_days' => (int) ($validated['refund_working_days'] ?? self::DEFAULT_REFUND_WORKING_DAYS),
             'resolution_days' => (int) ($validated['resolution_days'] ?? self::DEFAULT_RESOLUTION_DAYS),
+            'balance_hold_hours' => (int) ($validated['balance_hold_hours'] ?? self::DEFAULT_BALANCE_HOLD_HOURS),
         ]));
     }
 }

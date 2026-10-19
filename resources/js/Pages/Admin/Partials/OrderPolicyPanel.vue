@@ -14,6 +14,7 @@ const form = useForm({
     deposit_policy: props.policy.deposit_policy || '',
     refund_working_days: props.policy.refund_working_days ?? 2,
     resolution_days: props.policy.resolution_days ?? 3,
+    balance_hold_hours: props.policy.balance_hold_hours ?? 24,
 });
 
 function save() {
@@ -45,6 +46,11 @@ const field = 'w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 t
                 <span class="block text-sm text-slate-300 mb-2">Unresolved payment problems become refunds after (days)</span>
                 <input v-model.number="form.resolution_days" type="number" min="1" max="30" step="1" :class="field" />
                 <span class="block text-xs text-slate-500 mt-1">For example, a late payment for an item that has since sold out.</span>
+            </label>
+            <label class="block">
+                <span class="block text-sm text-slate-300 mb-2">Short shop payment: hold stock for (hours)</span>
+                <input v-model.number="form.balance_hold_hours" type="number" min="1" max="168" step="1" :class="field" />
+                <span class="block text-xs text-slate-500 mt-1">How long a shop order paid short keeps its pieces while the customer pays the balance.</span>
             </label>
             <label class="block sm:col-span-2">
                 <span class="block text-sm text-slate-300 mb-2">Deposit rule customers see</span>

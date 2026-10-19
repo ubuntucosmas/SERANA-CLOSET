@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use App\Models\CustomOrder;
-use App\Services\OrderSettlementService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -12,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 
 /**
  * Phase C: a shop order was paid short. Tells the customer what arrived,
- * what is still due, that the pieces are held for a day, and gives the pay
+ * what is still due, how long the pieces are held, and gives the pay
  * link for the balance.
  */
 class BalanceDueMail extends Mailable
@@ -38,7 +37,7 @@ class BalanceDueMail extends Mailable
             'paid' => (int) $this->order->amount_paid,
             'total' => (int) $this->order->chargeable_total,
             'balance' => (int) $this->order->balance_due,
-            'hours' => OrderSettlementService::BALANCE_HOLD_HOURS,
+            'hours' => \App\Support\OrderPolicy::balanceHoldHours(),
             'payLink' => $this->order->payLink(),
             'storeName' => \App\Support\StoreProfile::name(),
         ]);
