@@ -61,6 +61,8 @@ class OrderReceiptMail extends Mailable
             // This payment arrived on an order that was already settled.
             'paidTwice' => $payment && $total > 0 && $total - ($paidToDate - $payment->amount) <= 0,
             'refundDays' => \App\Support\OrderPolicy::refundWorkingDays(),
+            // Paid, but an item sold out before the money arrived (Phase C): not a confirmed order.
+            'unavailable' => collect($order->stock_problem['items'] ?? [])->pluck('name')->unique()->values()->all(),
             'paidInFull' => $total > 0 && $balance <= 0,
             'depositPolicy' => $order->isBespoke() ? \App\Support\OrderPolicy::depositPolicy() : null,
             'trackUrl' => URL::route('track', ['ref' => $order->cipher]),
@@ -78,7 +80,7 @@ class OrderReceiptMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->data()['paidInFull']
+            subject: $this->data()['paidInFull'] && ! $this->data()['unavailable']
                 ? "Your Serana receipt — {$this->order->cipher}"
                 : "Payment received — {$this->order->cipher}",
         );

@@ -216,4 +216,46 @@ class LatePaymentStockGoneTest extends TestCase
         $this->assertSame('needs_resolution', $conflict->fresh()->resolution, 'only stock problems are settled by the job');
         $this->artisan('serana:ledger-check')->assertSuccessful();
     }
+
+    public function test_the_payment_receipt_for_a_sold_out_item_does_not_read_as_a_confirmed_order(): void
+    {
+        $order = $this->lapsedOrder();
+        Mail::fake();
+        $this->paysLate($order);
+
+        Mail::assertSent(\App\Mail\OrderReceiptMail::class, function (\App\Mail\OrderReceiptMail $mail) use ($order) {
+            $mail->assertHasSubject("Payment received — {$order->cipher}");
+            $mail->assertSeeInHtml('Payment received.');
+            $mail->assertDontSeeInHtml('Payment confirmed.');
+            $mail->assertDontSeeInHtml('your order is in our hands');
+            $mail->assertDontSeeInHtml('Paid in full');
+            $mail->assertSeeInHtml('Limited Jacket is no longer available');
+            $mail->assertSeeInHtml('separate email');
+
+            // The PDF is rendered from the same view data.
+            $pdf = view('receipts.luxury', \App\Mail\OrderReceiptMail::viewData($mail->order, $mail->payment))->render();
+            $this->assertStringNotContainsString('Paid in full', $pdf);
+            $this->assertStringContainsString('Item unavailable', $pdf);
+            $this->assertStringContainsString('Limited Jacket is no longer available', $pdf);
+            $this->assertStringContainsString('separate email', $pdf);
+
+            return true;
+        });
+    }
+
+    public function test_a_normal_receipt_still_confirms_the_order(): void
+    {
+        $order = $this->lapsedOrder();
+        $this->jacket->update(['batch_sold' => 0]);
+        Mail::fake();
+        $this->paysLate($order);
+
+        Mail::assertSent(\App\Mail\OrderReceiptMail::class, function (\App\Mail\OrderReceiptMail $mail) {
+            $mail->assertSeeInHtml('Payment confirmed.');
+            $mail->assertSeeInHtml('Paid in full');
+            $mail->assertDontSeeInHtml('no longer available');
+
+            return true;
+        });
+    }
 }
