@@ -131,7 +131,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows'])
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -236,7 +236,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows']);
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem']);
 
         return [
             'data' => $orders->all(),
@@ -346,10 +346,16 @@ class StudioController extends Controller
         $this->appendNote($order, sprintf('[%s] WhatsApp payment confirmed by %s: KSh %s, ref %s',
             now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
             number_format($total), $data['reference']));
-        $settled = app(OrderSettlementService::class)->recordPayment($order, $total, $data['method'],
-            \App\Support\Actor::user($request->user()), $data['reference'])['became_paid'];
+        $result = app(OrderSettlementService::class)->recordPayment($order, $total, $data['method'],
+            \App\Support\Actor::user($request->user()), $data['reference']);
 
-        if (! $settled) {
+        if ($result['stock_gone']) {
+            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
+
+            return back()->with('error', 'Payment recorded, but ' . implode(', ', $result['stock_gone'])
+                . ' sold out after the hold lapsed. Nothing was oversold: choose a refund, a swap or waiting for the next batch.');
+        }
+        if (! $result['became_paid']) {
             return back()->with('error', 'This order is already marked as paid.');
         }
         \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
@@ -433,6 +439,51 @@ class StudioController extends Controller
         return sprintf('Hi %s, this is %s about order %s. %s We will refund KSh %s to you within %d working %s.',
             strtok((string) $order->full_name, ' ') ?: 'there', \App\Support\StoreProfile::name(), $order->cipher, $why,
             number_format(-(int) $order->balance_due), $days, $days === 1 ? 'day' : 'days');
+    }
+
+    /**
+     * Owner or manager: decide a late payment whose item sold out (Phase C):
+     * a full refund, a swap to an item with stock, or waiting for the next
+     * batch. Always with a reason.
+     */
+    public function resolveOrder(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate([
+            'action' => ['required', \Illuminate\Validation\Rule::in(['refund', 'swap', 'wait'])],
+            'reason' => ['required', 'string', 'max:255'],
+            'from_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
+            'to_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
+            'size' => ['nullable', 'string', 'max:60'],
+        ], [
+            'reason.required' => 'Say why, for the record.',
+            'to_product_id.required_if' => 'Choose the item to swap to.',
+        ]);
+
+        $settlement = app(OrderSettlementService::class);
+        $actor = \App\Support\Actor::user($request->user());
+        $before = ['resolution' => $order->resolution, 'balance_due' => $order->balance_due];
+        try {
+            match ($data['action']) {
+                'refund' => $order->resolution_code === 'stock_gone' && in_array($order->resolution, ['needs_resolution', 'waiting_restock'], true)
+                    ? $settlement->cancelForRefund($order, $actor, $data['reason'], 'Sold out after a late payment')
+                    : throw new \DomainException('action|This order has no sold-out item waiting for a decision.'),
+                'wait' => $settlement->waitForRestock($order, $data['reason']),
+                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason']),
+            };
+        } catch (\DomainException $e) {
+            [$field, $message] = str_contains($e->getMessage(), '|') ? explode('|', $e->getMessage(), 2) : ['action', $e->getMessage()];
+            throw \Illuminate\Validation\ValidationException::withMessages([$field => $message]);
+        }
+        $fresh = $order->fresh();
+        \App\Support\Audit::record('order.resolved', $order, $before,
+            ['action' => $data['action'], 'resolution' => $fresh->resolution, 'balance_due' => $fresh->balance_due], $data['reason']);
+
+        return back()->with('success', match (true) {
+            $data['action'] === 'wait' => 'Noted: the order waits for the next batch.',
+            $fresh->balance_due > 0 => 'Swapped. KSh ' . number_format($fresh->balance_due) . ' is due: send the customer the pay link.',
+            $fresh->balance_due < 0 => 'Done. KSh ' . number_format(-$fresh->balance_due) . ' is owed back to the customer (Refunds).',
+            default => 'Swapped. The order is paid and ready for fulfilment.',
+        });
     }
 
     /** Owner: reverse a booking that should not count, with a reason (Phase C). */

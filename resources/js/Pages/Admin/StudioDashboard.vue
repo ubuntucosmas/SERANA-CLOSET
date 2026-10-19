@@ -158,6 +158,16 @@ function reviewBooking(row, action) {
     if (!reason) return;
     router.post(route(action === 'reverse' ? 'studio.payment.reverse' : 'studio.payment.confirm', row.id), { reason }, { preserveScroll: true });
 }
+// A late payment whose item sold out (Phase C): full refund, swap, or wait for the next batch, with a reason.
+const resolveForm = useForm({ action: '', reason: '', from_product_id: null, to_product_id: '', size: '' });
+const canResolve = computed(() => !!selectedOrder.value?.stock_problem && page.props.auth?.user?.abilities?.includes('money.record'));
+const swapChoices = computed(() => (props.products || []).filter(p => p.in_stock && (p.available_stock === null || p.available_stock > 0)));
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { resolveForm.reset(); resolveForm.clearErrors(); resolveForm.from_product_id = o?.stock_problem?.items?.[0]?.product_id ?? null; } });
+function resolveOrder(action) {
+    if (!selectedOrder.value) return;
+    resolveForm.action = action;
+    resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size') });
+}
 // The customer's signed pay link (design B): copy it, or send it prefilled on WhatsApp.
 const payLinkCopied = ref(false);
 async function copyPayLink() {
@@ -506,6 +516,35 @@ function removeAsset(key) {
                     <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
                         Deposit {{ formatAmount(selectedOrder.deposit_required, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} · Balance {{ formatAmount(Math.max(0, selectedOrder.balance_due), page.props) }}
                     </p>
+                    <p v-if="isCommerceOrder && (selectedOrder.amount_paid > 0 || selectedOrder.balance_due < 0)" class="mt-1 text-xs text-slate-300">
+                        Total {{ formatAmount(selectedOrder.chargeable_total, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} ·
+                        <template v-if="selectedOrder.balance_due < 0"><span class="text-amber-300">Owed back {{ formatAmount(-selectedOrder.balance_due, page.props) }}</span></template>
+                        <template v-else>Balance {{ formatAmount(selectedOrder.balance_due, page.props) }}</template>
+                    </p>
+                    <p v-if="selectedOrder.resolution && selectedOrder.resolution !== 'none' && selectedOrder.resolution_reason" role="status" class="mt-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-xs text-amber-200">{{ selectedOrder.resolution_reason }}</p>
+                    <form v-if="canResolve" @submit.prevent class="mt-3 rounded-xl ring-1 ring-white/10 p-3 space-y-2" aria-label="Decide what happens to this order">
+                        <p class="text-xs text-slate-300">
+                            <template v-if="selectedOrder.stock_problem.waiting">Waiting for the next batch. When it is back, swap the customer onto it, or refund in full.</template>
+                            <template v-else>Sold out: {{ selectedOrder.stock_problem.items.map(i => i.name).join(', ') }}. Agree with the customer, then record the decision.</template>
+                        </p>
+                        <select v-if="selectedOrder.stock_problem.items.length > 1" v-model="resolveForm.from_product_id" aria-label="Item that sold out" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm">
+                            <option v-for="i in selectedOrder.stock_problem.items" :key="i.product_id" :value="i.product_id">{{ i.name }} × {{ i.quantity }}</option>
+                        </select>
+                        <div class="grid gap-2 sm:grid-cols-[1.4fr_1fr]">
+                            <select v-model="resolveForm.to_product_id" aria-label="Swap to" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm">
+                                <option value="">Swap to… (in stock)</option>
+                                <option v-for="p in swapChoices" :key="p.id" :value="p.id">{{ p.name }} · {{ formatAmount(p.price, page.props) }}<template v-if="p.available_stock !== null"> · {{ p.available_stock }} left</template></option>
+                            </select>
+                            <input v-model="resolveForm.size" maxlength="60" aria-label="Size for the swap" placeholder="Size (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        </div>
+                        <input v-model="resolveForm.reason" maxlength="255" aria-label="Reason for this decision" placeholder="Reason (what the customer agreed)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="resolveOrder('swap')" :disabled="resolveForm.processing || !resolveForm.reason || !resolveForm.to_product_id" class="rounded-xl bg-[#57d5fc] px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40">Swap</button>
+                            <button v-if="!selectedOrder.stock_problem.waiting" type="button" @click="resolveOrder('wait')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Wait for next batch</button>
+                            <button type="button" @click="resolveOrder('refund')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 disabled:opacity-40">Full refund</button>
+                        </div>
+                        <p v-for="(message, field) in resolveForm.errors" :key="'r' + field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
+                    </form>
                     <form v-if="canSetDeposit && selectedOrder.chargeable_total > 0" @submit.prevent="setDeposit" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1.6fr_auto]">
                         <input v-model="depositForm.deposit" type="number" min="0" step="1" aria-label="Deposit for this order in KSh" placeholder="Deposit (KSh)" title="Leave blank to use the policy share" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <input v-model="depositForm.reason" aria-label="Why this deposit differs" placeholder="Reason" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />

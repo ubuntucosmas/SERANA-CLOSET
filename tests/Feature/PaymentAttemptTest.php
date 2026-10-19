@@ -171,7 +171,33 @@ class PaymentAttemptTest extends TestCase
         $fresh = $order->fresh();
         $this->assertTrue($fresh->is_paid);
         $this->assertSame(OrderStatus::PAID, $fresh->status);
-        // The customer paid: their released hold is committed to sold anyway.
+        // Phase C (changed on purpose): a released hold is taken only because the stock is
+        // still free; it is never sold past the batch limit. The sold-out case waits for the
+        // studio instead: LatePaymentStockGoneTest.
+        $this->assertSame(1, $product->fresh()->batch_sold);
+        $this->assertLessThanOrEqual($product->batch_limit, $product->fresh()->batch_sold);
+    }
+
+    public function test_reconciliation_never_sells_a_released_hold_past_the_batch_limit(): void
+    {
+        Event::fake([\App\Events\MpesaWebhookHandled::class]);
+        Http::fake([
+            '*oauth/v1/generate*'     => Http::response(['access_token' => 'fake']),
+            '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),
+        ]);
+
+        $product = $this->product(1);
+        $product->update(['batch_sold' => 1]); // someone else bought the last one meanwhile
+        $order = $this->pendingOrder(['status' => OrderStatus::EXPIRED, 'created_at' => now()->subMinutes(30)]);
+        $order->stockReservations()->create(['product_id' => $product->id, 'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subMinutes(10)]);
+        $order->paymentAttempts()->create([
+            'checkout_request_id' => 'ws_CO_LATE2', 'phone' => '254712345678', 'amount' => 5000, 'status' => PaymentAttempt::PENDING,
+        ])->forceFill(['created_at' => now()->subMinutes(10)])->save();
+
+        $this->artisan('mpesa:reconcile')->assertSuccessful();
+
+        $fresh = $order->fresh();
+        $this->assertSame([5000, 'needs_resolution', 'stock_gone'], [$fresh->amount_paid, $fresh->resolution, $fresh->resolution_code]);
         $this->assertSame(1, $product->fresh()->batch_sold);
     }
 
