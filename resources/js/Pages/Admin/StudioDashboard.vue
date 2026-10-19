@@ -494,14 +494,14 @@ function removeAsset(key) {
                         Deposit {{ formatAmount(selectedOrder.deposit_required, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} · Balance {{ formatAmount(Math.max(0, selectedOrder.balance_due), page.props) }}
                     </p>
                     <form v-if="canSetDeposit && selectedOrder.chargeable_total > 0" @submit.prevent="setDeposit" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1.6fr_auto]">
-                        <input v-model="depositForm.deposit" type="number" min="0" step="1" aria-label="Deposit for this order in KSh" placeholder="Deposit (KSh, blank = policy)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <input v-model="depositForm.deposit" type="number" min="0" step="1" aria-label="Deposit for this order in KSh" placeholder="Deposit (KSh)" title="Leave blank to use the policy share" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <input v-model="depositForm.reason" aria-label="Why this deposit differs" placeholder="Reason" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <button type="submit" :disabled="depositForm.processing || !depositForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Set deposit</button>
                     </form>
                     <p v-for="(message, field) in depositForm.errors" :key="'d' + field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
                     <div v-if="selectedOrder.pay_link && selectedOrder.balance_due > 0" class="mt-3 flex flex-wrap gap-2">
                         <button type="button" @click="copyPayLink" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">{{ payLinkCopied ? 'Pay link copied' : 'Copy pay link' }}</button>
-                        <a v-if="selectedOrder.pay_whatsapp_url" :href="selectedOrder.pay_whatsapp_url" target="_blank" rel="noopener" class="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-200">Send quote &amp; pay link on WhatsApp</a>
+                        <a v-if="selectedOrder.pay_whatsapp_url" :href="selectedOrder.pay_whatsapp_url" target="_blank" rel="noopener" class="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-400">Send quote &amp; pay link on WhatsApp</a>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">
                         <template v-if="isWhatsAppShop && !selectedOrder.is_paid">WhatsApp order. Once you’ve received {{ formatAmount(selectedOrder.price_quoted, page.props) }} (Send Money, Pochi, cash…), confirm it here: the customer gets their receipt and the stock is committed.</template>
@@ -518,7 +518,7 @@ function removeAsset(key) {
                             <option value="bank">Bank</option>
                         </select>
                         <input v-model="paymentForm.reference" aria-label="M-Pesa code or payment note" placeholder="M-Pesa code or note" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                        <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-200 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : isWhatsAppShop ? 'Confirm payment' : 'Record payment' }}</button>
+                        <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-400 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : isWhatsAppShop ? 'Confirm payment' : 'Record payment' }}</button>
                     </form>
                     <button v-if="isWhatsAppShop && !selectedOrder.is_paid && selectedOrder.status === 'Pending Payment'" type="button" @click="cancelWhatsAppOrder" class="mt-3 text-xs text-slate-400 underline hover:text-rose-300">Customer didn’t pay? Cancel order and release stock</button>
                     <p v-for="(message, field) in paymentForm.errors" :key="field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>

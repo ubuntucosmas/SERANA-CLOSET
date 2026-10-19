@@ -367,6 +367,9 @@ class CustomOrder extends Model
             'paid_whatsapp_url' => $isPaid && $this->isCommerce()
                 ? \App\Support\WhatsAppOrderMessage::paidLink($this) : null,
             'amount'      => $this->total() ?: null,
+            // The ledger: what has been paid and what is still owed (deposits).
+            'amount_paid' => (int) $this->amount_paid,
+            'balance_due' => max(0, (int) $this->balance_due),
             'items'       => $this->trackingItems(),
             'progress'    => $this->progressSnaps()->latest()->get()->map(fn ($snap) => [
                 'image_url'   => $snap->image_url,

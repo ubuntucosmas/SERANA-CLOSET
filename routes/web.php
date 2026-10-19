@@ -110,6 +110,8 @@ Route::middleware('auth')->group(function () {
                 ->map(fn ($o) => $o->only(['id', 'cipher', 'payment_method', 'created_at']) + [
                     // Read through the order adapter (LEDGER_READS), in the vocabulary the page uses.
                     'type' => $o->legacyType(), 'status' => $o->legacyStatus(), 'is_paid' => $o->isPaidUp(), 'price_quoted' => $o->total(),
+                    // Deposits: what is paid and still owed.
+                    'amount_paid' => (int) $o->amount_paid, 'balance_due' => max(0, (int) $o->balance_due),
                 ]),
         ]);
     })->name('profile.designs');

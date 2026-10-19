@@ -75,7 +75,8 @@ onUnmounted(() => clearInterval(timer));
 <template>
     <StorefrontLayout focus>
         <Head title="Pay for your order | Serana Closet" />
-        <main class="page-container pb-24 max-w-2xl mx-auto">
+        <!-- The layout provides <main>; one landmark per page. -->
+        <div class="page-container pb-24 max-w-2xl mx-auto">
             <template v-if="!valid">
                 <PageHeader kicker="Payment" title="This link has expired" subtitle="Pay links work for a limited time. Ask the studio on WhatsApp for a new one, or track your order with its reference." />
                 <Link :href="route('track')" class="btn-primary inline-block mt-4">Track an order</Link>
@@ -111,6 +112,6 @@ onUnmounted(() => clearInterval(timer));
                 <p v-if="message" role="status" aria-live="polite" class="mt-4 text-sm" :class="state === 'failed' ? 'text-error' : 'text-on-surface'">{{ message }}</p>
                 <Link :href="order.track_url" class="inline-block mt-6 text-sm underline text-on-surface-variant">Track this order</Link>
             </template>
-        </main>
+        </div>
     </StorefrontLayout>
 </template>

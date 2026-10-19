@@ -1,0 +1,20 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { paymentStatus } from '../../resources/js/Support/orderStatus.js';
+
+const bespoke = (o = {}) => ({ type: 'Gown', status: 'designing', is_paid: false, price_quoted: 10000, ...o });
+
+test('a bespoke order with a deposit paid reads "Deposit Paid", not "Quote Ready"', () => {
+    const s = paymentStatus(bespoke({ amount_paid: 4000, balance_due: 6000 }));
+    assert.equal(s.label, 'Deposit Paid');
+    assert.match(s.next, /6,000/);
+});
+
+test('a quoted bespoke order with nothing paid is still "Quote Ready"', () => {
+    assert.equal(paymentStatus(bespoke({ amount_paid: 0, balance_due: 10000 })).label, 'Quote Ready');
+    assert.equal(paymentStatus(bespoke()).label, 'Quote Ready', 'payloads without ledger fields keep working');
+});
+
+test('a fully paid order is "Payment Confirmed" whatever was paid before', () => {
+    assert.equal(paymentStatus(bespoke({ is_paid: true, amount_paid: 10000, balance_due: 0 })).label, 'Payment Confirmed');
+});
