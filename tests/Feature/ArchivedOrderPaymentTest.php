@@ -133,6 +133,30 @@ class ArchivedOrderPaymentTest extends TestCase
             ->assertOk()->assertJsonPath('order.reference', $order->cipher);
     }
 
+    public function test_archived_paid_orders_keep_a_working_receipt_link(): void
+    {
+        $order = $this->order(['is_paid' => true, 'status' => 'shipped']);
+        $order->delete();
+
+        $receiptUrl = $this->postJson(route('track.lookup'), ['reference' => $order->cipher, 'phone' => '0712345678'])
+            ->assertOk()->json('order.receipt_url');
+
+        $this->assertNotNull($receiptUrl);
+        $this->get($receiptUrl)->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_archived_unpaid_orders_still_get_no_receipt(): void
+    {
+        $order = $this->order();
+        $order->delete();
+
+        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute('orders.receipt', now()->addDay(), ['order' => $order->id]);
+
+        // Found despite the archive, but refused because it is unpaid.
+        $response = $this->get($url)->assertRedirect();
+        $this->assertNotSame('application/pdf', $response->headers->get('content-type'));
+    }
+
     public function test_amount_mismatch_survives_a_later_failed_prompt(): void
     {
         $order = $this->order(['status' => OrderStatus::AMOUNT_MISMATCH]);

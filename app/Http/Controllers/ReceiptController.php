@@ -11,7 +11,9 @@ class ReceiptController extends Controller
 {
     public function download($orderId)
     {
-        $order = CustomOrder::findOrFail($orderId);
+        // Archived orders keep their receipt: tracking still finds them and
+        // mints this signed link (archiving is a Studio tidy-up).
+        $order = CustomOrder::withTrashed()->findOrFail($orderId);
         
         // Ensure the order is paid
         if (!$order->is_paid) {
