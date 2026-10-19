@@ -115,7 +115,7 @@
                         </Link>
                     </template>
                     <template v-else>
-                        <Link v-if="$page.props.auth?.user?.role === 'admin'" :href="route('studio.index')" class="icon-btn" aria-label="Studio admin">
+                        <Link v-if="$page.props.auth?.user?.studio" :href="route('studio.index')" class="icon-btn" aria-label="Studio admin">
                             <span class="material-symbols-outlined !text-[24px]" aria-hidden="true">dashboard</span>
                         </Link>
                         <Link :href="route('profile.designs')" class="icon-btn" aria-label="Your orders">

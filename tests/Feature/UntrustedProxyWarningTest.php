@@ -80,7 +80,7 @@ class UntrustedProxyWarningTest extends TestCase
 
     public function test_preflight_reports_a_proxy_seen_in_the_last_day(): void
     {
-        User::factory()->create(['role' => 'admin', 'password' => Hash::make('kitenge-sunrise-42')]);
+        User::factory()->create(['role' => 'owner', 'password' => Hash::make('kitenge-sunrise-42')]);
         config(['trustedproxy.proxies' => null]);
         $this->forwardedRequest();
 
@@ -90,7 +90,7 @@ class UntrustedProxyWarningTest extends TestCase
 
     public function test_preflight_is_quiet_when_no_untrusted_proxy_was_seen(): void
     {
-        User::factory()->create(['role' => 'admin', 'password' => Hash::make('kitenge-sunrise-42')]);
+        User::factory()->create(['role' => 'owner', 'password' => Hash::make('kitenge-sunrise-42')]);
 
         $this->artisan('serana:preflight')
             ->doesntExpectOutputToContain('forwarded headers arrived from untrusted');

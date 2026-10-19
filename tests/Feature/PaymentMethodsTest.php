@@ -24,7 +24,7 @@ class PaymentMethodsTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin', 'name' => 'Owner']);
+        return User::factory()->create(['role' => 'owner', 'name' => 'Owner']);
     }
 
     private function setPayments(bool $mpesa, bool $whatsapp, string $instructions = 'Send Money to 0712 345 678', int $hours = 48): void

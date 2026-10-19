@@ -90,7 +90,7 @@ class DropReservationTest extends TestCase
 
     public function test_admin_can_create_a_drop_with_an_image(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
 
         $res = $this->actingAs($admin)->post(route('admin.drops.store'), [
             'title' => 'Midnight Trench',

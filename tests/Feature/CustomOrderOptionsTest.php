@@ -15,7 +15,7 @@ class CustomOrderOptionsTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin']);
+        return User::factory()->create(['role' => 'owner']);
     }
 
     private function payload(array $overrides = []): array

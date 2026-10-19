@@ -33,7 +33,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()->isAdmin()) {
+        if ($request->user()->canUseStudio()) {
             return redirect()->route('studio.index');
         }
 

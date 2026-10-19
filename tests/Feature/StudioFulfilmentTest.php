@@ -18,7 +18,7 @@ class StudioFulfilmentTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin', 'name' => 'Owner']);
+        return User::factory()->create(['role' => 'owner', 'name' => 'Owner']);
     }
 
     private function brief(array $o = []): CustomOrder

@@ -49,7 +49,7 @@ class StorefrontStudioSyncTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin']);
+        return User::factory()->create(['role' => 'owner']);
     }
 
     public function test_a_piece_held_by_an_unpaid_order_shows_sold_out_in_the_shop(): void

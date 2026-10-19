@@ -22,7 +22,7 @@ class StudioStatsTest extends TestCase
 
     private function stats(): array
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
         $stats = null;
         $this->actingAs($admin)->get(route('studio.index'))->assertInertia(function (Assert $page) use (&$stats) {
             $stats = $page->toArray()['props']['stats'];
@@ -63,7 +63,7 @@ class StudioStatsTest extends TestCase
 
         $brief = $this->order(['type' => 'Hoodie', 'status' => 'designing', 'price_quoted' => 0]);
         Carbon::setTestNow('2026-10-17 09:30:00');
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
             ->post(route('studio.order.record_payment', $brief), ['amount' => 4500, 'reference' => 'QK2']);
         $this->assertEquals('2026-10-17 09:30:00', $brief->fresh()->paid_at->toDateTimeString());
 

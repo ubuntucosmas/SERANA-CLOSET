@@ -48,7 +48,7 @@ class ArchivedOrderPaymentTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin']);
+        return User::factory()->create(['role' => 'owner']);
     }
 
     public function test_paid_callback_settles_and_restores_an_archived_order(): void

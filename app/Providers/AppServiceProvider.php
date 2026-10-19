@@ -28,6 +28,11 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureRateLimits();
 
+        // The role matrix (App\Support\Role), enforced server-side on every route that needs it.
+        foreach (array_keys(\App\Support\Role::MATRIX) as $ability) {
+            \Illuminate\Support\Facades\Gate::define($ability, fn ($user) => \App\Support\Role::allows($user->role, $ability));
+        }
+
         // No blanket Vite::prefetch(): it downloaded every page chunk, Studio
         // included, for every visitor. app.js warms only the storefront pages
         // a shopper is likely to open next, once the browser is idle.

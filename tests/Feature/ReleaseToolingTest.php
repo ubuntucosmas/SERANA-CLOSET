@@ -16,7 +16,7 @@ class ReleaseToolingTest extends TestCase
 
     public function test_admin_password_reset_rejects_weak_or_mismatched_passwords(): void
     {
-        $admin = User::factory()->create(['email' => 'owner@serana.test', 'role' => 'admin', 'password' => Hash::make('password')]);
+        $admin = User::factory()->create(['email' => 'owner@serana.test', 'role' => 'owner', 'password' => Hash::make('password')]);
 
         $this->artisan('serana:admin', ['email' => 'owner@serana.test'])
             ->expectsQuestion('New password (at least 12 characters)', 'short')
@@ -32,7 +32,7 @@ class ReleaseToolingTest extends TestCase
 
     public function test_admin_password_reset_signs_out_other_sessions(): void
     {
-        $admin = User::factory()->create(['email' => 'owner@serana.test', 'role' => 'admin', 'password' => Hash::make('password')]);
+        $admin = User::factory()->create(['email' => 'owner@serana.test', 'role' => 'owner', 'password' => Hash::make('password')]);
         config(['session.driver' => 'database']);
         DB::table('sessions')->insert(['id' => 'old', 'user_id' => $admin->id, 'payload' => '', 'last_activity' => time()]);
 
@@ -49,7 +49,7 @@ class ReleaseToolingTest extends TestCase
     {
         $this->artisan('serana:admin', ['email' => 'New@Serana.test', '--generate' => true, '--name' => 'Wanjiru'])
             ->expectsOutputToContain('Password (shown once')->assertSuccessful();
-        $this->assertSame('admin', User::where('email', 'new@serana.test')->value('role'));
+        $this->assertSame('owner', User::where('email', 'new@serana.test')->value('role'));
 
         User::factory()->create(['email' => 'buyer@serana.test', 'role' => 'customer']);
         $this->artisan('serana:admin', ['email' => 'buyer@serana.test', '--generate' => true])->assertFailed();
@@ -58,10 +58,10 @@ class ReleaseToolingTest extends TestCase
 
     public function test_preflight_blocks_a_misconfigured_server(): void
     {
-        User::factory()->create(['role' => 'admin', 'password' => Hash::make('password')]);
+        User::factory()->create(['role' => 'owner', 'password' => Hash::make('password')]);
 
         $this->artisan('serana:preflight')
-            ->expectsOutputToContain('No admin uses the default password')
+            ->expectsOutputToContain('No staff account uses the default password')
             ->expectsOutputToContain('Scheduler is running')
             ->assertFailed();
     }
@@ -76,7 +76,7 @@ class ReleaseToolingTest extends TestCase
             'services.mpesa.key' => '', // WhatsApp-only launch: a warning, not a blocker
         ]);
         $this->app->detectEnvironment(fn () => 'production');
-        User::factory()->create(['role' => 'admin', 'password' => Hash::make('kitenge-sunrise-42')]);
+        User::factory()->create(['role' => 'owner', 'password' => Hash::make('kitenge-sunrise-42')]);
         Cache::forever(ProductionPreflight::HEARTBEAT, now()->timestamp);
 
         $this->artisan('serana:preflight')->expectsOutputToContain('Ready to take orders')->assertSuccessful();

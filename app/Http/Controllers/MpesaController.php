@@ -327,7 +327,7 @@ class MpesaController extends Controller
         }
 
         return auth()->check() && (
-            (int) $order->user_id === (int) auth()->id() || auth()->user()->role === 'admin'
+            (int) $order->user_id === (int) auth()->id() || auth()->user()->canUseStudio()
         );
     }
 }

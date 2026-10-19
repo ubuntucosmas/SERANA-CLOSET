@@ -379,7 +379,7 @@ function removeAsset(key) {
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <template v-else-if="currentTab === 'settings'">
-            <PaymentsPanel :settings="payment_settings" />
+            <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
                 @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
                 @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />

@@ -10,11 +10,11 @@ class AdminAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_access_studio()
+    public function test_owner_can_access_studio()
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'owner']);
 
-        $response = $this->actingAs($admin)->get('/studio');
+        $response = $this->actingAs($owner)->get('/studio');
 
         $response->assertStatus(200);
     }
