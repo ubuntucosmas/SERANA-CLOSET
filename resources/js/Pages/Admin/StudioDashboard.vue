@@ -146,6 +146,11 @@ const paymentForm = useForm({ amount: '', method: 'mpesa_manual', reference: '' 
 // A bespoke order's deposit: the policy share unless owner/manager set it (with a reason).
 const depositForm = useForm({ deposit: '', reason: '' });
 const canSetDeposit = computed(() => !isCommerceOrder.value && page.props.auth?.user?.abilities?.includes('deposit.override'));
+// The customer's signed pay link (design B): copy it, or send it prefilled on WhatsApp.
+const payLinkCopied = ref(false);
+async function copyPayLink() {
+    try { await navigator.clipboard.writeText(selectedOrder.value.pay_link); payLinkCopied.value = true; setTimeout(() => { payLinkCopied.value = false; }, 2500); } catch { window.prompt('Copy this pay link:', selectedOrder.value.pay_link); }
+}
 function setDeposit() {
     depositForm.transform(d => ({ ...d, deposit: d.deposit === '' ? null : d.deposit }))
         .put(route('studio.order.deposit', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => depositForm.reset() });
@@ -494,6 +499,10 @@ function removeAsset(key) {
                         <button type="submit" :disabled="depositForm.processing || !depositForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Set deposit</button>
                     </form>
                     <p v-for="(message, field) in depositForm.errors" :key="'d' + field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
+                    <div v-if="selectedOrder.pay_link && selectedOrder.balance_due > 0" class="mt-3 flex flex-wrap gap-2">
+                        <button type="button" @click="copyPayLink" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">{{ payLinkCopied ? 'Pay link copied' : 'Copy pay link' }}</button>
+                        <a v-if="selectedOrder.pay_whatsapp_url" :href="selectedOrder.pay_whatsapp_url" target="_blank" rel="noopener" class="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-200">Send quote &amp; pay link on WhatsApp</a>
+                    </div>
                     <p class="mt-1 text-xs text-slate-500">
                         <template v-if="isWhatsAppShop && !selectedOrder.is_paid">WhatsApp order. Once you’ve received {{ formatAmount(selectedOrder.price_quoted, page.props) }} (Send Money, Pochi, cash…), confirm it here: the customer gets their receipt and the stock is committed.</template>
                         <template v-else-if="isWhatsAppShop">Confirmed by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>

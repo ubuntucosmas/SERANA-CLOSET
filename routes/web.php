@@ -49,6 +49,11 @@ Route::post('/checkout/process',   [CheckoutController::class, 'process'])
 Route::post('/checkout/{order}/whatsapp', [CheckoutController::class, 'switchToWhatsApp'])
     ->middleware('throttle:checkout-switch')->name('checkout.whatsapp');
 
+// Customer pay link (signed, expiring; checked in the controller so an expired
+// link shows a friendly page). Opening it lets this browser pay this order.
+Route::get('/pay/{order:cipher}', [App\Http\Controllers\PayController::class, 'show'])
+    ->middleware('throttle:track')->name('pay');
+
 // Public order tracking (guest-friendly). Lookup is throttled and requires
 // reference + phone, so it can't be used to enumerate orders.
 Route::get('/track',         [OrderTrackingController::class, 'index'])->name('track');

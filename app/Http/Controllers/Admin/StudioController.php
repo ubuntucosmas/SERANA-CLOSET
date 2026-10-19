@@ -113,7 +113,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -216,8 +216,11 @@ class StudioController extends Controller
             ->when($request->input('o_sort') === 'oldest', fn ($query) => $query->oldest(), fn ($query) => $query->latest())
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
+        // Pay link and WhatsApp message for quoted bespoke orders (design B).
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url']);
+
         return [
-            'data' => $page->items(),
+            'data' => $orders->all(),
             'page' => $page->currentPage(),
             'last_page' => $page->lastPage(),
             'total' => $page->total(),
