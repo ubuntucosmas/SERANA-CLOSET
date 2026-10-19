@@ -98,17 +98,11 @@ class OrderSettlementService
             return;
         }
 
+        // Queued, never sent here: this runs inside Safaricom's callback request.
         try {
-            Mail::raw(
-                "Order {$order->cipher} (#{$order->id}) received an M-Pesa payment of KSh {$paid} "
-                . "but KSh {$expected} was quoted. The order was NOT marked paid.\n\n"
-                . "Customer: {$order->full_name} ({$order->phone})\n"
-                . "The money has been collected — this needs a manual refund or follow-up.",
-                fn ($message) => $message->to($ownerEmail)
-                    ->subject("⚠ Payment amount mismatch — order {$order->cipher}")
-            );
+            Mail::to($ownerEmail)->queue(new \App\Mail\AmountMismatchAlertMail($order, $expected, $paid));
         } catch (\Throwable $e) {
-            Log::error("Amount-mismatch alert email failed for Order #{$order->id}: " . $e->getMessage());
+            Log::error("Amount-mismatch alert email could not be queued for Order #{$order->id}: " . $e->getMessage());
         }
     }
 }
