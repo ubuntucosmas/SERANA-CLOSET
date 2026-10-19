@@ -72,7 +72,7 @@ const getObjectURL = (file) => {
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
 const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
-const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '' });
+const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '', quote_reason: '' });
 // Owner only: start work before the deposit, or ship with a balance owed, with a reason (audited).
 const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
 const progressSnapForm = useForm({ image: null, description: '' });
@@ -183,6 +183,16 @@ function recordPayment() {
     paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
 }
 function saveOrder() {
+    // Phase C: lowering a quote below what's paid owes the difference back; warn and ask why first.
+    const o = selectedOrder.value;
+    const quote = Math.round(Number(orderForm.price_quoted || 0));
+    orderForm.quote_reason = '';
+    if (o && !isCommerceOrder.value && quote !== Number(o.chargeable_total) && quote < Number(o.amount_paid || 0)) {
+        const owed = Number(o.amount_paid) - quote;
+        const reason = window.prompt(`KSh ${Number(o.amount_paid).toLocaleString()} is already paid. Lowering the quote to KSh ${quote.toLocaleString()} means KSh ${owed.toLocaleString()} is owed back to the customer (it goes to Refunds, and the piece can't ship until it's refunded).\n\nReason for lowering the quote:`);
+        if (!reason) return;
+        orderForm.quote_reason = reason;
+    }
     orderForm.put(route('studio.update', orderForm.id), { preserveScroll: true });
 }
 function archiveOrder(id) {
@@ -502,7 +512,7 @@ function removeAsset(key) {
                         <span class="block text-sm text-slate-300 mb-2">Owner override reason <span class="text-slate-500">(only if starting work before the deposit, or shipping with a balance)</span></span>
                         <input v-model="orderForm.override_reason" maxlength="255" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
-                    <div v-if="selectedOrder.is_paid || isCommerceOrder" class="block">
+                    <div v-if="isCommerceOrder" class="block">
                         <span class="block text-sm text-slate-300 mb-2">Total</span>
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
                     </div>

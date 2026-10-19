@@ -156,6 +156,7 @@ class StudioController extends Controller
             'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
             'override_reason' => 'nullable|string|max:255',
+            'quote_reason' => 'nullable|string|max:255',
         ]);
 
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
@@ -163,8 +164,18 @@ class StudioController extends Controller
         }
         $commerce = $order->isCommerce();
         $currentStatus = $order->legacyStatus();
-        if (($order->isPaidUp() || $commerce) && array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
+        $newQuote = array_key_exists('price_quoted', $validated) && $validated['price_quoted'] !== null ? (int) round((float) $validated['price_quoted']) : null;
+        $quoteChanges = $newQuote !== null && (float) $newQuote !== (float) $order->total();
+        // A paid bespoke quote may only come down (the excess is owed back); a checkout total never changes.
+        if ($quoteChanges && ($commerce || ($order->isPaidUp() && $newQuote > (int) $order->chargeable_total))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'A checkout or paid order’s total cannot be changed.']);
+        }
+        $quoteReason = trim((string) ($validated['quote_reason'] ?? ''));
+        $paid = (int) $order->amount_paid;
+        $lowersBelowPaid = $quoteChanges && $newQuote < $paid;
+        if ($lowersBelowPaid && $quoteReason === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'KSh ' . number_format($paid) . ' is already paid, so KSh '
+                . number_format($paid - $newQuote) . ' would be owed back to the customer. Add a reason to lower the quote.']);
         }
         if ($validated['status'] !== $currentStatus && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
@@ -175,7 +186,7 @@ class StudioController extends Controller
             }
         }
         $overrideReason = trim((string) ($validated['override_reason'] ?? ''));
-        unset($validated['is_paid'], $validated['override_reason']);
+        unset($validated['is_paid'], $validated['override_reason'], $validated['quote_reason']);
 
         // N7: bespoke work starts once the deposit is paid and leaves once it is paid in full.
         if (! $commerce && $validated['status'] !== $currentStatus && ($blocked = $this->fulfilmentBlock($order, $validated['status']))) {
@@ -188,9 +199,13 @@ class StudioController extends Controller
 
         \App\Support\Audit::changes('order.updated', $order, $validated);
         // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
-        if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
-            app(OrderSettlementService::class)->setQuote($order, (int) round((float) $validated['price_quoted']),
-                \App\Support\Actor::user($request->user()), 'Quote set in the Studio');
+        if ($quoteChanges) {
+            $before = (int) $order->chargeable_total;
+            app(OrderSettlementService::class)->setQuote($order, $newQuote,
+                \App\Support\Actor::user($request->user()), $quoteReason !== '' ? $quoteReason : 'Quote set in the Studio');
+            if ($lowersBelowPaid) {
+                \App\Support\Audit::record('order.quote_lowered', $order, ['quote' => $before, 'paid' => $paid], ['quote' => $newQuote, 'owed_back' => $paid - $newQuote], $quoteReason);
+            }
         }
         unset($validated['price_quoted']);
         $order->refresh()->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
@@ -523,6 +538,9 @@ class StudioController extends Controller
         }
         if ((int) $order->chargeable_total <= 0) {
             return 'Set the quote before work starts.';
+        }
+        if ($stage === 'shipped' && $order->balance_due < 0) {
+            return 'KSh ' . number_format(-$order->balance_due) . ' is owed back to the customer. Record the refund before it leaves the studio.';
         }
         if ($stage === 'shipped') {
             return $order->balance_due > 0

@@ -44,6 +44,9 @@ class PayController extends Controller
                 'total' => (int) $order->chargeable_total,
                 'amount_paid' => (int) $order->amount_paid,
                 'balance_due' => $balance,
+                // More paid than owed (a lowered quote): said plainly instead of "balance 0".
+                'refund_due' => max(0, -(int) $order->balance_due),
+                'refund_days' => OrderPolicy::refundWorkingDays(),
                 'deposit_due' => $depositLeft > 0 && $depositLeft < $balance ? $depositLeft : null,
                 'deposit_policy' => $order->isBespoke() ? OrderPolicy::depositPolicy() : null,
                 'payment_status' => $order->payment_status,

@@ -584,7 +584,7 @@ class OrderSettlementService
             }
 
             DB::table('custom_orders')->where('id', $locked->id)->update(['price_quoted' => $quote]);
-            $this->recompute($locked);
+            $this->recompute($locked, 'Quote lowered below the amount paid');
         }, 3);
     }
 

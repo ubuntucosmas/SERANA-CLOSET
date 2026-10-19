@@ -92,7 +92,8 @@ onUnmounted(() => clearInterval(timer));
                     </div>
                     <div class="flex justify-between gap-4 border-t border-outline-variant pt-3 font-semibold"><span>Total</span><span class="tabular-nums">{{ money(order.total) }}</span></div>
                     <div class="flex justify-between gap-4 text-sm"><span class="text-on-surface-variant">Paid so far</span><span class="tabular-nums">{{ money(order.amount_paid) }}</span></div>
-                    <div class="flex justify-between gap-4 text-lg font-semibold"><span>Balance due</span><span class="tabular-nums">{{ money(order.balance_due) }}</span></div>
+                    <div v-if="order.refund_due > 0" class="flex justify-between gap-4 text-lg font-semibold"><span>To be refunded to you</span><span class="tabular-nums">{{ money(order.refund_due) }}</span></div>
+                    <div v-else class="flex justify-between gap-4 text-lg font-semibold"><span>Balance due</span><span class="tabular-nums">{{ money(order.balance_due) }}</span></div>
                     <p v-if="order.deposit_policy" class="text-xs text-on-surface-variant pt-2">{{ order.deposit_policy }}</p>
                 </section>
 
@@ -106,6 +107,7 @@ onUnmounted(() => clearInterval(timer));
                         <button v-for="c in choices" :key="c.pay" type="button" @click="pay(c.pay)" :disabled="!phone || state === 'sending' || state === 'waiting'" class="btn-primary disabled:opacity-40">{{ c.label }}</button>
                     </div>
                 </section>
+                <p v-else-if="order.refund_due > 0" class="card p-6 mt-6 text-center">{{ money(order.refund_due) }} will be refunded to you<template v-if="order.refund_days"> within {{ order.refund_days }} working {{ order.refund_days === 1 ? 'day' : 'days' }}</template>. Nothing more to pay.</p>
                 <p v-else-if="order.balance_due === 0" class="card p-6 mt-6 text-center">Paid in full. Thank you.</p>
                 <p v-else class="card p-6 mt-6 text-sm text-on-surface-variant">M-Pesa payment isn’t available on this link right now. Message the studio on WhatsApp to pay.</p>
 
