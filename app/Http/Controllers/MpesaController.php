@@ -258,8 +258,12 @@ class MpesaController extends Controller
                 // the balance shows any shortfall or excess (design B/C).
                 if ($order->isBespoke() && is_numeric($paidAmount) && (int) round((float) $paidAmount) > 0) {
                     $attempt?->markPaid($receiptNumber);
-                    $this->settlement->recordPayment($order, (int) round((float) $paidAmount), 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber,
+                    $booked = $this->settlement->recordPayment($order, (int) round((float) $paidAmount), 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber,
                         $attempt, "paid KSh {$paidAmount} against a KSh {$expected} prompt", $payload);
+                    // A customer can't change an STK amount: a difference is a bug or tampering.
+                    if ($booked['booked']) {
+                        $this->settlement->alertUnexpectedAmount($order, $expected, (int) round((float) $paidAmount), $receiptNumber);
+                    }
 
                     return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
                 }

@@ -173,6 +173,27 @@ class OrderSettlementService
     }
 
     /**
+     * A bespoke M-Pesa payment arrived for a different amount than its prompt.
+     * It is booked as received (recordPayment); this tells the owner, after
+     * commit, because a customer cannot change an STK amount. The Studio's
+     * Attention list shows it too (StudioController::index).
+     */
+    public function alertUnexpectedAmount(CustomOrder $order, int $prompted, int $paid, ?string $reference): void
+    {
+        Log::warning("Unexpected M-Pesa amount on bespoke Order #{$order->id}.", ['prompted' => $prompted, 'paid' => $paid, 'reference' => $reference]);
+
+        $ownerEmail = \App\Support\StoreProfile::notificationEmail();
+        if (! $ownerEmail) {
+            return;
+        }
+        try {
+            Mail::to($ownerEmail)->queue(new \App\Mail\UnexpectedAmountAlertMail($order, $prompted, $paid, $reference));
+        } catch (\Throwable $e) {
+            Log::error("Unexpected-amount alert could not be queued for Order #{$order->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Set what a bespoke order costs. Lines are append-only (I3): the first quote
      * is an item line, later changes are adjustment lines for the difference.
      */

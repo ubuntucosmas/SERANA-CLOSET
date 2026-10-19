@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomOrder;
 use App\Models\OrderProgressSnap;
 use App\Models\PaymentAttempt;
+use App\Models\OrderPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -85,6 +86,23 @@ class StudioController extends Controller
                         : ($p->available_stock === 0 ? 'Sold out' : $p->available_stock . ' left')
                         . ($p->reservedQuantity() ? ' · ' . $p->reservedQuantity() . ' on hold awaiting payment' : '')]),
         ];
+
+        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal.
+        $unexpected = OrderPayment::query()
+            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
+            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
+            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
+            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
+            ->latest('order_payments.id')
+            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
+        if ($unexpected->isNotEmpty()) {
+            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
+            $attention['awaiting'] = $unexpected->map(fn ($p) => [
+                'id' => $p->custom_order_id, 'full_name' => $orders[$p->custom_order_id]->full_name, 'amount' => (int) $p->amount,
+                'reference' => $orders[$p->custom_order_id]->cipher, 'created_at' => $p->created_at,
+                'next_action' => 'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt',
+            ])->concat($attention['awaiting'])->values();
+        }
 
         // A customer who paid twice is owed a refund; surface it until handled.
         $duplicatePaid = PaymentAttempt::where('status', PaymentAttempt::PAID)
