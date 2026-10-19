@@ -47,6 +47,7 @@
 | Commit and tag | Committed in reviewed groups; tagged `v1.0.0-rc.1` | Push `master` and the tag; deploy only with `deploy/deploy.sh v1.0.0-rc.1` |
 | Admin password | `php artisan serana:admin <email>` creates or resets an admin (hidden prompt or `--generate`, ends other sign-ins). Local seeded admins reset. | On the server: `php artisan serana:admin you@<domain> --name="…"`. Never run the seeders there (they refuse). |
 | Production settings | `deploy/env.production.example`; `php artisan serana:preflight` checks every setting and exits non-zero on a blocker | Fill the real `.env`: domain, brand-domain SMTP with SPF/DKIM/DMARC, live Daraja keys when the till is approved (WhatsApp-only until then) |
+| Trusted proxies | Only addresses in `TRUSTED_PROXIES` may set `X-Forwarded-*` (unset = trust none; `hardening/batch-1`). Preflight warns about `*` combined with `MPESA_ALLOWED_IPS`, and about forwarded requests from an untrusted address in the last 24 h (the app logs these hourly). | **Nginx facing the internet directly:** leave `TRUSTED_PROXIES` blank. **Behind Cloudflare:** set it to Cloudflare's published ranges, both <https://www.cloudflare.com/ips-v4> and <https://www.cloudflare.com/ips-v6>, comma-separated. Re-check them occasionally, because Cloudflare changes them. Never use `*`. Without this, every shopper appears as a Cloudflare IP (they share one per-IP rate limit) and HTTPS looks like HTTP. **Behind a load balancer:** its private IP or subnet. Then run `php artisan serana:preflight`: no proxy warning. |
 | Background jobs | `deploy/crontab`, `deploy/supervisor-serana-worker.conf`; the scheduler writes a heartbeat that preflight checks. Locally ddev now runs both (`.ddev/config.yaml`): the July backlog expired on the first tick. | Install the cron line and the supervisor program |
 | Backup, then migrate | `deploy/deploy.sh` dumps the database and uploads first and stops if the dump is empty, then migrates, caches, restarts workers and runs preflight. Local snapshot: `ddev snapshot restore pre-release-2026-10-18`. | Copy the backups off the server |
 | Legal pages | — | Owner content: privacy notice, terms, delivery and returns |
@@ -55,6 +56,6 @@ Then run the live tests in runbook steps 13–20 (`CONTROLLED-PRODUCTION-TEST-RE
 
 ## Still open after launch
 
-- P2 `trustProxies('*')`: set the host's real proxy IPs.
+- ~~P2 `trustProxies('*')`: set the host's real proxy IPs.~~ Fixed in code (`1f09def`): set `TRUSTED_PROXIES` on the server (see Trusted proxies above).
 - P2 Server-side size validation per garment type at checkout.
 - P2 Payments confirmed by reconciliation carry no M-Pesa receipt code.

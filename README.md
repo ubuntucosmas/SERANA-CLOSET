@@ -19,33 +19,45 @@ Clients can track their garment's evolution from "Digital Mapping" to "Final Sti
 
 ## 🛠 Technical Architecture
 
-- **Backend**: Laravel 11.x (Inertia.js)
-- **Frontend**: Vue 3 (Composition API)
-- **Styling**: Tailwind CSS (Custom "Neon Dark" Design System)
-- **State Management**: Pinia (Cart & Session Persistence)
-- **Database**: SQLite (Production-ready for High-Performance caching)
+- **Backend**: Laravel 12 (PHP 8.2) with Inertia.js 2
+- **Frontend**: Vue 3 (Composition API), Pinia (cart), Vite 7, Tailwind CSS 3
+- **Database**: MariaDB 11.8 (local via ddev, and production). Tests use SQLite in memory by default, and MariaDB in CI.
+- **Payments**: M-Pesa STK push (Safaricom Daraja), plus WhatsApp orders confirmed in the Studio
+- **Background work**: a scheduler every minute (stock-hold expiry, M-Pesa reconciliation) and a queue worker (receipt and alert emails)
 
-## 🚀 Getting Started
+The full map of the codebase is in [`docs/PROJECT_UNDERSTANDING.md`](docs/PROJECT_UNDERSTANDING.md).
 
-1.  **Install Dependencies**:
-    ```bash
-    composer install
-    npm install
-    ```
-2.  **Environment Setup**:
-    ```bash
-    cp .env.example .env
-    php artisan key:generate
-    ```
-3.  **Database Initialisation**:
-    ```bash
-    php artisan migrate:fresh --seed
-    ```
-4.  **Launch**:
-    ```bash
-    npm run dev
-    php artisan serve
-    ```
+## 🚀 Getting Started (local, with ddev)
+
+There is no host PHP: everything runs inside [ddev](https://ddev.com), which also runs the scheduler and the queue worker (`.ddev/config.yaml`).
+
+```bash
+ddev start
+cp .env.example .env                       # only if .env is missing
+ddev composer install
+ddev exec php artisan key:generate
+ddev exec php artisan migrate --seed       # demo data; seeders refuse to run outside local/testing
+npm ci && npm run dev                      # or: npm run build
+```
+
+The site is at `https://serana-closet.ddev.site`. Create or reset a Studio admin with `ddev exec php artisan serana:admin you@example.com`.
+
+ddev has no outbound DNS, so real M-Pesa prompts can't be sent locally. The tests fake Daraja.
+
+### Tests
+
+```bash
+ddev exec php artisan test        # SQLite (MariaDB-only concurrency tests skip)
+node --test tests/Frontend/
+
+# Same PHP suite on MariaDB. Tests wipe the database, so use one whose name contains "test":
+ddev exec 'mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS testing; GRANT ALL ON testing.* TO \"db\"@\"%\""'
+ddev exec 'DB_CONNECTION=mariadb DB_DATABASE=testing php artisan test --fail-on-skipped'
+```
+
+### Production
+
+See `deploy/` (`deploy.sh`, `crontab`, the supervisor worker, `env.production.example`) and run `php artisan serana:preflight` on the server after every deploy.
 
 ## 🔐 Administrative Access
 Admin users can access the **Studio Dashboard** (`/studio`) to manage:
