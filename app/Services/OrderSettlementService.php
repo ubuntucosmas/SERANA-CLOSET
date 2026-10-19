@@ -454,8 +454,8 @@ class OrderSettlementService
             $this->line($locked, OrderLine::RETAINED_DEPOSIT, 'Deposit retained', 1, $retained, $actor, $reason);
         }
         $this->clearResolution($locked);
-        // The stage it reached stays in the audit trail; a closed order is no longer in production.
-        $closed = ['order_state' => $state, 'fulfilment_status' => 'pending', 'price_quoted' => $retained];
+        // The stage it reached is kept ("cancelled at: sewing"); the order state takes it out of every queue.
+        $closed = ['order_state' => $state, 'price_quoted' => $retained];
         DB::table('custom_orders')->where('id', $locked->id)->update($closed);
         $locked->forceFill($closed);
         $this->recompute($locked, $cause);

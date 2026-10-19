@@ -60,6 +60,7 @@ class BespokeCancellationTest extends TestCase
         $this->cancel($order)->assertSessionHasNoErrors()->assertSessionHas('success');
 
         $fresh = $order->fresh();
+        Mail::assertQueued(BespokeCancelledMail::class, fn (BespokeCancelledMail $mail) => $mail->assertDontSeeInHtml('Cancelled at:') !== null);
         $this->assertSame(['cancelled', 0, -5000, 'refund_due', 'Cancelled before work started', OrderStatus::CANCELLED],
             [$fresh->order_state, $fresh->chargeable_total, $fresh->balance_due, $fresh->payment_status, $fresh->refund_cause, $fresh->status]);
         Mail::assertQueued(BespokeCancelledMail::class, function (BespokeCancelledMail $mail) {
@@ -81,8 +82,10 @@ class BespokeCancellationTest extends TestCase
         $this->assertSame(['cancelled', 5000, 6000, -1000, 'refund_due'], [$fresh->order_state, $fresh->chargeable_total, $fresh->amount_paid, $fresh->balance_due, $fresh->payment_status]);
         $retained = $order->lines()->where('line_type', OrderLine::RETAINED_DEPOSIT)->sole();
         $this->assertSame([5000, 'Customer cancelled after the toile'], [$retained->amount, $retained->reason]);
+        $this->assertSame(['designing', OrderStatus::CANCELLED], [$fresh->fulfilment_status, $fresh->status], 'the stage it reached is kept');
         Mail::assertQueued(BespokeCancelledMail::class, function (BespokeCancelledMail $mail) {
             $mail->assertSeeInHtml('your deposit of KSh 5,000 is kept');
+            $mail->assertSeeInHtml('Cancelled at: Designing');
             $mail->assertSeeInHtml('KSh 1,000 you paid above the deposit will be refunded to you within 2 working days');
 
             return true;

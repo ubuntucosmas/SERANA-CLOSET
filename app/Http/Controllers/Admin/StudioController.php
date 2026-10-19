@@ -126,13 +126,24 @@ class StudioController extends Controller
     public function update(Request $request, CustomOrder $order)
     {
         $validated = $request->validate([
-            'status' => ['required', \Illuminate\Validation\Rule::in(array_merge(OrderStatus::PRODUCTION_STAGES, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::EXPIRED]))],
+            'status' => ['required', \Illuminate\Validation\Rule::in(array_merge(OrderStatus::PRODUCTION_STAGES, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::EXPIRED, OrderStatus::CANCELLED]))],
             'internal_notes' => 'nullable|string',
             'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
             'override_reason' => 'nullable|string|max:255',
             'quote_reason' => 'nullable|string|max:255',
         ]);
+
+        // A cancelled order stays at the stage it was cancelled at; only its notes can change.
+        if ($order->order_state === 'cancelled') {
+            if ($validated['status'] !== $order->legacyStatus() && $validated['status'] !== $order->fulfilment_status) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order is cancelled. Its stage stays where it was cancelled.']);
+            }
+            \App\Support\Audit::changes('order.updated', $order, ['internal_notes' => $validated['internal_notes'] ?? null]);
+            $order->update(['internal_notes' => $validated['internal_notes'] ?? null]);
+
+            return back()->with('success', 'Notes saved. The order stays cancelled.');
+        }
 
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);

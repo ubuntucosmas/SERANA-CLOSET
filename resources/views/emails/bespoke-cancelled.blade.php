@@ -26,6 +26,9 @@
                             Nothing was paid on this order, so there is nothing to refund.
                         @endif
                     </p>
+                    @if($retained > 0)
+                    <p style="font-size:13px; color:#c8c8cc; line-height:1.7; margin:0 0 10px;">Cancelled at: {{ $stage }}</p>
+                    @endif
                     <p style="font-size:12px; color:#9a9aa0; line-height:1.6; margin:0;">Deposit policy: {{ $policy }}</p>
                 </td></tr>
             </table>

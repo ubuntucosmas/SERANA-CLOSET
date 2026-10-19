@@ -39,6 +39,8 @@ class BespokeCancelledMail extends Mailable
             'owedBack' => $this->owedBack,
             'refundDays' => OrderPolicy::refundWorkingDays(),
             'policy' => OrderPolicy::depositPolicy(),
+            // The stage work had reached, kept on the order.
+            'stage' => ucfirst((string) $this->order->fulfilment_status),
             'storeName' => \App\Support\StoreProfile::name(),
         ]);
     }

@@ -114,6 +114,10 @@ class LedgerVerifier
                 if ($column === 'resolution' && ($value !== 'none') === (($order->resolution ?? 'none') !== 'none')) {
                     continue;
                 }
+                // A cancelled order keeps the production stage it was cancelled at.
+                if ($column === 'fulfilment_status' && $order->status === OrderStatus::CANCELLED) {
+                    continue;
+                }
                 if ($order->{$column} !== $value) {
                     $issues[] = "{$column}: legacy implies " . var_export($value, true) . ', stored ' . var_export($order->{$column}, true);
                 }
