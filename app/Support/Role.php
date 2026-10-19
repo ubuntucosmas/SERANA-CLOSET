@@ -32,6 +32,8 @@ final class Role
         'settings.policies' => [self::OWNER],
         // One bespoke order's deposit.
         'deposit.override' => [self::OWNER, self::MANAGER],
+        // Start work without the deposit, or ship with a balance owed (N7), with a reason.
+        'fulfilment.override' => [self::OWNER],
     ];
 
     public static function allows(?string $role, string $ability): bool

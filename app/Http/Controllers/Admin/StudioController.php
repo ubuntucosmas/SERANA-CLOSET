@@ -136,6 +136,7 @@ class StudioController extends Controller
             'internal_notes' => 'nullable|string',
             'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
+            'override_reason' => 'nullable|string|max:255',
         ]);
 
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
@@ -154,7 +155,18 @@ class StudioController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
             }
         }
-        unset($validated['is_paid']);
+        $overrideReason = trim((string) ($validated['override_reason'] ?? ''));
+        unset($validated['is_paid'], $validated['override_reason']);
+
+        // N7: bespoke work starts once the deposit is paid and leaves once it is paid in full.
+        if (! $commerce && $validated['status'] !== $currentStatus && ($blocked = $this->fulfilmentBlock($order, $validated['status']))) {
+            if ($overrideReason === '' || ! $request->user()->can('fulfilment.override')) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => $blocked]);
+            }
+            \App\Support\Audit::record('fulfilment.override', $order,
+                ['status' => $currentStatus, 'balance_due' => max(0, (int) $order->balance_due)], ['status' => $validated['status']], $overrideReason);
+        }
+
         \App\Support\Audit::changes('order.updated', $order, $validated);
         // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
         if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
@@ -322,6 +334,27 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /** Why a bespoke order may not move to $stage yet (N7), or null when it may. */
+    private function fulfilmentBlock(CustomOrder $order, string $stage): ?string
+    {
+        $working = ['designing', 'sewing', 'completed'];
+        if (! in_array($stage, [...$working, 'shipped'], true)) {
+            return null;
+        }
+        if ((int) $order->chargeable_total <= 0) {
+            return 'Set the quote before work starts.';
+        }
+        if ($stage === 'shipped') {
+            return $order->balance_due > 0
+                ? 'KSh ' . number_format($order->balance_due) . ' is still owed. Take the balance before it leaves the studio.'
+                : null;
+        }
+
+        return (int) $order->amount_paid < $order->depositRequired()
+            ? 'Take the deposit (KSh ' . number_format($order->depositRequired()) . ') before work starts.'
+            : null;
     }
 
     /** One bespoke order's deposit (owner or manager), with a reason. Null returns to the policy share. */

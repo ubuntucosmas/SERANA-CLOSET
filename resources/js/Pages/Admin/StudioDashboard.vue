@@ -70,7 +70,9 @@ const getObjectURL = (file) => {
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
 const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
-const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false });
+const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '' });
+// Owner only: start work before the deposit, or ship with a balance owed, with a reason (audited).
+const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
 const progressSnapForm = useForm({ image: null, description: '' });
 const orderArchived = computed(() => !!selectedOrder.value?.deleted_at);
 
@@ -467,6 +469,10 @@ function removeAsset(key) {
                             <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
+                    </label>
+                    <label v-if="canOverrideFulfilment && !isCommerceOrder" class="block sm:col-span-2">
+                        <span class="block text-sm text-slate-300 mb-2">Owner override reason <span class="text-slate-500">(only if starting work before the deposit, or shipping with a balance)</span></span>
+                        <input v-model="orderForm.override_reason" maxlength="255" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
                     <div v-if="selectedOrder.is_paid || isCommerceOrder" class="block">
                         <span class="block text-sm text-slate-300 mb-2">Total</span>
