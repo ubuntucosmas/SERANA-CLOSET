@@ -48,9 +48,9 @@ class ProductionPreflight extends Command
         $this->section('Database');
         $pending = $this->pendingMigrations();
         $this->check($pending === [], 'All migrations have run', 'Back up, then run php artisan migrate --force. Pending: ' . implode(', ', $pending));
-        $defaults = User::where('role', 'admin')->get()->filter(fn ($u) => Hash::check('password', $u->password))->pluck('email');
-        $this->check(User::where('role', 'admin')->exists(), 'A Studio admin exists', 'Create one: php artisan serana:admin you@yourdomain --name="Your Name"');
-        $this->check($defaults->isEmpty(), 'No admin uses the default password', 'Reset: php artisan serana:admin <email> for ' . $defaults->implode(', '));
+        $defaults = User::whereIn('role', \App\Support\Role::STAFF)->get()->filter(fn ($u) => Hash::check('password', $u->password))->pluck('email');
+        $this->check(User::where('role', \App\Support\Role::OWNER)->exists(), 'A Studio owner exists', 'Create one: php artisan serana:admin you@yourdomain --name="Your Name"');
+        $this->check($defaults->isEmpty(), 'No staff account uses the default password', 'Reset: php artisan serana:admin <email> for ' . $defaults->implode(', '));
 
         $this->section('Email');
         $from = (string) config('mail.from.address');

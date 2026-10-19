@@ -86,7 +86,7 @@ class StockReservationTest extends TestCase
 
     public function test_paid_callback_commits_held_stock_to_sold(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         config(['services.mpesa.callback_token' => 'secret']);
         $product = $this->product(limit: 3, sold: 0, price: 5000);
         $order = $this->orderHolding($product, qty: 2); // price_quoted = 10000
@@ -144,7 +144,7 @@ class StockReservationTest extends TestCase
 
     public function test_reconciliation_confirms_payment_when_callback_was_missed(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         Http::fake([
             '*oauth/v1/generate*'      => Http::response(['access_token' => 'fake']),
             '*stkpushquery/v1/query*'  => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),
@@ -167,7 +167,7 @@ class StockReservationTest extends TestCase
     {
         // Daraja spike-arrests the query endpoint; a paid order must not be
         // skipped just because the first query was rate-limited.
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         Http::fake([
             '*oauth/v1/generate*' => Http::response(['access_token' => 'fake']),
             '*stkpushquery/v1/query*' => Http::sequence()

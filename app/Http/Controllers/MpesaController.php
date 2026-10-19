@@ -70,13 +70,13 @@ class MpesaController extends Controller
             }
 
             // Reject re-payment of an already-settled order.
-            if ($order->is_paid || $order->status === OrderStatus::PAID) {
+            if ($order->isPaidUp() || $order->legacyStatus() === OrderStatus::PAID) {
                 return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
             }
 
             // An expired order's stock hold is long gone — never collect money
             // for it. The customer rebuilds their bag and checks out afresh.
-            if ($order->status === OrderStatus::EXPIRED) {
+            if ($order->isExpired()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This order expired before payment. Please check out again.',
@@ -84,7 +84,7 @@ class MpesaController extends Controller
             }
 
             // With paid Drops paused, an unpaid reservation must not be charged.
-            if ($order->type === 'drop' && ! config('services.drops.enabled')) {
+            if ($order->isDrop() && ! config('services.drops.enabled')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Drop reservations are paused. Contact support with your order reference.',
@@ -94,7 +94,7 @@ class MpesaController extends Controller
             // Money has already been collected against this order at the wrong
             // amount. A fresh prompt would charge the customer again before the
             // studio has reviewed (and possibly refunded) the first payment.
-            if ($order->status === OrderStatus::AMOUNT_MISMATCH) {
+            if ($order->hasAmountMismatch()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This order needs studio review before another payment. Contact support with your order reference.',
@@ -103,10 +103,10 @@ class MpesaController extends Controller
 
             // SERVER-AUTHORITATIVE AMOUNT: never trust a client-supplied amount.
             // The only source of truth is the price computed at checkout.
-            if ((float) $order->price_quoted !== floor((float) $order->price_quoted)) {
+            if ($order->hasFractionalTotal()) {
                 return response()->json(['success' => false, 'message' => 'This order amount needs studio review before M-Pesa payment. Contact support with your order reference.'], 422);
             }
-            $amount = (int) round((float) $order->price_quoted);
+            $amount = $order->total();
             if ($amount <= 0) {
                 return response()->json(['success' => false, 'message' => 'Order has no payable amount.'], 422);
             }
@@ -146,8 +146,8 @@ class MpesaController extends Controller
                 // Conditional, so an earlier prompt's callback that settled the
                 // order in the meantime is never overwritten.
                 CustomOrder::whereKey($order->id)
-                    ->where('is_paid', false)
-                    ->update(['status' => OrderStatus::PENDING_PAYMENT]);
+                    ->paidUp(false)
+                    ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
 
                 return response()->json([
                     'success' => true,
@@ -226,12 +226,14 @@ class MpesaController extends Controller
         }
 
         // 2. Idempotency / duplicate-payment check
-        if ($order->is_paid || $order->status === OrderStatus::PAID) {
+        if ($order->isPaidUp() || $order->legacyStatus() === OrderStatus::PAID) {
             if ($attempt && $attempt->status === PaymentAttempt::PENDING) {
                 if ($resultCode == 0) {
                     // The customer paid a second prompt for an already-paid order:
-                    // record it — this is a refund owed, not a success to celebrate.
+                    // book it — the ledger then shows a refund owed, not a success.
                     $attempt->markPaid($receiptNumber);
+                    $this->settlement->recordPayment($order, is_numeric($paidAmount) ? (int) round((float) $paidAmount) : $attempt->amount,
+                        'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber, $attempt, 'paid again: the order was already paid', $payload);
                     Log::warning("M-Pesa Callback: duplicate successful payment for already-paid Order #{$order->id}. — refund may be owed.");
                 } else {
                     $attempt->markFailed((string) $resultCode, $stkCallback['ResultDesc'] ?? null);
@@ -245,17 +247,17 @@ class MpesaController extends Controller
         if ($resultCode == 0) {
             // AMOUNT VERIFICATION: the amount actually paid must match the amount
             // we pushed. A short/forged callback must never flip is_paid.
-            $expected = $attempt?->amount ?? (int) round((float) $order->price_quoted);
+            $expected = $attempt?->amount ?? $order->total();
             if (! is_numeric($paidAmount) || (int) round((float) $paidAmount * 100) !== $expected * 100) {
                 $attempt?->markFailed((string) $resultCode, 'Amount mismatch');
-                $this->settlement->flagAmountMismatch($order, $expected, $paidAmount);
+                $this->settlement->flagAmountMismatch($order, $expected, $paidAmount, $receiptNumber, $attempt);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
             }
 
-            // Marks paid, commits held stock to sold, and dispatches the event.
+            // Books the payment; becoming paid commits held stock and sends the receipt.
             $attempt?->markPaid($receiptNumber);
-            $this->settlement->markPaid($order, $receiptNumber, $payload);
+            $this->settlement->recordPayment($order, $expected, 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber, $attempt, null, $payload);
             Log::info("M-Pesa Payment Successful for Order #{$order->id}.");
 
         } else {
@@ -291,17 +293,17 @@ class MpesaController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
-        $isPaid = (bool) $order->is_paid;
+        $isPaid = $order->isPaidUp();
 
         return response()->json([
             'success' => true,
             'is_paid' => $isPaid,
-            'status' => $order->status,
+            'status' => $order->legacyStatus(),
             'payment_method' => $order->payment_method,
             'reference' => $order->cipher,
             // Server-confirmed total, so the success screen never has to trust
             // the client-side cart for the figure it displays.
-            'amount' => (float) $order->price_quoted,
+            'amount' => $order->total(),
             'transaction_id' => $order->mpesa_receipt_number,
             // Paid only: the payment record the customer posts to the studio.
             'whatsapp_url' => $isPaid ? \App\Support\WhatsAppOrderMessage::paidLink($order) : null,
@@ -327,7 +329,7 @@ class MpesaController extends Controller
         }
 
         return auth()->check() && (
-            (int) $order->user_id === (int) auth()->id() || auth()->user()->role === 'admin'
+            (int) $order->user_id === (int) auth()->id() || auth()->user()->canUseStudio()
         );
     }
 }

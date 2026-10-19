@@ -88,9 +88,20 @@ class DropReservationTest extends TestCase
         $this->assertSame(0, CustomOrder::count());
     }
 
+    /** The whole-KES ledger and M-Pesa cannot hold cents: drop prices are whole at entry, like the catalogue. */
+    public function test_drop_prices_must_be_whole_shillings(): void
+    {
+        $admin = User::factory()->create(['role' => 'owner']);
+        $drop = ['title' => 'Cents', 'price' => '2500.50', 'target_quantity' => 5, 'status' => 'draft'];
+
+        $this->actingAs($admin)->post(route('admin.drops.store'), $drop)->assertSessionHasErrors('price');
+        $this->actingAs($admin)->post(route('admin.drops.store'), ['price' => '2500.00'] + $drop)->assertSessionHasNoErrors();
+        $this->assertSame(1, Drop::count());
+    }
+
     public function test_admin_can_create_a_drop_with_an_image(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
 
         $res = $this->actingAs($admin)->post(route('admin.drops.store'), [
             'title' => 'Midnight Trench',

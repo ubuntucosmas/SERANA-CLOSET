@@ -22,7 +22,7 @@ class StudioStatsTest extends TestCase
 
     private function stats(): array
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
         $stats = null;
         $this->actingAs($admin)->get(route('studio.index'))->assertInertia(function (Assert $page) use (&$stats) {
             $stats = $page->toArray()['props']['stats'];
@@ -61,10 +61,11 @@ class StudioStatsTest extends TestCase
         app(OrderSettlementService::class)->markPaid($shop, 'QK1');
         $this->assertEquals('2026-10-16 10:00:00', $shop->fresh()->paid_at->toDateTimeString());
 
-        $brief = $this->order(['type' => 'Hoodie', 'status' => 'designing', 'price_quoted' => 0]);
+        // Quoted first: recording a payment never sets the quote (batch 2, design B).
+        $brief = $this->order(['type' => 'Hoodie', 'status' => 'designing', 'price_quoted' => 4500]);
         Carbon::setTestNow('2026-10-17 09:30:00');
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
-            ->post(route('studio.order.record_payment', $brief), ['amount' => 4500, 'reference' => 'QK2']);
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
+            ->post(route('studio.order.record_payment', $brief), ['amount' => 4500, 'method' => 'mpesa_manual', 'reference' => 'QK2']);
         $this->assertEquals('2026-10-17 09:30:00', $brief->fresh()->paid_at->toDateTimeString());
 
         // A later stage change must not move the payment date.

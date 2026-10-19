@@ -15,7 +15,8 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check() && auth()->user()->role === 'admin') {
+        // Owners and managers (Role::MATRIX 'studio.access'); cashiers get the POS only.
+        if (auth()->check() && auth()->user()->canUseStudio()) {
             return $next($request);
         }
 

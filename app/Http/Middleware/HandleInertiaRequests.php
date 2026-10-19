@@ -41,7 +41,11 @@ class HandleInertiaRequests extends Middleware
             'seo' => fn () => \App\Support\PageSeo::forRequest($request),
             'auth' => [
                 'user' => fn () => $request->user()
-                    ? $request->user()->only('id', 'name', 'email', 'role')
+                    ? $request->user()->only('id', 'name', 'email', 'role') + [
+                        // What the UI may offer; the server enforces the same matrix (App\Support\Role).
+                        'studio' => $request->user()->canUseStudio(),
+                        'abilities' => \App\Support\Role::abilities($request->user()->role),
+                    ]
                     : null,
             ],
             'flash' => [

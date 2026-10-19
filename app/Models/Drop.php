@@ -65,7 +65,7 @@ class Drop extends Model
     /** Confirmed (paid) reservations — what counts toward the target. */
     public function paidReservations()
     {
-        return $this->hasMany(CustomOrder::class, 'drop_id')->where('is_paid', true);
+        return $this->hasMany(CustomOrder::class, 'drop_id')->paidUp();
     }
 
     public function getImageUrlAttribute(): ?string

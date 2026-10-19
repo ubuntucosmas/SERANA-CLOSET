@@ -33,25 +33,25 @@ class ReleaseExpiredReservations extends Command
         // prompt sent inside the window: the customer may be typing their PIN
         // (or retrying) right now, and expiring mid-payment would strand the
         // money if the callback is then lost.
-        $expiredOrders = CustomOrder::whereIn('status', [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
-            ->where('is_paid', false)
+        $expiredOrders = CustomOrder::withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
+            ->paidUp(false)
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->whereDoesntHave('stockReservations', fn ($q) => $q->where('status', 'held'))
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q
                 ->where('created_at', '>=', now()->subMinutes($window)))
             ->where('created_at', '<=', now()->subMinutes($window))
-            ->update(['status' => OrderStatus::EXPIRED]);
+            ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
 
         // WhatsApp orders wait for the studio to confirm payment: they expire only
         // after their own (longer) window, whether or not they held any stock.
         $staleWhatsApp = CustomOrder::where('payment_method', PaymentSettings::WHATSAPP)
-            ->where('status', OrderStatus::PENDING_PAYMENT)
-            ->where('is_paid', false)
+            ->withLegacyStatus([OrderStatus::PENDING_PAYMENT])
+            ->paidUp(false)
             ->where('created_at', '<=', now()->subHours(PaymentSettings::holdHours()))
             ->get();
         foreach ($staleWhatsApp as $order) {
             $order->releaseReservations();
-            $expiredOrders += CustomOrder::whereKey($order->id)->where('is_paid', false)->update(['status' => OrderStatus::EXPIRED]);
+            $expiredOrders += CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
         }
 
         $this->info("Released {$released} reservation(s); expired {$expiredOrders} order(s).");

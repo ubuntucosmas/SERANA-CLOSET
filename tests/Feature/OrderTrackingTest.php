@@ -98,6 +98,7 @@ class OrderTrackingTest extends TestCase
             'type'     => 'standard',
             'status'   => OrderStatus::PAID,
             'is_paid'  => true,
+            'price_quoted' => 5000, // nothing can be paid for KSh 0
         ]);
         $this->assertStringContainsString('signature', $this->postJson(route('track.lookup'), [
             'reference' => $paid->cipher,

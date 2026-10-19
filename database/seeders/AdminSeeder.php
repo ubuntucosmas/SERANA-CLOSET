@@ -24,7 +24,7 @@ class AdminSeeder extends Seeder
             [
                 'name' => 'Serana Admin',
                 'password' => Hash::make('password'),
-                'role' => 'admin',
+                'role' => 'owner',
                 'invitation_code' => 'SERANA-ADMIN-001'
             ]
         );
@@ -35,7 +35,7 @@ class AdminSeeder extends Seeder
             [
                 'name' => 'Serana Principal',
                 'password' => Hash::make('password'),
-                'role' => 'admin',
+                'role' => 'owner',
                 'invitation_code' => 'SERANA-ADMIN-002'
             ]
         );

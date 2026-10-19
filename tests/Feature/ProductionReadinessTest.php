@@ -35,7 +35,7 @@ class ProductionReadinessTest extends TestCase
         Storage::fake('public');
         config(['filesystems.public_disk' => 'public']);
         ThemeSetting::set('site_logo', 'themes/old.png');
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
             ->postJson(route('admin.theme.update'), ['key' => 'site_logo', 'value' => UploadedFile::fake()->create('payload.php', 1, 'application/x-php')])
             ->assertUnprocessable()->assertJsonValidationErrors('value');
         $this->assertSame('themes/old.png', ThemeSetting::where('key', 'site_logo')->value('value'));
@@ -44,7 +44,7 @@ class ProductionReadinessTest extends TestCase
 
     public function test_settings_reject_unknown_keys_and_unsafe_social_urls_atomically(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->actingAs(User::factory()->create(['role' => 'owner']));
         $this->postJson(route('admin.theme.bulk_update'), ['settings' => ['unknown_secret' => 'value']])
             ->assertUnprocessable();
         $this->postJson(route('admin.theme.bulk_update'), ['settings' => ['site_name' => 'New name', 'instagram_url' => 'javascript:alert(1)']])
@@ -55,7 +55,7 @@ class ProductionReadinessTest extends TestCase
     public function test_catalogue_update_validates_secondary_uploads(): void
     {
         $product = Product::create(['name' => 'Jacket', 'slug' => 'jacket', 'price' => 5000]);
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
             ->putJson(route('admin.catalog.update_product', $product), [
                 'secondary_image_1' => UploadedFile::fake()->create('bad.php', 1, 'application/x-php'),
             ])->assertUnprocessable()->assertJsonValidationErrors('secondary_image_1');
@@ -65,7 +65,7 @@ class ProductionReadinessTest extends TestCase
     public function test_catalogue_prices_must_be_whole_shillings(): void
     {
         $product = Product::create(['name' => 'Jacket', 'slug' => 'jacket', 'price' => 5000]);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
         $payload = ['category_id' => \App\Models\Category::create(['name' => 'Tops', 'slug' => 'tops'])->id,
             'name' => 'Jacket', 'description' => 'Warm.', 'garment_type' => 'set'];
 
@@ -107,6 +107,8 @@ class ProductionReadinessTest extends TestCase
 
     public function test_paid_status_text_alone_never_issues_a_receipt_or_confirms_payment(): void
     {
+        // Builds a row the ledger cannot have (status 'Paid', is_paid false): it proves the text alone confers nothing.
+        $this->ledgerChecks = [\App\Services\LedgerVerifier::MAPPING, \App\Services\LedgerVerifier::MONEY];
         $order = $this->order(['status' => OrderStatus::PAID, 'is_paid' => false]);
         $this->withSession(['serana.order_ids' => [$order->id]])->getJson(route('mpesa.status', $order->id))
             ->assertJsonPath('is_paid', false)->assertJsonPath('receipt_url', null);

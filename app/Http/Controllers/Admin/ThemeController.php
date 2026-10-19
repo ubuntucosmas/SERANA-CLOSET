@@ -82,7 +82,9 @@ class ThemeController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['instructions' => 'Tell customers how to pay for WhatsApp orders (e.g. your Send Money number).']);
         }
 
+        $before = array_intersect_key(PaymentSettings::forStudio(), $validated);
         PaymentSettings::save($validated);
+        \App\Support\Audit::record('settings.payments.updated', null, $before, $validated);
 
         return back()->with('success', 'Payment options updated.');
     }

@@ -138,8 +138,8 @@ const briefFields = computed(() => {
     return [['Piece', o.type && o.type !== 'custom' ? o.type : null], ['Occasion', j.occasion], ['Needed by', j.deadline], ['Location', j.location],
         ['Fit', j.selected_fit], ['Fabric', o.fabric_preference], ['Colour', j.selected_color], ['Inspired by', j.source_product]].filter(f => f[1]);
 });
-const paymentForm = useForm({ amount: '', reference: '' });
-watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { paymentForm.reset(); paymentForm.clearErrors(); paymentForm.amount = o?.price_quoted ? Math.round(o.price_quoted) : ''; } });
+const paymentForm = useForm({ amount: '', method: 'mpesa_manual', reference: '' });
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { paymentForm.reset(); paymentForm.clearErrors(); paymentForm.amount = o?.balance_due > 0 ? o.balance_due : (o?.price_quoted ? Math.round(o.price_quoted) : ''); } }); // the balance, now that part-payments exist
 function recordPayment() {
     if (!selectedOrder.value) return;
     paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
@@ -379,7 +379,7 @@ function removeAsset(key) {
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <template v-else-if="currentTab === 'settings'">
-            <PaymentsPanel :settings="payment_settings" />
+            <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
                 @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
                 @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
@@ -476,8 +476,13 @@ function removeAsset(key) {
                         <template v-else-if="selectedOrder.is_paid">Recorded by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
                         <template v-else>Custom order payments are arranged on WhatsApp. Record the payment here once you receive it.</template>
                     </p>
-                    <form v-if="canRecordPayment" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+                    <form v-if="canRecordPayment" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_1.4fr_auto]">
                         <input v-model="paymentForm.amount" type="number" min="1" step="1" aria-label="Amount received in KSh" placeholder="Amount (KSh)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <select v-model="paymentForm.method" aria-label="How it was paid" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none">
+                            <option value="mpesa_manual">M-Pesa</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank</option>
+                        </select>
                         <input v-model="paymentForm.reference" aria-label="M-Pesa code or payment note" placeholder="M-Pesa code or note" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <button type="submit" :disabled="paymentForm.processing || !paymentForm.amount || !paymentForm.reference" class="rounded-xl bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-200 disabled:opacity-40">{{ paymentForm.processing ? 'Saving…' : isWhatsAppShop ? 'Confirm payment' : 'Record payment' }}</button>
                     </form>

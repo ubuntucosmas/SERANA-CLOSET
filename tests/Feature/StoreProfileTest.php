@@ -28,7 +28,7 @@ class StoreProfileTest extends TestCase
             'tiktok_url' => '', 'facebook_url' => '', 'x_url' => 'https://x.com/serana',
             'focal_1_label' => '', 'focal_2_label' => '', 'focal_3_label' => '',
         ], $overrides);
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
             ->post(route('admin.theme.bulk_update'), ['settings' => $settings])->assertSessionHasNoErrors();
         auth()->logout();
     }
@@ -105,7 +105,7 @@ class StoreProfileTest extends TestCase
 
     public function test_bad_contact_details_are_refused(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
+        $this->actingAs(User::factory()->create(['role' => 'owner']))
             ->post(route('admin.theme.bulk_update'), ['settings' => ['site_name' => 'S', 'care_phone' => 'call me', 'notification_email' => 'nope', 'x_url' => 'not a url']])
             ->assertSessionHasErrors(['settings.care_phone', 'settings.notification_email', 'settings.x_url']);
     }

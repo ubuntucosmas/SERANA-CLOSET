@@ -62,7 +62,10 @@ class ReconcilePendingPayments extends Command
                 // The STK was pushed with a server-authoritative amount, so a
                 // confirmed success means the correct amount was paid.
                 $attempt?->markPaid();
-                if ($settlement->markPaid($order, null, $result['data'] ?? [])) {
+                // STK Query returns no receipt code; the attempt links the money.
+                $booked = $settlement->recordPayment($order, $attempt?->amount, 'mpesa_stk', \App\Support\Actor::system(),
+                    null, $attempt, 'confirmed by STK query', $result['data'] ?? []);
+                if ($booked['became_paid']) {
                     $resolved++;
                     Log::info("Reconciliation: Order #{$order->id} confirmed paid via STK Query.");
                 }
@@ -104,7 +107,7 @@ class ReconcilePendingPayments extends Command
             ->where('created_at', '>=', now()->subDay())
             ->orderByDesc('created_at')
             ->get()
-            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->is_paid)
+            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->isPaidUp())
             ->map(fn ($attempt) => [
                 'order'       => $attempt->order,
                 'checkout_id' => $attempt->checkout_request_id,
@@ -112,8 +115,8 @@ class ReconcilePendingPayments extends Command
             ]);
 
         // Orders from before per-attempt tracking: only a latest checkout id.
-        $legacy = CustomOrder::withTrashed()->whereIn('status', $reconcilable)
-            ->where('is_paid', false)
+        $legacy = CustomOrder::withTrashed()->withLegacyStatus($reconcilable)
+            ->paidUp(false)
             ->whereNotNull('mpesa_checkout_id')
             ->whereDoesntHave('paymentAttempts')
             ->where('created_at', '<=', now()->subMinutes(2))

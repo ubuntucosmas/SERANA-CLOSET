@@ -52,13 +52,14 @@ class DropController extends Controller
         return $request->validate([
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string',
-            'price'           => 'required|numeric|min:0',
+            // Whole shillings, as in the catalogue: M-Pesa and the ledger cannot hold cents.
+            'price'           => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.0{1,2})?$/'],
             'target_quantity' => 'required|integer|min:1',
             'ends_at'         => 'nullable|date',
             'status'          => ['required', Rule::in(['draft', 'live', 'greenlit', 'fulfilled', 'closed'])],
             'sizes'           => 'nullable|array',
             'sizes.*'         => 'string|max:20',
             'image'           => 'nullable|image|max:5120',
-        ]);
+        ], ['price.regex' => 'Use whole shillings, e.g. 2500. M-Pesa cannot charge cents.']);
     }
 }

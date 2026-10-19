@@ -66,7 +66,7 @@ class TrustedProxiesTest extends TestCase
     public function test_preflight_warns_when_every_proxy_is_trusted_alongside_an_ip_allowlist(): void
     {
         config(['trustedproxy.proxies' => '*']);
-        User::factory()->create(['role' => 'admin', 'password' => Hash::make('kitenge-sunrise-42')]);
+        User::factory()->create(['role' => 'owner', 'password' => Hash::make('kitenge-sunrise-42')]);
         Cache::forever(ProductionPreflight::HEARTBEAT, now()->timestamp);
 
         $this->artisan('serana:preflight')

@@ -23,7 +23,7 @@ class StudioOrderIntegrityTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin']);
+        return User::factory()->create(['role' => 'owner']);
     }
 
     public function test_studio_cannot_override_payment_confirmation(): void

@@ -79,7 +79,7 @@ Route::get('/orders/{order}/receipt', [ReceiptController::class, 'download'])
 
 // Centralized Dashboard Redirect (Handles legacy Breeze redirects)
 Route::get('/dashboard', function () {
-    if (auth()->user()->isAdmin()) {
+    if (auth()->user()->canUseStudio()) {
         return redirect()->route('studio.index');
     }
     return redirect()->route('profile.designs');
@@ -102,7 +102,10 @@ Route::middleware('auth')->group(function () {
         // Customer-safe projection: never ship Studio notes or payment internals.
         return Inertia::render('Profile/DesignsVault', [
             'orders' => auth()->user()->customOrders()->latest()->get()
-                ->map(fn ($o) => $o->only(['id', 'cipher', 'type', 'status', 'is_paid', 'payment_method', 'price_quoted', 'created_at'])),
+                ->map(fn ($o) => $o->only(['id', 'cipher', 'payment_method', 'created_at']) + [
+                    // Read through the order adapter (LEDGER_READS), in the vocabulary the page uses.
+                    'type' => $o->legacyType(), 'status' => $o->legacyStatus(), 'is_paid' => $o->isPaidUp(), 'price_quoted' => $o->total(),
+                ]),
         ]);
     })->name('profile.designs');
 
@@ -122,7 +125,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{id}/restore', [StudioController::class, 'restore'])->name('studio.order.restore');
     Route::delete('/order/{id}/force', [StudioController::class, 'forceDelete'])->name('studio.order.force_delete');
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
-    Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->name('studio.order.record_payment');
+    Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
 
     // Catalog Management
@@ -152,8 +155,8 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/theme/update', [App\Http\Controllers\Admin\ThemeController::class, 'update'])->name('admin.theme.update');
     Route::post('/theme/bulk-update', [App\Http\Controllers\Admin\ThemeController::class, 'bulkUpdate'])->name('admin.theme.bulk_update');
     Route::delete('/theme/{key}', [App\Http\Controllers\Admin\ThemeController::class, 'destroy'])->name('admin.theme.destroy');
-    Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->name('admin.payment_settings.update');
-    Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware('throttle:6,1')->name('admin.payment_settings.test_mpesa');
+    Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->middleware('can:settings.payments')->name('admin.payment_settings.update');
+    Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware(['can:settings.payments', 'throttle:6,1'])->name('admin.payment_settings.test_mpesa');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 

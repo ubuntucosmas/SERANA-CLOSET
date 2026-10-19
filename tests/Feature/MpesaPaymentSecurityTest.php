@@ -145,7 +145,7 @@ class MpesaPaymentSecurityTest extends TestCase
     /** A correct-token, correct-amount callback marks the order paid. */
     public function test_callback_marks_paid_on_correct_amount(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         config(['services.mpesa.callback_token' => 'secret']);
         $order = $this->makeOrder(['price_quoted' => 5000]);
 

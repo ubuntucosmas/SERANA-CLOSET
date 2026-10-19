@@ -20,7 +20,7 @@ class StudioOrderListTest extends TestCase
 
     private function studio(array $query = []): Assert
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'owner']);
         $captured = null;
         $this->actingAs($admin)->get(route('studio.index', $query))->assertOk()->assertInertia(function (Assert $page) use (&$captured) { $captured = $page; });
         return $captured;

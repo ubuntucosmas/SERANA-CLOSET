@@ -18,7 +18,7 @@ class StudioFulfilmentTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin', 'name' => 'Owner']);
+        return User::factory()->create(['role' => 'owner', 'name' => 'Owner']);
     }
 
     private function brief(array $o = []): CustomOrder
@@ -29,7 +29,7 @@ class StudioFulfilmentTest extends TestCase
     public function test_studio_records_a_bespoke_payment_without_losing_the_stage(): void
     {
         $order = $this->brief();
-        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'reference' => 'QK12ABC'])
+        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'method' => 'mpesa_manual', 'reference' => 'QK12ABC'])
             ->assertSessionHas('success');
 
         $fresh = $order->fresh();
@@ -51,8 +51,9 @@ class StudioFulfilmentTest extends TestCase
         $order = $this->brief();
         $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 0, 'reference' => ''])
             ->assertSessionHasErrors(['amount', 'reference']);
-        $order->update(['is_paid' => true]);
-        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'reference' => 'Y'])->assertSessionHas('error');
+        // Paid in full (a real ledger payment), then a second recording is refused.
+        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'method' => 'cash', 'reference' => 'Z'])->assertSessionHas('success');
+        $this->actingAs($this->admin())->post(route('studio.order.record_payment', $order), ['amount' => 4500, 'method' => 'cash', 'reference' => 'Y'])->assertSessionHas('error');
     }
 
     public function test_attention_lists_duplicate_payments_and_low_stock(): void

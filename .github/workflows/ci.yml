@@ -68,5 +68,23 @@ jobs:
           DB_USERNAME: testing
           DB_PASSWORD: testing
 
+      # Phase A4: the same suites with reads switched to the ledger (LEDGER_READS),
+      # so both sides of the cutover switch stay green until the legacy columns go.
+      - name: PHP tests (SQLite, ledger reads)
+        run: php artisan test
+        env:
+          LEDGER_READS: 'true'
+
+      - name: PHP tests (MariaDB, ledger reads)
+        run: php artisan test --fail-on-skipped
+        env:
+          LEDGER_READS: 'true'
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: testing
+          DB_PASSWORD: testing
+
       - name: Frontend tests
         run: node --test 'tests/Frontend/*.test.mjs'

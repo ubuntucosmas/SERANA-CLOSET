@@ -87,7 +87,7 @@ class PaymentAttemptTest extends TestCase
      */
     public function test_paying_an_earlier_stk_attempt_still_settles_the_order(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         $this->fakeStkPushSequence(['ws_CO_FIRST', 'ws_CO_SECOND']);
         $order = $this->pendingOrder();
 
@@ -147,7 +147,7 @@ class PaymentAttemptTest extends TestCase
      */
     public function test_reconciliation_settles_expired_orders_with_pending_attempts(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         Http::fake([
             '*oauth/v1/generate*'     => Http::response(['access_token' => 'fake']),
             '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),
@@ -257,7 +257,7 @@ class PaymentAttemptTest extends TestCase
      */
     public function test_reconciliation_settles_paid_retry_after_payment_failed(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         $product = $this->product();
         $order = $this->pendingOrder();
         $order->stockReservations()->create([
@@ -299,7 +299,7 @@ class PaymentAttemptTest extends TestCase
     /** Defence in depth: a pending push on an unpaid order is reconciled whatever the order's status. */
     public function test_reconciliation_resolves_pending_attempts_on_payment_failed_orders(): void
     {
-        Event::fake();
+        Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         Http::fake([
             '*oauth/v1/generate*'     => Http::response(['access_token' => 'fake']),
             '*stkpushquery/v1/query*' => Http::response(['ResultCode' => '0', 'ResultDesc' => 'Success']),

@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Support\Role;
 
 class User extends Authenticatable
 {
@@ -57,8 +58,19 @@ class User extends Authenticatable
         return $this->hasMany(CustomOrder::class);
     }
 
-    public function isAdmin()
+    public function hasRole(string ...$roles): bool
     {
-        return $this->role === 'admin';
+        return in_array($this->role, $roles, true);
+    }
+
+    /** Owner, manager or cashier: an account that works for the store. */
+    public function isStaff(): bool
+    {
+        return $this->hasRole(...Role::STAFF);
+    }
+
+    public function canUseStudio(): bool
+    {
+        return Role::allows($this->role, 'studio.access');
     }
 }
