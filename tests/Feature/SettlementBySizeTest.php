@@ -99,6 +99,7 @@ class SettlementBySizeTest extends TestCase
         $sales = StockMovement::where('type', 'sale')->orderBy('id')->get();
         $this->assertSame([[-1, $order->id], [-1, $order->id]], $sales->map(fn ($m) => [$m->quantity, $m->custom_order_id])->all());
         $this->assertSame($order->stockReservations()->orderBy('id')->pluck('id')->all(), $sales->pluck('stock_reservation_id')->all());
+        $this->assertSame(['Sold'], $sales->pluck('reason')->unique()->values()->all(), 'the order is its own column, not repeated in the reason');
         $this->assertSame(['committed'], $order->stockReservations()->pluck('status')->unique()->values()->all());
         $this->assertSame(1, $set->fresh()->batch_sold, 'one set, counted once for switching back');
         $this->assertSame([], app(StockService::class)->integrityIssues());

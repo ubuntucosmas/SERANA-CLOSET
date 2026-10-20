@@ -66,7 +66,7 @@ class StockCutover
             foreach ($this->reconciler->replays() as $r) {
                 try {
                     $this->stock->move($r['variant'], \App\Models\Location::findOrFail($r['location_id']), StockMovement::SALE, -$r['quantity'], Actor::system(),
-                        "Sold before the switch: order {$r['order']->cipher}", ['custom_order_id' => $r['order']->id, 'stock_reservation_id' => $r['reservation']->id]);
+                        'Sold before the switch', ['custom_order_id' => $r['order']->id, 'stock_reservation_id' => $r['reservation']->id]);
                 } catch (\DomainException $e) {
                     throw new \DomainException("Recount {$this->stock->describe($r['variant'])}: order {$r['order']->cipher} sold one after the count, which would leave less than zero. ({$e->getMessage()})");
                 }

@@ -258,7 +258,7 @@ class StockService
 
             foreach ($rows as $row) {
                 if ($row->product_variant_id) {
-                    $this->move($row->variant, $row->location, StockMovement::SALE, -$row->quantity, Actor::system(), "Sold: order {$order->cipher}",
+                    $this->move($row->variant, $row->location, StockMovement::SALE, -$row->quantity, Actor::system(), 'Sold',
                         ['custom_order_id' => $order->id, 'stock_reservation_id' => $row->id]);
                 }
                 if (! $row->second_part) {
