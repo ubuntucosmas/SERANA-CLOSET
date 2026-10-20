@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'mpesa.callback' => \App\Http\Middleware\VerifyMpesaCallback::class,
+            'pos.operator' => \App\Http\Middleware\RequirePosOperator::class,
         ]);
 
         // Trusted proxies come from TRUSTED_PROXIES (config/trustedproxy.php),

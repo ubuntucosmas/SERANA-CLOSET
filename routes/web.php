@@ -183,7 +183,25 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->middleware('can:settings.payments')->name('admin.payment_settings.update');
     Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware(['can:settings.payments', 'throttle:6,1'])->name('admin.payment_settings.test_mpesa');
     Route::put('/order-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateOrderPolicy'])->middleware('can:settings.policies')->name('admin.order_policy.update');
+    Route::put('/shop-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateShopPolicy'])->middleware('can:settings.policies')->name('admin.shop_policy.update');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 
 require __DIR__.'/auth.php';
+
+/*
+|--------------------------------------------------------------------------
+| The till (Phase E, design §15): the shop tablet, signed in as staff.
+| Each person unlocks it with their PIN; every action is theirs.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
+    Route::post('/unlock', [App\Http\Controllers\Pos\UnlockController::class, 'unlock'])->middleware('throttle:10,1')->name('pos.unlock');
+    Route::post('/lock', [App\Http\Controllers\Pos\UnlockController::class, 'lock'])->name('pos.lock');
+    Route::middleware('pos.operator')->group(function () {
+        Route::post('/till/open', [App\Http\Controllers\Pos\TillController::class, 'open'])->name('pos.till.open');
+        Route::post('/till/payout', [App\Http\Controllers\Pos\TillController::class, 'payout'])->name('pos.till.payout');
+        Route::post('/till/close', [App\Http\Controllers\Pos\TillController::class, 'close'])->name('pos.till.close');
+        Route::get('/till/report', [App\Http\Controllers\Pos\TillController::class, 'report'])->name('pos.till.report');
+    });
+});

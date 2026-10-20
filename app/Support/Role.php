@@ -42,6 +42,10 @@ final class Role
         'stock.manage' => [self::OWNER, self::MANAGER],
         // Switch stock per size on or off (the cutover and its rollback).
         'stock.cutover' => [self::OWNER],
+        // The till (Phase E): sell, open and close a session (design §5).
+        'pos.sell' => [self::OWNER, self::MANAGER, self::CASHIER],
+        // Approve at the till with a PIN: discounts over the limit, voids, returns, refunds, payouts, variance.
+        'pos.approve' => [self::OWNER, self::MANAGER],
     ];
 
     public static function allows(?string $role, string $ability): bool
