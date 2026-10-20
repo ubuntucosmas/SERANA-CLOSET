@@ -26,6 +26,8 @@ class CustomOrder extends Model
         'balance_due' => 'integer',
         'deposit_override' => 'integer',
         'paid_at' => 'datetime',
+        'refund_due_since' => 'datetime',
+        'resolution_since' => 'datetime',
     ];
 
     protected $appends = ['inspiration_urls', 'items_with_urls', 'deposit_required'];
@@ -149,6 +151,46 @@ class CustomOrder extends Model
         return min($total, $this->deposit_override ?? (int) round($total * \App\Support\OrderPolicy::depositPercent() / 100));
     }
 
+    /** The order's ledger for the Studio: every booking, and whether it was reversed, confirmed or is flagged. */
+    public function getLedgerRowsAttribute(): array
+    {
+        $reviews = \Illuminate\Support\Facades\DB::table('payment_reviews')->whereIn('order_payment_id', $this->payments()->pluck('id'))->pluck('decision', 'order_payment_id');
+        $reversed = $this->payments()->whereNotNull('reverses_payment_id')->pluck('reverses_payment_id')->flip();
+
+        $bespoke = $this->kind === 'bespoke';
+
+        return $this->payments()->with('attempt')->orderBy('id')->get()->map(fn (OrderPayment $p) => [
+            'id' => $p->id, 'type' => $p->type, 'amount' => $p->amount, 'method' => $p->method,
+            'reference' => $p->external_reference, 'actor' => $p->actor_type, 'reason' => $p->reason,
+            'at' => $p->occurred_at?->copy()->timezone(config('app.display_timezone'))->format('d M Y, H:i'),
+            'reversed' => $reversed->has($p->id),
+            'genuine' => ($reviews[$p->id] ?? null) === 'genuine',
+            // Booked past the unique index by the backfill: the code is also on another order.
+            'flagged' => $p->type === OrderPayment::PAYMENT && str_contains((string) $p->external_reference, \App\Services\LedgerBackfill::DUPLICATE_MARK)
+                && ! $reversed->has($p->id) && ! isset($reviews[$p->id]),
+            // A bespoke M-Pesa payment that differs from its prompt, not yet confirmed (Phase C Attention list).
+            'unexpected' => $bespoke && $p->type === OrderPayment::PAYMENT && $p->attempt && (int) $p->attempt->amount !== $p->amount
+                && ! $reversed->has($p->id) && ! isset($reviews[$p->id]),
+        ])->all();
+    }
+
+    /**
+     * A late payment whose item sold out (Phase C), for the Studio's decision
+     * box: the items that could not be served. Null when there is none.
+     */
+    public function getStockProblemAttribute(): ?array
+    {
+        if ($this->resolution_code !== 'stock_gone' || ! in_array($this->resolution, ['needs_resolution', 'waiting_restock'], true)) {
+            return null;
+        }
+
+        return [
+            'waiting' => $this->resolution === 'waiting_restock',
+            'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed()])->get()
+                ->map(fn ($r) => ['product_id' => $r->product_id, 'name' => $r->product?->name ?? 'Item', 'quantity' => (int) $r->quantity])->all(),
+        ];
+    }
+
     public function getDepositRequiredAttribute(): int
     {
         return $this->depositRequired();
@@ -160,7 +202,9 @@ class CustomOrder extends Model
      */
     public function payLink(): ?string
     {
-        if (! $this->isBespoke() || (int) $this->chargeable_total <= 0 || $this->order_state !== 'open') {
+        // Shop orders get one too while a balance is owed (a swap to a dearer item, a short payment).
+        $payable = $this->isBespoke() || ($this->isShop() && (int) $this->amount_paid > 0 && (int) $this->balance_due > 0);
+        if (! $payable || (int) $this->chargeable_total <= 0 || $this->order_state !== 'open') {
             return null;
         }
 
@@ -183,15 +227,20 @@ class CustomOrder extends Model
         $money = fn (int $v) => 'KSh ' . number_format($v);
         $firstName = strtok(trim((string) $this->full_name), ' ') ?: 'there';
         $depositLeft = max(0, $this->depositRequired() - (int) $this->amount_paid);
-        $lines = ["Hello {$firstName},", '', 'Your ' . \App\Support\StoreProfile::name() . " quote is ready (order {$this->cipher}"
-            . ($this->garment ? ", {$this->garment}" : '') . ').', '', 'Total: ' . $money((int) $this->chargeable_total)];
+        $intro = $this->isBespoke()
+            ? 'Your ' . \App\Support\StoreProfile::name() . " quote is ready (order {$this->cipher}" . ($this->garment ? ", {$this->garment}" : '') . ').'
+            : 'Here is the balance for your ' . \App\Support\StoreProfile::name() . " order {$this->cipher}.";
+        $lines = ["Hello {$firstName},", '', $intro, '', 'Total: ' . $money((int) $this->chargeable_total)];
         if ((int) $this->amount_paid > 0) {
             $lines[] = 'Paid so far: ' . $money((int) $this->amount_paid);
         }
         $lines[] = $depositLeft > 0 && $depositLeft < (int) $this->balance_due
             ? 'Deposit to start: ' . $money($depositLeft) . ' · Balance after: ' . $money((int) $this->balance_due - $depositLeft)
             : 'Balance due: ' . $money(max(0, (int) $this->balance_due));
-        array_push($lines, '', "Pay securely by M-Pesa here: {$link}", '', \App\Support\OrderPolicy::depositPolicy());
+        array_push($lines, '', "Pay securely by M-Pesa here: {$link}");
+        if ($this->isBespoke()) {
+            array_push($lines, '', \App\Support\OrderPolicy::depositPolicy());
+        }
 
         return \App\Support\WhatsApp::link(Phone::normalize($this->whatsapp_number ?: $this->phone), implode("\n", $lines));
     }
@@ -209,6 +258,22 @@ class CustomOrder extends Model
     }
 
     /**
+     * The ledger's two sums (N1, N2), optionally as of a ledger row:
+     * payments counted (minus reversed bookings) and refunds paid out.
+     *
+     * @return array{payments: int, refunds: int}
+     */
+    public function ledgerSums(?int $upToId = null): array
+    {
+        $sum = fn (string $type) => (int) $this->payments()->where('type', $type)->when($upToId, fn ($q) => $q->where('id', '<=', $upToId))->sum('amount');
+
+        return [
+            'payments' => $sum(OrderPayment::PAYMENT) - $sum(OrderPayment::REVERSAL),
+            'refunds' => $sum(OrderPayment::REFUND),
+        ];
+    }
+
+    /**
      * Is any STK push for this order still awaiting its outcome (or already
      * paid)? While one is, a *different* attempt failing must not fail the
      * order — the customer may have paid the other prompt.
@@ -221,25 +286,57 @@ class CustomOrder extends Model
     }
 
     /**
-     * Convert this order's held stock into confirmed sales. Called once on
-     * payment confirmation. Idempotent: already-committed reservations are
-     * skipped. Released holds are committed too — if the money arrived after
-     * the hold lapsed, the customer must still be served; availability floors
-     * at zero, so any overshoot surfaces as "sold out" rather than overselling
-     * further.
+     * Convert this order's held stock into confirmed sales, once the order is
+     * paid. Idempotent: committed reservations are skipped.
+     *
+     * A batch is never sold past its limit (Phase C). A live hold is ours; a
+     * hold that lapsed (released, or held past its expiry) is taken only if
+     * the stock is still free. If any line cannot be served, nothing is
+     * committed: the lines that can are held until $keepUntil while the
+     * studio decides, and the names of the sold-out items are returned.
+     *
+     * @return list<string> the items that sold out (empty when all committed)
      */
-    public function commitReservations(): void
+    public function commitReservations(?\DateTimeInterface $keepUntil = null): array
     {
-        DB::transaction(function () {
+        return DB::transaction(function () use ($keepUntil) {
             // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
             $this->lockReservedProducts();
             $reservations = $this->stockReservations()
                 ->whereIn('status', ['held', 'released'])
                 ->lockForUpdate()->get();
+
+            $short = [];
+            foreach ($reservations as $reservation) {
+                $live = $reservation->status === 'held' && ($reservation->expires_at === null || $reservation->expires_at->isFuture());
+                if ($live) {
+                    continue;
+                }
+                $product = Product::withTrashed()->find($reservation->product_id);
+                // A lapsed hold no longer counts against availability, so its full quantity must be free.
+                if (! $product || ($product->batch_limit !== null && $reservation->quantity > (int) $product->availableStock())) {
+                    $short[$reservation->id] = $product?->name ?? 'An item';
+                }
+            }
+
+            if ($short) {
+                foreach ($reservations as $reservation) {
+                    if (! isset($short[$reservation->id])) {
+                        $reservation->update(['status' => 'held', 'expires_at' => $keepUntil]);
+                    } elseif ($reservation->status === 'held') {
+                        $reservation->update(['status' => 'released']);
+                    }
+                }
+
+                return array_values(array_unique($short));
+            }
+
             foreach ($reservations as $reservation) {
                 Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
                 $reservation->update(['status' => 'committed']);
             }
+
+            return [];
         });
     }
 
@@ -278,7 +375,9 @@ class CustomOrder extends Model
             }
 
             foreach ($reservations as $reservation) {
-                $reservation->update(['status' => 'held', 'expires_at' => $window]);
+                // Never shorten a longer hold (a swap or balance hold kept for days).
+                $keep = $reservation->status === 'held' && ($reservation->expires_at === null || $reservation->expires_at > $window);
+                $reservation->update(['status' => 'held', 'expires_at' => $keep ? $reservation->expires_at : $window]);
             }
 
             return true;

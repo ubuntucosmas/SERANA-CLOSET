@@ -137,9 +137,10 @@ class MpesaPaymentSecurityTest extends TestCase
             ]],
         ])->assertOk();
 
+        // Phase C (changed on purpose): the shilling is booked as a part payment; the order is not paid.
         $fresh = $order->fresh();
         $this->assertFalse($fresh->is_paid);
-        $this->assertSame('Amount Mismatch', $fresh->status);
+        $this->assertSame(['deposit_paid', 1, 4999], [$fresh->payment_status, $fresh->amount_paid, $fresh->balance_due]);
     }
 
     /** A correct-token, correct-amount callback marks the order paid. */

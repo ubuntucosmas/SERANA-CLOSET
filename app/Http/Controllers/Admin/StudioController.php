@@ -87,34 +87,9 @@ class StudioController extends Controller
                         . ($p->reservedQuantity() ? ' · ' . $p->reservedQuantity() . ' on hold awaiting payment' : '')]),
         ];
 
-        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal.
-        $unexpected = OrderPayment::query()
-            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
-            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
-            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
-            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
-            ->latest('order_payments.id')
-            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
-        if ($unexpected->isNotEmpty()) {
-            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
-            $attention['awaiting'] = $unexpected->map(fn ($p) => [
-                'id' => $p->custom_order_id, 'full_name' => $orders[$p->custom_order_id]->full_name, 'amount' => (int) $p->amount,
-                'reference' => $orders[$p->custom_order_id]->cipher, 'created_at' => $p->created_at,
-                'next_action' => 'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt',
-            ])->concat($attention['awaiting'])->values();
-        }
-
-        // A customer who paid twice is owed a refund; surface it until handled.
-        $duplicatePaid = PaymentAttempt::where('status', PaymentAttempt::PAID)
-            ->selectRaw('custom_order_id, COUNT(*) as paid_count')->groupBy('custom_order_id')
-            ->havingRaw('COUNT(*) > 1')->pluck('paid_count', 'custom_order_id');
-        if ($duplicatePaid->isNotEmpty()) {
-            $refunds = CustomOrder::withTrashed()->whereIn('id', $duplicatePaid->keys())->get()->map(fn ($o) => [
-                'id' => $o->id, 'full_name' => $o->full_name, 'amount' => $o->total(), 'reference' => $o->cipher,
-                'next_action' => 'Paid ' . $duplicatePaid[$o->id] . ' times: refund owed',
-            ]);
-            $attention['awaiting'] = $refunds->concat($attention['awaiting'])->values();
-        }
+        // Phase C: every payment problem, oldest first, with the count for the dashboard.
+        $attention['payments'] = $this->paymentAttention();
+        $attention['payments_count'] = count($attention['payments']);
 
         return Inertia::render('Admin/StudioDashboard', [
             'stats'      => $stats,
@@ -131,7 +106,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url'])
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -142,6 +117,7 @@ class StudioController extends Controller
             'custom_order_options' => \App\Support\CustomOrderOptions::all(),
             'payment_settings'  => PaymentSettings::forStudio(),
             'order_policy'      => \App\Support\OrderPolicy::forStudio(),
+            'refunds'           => fn () => $this->refundQueue($request),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -150,31 +126,58 @@ class StudioController extends Controller
     public function update(Request $request, CustomOrder $order)
     {
         $validated = $request->validate([
-            'status' => ['required', \Illuminate\Validation\Rule::in(array_merge(OrderStatus::PRODUCTION_STAGES, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::EXPIRED]))],
+            'status' => ['required', \Illuminate\Validation\Rule::in(array_merge(OrderStatus::PRODUCTION_STAGES, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::EXPIRED, OrderStatus::CANCELLED]))],
             'internal_notes' => 'nullable|string',
             'price_quoted' => 'nullable|numeric|min:0',
             'is_paid' => 'nullable|boolean',
             'override_reason' => 'nullable|string|max:255',
+            'quote_reason' => 'nullable|string|max:255',
         ]);
+
+        // A cancelled order stays at the stage it was cancelled at; only its notes can change.
+        if ($order->order_state === 'cancelled') {
+            if ($validated['status'] !== $order->legacyStatus() && $validated['status'] !== $order->fulfilment_status) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order is cancelled. Its stage stays where it was cancelled.']);
+            }
+            \App\Support\Audit::changes('order.updated', $order, ['internal_notes' => $validated['internal_notes'] ?? null]);
+            $order->update(['internal_notes' => $validated['internal_notes'] ?? null]);
+
+            return back()->with('success', 'Notes saved. The order stays cancelled.');
+        }
 
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);
         }
         $commerce = $order->isCommerce();
         $currentStatus = $order->legacyStatus();
-        if (($order->isPaidUp() || $commerce) && array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
+        $newQuote = array_key_exists('price_quoted', $validated) && $validated['price_quoted'] !== null ? (int) round((float) $validated['price_quoted']) : null;
+        $quoteChanges = $newQuote !== null && (float) $newQuote !== (float) $order->total();
+        // A paid bespoke quote may only come down (the excess is owed back); a checkout total never changes.
+        if ($quoteChanges && ($commerce || ($order->isPaidUp() && $newQuote > (int) $order->chargeable_total))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'A checkout or paid order’s total cannot be changed.']);
+        }
+        $quoteReason = trim((string) ($validated['quote_reason'] ?? ''));
+        $paid = (int) $order->amount_paid;
+        $lowersBelowPaid = $quoteChanges && $newQuote < $paid;
+        if ($lowersBelowPaid && $quoteReason === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'KSh ' . number_format($paid) . ' is already paid, so KSh '
+                . number_format($paid - $newQuote) . ' would be owed back to the customer. Add a reason to lower the quote.']);
         }
         if ($validated['status'] !== $currentStatus && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
         }
         if ($commerce && $validated['status'] !== $currentStatus) {
+            // A part-paid shop order (a short payment, or a swap to a dearer item) never moves on, owner or not.
+            if ((int) $order->amount_paid > 0 && (int) $order->balance_due > 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'KSh ' . number_format((int) $order->balance_due)
+                    . ' is still owed on this order. Take the balance before it leaves the studio.']);
+            }
             if (! $order->isPaidUp() || ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Confirm payment before updating fulfilment. Payment states are managed automatically.']);
             }
         }
         $overrideReason = trim((string) ($validated['override_reason'] ?? ''));
-        unset($validated['is_paid'], $validated['override_reason']);
+        unset($validated['is_paid'], $validated['override_reason'], $validated['quote_reason']);
 
         // N7: bespoke work starts once the deposit is paid and leaves once it is paid in full.
         if (! $commerce && $validated['status'] !== $currentStatus && ($blocked = $this->fulfilmentBlock($order, $validated['status']))) {
@@ -187,9 +190,13 @@ class StudioController extends Controller
 
         \App\Support\Audit::changes('order.updated', $order, $validated);
         // What a bespoke order costs lives in its lines (append-only); price_quoted follows them.
-        if (array_key_exists('price_quoted', $validated) && (float) $validated['price_quoted'] !== (float) $order->total()) {
-            app(OrderSettlementService::class)->setQuote($order, (int) round((float) $validated['price_quoted']),
-                \App\Support\Actor::user($request->user()), 'Quote set in the Studio');
+        if ($quoteChanges) {
+            $before = (int) $order->chargeable_total;
+            app(OrderSettlementService::class)->setQuote($order, $newQuote,
+                \App\Support\Actor::user($request->user()), $quoteReason !== '' ? $quoteReason : 'Quote set in the Studio');
+            if ($lowersBelowPaid) {
+                \App\Support\Audit::record('order.quote_lowered', $order, ['quote' => $before, 'paid' => $paid], ['quote' => $newQuote, 'owed_back' => $paid - $newQuote], $quoteReason);
+            }
         }
         unset($validated['price_quoted']);
         $order->refresh()->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
@@ -235,7 +242,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url']);
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem']);
 
         return [
             'data' => $orders->all(),
@@ -305,7 +312,8 @@ class StudioController extends Controller
 
         if ($existing = app(OrderSettlementService::class)->alreadyBooked($data['method'], $data['reference'], null)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'reference' => "{$data['reference']} is already recorded on order {$existing->order->cipher}.",
+                'reference' => (\App\Models\OrderPayment::scopeFor($data['method']) === 'mpesa' ? 'This M-Pesa code' : 'This reference')
+                    . " is already recorded on order {$existing->order->cipher}.",
             ]);
         }
 
@@ -344,10 +352,16 @@ class StudioController extends Controller
         $this->appendNote($order, sprintf('[%s] WhatsApp payment confirmed by %s: KSh %s, ref %s',
             now()->timezone(config('app.display_timezone'))->format('Y-m-d H:i'), $request->user()->name,
             number_format($total), $data['reference']));
-        $settled = app(OrderSettlementService::class)->recordPayment($order, $total, $data['method'],
-            \App\Support\Actor::user($request->user()), $data['reference'])['became_paid'];
+        $result = app(OrderSettlementService::class)->recordPayment($order, $total, $data['method'],
+            \App\Support\Actor::user($request->user()), $data['reference']);
 
-        if (! $settled) {
+        if ($result['stock_gone']) {
+            \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
+
+            return back()->with('error', 'Payment recorded, but ' . implode(', ', $result['stock_gone'])
+                . ' sold out after the hold lapsed. Nothing was oversold: choose a refund, a swap or waiting for the next batch.');
+        }
+        if (! $result['became_paid']) {
             return back()->with('error', 'This order is already marked as paid.');
         }
         \App\Support\Audit::record('payment.recorded', $order, [], ['amount' => $total, 'reference' => $data['reference'], 'channel' => 'whatsapp']);
@@ -355,6 +369,203 @@ class StudioController extends Controller
         return back()->with($stockOk ? 'success' : 'error', $stockOk
             ? 'Payment confirmed. The customer’s receipt is on its way.'
             : 'Payment confirmed, but an item’s hold had lapsed and it has since sold. Check availability before packing.');
+    }
+
+    /**
+     * Owner or manager: record money sent back to the customer (the Refunds
+     * queue). Method, code and reason are required; a part refund leaves the
+     * rest in the queue. The customer gets a refund receipt.
+     */
+    public function recordRefund(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'method' => ['required', \Illuminate\Validation\Rule::in(OrderSettlementService::MANUAL_METHODS)],
+            'reference' => ['required', 'string', 'max:100'],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'amount.integer' => 'Enter the amount in whole shillings.',
+            'method.required' => 'Choose how the refund was sent.',
+            'method.in' => 'Choose how the refund was sent: M-Pesa, cash or bank.',
+            'reference.required' => 'Add the M-Pesa code or a short note about how it was sent.',
+            'reason.required' => 'Say why this refund is being made.',
+        ]);
+
+        try {
+            $refund = app(OrderSettlementService::class)->recordRefund($order, (int) $data['amount'], $data['method'],
+                \App\Support\Actor::user($request->user()), $data['reference'], $data['reason']);
+        } catch (\DomainException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                str_contains($e->getMessage(), 'already recorded') ? 'reference' : 'amount' => $e->getMessage(),
+            ]);
+        }
+        \App\Support\Audit::record('refund.recorded', $order, [], ['refund_id' => $refund->id, 'amount' => $refund->amount,
+            'method' => $refund->method, 'reference' => $refund->external_reference], $data['reason']);
+
+        $still = max(0, -(int) $order->fresh()->balance_due);
+
+        return back()->with('success', $still > 0
+            ? 'Refund recorded. KSh ' . number_format($still) . ' is still owed to the customer.'
+            : 'Refund recorded. Nothing more is owed to the customer.');
+    }
+
+    /**
+     * The payment Attention list (Phase C): refunds owed, orders waiting for a
+     * decision, amount mismatches and unexpected bespoke amounts not yet
+     * confirmed by the owner. Oldest first.
+     */
+    private function paymentAttention(): array
+    {
+        $item = fn (CustomOrder $o, string $kind, string $label, string $detail, int $amount, $since) => [
+            'id' => $o->id, 'reference' => $o->cipher, 'full_name' => $o->full_name, 'kind' => $kind, 'label' => $label,
+            'detail' => $detail, 'amount' => $amount, 'since' => $since?->toIso8601String(),
+            'age_days' => $since ? (int) $since->diffInDays(now()) : 0,
+        ];
+
+        $items = collect();
+        CustomOrder::withTrashed()->where(fn ($q) => $q->where('balance_due', '<', 0)->orWhereIn('resolution', ['needs_resolution', 'amount_mismatch']))
+            ->get()->each(function (CustomOrder $o) use ($items, $item) {
+                if ((int) $o->balance_due < 0) {
+                    $items->push($item($o, 'refund_due', 'Refund owed', $o->refund_cause ?? 'Paid more than is owed', -(int) $o->balance_due, $o->refund_due_since ?? $o->updated_at));
+                }
+                if ($o->resolution === 'needs_resolution') {
+                    $items->push($item($o, 'needs_resolution', 'Needs a decision', $o->resolution_reason ?? 'Payment needs review', (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
+                }
+                if ($o->resolution === 'amount_mismatch') {
+                    $items->push($item($o, 'amount_mismatch', 'Amount mismatch', 'Paid KSh ' . number_format((int) $o->amount_paid) . ' of KSh ' . number_format((int) $o->chargeable_total) . ': review the payment',
+                        (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
+                }
+            });
+
+        // A bespoke M-Pesa payment that differs from its prompt: recorded, but a bug or tampering signal until the owner confirms it.
+        $unexpected = OrderPayment::query()
+            ->join('payment_attempts', 'payment_attempts.id', '=', 'order_payments.payment_attempt_id')
+            ->join('custom_orders', 'custom_orders.id', '=', 'order_payments.custom_order_id')
+            ->where('order_payments.type', OrderPayment::PAYMENT)->where('custom_orders.kind', 'bespoke')
+            ->whereColumn('order_payments.amount', '!=', 'payment_attempts.amount')
+            ->whereNotExists(fn ($q) => $q->selectRaw(1)->from('payment_reviews')->whereColumn('payment_reviews.order_payment_id', 'order_payments.id'))
+            ->notReversed()
+            ->get(['order_payments.custom_order_id', 'order_payments.amount', 'order_payments.created_at', 'payment_attempts.amount as prompted']);
+        if ($unexpected->isNotEmpty()) {
+            $orders = CustomOrder::withTrashed()->whereIn('id', $unexpected->pluck('custom_order_id'))->get()->keyBy('id');
+            foreach ($unexpected as $p) {
+                $items->push($item($orders[$p->custom_order_id], 'unexpected_amount', 'Unexpected amount',
+                    'Unexpected amount: KSh ' . number_format($p->amount) . ' paid against a KSh ' . number_format($p->prompted) . ' prompt', (int) $p->amount, $p->created_at));
+            }
+        }
+
+        return $items->sortBy([['since', 'asc'], ['id', 'asc']])->values()->all();
+    }
+
+    /** Every order that owes the customer money, oldest first (owner and manager). */
+    private function refundQueue(Request $request): array
+    {
+        if (! $request->user()->can('refunds.mark')) {
+            return [];
+        }
+
+        return CustomOrder::withTrashed()->where('balance_due', '<', 0)->orderBy('refund_due_since')->orderBy('id')->get()
+            ->map(fn (CustomOrder $o) => [
+                'id' => $o->id,
+                'reference' => $o->cipher,
+                'customer' => $o->full_name,
+                'phone' => $o->whatsapp_number ?: $o->phone,
+                'email' => $o->email,
+                'owed' => -(int) $o->balance_due,
+                'cause' => $o->refund_cause ?? 'Paid more than is owed',
+                'since' => $o->refund_due_since?->toIso8601String(),
+                'age_days' => $o->refund_due_since ? (int) $o->refund_due_since->diffInDays(now()) : 0,
+                'whatsapp_url' => ($o->whatsapp_number ?: $o->phone)
+                    ? \App\Support\WhatsApp::link($o->whatsapp_number ?: $o->phone, $this->refundMessage($o)) : null,
+            ])->all();
+    }
+
+    /** The prefilled WhatsApp message telling a customer their refund is coming. */
+    private function refundMessage(CustomOrder $order): string
+    {
+        $days = \App\Support\OrderPolicy::refundWorkingDays();
+        $why = match ($order->refund_cause) {
+            'Paid twice' => 'Your payment came through twice.',
+            null => 'You paid more than the order total.',
+            default => rtrim($order->refund_cause, '.') . '.',
+        };
+
+        return sprintf('Hi %s, this is %s about order %s. %s We will refund KSh %s to you within %d working %s.',
+            strtok((string) $order->full_name, ' ') ?: 'there', \App\Support\StoreProfile::name(), $order->cipher, $why,
+            number_format(-(int) $order->balance_due), $days, $days === 1 ? 'day' : 'days');
+    }
+
+    /**
+     * Owner or manager: decide a late payment whose item sold out (Phase C):
+     * a full refund, a swap to an item with stock, or waiting for the next
+     * batch. Always with a reason.
+     */
+    public function resolveOrder(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate([
+            'action' => ['required', \Illuminate\Validation\Rule::in(['refund', 'swap', 'wait'])],
+            'reason' => ['required', 'string', 'max:255'],
+            'from_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
+            'to_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
+            'size' => ['nullable', 'string', 'max:60'],
+        ], [
+            'reason.required' => 'Say why, for the record.',
+            'to_product_id.required_if' => 'Choose the item to swap to.',
+        ]);
+
+        $settlement = app(OrderSettlementService::class);
+        $actor = \App\Support\Actor::user($request->user());
+        $before = ['resolution' => $order->resolution, 'balance_due' => $order->balance_due];
+        try {
+            match ($data['action']) {
+                'refund' => $order->resolution_code === 'stock_gone' && in_array($order->resolution, ['needs_resolution', 'waiting_restock'], true)
+                    ? $settlement->cancelForRefund($order, $actor, $data['reason'], 'Sold out after a late payment')
+                    : throw new \DomainException('action|This order has no sold-out item waiting for a decision.'),
+                'wait' => $settlement->waitForRestock($order, $data['reason']),
+                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason']),
+            };
+        } catch (\DomainException $e) {
+            [$field, $message] = str_contains($e->getMessage(), '|') ? explode('|', $e->getMessage(), 2) : ['action', $e->getMessage()];
+            throw \Illuminate\Validation\ValidationException::withMessages([$field => $message]);
+        }
+        $fresh = $order->fresh();
+        \App\Support\Audit::record('order.resolved', $order, $before,
+            ['action' => $data['action'], 'resolution' => $fresh->resolution, 'balance_due' => $fresh->balance_due], $data['reason']);
+
+        return back()->with('success', match (true) {
+            $data['action'] === 'wait' => 'Noted: the order waits for the next batch.',
+            $fresh->balance_due > 0 => 'Swapped. KSh ' . number_format($fresh->balance_due) . ' is due: send the customer the pay link.',
+            $fresh->balance_due < 0 => 'Done. KSh ' . number_format(-$fresh->balance_due) . ' is owed back to the customer (Refunds).',
+            default => 'Swapped. The order is paid and ready for fulfilment.',
+        });
+    }
+
+    /** Owner: reverse a booking that should not count, with a reason (Phase C). */
+    public function reversePayment(Request $request, OrderPayment $payment)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], ['reason.required' => 'Say why this booking should not count.']);
+        try {
+            $reversal = app(OrderSettlementService::class)->reversePayment($payment, \App\Support\Actor::user($request->user()), $data['reason']);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        \App\Support\Audit::record('payment.reversed', $payment->order, ['payment_id' => $payment->id, 'amount' => $payment->amount, 'reference' => $payment->external_reference],
+            ['reversal_id' => $reversal->id], $data['reason']);
+
+        return back()->with('success', 'Booking reversed. The order’s figures are updated.');
+    }
+
+    /** Owner: confirm a flagged booking is a genuine, separate payment, with a reason. */
+    public function confirmPayment(Request $request, OrderPayment $payment)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
+        if (\Illuminate\Support\Facades\DB::table('payment_reviews')->where('order_payment_id', $payment->id)->exists() || $payment->reversal()->exists()) {
+            return back()->with('error', 'This booking is already reviewed.');
+        }
+        app(OrderSettlementService::class)->confirmGenuine($payment, \App\Support\Actor::user($request->user()), $data['reason']);
+        \App\Support\Audit::record('payment.confirmed_genuine', $payment->order, [], ['payment_id' => $payment->id, 'reference' => $payment->external_reference], $data['reason']);
+
+        return back()->with('success', 'Booking confirmed as a genuine payment.');
     }
 
     /** Why a bespoke order may not move to $stage yet (N7), or null when it may. */
@@ -366,6 +577,9 @@ class StudioController extends Controller
         }
         if ((int) $order->chargeable_total <= 0) {
             return 'Set the quote before work starts.';
+        }
+        if ($stage === 'shipped' && $order->balance_due < 0) {
+            return 'KSh ' . number_format(-$order->balance_due) . ' is owed back to the customer. Record the refund before it leaves the studio.';
         }
         if ($stage === 'shipped') {
             return $order->balance_due > 0
@@ -397,6 +611,30 @@ class StudioController extends Controller
         \App\Support\Audit::record('order.deposit_set', $order, ['deposit' => $before], ['deposit' => $order->fresh()->depositRequired()], $data['reason']);
 
         return back()->with('success', 'Deposit set to KSh ' . number_format($order->fresh()->depositRequired()) . '.');
+    }
+
+    /**
+     * Cancel a bespoke order with a reason (rule N8): before designing the
+     * deposit is owed back; from designing on it is kept and only what was
+     * paid above it is owed back. The customer is emailed which applied.
+     */
+    public function cancelBespoke(Request $request, CustomOrder $order)
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], ['reason.required' => 'Say why the order is cancelled.']);
+        if (! $order->isBespoke()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['reason' => 'Only custom orders are cancelled here.']);
+        }
+        try {
+            $outcome = app(OrderSettlementService::class)->cancelBespoke($order, \App\Support\Actor::user($request->user()), $data['reason']);
+        } catch (\DomainException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['reason' => $e->getMessage()]);
+        }
+        \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->legacyStatus()], $outcome, $data['reason']);
+
+        return back()->with('success', 'Order cancelled.'
+            . ($outcome['retained'] > 0 ? ' Deposit of KSh ' . number_format($outcome['retained']) . ' retained.' : '')
+            . ($outcome['owed_back'] > 0 ? ' KSh ' . number_format($outcome['owed_back']) . ' is owed back (Refunds).' : '')
+            . ' The customer has been emailed.');
     }
 
     /** Cancel an unpaid WhatsApp order: stock goes back on sale. */

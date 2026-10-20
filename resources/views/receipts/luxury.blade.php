@@ -106,7 +106,11 @@
                 <div class="value">Reference: <strong>{{ $order->cipher ?? ('ORD-' . $order->id) }}</strong></div>
                 <div class="value muted">Issued: {{ $date }}</div>
                 <div class="value">Receipt: {{ $receiptNumber }}</div>
+                @if(!empty($unavailable))
+                <div class="value" style="color:#a15c00; font-weight:bold;">Status: Payment received · Item unavailable</div>
+                @else
                 <div class="value" style="color:#1c7a1c; font-weight:bold;">Status: {{ $paidInFull ? 'Paid in full' : 'Part-paid' }}</div>
+                @endif
             </td>
         </tr>
     </table>
@@ -149,10 +153,15 @@
         @endif
         <div class="label" style="margin-top:10px;">Paid to date</div>
         <div class="value">{{ $currency }} {{ number_format((float) $paidToDate, 2) }}</div>
+        @if(!empty($unavailable))
+        <div class="label" style="margin-top:10px;">Item unavailable</div>
+        <div class="value" style="color:#a15c00;">{{ implode(', ', $unavailable) }} {{ count($unavailable) === 1 ? 'is' : 'are' }} no longer available: sold out before this payment arrived, so this order can't be fulfilled as placed. Your payment is held; see our separate email for your options (a swap, waiting for the next batch, or a full refund).</div>
+        @else
         <div class="label" style="margin-top:10px;">Balance due</div>
         <div class="total-amount">{{ $paidInFull ? 'Paid in full' : $currency . ' ' . number_format((float) $balance, 2) }}</div>
         @if($excess > 0)
-        <div class="value" style="color:#a15c00;">{{ $currency }} {{ number_format((float) $excess, 2) }} more than the total was received. The studio will refund it.</div>
+        <div class="value" style="color:#a15c00;">{{ $currency }} {{ number_format((float) $excess, 2) }} more than the total was received. It will be refunded to you within {{ $refundDays }} working {{ $refundDays === 1 ? 'day' : 'days' }}.</div>
+        @endif
         @endif
     </div>
 

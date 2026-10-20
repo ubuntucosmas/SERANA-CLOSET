@@ -41,11 +41,17 @@ class LedgerVerifyCommand extends Command
         return $count === 0 ? self::SUCCESS : self::FAILURE;
     }
 
-    /** Not a difference, but money for the owner to look at: one reference on several orders. */
+    /**
+     * Not a difference, but money for the owner to look at: one reference on
+     * several orders, until the owner reverses the extra booking or confirms
+     * it genuine (the same rule as serana:ledger-check).
+     */
     private function reportSharedReferences(): void
     {
         $mark = \App\Services\LedgerBackfill::DUPLICATE_MARK;
         $shared = OrderPayment::where('external_reference', 'like', '%' . str_replace(['%', '_'], ['\\%', '\\_'], $mark) . '%')
+            ->where('type', OrderPayment::PAYMENT)->notReversed()
+            ->whereNotExists(fn ($q) => $q->selectRaw(1)->from('payment_reviews')->whereColumn('payment_reviews.order_payment_id', 'order_payments.id'))
             ->get(['external_reference'])
             ->map(fn ($p) => strstr($p->external_reference, $mark, true))
             ->unique()->values();

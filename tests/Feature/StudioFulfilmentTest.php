@@ -58,12 +58,14 @@ class StudioFulfilmentTest extends TestCase
 
     public function test_attention_lists_duplicate_payments_and_low_stock(): void
     {
-        $order = CustomOrder::create(['full_name' => 'Twice', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => OrderStatus::PAID, 'is_paid' => true, 'price_quoted' => 5000]);
-        foreach (['A', 'B'] as $id) $order->paymentAttempts()->create(['checkout_request_id' => "ws_$id", 'phone' => '254712345678', 'amount' => 5000, 'status' => PaymentAttempt::PAID]);
+        // Phase C (changed on purpose): a second payment is booked in the ledger and listed as a refund owed.
+        $order = CustomOrder::create(['full_name' => 'Twice', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 5000]);
+        foreach (['A', 'B'] as $id) app(\App\Services\OrderSettlementService::class)->recordPayment($order->fresh(), 5000, 'mpesa_stk', \App\Support\Actor::safaricom(), "Q$id");
         Product::create(['name' => 'Nearly Gone', 'slug' => 'nearly-gone', 'price' => 100, 'batch_limit' => 5, 'batch_sold' => 4, 'in_stock' => true]);
 
         $this->actingAs($this->admin())->get(route('studio.index'))->assertInertia(fn ($page) => $page
-            ->where('attention.awaiting.0.next_action', 'Paid 2 times: refund owed')
+            ->where('attention.payments.0.label', 'Refund owed')
+            ->where('attention.payments.0.detail', 'Paid twice')
             ->where('attention.low_stock.0.note', '1 left'));
     }
 

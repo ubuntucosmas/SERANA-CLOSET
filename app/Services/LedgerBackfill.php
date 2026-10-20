@@ -40,8 +40,7 @@ class LedgerBackfill
             }
 
             $chargeable = (int) $order->lines()->sum('amount');
-            $payments = (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount');
-            $refunds = (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount');
+            ['payments' => $payments, 'refunds' => $refunds] = $order->ledgerSums();
             $derived = OrderLedger::derive($chargeable, $payments, $refunds, $columns['resolution']);
             unset($derived['is_paid']); // legacy column: left as it is
 
@@ -129,7 +128,7 @@ class LedgerBackfill
      */
     private function uniqueReference(string $method, ?string $reference, int $orderId): array
     {
-        if ($reference === null || ! OrderPayment::where('method', $method)->where('external_reference', $reference)->exists()) {
+        if ($reference === null || ! OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))->where('external_reference', $reference)->exists()) {
             return [$reference, false];
         }
 

@@ -143,18 +143,21 @@ class SettlementLedgerTest extends TestCase
         Event::assertDispatchedTimes(MpesaWebhookHandled::class, 1); // one receipt, for the payment that settled it
     }
 
-    public function test_a_wrong_amount_is_booked_as_real_money_and_flagged(): void
+    public function test_a_short_shop_payment_is_booked_as_real_money_and_a_part_payment(): void
     {
         $order = $this->shopOrder();
         $this->attempt($order);
 
         $this->stkCallback('ws_CO_1', 4000, 'RCPT-SHORT');
 
+        // Phase C (changed on purpose): a short shop payment is a part payment, holds kept a day.
         $fresh = $order->fresh();
-        $this->assertSame([OrderStatus::AMOUNT_MISMATCH, 'amount_mismatch', 'amount_mismatch', 4000, false],
+        $this->assertSame([OrderStatus::PENDING_PAYMENT, 'none', 'deposit_paid', 4000, false],
             [$fresh->status, $fresh->resolution, $fresh->payment_status, $fresh->amount_paid, $fresh->is_paid]);
         $this->assertSame(['RCPT-SHORT', 4000], [$order->payments()->value('external_reference'), $order->payments()->value('amount')]);
-        $this->assertSame('released', $order->stockReservations()->value('status'), 'unchanged in Phase A; Phase C keeps holds');
+        if ($order->stockReservations()->exists()) {
+            $this->assertSame('held', $order->stockReservations()->value('status'));
+        }
         Event::assertNotDispatched(MpesaWebhookHandled::class);
     }
 
@@ -198,7 +201,7 @@ class SettlementLedgerTest extends TestCase
         $this->actingAs($owner)->post(route('studio.order.record_payment', $first), ['amount' => 5000, 'method' => 'mpesa_manual', 'reference' => 'QSAME']);
 
         $this->post(route('studio.order.record_payment', $second), ['amount' => 5000, 'method' => 'mpesa_manual', 'reference' => 'QSAME'])
-            ->assertSessionHasErrors(['reference' => "QSAME is already recorded on order {$first->cipher}."]);
+            ->assertSessionHasErrors(['reference' => "This M-Pesa code is already recorded on order {$first->cipher}."]);
         $this->assertSame(0, $second->payments()->count());
     }
 

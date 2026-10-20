@@ -110,6 +110,14 @@ class LedgerVerifier
 
         if (in_array(self::MAPPING, $checks, true)) {
             foreach (LegacyOrderMap::columns($order->type, $order->status, $order->payment_method) as $column => $value) {
+                // Legacy has one "needs review" status for every open payment problem.
+                if ($column === 'resolution' && ($value !== 'none') === (($order->resolution ?? 'none') !== 'none')) {
+                    continue;
+                }
+                // A cancelled order keeps the production stage it was cancelled at.
+                if ($column === 'fulfilment_status' && $order->status === OrderStatus::CANCELLED) {
+                    continue;
+                }
                 if ($order->{$column} !== $value) {
                     $issues[] = "{$column}: legacy implies " . var_export($value, true) . ', stored ' . var_export($order->{$column}, true);
                 }
@@ -118,8 +126,7 @@ class LedgerVerifier
 
         if (in_array(self::MONEY, $checks, true)) {
             $chargeable = (int) $order->lines()->sum('amount');
-            $payments = (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount');
-            $refunds = (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount');
+            ['payments' => $payments, 'refunds' => $refunds] = $order->ledgerSums();
             try {
                 $derived = OrderLedger::derive($chargeable, $payments, $refunds, $order->resolution);
             } catch (\DomainException $e) {

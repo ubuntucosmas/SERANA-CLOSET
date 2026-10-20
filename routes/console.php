@@ -23,4 +23,6 @@ Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever(\App\Console\
     ->everyMinute()->name('scheduler-heartbeat');
 
 // Greenlight or close drops once their reservation deadline passes.
+// Phase C: a late payment whose item sold out, still undecided after the policy's days, becomes a refund owed.
+Schedule::command('serana:resolve-overdue')->hourly()->withoutOverlapping();
 Schedule::command('drops:close-expired')->everyFiveMinutes()->withoutOverlapping();

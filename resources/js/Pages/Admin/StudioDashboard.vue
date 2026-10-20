@@ -21,6 +21,8 @@ import CustomOrderOptionsPanel from './Partials/CustomOrderOptionsPanel.vue';
 import PaymentsPanel from './Partials/PaymentsPanel.vue';
 import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
+import RefundsPanel from './Partials/RefundsPanel.vue';
+import PaymentAttention from './Partials/PaymentAttention.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -41,6 +43,7 @@ const props = defineProps({
     order_policy: { type: Object, default: () => ({ deposit_percent: 50, pay_link_days: 14, deposit_policy: '' }) },
     payment_settings: { type: Object, default: () => ({ mpesa_enabled: true, whatsapp_enabled: true, instructions: '', whatsapp_hold_hours: 48, hold_options: [12, 24, 48, 72], mpesa_configured: false, mpesa_env: 'sandbox', prompts_in_progress: 0 }) },
     drops: { type: Array, default: () => [] },
+    refunds: { type: Array, default: () => [] },
     active_tab: { type: String, default: 'home' },
 });
 
@@ -70,7 +73,7 @@ const getObjectURL = (file) => {
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
 const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
-const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '' });
+const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '', quote_reason: '' });
 // Owner only: start work before the deposit, or ship with a balance owed, with a reason (audited).
 const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
 const progressSnapForm = useForm({ image: null, description: '' });
@@ -146,6 +149,45 @@ const paymentForm = useForm({ amount: '', method: 'mpesa_manual', reference: '' 
 // A bespoke order's deposit: the policy share unless owner/manager set it (with a reason).
 const depositForm = useForm({ deposit: '', reason: '' });
 const canSetDeposit = computed(() => !isCommerceOrder.value && page.props.auth?.user?.abilities?.includes('deposit.override'));
+// The order's ledger (Phase C): owner may reverse a booking or confirm a flagged one genuine, with a reason.
+const canReverse = computed(() => page.props.auth?.user?.abilities?.includes('ledger.reverse'));
+function reviewBooking(row, action) {
+    const question = action === 'reverse'
+        ? `Reverse this KSh ${Number(row.amount).toLocaleString()} booking? It will stop counting as money received. Reason:`
+        : 'Confirm this is a genuine, separate payment. Reason:';
+    const reason = window.prompt(question);
+    if (!reason) return;
+    router.post(route(action === 'reverse' ? 'studio.payment.reverse' : 'studio.payment.confirm', row.id), { reason }, { preserveScroll: true });
+}
+// A late payment whose item sold out (Phase C): full refund, swap, or wait for the next batch, with a reason.
+const resolveForm = useForm({ action: '', reason: '', from_product_id: null, to_product_id: '', size: '' });
+const canResolve = computed(() => !!selectedOrder.value?.stock_problem && page.props.auth?.user?.abilities?.includes('money.record'));
+const swapChoices = computed(() => (props.products || []).filter(p => p.in_stock && (p.available_stock === null || p.available_stock > 0)));
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { resolveForm.reset(); resolveForm.clearErrors(); resolveForm.from_product_id = o?.stock_problem?.items?.[0]?.product_id ?? null; } });
+function resolveOrder(action) {
+    if (!selectedOrder.value) return;
+    resolveForm.action = action;
+    resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size') });
+}
+// Cancel a custom order (N8): before designing the deposit is refunded; from designing on it is kept.
+const canCancelBespoke = computed(() => {
+    const o = selectedOrder.value;
+    return !!o && !isCommerceOrder.value && o.order_state !== 'cancelled' && o.fulfilment_status !== 'shipped'
+        && page.props.auth?.user?.abilities?.includes('money.record');
+});
+function cancelBespoke() {
+    const o = selectedOrder.value;
+    const paid = Number(o.amount_paid || 0);
+    const started = ['designing', 'sewing', 'completed'].includes(o.fulfilment_status);
+    const kept = started ? Math.min(Number(o.deposit_required || 0), paid) : 0;
+    const back = paid - kept;
+    const outcome = paid === 0 ? 'Nothing has been paid, so nothing is refunded.'
+        : started ? `Work has started, so the deposit of KSh ${kept.toLocaleString()} is kept${back > 0 ? ` and KSh ${back.toLocaleString()} is owed back` : ''}.`
+        : `Work hasn't started, so all KSh ${paid.toLocaleString()} paid is owed back.`;
+    const reason = window.prompt(`Cancel order ${o.cipher}? ${outcome} The customer is emailed.\n\nReason:`);
+    if (!reason) return;
+    router.post(route('studio.order.cancel_bespoke', o.id), { reason }, { preserveScroll: true });
+}
 // The customer's signed pay link (design B): copy it, or send it prefilled on WhatsApp.
 const payLinkCopied = ref(false);
 async function copyPayLink() {
@@ -161,6 +203,16 @@ function recordPayment() {
     paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
 }
 function saveOrder() {
+    // Phase C: lowering a quote below what's paid owes the difference back; warn and ask why first.
+    const o = selectedOrder.value;
+    const quote = Math.round(Number(orderForm.price_quoted || 0));
+    orderForm.quote_reason = '';
+    if (o && !isCommerceOrder.value && quote !== Number(o.chargeable_total) && quote < Number(o.amount_paid || 0)) {
+        const owed = Number(o.amount_paid) - quote;
+        const reason = window.prompt(`KSh ${Number(o.amount_paid).toLocaleString()} is already paid. Lowering the quote to KSh ${quote.toLocaleString()} means KSh ${owed.toLocaleString()} is owed back to the customer (it goes to Refunds, and the piece can't ship until it's refunded).\n\nReason for lowering the quote:`);
+        if (!reason) return;
+        orderForm.quote_reason = reason;
+    }
     orderForm.put(route('studio.update', orderForm.id), { preserveScroll: true });
 }
 function archiveOrder(id) {
@@ -388,12 +440,14 @@ function removeAsset(key) {
             <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New campaign</button>
         </template>
 
+        <PaymentAttention v-if="currentTab === 'home'" :items="attention.payments || []" :count="attention.payments_count || 0" @openOrder="openOrder" @go="goTab" />
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
         <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
+        <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
@@ -470,7 +524,8 @@ function removeAsset(key) {
                 <div class="grid sm:grid-cols-2 gap-4">
                     <label class="block">
                         <span class="block text-sm text-slate-300 mb-2">Production stage</span>
-                        <select :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
+                        <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
+                        <select v-else :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
                             <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
@@ -479,7 +534,7 @@ function removeAsset(key) {
                         <span class="block text-sm text-slate-300 mb-2">Owner override reason <span class="text-slate-500">(only if starting work before the deposit, or shipping with a balance)</span></span>
                         <input v-model="orderForm.override_reason" maxlength="255" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
-                    <div v-if="selectedOrder.is_paid || isCommerceOrder" class="block">
+                    <div v-if="isCommerceOrder" class="block">
                         <span class="block text-sm text-slate-300 mb-2">Total</span>
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
                     </div>
@@ -493,12 +548,53 @@ function removeAsset(key) {
                     <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
                         Deposit {{ formatAmount(selectedOrder.deposit_required, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} · Balance {{ formatAmount(Math.max(0, selectedOrder.balance_due), page.props) }}
                     </p>
+                    <p v-if="isCommerceOrder && (selectedOrder.amount_paid > 0 || selectedOrder.balance_due < 0)" class="mt-1 text-xs text-slate-300">
+                        Total {{ formatAmount(selectedOrder.chargeable_total, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} ·
+                        <template v-if="selectedOrder.balance_due < 0"><span class="text-amber-400">Owed back {{ formatAmount(-selectedOrder.balance_due, page.props) }}</span></template>
+                        <template v-else>Balance {{ formatAmount(selectedOrder.balance_due, page.props) }}</template>
+                    </p>
+                    <p v-if="selectedOrder.resolution && selectedOrder.resolution !== 'none' && selectedOrder.resolution_reason" role="status" class="mt-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-xs text-amber-400">{{ selectedOrder.resolution_reason }}</p>
+                    <form v-if="canResolve" @submit.prevent class="mt-3 rounded-xl ring-1 ring-white/10 p-3 space-y-2" aria-label="Decide what happens to this order">
+                        <p class="text-xs text-slate-300">
+                            <template v-if="selectedOrder.stock_problem.waiting">Waiting for the next batch. When it is back, swap the customer onto it, or refund in full.</template>
+                            <template v-else>Sold out: {{ selectedOrder.stock_problem.items.map(i => i.name).join(', ') }}. Agree with the customer, then record the decision.</template>
+                        </p>
+                        <select v-if="selectedOrder.stock_problem.items.length > 1" v-model="resolveForm.from_product_id" aria-label="Item that sold out" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm">
+                            <option v-for="i in selectedOrder.stock_problem.items" :key="i.product_id" :value="i.product_id">{{ i.name }} × {{ i.quantity }}</option>
+                        </select>
+                        <div class="grid gap-2 sm:grid-cols-[1.4fr_1fr]">
+                            <select v-model="resolveForm.to_product_id" aria-label="Swap to" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm">
+                                <option value="">Swap to… (in stock)</option>
+                                <option v-for="p in swapChoices" :key="p.id" :value="p.id">{{ p.name }} · {{ formatAmount(p.price, page.props) }}<template v-if="p.available_stock !== null"> · {{ p.available_stock }} left</template></option>
+                            </select>
+                            <input v-model="resolveForm.size" maxlength="60" aria-label="Size for the swap" placeholder="Size (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        </div>
+                        <input v-model="resolveForm.reason" maxlength="255" aria-label="Reason for this decision" placeholder="Reason (what the customer agreed)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="resolveOrder('swap')" :disabled="resolveForm.processing || !resolveForm.reason || !resolveForm.to_product_id" class="rounded-xl bg-[#57d5fc] px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40">Swap</button>
+                            <button v-if="!selectedOrder.stock_problem.waiting" type="button" @click="resolveOrder('wait')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Wait for next batch</button>
+                            <button type="button" @click="resolveOrder('refund')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 disabled:opacity-40">Full refund</button>
+                        </div>
+                        <p v-for="(message, field) in resolveForm.errors" :key="'r' + field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
+                    </form>
                     <form v-if="canSetDeposit && selectedOrder.chargeable_total > 0" @submit.prevent="setDeposit" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1.6fr_auto]">
                         <input v-model="depositForm.deposit" type="number" min="0" step="1" aria-label="Deposit for this order in KSh" placeholder="Deposit (KSh)" title="Leave blank to use the policy share" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <input v-model="depositForm.reason" aria-label="Why this deposit differs" placeholder="Reason" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <button type="submit" :disabled="depositForm.processing || !depositForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Set deposit</button>
                     </form>
                     <p v-for="(message, field) in depositForm.errors" :key="'d' + field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
+                    <ul v-if="selectedOrder.ledger_rows?.length" class="mt-3 space-y-1 text-xs text-slate-300" aria-label="Payments on this order">
+                        <li v-for="row in selectedOrder.ledger_rows" :key="row.id" class="flex flex-wrap items-center gap-2">
+                            <span :class="row.reversed ? 'line-through text-slate-500' : ''">{{ row.type === 'payment' ? 'Payment' : row.type === 'refund' ? 'Refund' : 'Reversal' }} {{ formatAmount(row.amount, page.props) }} · {{ row.method }}<template v-if="row.reference"> · {{ row.reference }}</template> · {{ row.at }}</span>
+                            <span v-if="row.flagged" class="text-rose-300">Code also booked on another order</span>
+                            <span v-if="row.unexpected" class="text-amber-400">Differs from its prompt</span>
+                            <span v-if="row.genuine" class="text-slate-400">Confirmed genuine</span>
+                            <template v-if="canReverse && row.type === 'payment' && !row.reversed">
+                                <button type="button" @click="reviewBooking(row, 'reverse')" class="underline hover:text-rose-300">Reverse</button>
+                                <button v-if="row.flagged || row.unexpected" type="button" @click="reviewBooking(row, 'confirm')" class="underline">Confirm genuine</button>
+                            </template>
+                        </li>
+                    </ul>
                     <div v-if="selectedOrder.pay_link && selectedOrder.balance_due > 0" class="mt-3 flex flex-wrap gap-2">
                         <button type="button" @click="copyPayLink" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 hover:bg-white/10">{{ payLinkCopied ? 'Pay link copied' : 'Copy pay link' }}</button>
                         <a v-if="selectedOrder.pay_whatsapp_url" :href="selectedOrder.pay_whatsapp_url" target="_blank" rel="noopener" class="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-400">Send quote &amp; pay link on WhatsApp</a>
@@ -546,6 +642,7 @@ function removeAsset(key) {
             <div class="mt-6 flex flex-wrap gap-2">
                 <button @click="saveOrder" :disabled="orderForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ orderForm.processing ? 'Saving…' : 'Save order changes' }}</button>
                 <button @click="copyBrief" class="px-4 py-3 rounded-xl bg-white/5 text-slate-200 text-sm hover:bg-white/10">Copy brief</button>
+                <button v-if="canCancelBespoke" type="button" @click="cancelBespoke" class="px-4 py-3 rounded-xl bg-rose-500/10 text-rose-300 text-sm hover:bg-rose-500/20">Cancel order</button>
                 <template v-if="!orderArchived">
                     <button @click="archiveOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400 ml-auto">Archive</button>
                 </template>

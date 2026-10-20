@@ -9,6 +9,8 @@
  *   php tests/Concurrency/worker.php secure-stock <order id>
  *   php tests/Concurrency/worker.php settle <order id>
  *   php tests/Concurrency/worker.php pay-attempt <order id>:<attempt id>:<safaricom|system>
+ *   php tests/Concurrency/worker.php settle-ref <order id>:<M-Pesa code>
+ *   php tests/Concurrency/worker.php refund <order id>:<amount>:<code>
  *
  * Adversaries (test-only: take locks in the wrong order on purpose, to force
  * a deadlock on the app's first attempt). Each first writes throwaway rows so
@@ -75,6 +77,22 @@ try {
         $result = app(OrderSettlementService::class)->recordPayment(CustomOrder::findOrFail((int) $orderId), $attempt->amount, 'mpesa_stk',
             $who === 'system' ? \App\Support\Actor::system() : \App\Support\Actor::safaricom(), $who === 'system' ? null : 'RCPT-RACE', $attempt);
         echo json_encode(['status' => 200, 'booked' => $result['booked'], 'became_paid' => $result['became_paid'], 'paid_events' => $paidEvents]);
+    } elseif ($action === 'settle-ref') {
+        // A late payment with its own M-Pesa code (Phase C: never sold past the batch limit).
+        [$orderId, $code] = explode(':', $arg);
+        $app->make(ConsoleKernel::class)->bootstrap();
+        $result = app(OrderSettlementService::class)->recordPayment(CustomOrder::findOrFail((int) $orderId), null, 'mpesa_stk', \App\Support\Actor::safaricom(), $code);
+        echo json_encode(['status' => 200, 'booked' => $result['booked'], 'became_paid' => $result['became_paid'], 'stock_gone' => $result['stock_gone'], 'rollbacks' => $rollbacks]);
+    } elseif ($action === 'refund') {
+        // Mark refunded (Phase C), as two staff clicking at once would.
+        [$orderId, $amount, $code] = explode(':', $arg);
+        $app->make(ConsoleKernel::class)->bootstrap();
+        try {
+            app(OrderSettlementService::class)->recordRefund(CustomOrder::findOrFail((int) $orderId), (int) $amount, 'mpesa_manual', \App\Support\Actor::system(), $code, 'race');
+            echo json_encode(['status' => 200, 'refunded' => true]);
+        } catch (DomainException $e) {
+            echo json_encode(['status' => 200, 'refunded' => false, 'error' => $e->getMessage()]);
+        }
     } elseif ($action === 'block-holds-then-product') {
         // Gap-lock all of stock_reservations (blocks any new hold), then want the product.
         $app->make(ConsoleKernel::class)->bootstrap();

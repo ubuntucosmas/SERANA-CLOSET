@@ -40,10 +40,9 @@ class OrderReceiptMail extends Mailable
     /** Everything the email and the PDF show, as of $payment. */
     public static function viewData(CustomOrder $order, ?OrderPayment $payment): array
     {
-        $upTo = fn (string $type) => (int) $order->payments()->where('type', $type)
-            ->when($payment, fn ($q) => $q->where('id', '<=', $payment->id))->sum('amount');
+        $sums = $order->ledgerSums($payment?->id);
         $total = (int) $order->chargeable_total;
-        $paidToDate = $upTo(OrderPayment::PAYMENT) - $upTo(OrderPayment::REFUND);
+        $paidToDate = $sums['payments'] - $sums['refunds'];
         $balance = $total - $paidToDate;
 
         return [
@@ -59,6 +58,11 @@ class OrderReceiptMail extends Mailable
             'paidToDate' => $paidToDate,
             'balance' => max(0, $balance),
             'excess' => max(0, -$balance),
+            // This payment arrived on an order that was already settled.
+            'paidTwice' => $payment && $total > 0 && $total - ($paidToDate - $payment->amount) <= 0,
+            'refundDays' => \App\Support\OrderPolicy::refundWorkingDays(),
+            // Paid, but an item sold out before the money arrived (Phase C): not a confirmed order.
+            'unavailable' => collect($order->stock_problem['items'] ?? [])->pluck('name')->unique()->values()->all(),
             'paidInFull' => $total > 0 && $balance <= 0,
             'depositPolicy' => $order->isBespoke() ? \App\Support\OrderPolicy::depositPolicy() : null,
             'trackUrl' => URL::route('track', ['ref' => $order->cipher]),
@@ -76,7 +80,7 @@ class OrderReceiptMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->data()['paidInFull']
+            subject: $this->data()['paidInFull'] && ! $this->data()['unavailable']
                 ? "Your Serana receipt — {$this->order->cipher}"
                 : "Payment received — {$this->order->cipher}",
         );

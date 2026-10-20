@@ -230,6 +230,16 @@ class MpesaController extends Controller
             }
         }
 
+        // One M-Pesa code is one transaction (Phase C): a code already booked on another
+        // order is never booked again here; the Studio is told and the owner alerted.
+        if ($resultCode == 0 && $receiptNumber && ($booked = $this->settlement->alreadyBooked('mpesa_stk', $receiptNumber, null))
+            && (int) $booked->custom_order_id !== (int) $order->id) {
+            $attempt?->markFailed((string) $resultCode, "M-Pesa code already recorded on order {$booked->order->cipher}");
+            $this->settlement->flagReferenceConflict($order, $receiptNumber, $booked->order);
+
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+        }
+
         // 2. Idempotency / duplicate-payment check
         if ($order->isPaidUp() || $order->legacyStatus() === OrderStatus::PAID) {
             if ($attempt && $attempt->status === PaymentAttempt::PENDING) {
@@ -263,6 +273,20 @@ class MpesaController extends Controller
                     // A customer can't change an STK amount: a difference is a bug or tampering.
                     if ($booked['booked']) {
                         $this->settlement->alertUnexpectedAmount($order, $expected, (int) round((float) $paidAmount), $receiptNumber);
+                    }
+
+                    return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+                }
+                // Shop (Phase C): the money is real. More settles the order and the excess is owed
+                // back; less is a part payment with the stock held a day for the balance.
+                // Whole shillings only: a fractional amount is never rounded into a settlement.
+                if ($order->isShop() && is_numeric($paidAmount) && (float) $paidAmount >= 1 && floor((float) $paidAmount) == (float) $paidAmount) {
+                    $paid = (int) round((float) $paidAmount);
+                    $attempt?->markPaid($receiptNumber);
+                    $booked = $this->settlement->recordPayment($order, $paid, 'mpesa_stk', \App\Support\Actor::safaricom(), $receiptNumber,
+                        $attempt, "paid KSh {$paid} against a KSh {$expected} prompt", $payload);
+                    if ($booked['booked'] && $paid < $expected) {
+                        $this->settlement->holdForBalance($order);
                     }
 
                     return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);

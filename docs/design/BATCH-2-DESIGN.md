@@ -661,6 +661,7 @@ Design rules:
 | D15 | **Pay link lifetime** | 14 days (setting), re-issuable from the Studio. A paid order's link still shows the receipt |
 | D16 | **Discounts online** | **None in this batch.** POS only. Online promo codes are a separate feature |
 | D17 | ~~**VAT**~~ *deferred by owner* | Are you VAT-registered? If so, receipts must show VAT, and line amounts need a tax field. The design adds `tax_amount` on lines as nullable, unused until confirmed |
+| D18 | **Drops: open question (paused behind `DROPS_ENABLED`)** | Whether and when paid Drops return is the owner's call; the failed-target and refund policy is still undecided (see *Drops Launch Decision* in `docs/audit/V1-RELEASE-REPORT.md`). **Before Drops are re-enabled, their wrong-amount handling must be brought in line with shop orders** (Phase C): today a Drop paid the wrong amount is still flagged for review with its hold released, while a shop order paid more is settled with the excess owed back, and one paid less becomes a part payment with a balance pay link and a timed hold. Drop pay links, the Payment problems list and the Refunds queue must cover Drops too |
 
 ---
 
@@ -824,3 +825,38 @@ Each phase gets its own branch and PR, small commits, tests first, and must be g
 - **A WhatsApp quote message already sent shows the old figures.** The link inside it is right; the text isn't.
 - **A quote lowered below what's been paid is allowed today.** The edit guard only blocks fully paid orders. Example: 6,000 paid, quote cut to 5,000. The ledger shows `refund_due` and −1,000. The pay page shows balance 0 and no pay buttons, but nothing about the 1,000 owed back. The order can still be marked shipped. The legacy `is_paid` stays false while the ledger derives paid, so **`serana:ledger-check` fails on that order** (is_paid and paid_at). A quote cut to 0 behaves the same (refund_due −6,000); new pay links are no longer issued, but an old one still opens.
 - **Phase C should:** refuse a quote below the amount paid unless it goes through the refund flow, offer the refund or credit, keep legacy `is_paid` consistent for such orders, and show "you are owed KSh X" on the pay page.
+
+## 12. Phase C as built (2026-10-19, branch `phase-c/refunds`)
+
+| Step | Commit | What |
+|---|---|---|
+| C0 projection | `ff62b0b` | Legacy `is_paid`, `status`, `paid_at` (and, from C3, `price_quoted`) are projected from the ledger in `recompute()`, so refunds, reversals and cancellations keep them consistent |
+| C0 one code once | `6d4a570` | Owner decision: one M-Pesa namespace. `reference_scope` is a generated column (`mpesa` for STK and manual) with a unique index. Studio error "This M-Pesa code is already recorded on order SRN-…". A callback carrying a code booked on another order isn't booked; the order is flagged `needs_resolution` and the owner is alerted. `ledger-check` reports shared codes |
+| C0 reversal | `cca6239` | Owner decision: owner-only "Reverse" (a `reversal` ledger row pointing at the booking, not money out) or "Confirm genuine" (`payment_reviews`), each with a reason and audited. `ledger-check` fails until each shared code is one or the other |
+| C1 refunds queue | `7d39e1e` | Studio → Refunds (owner, manager): every order owing money back, with amount, cause, age and contact. Mark refunded needs method, a code (unique like any payment code) and a reason; it writes a `refund` row and emails a refund receipt with a PDF. Part refunds stay in the queue. `refund_cause` and `refund_due_since` are set when an order first owes money back |
+| C2 duplicate | `554b83d` | A second payment on a paid order is recorded and owed back ("Paid twice"). The receipt for that payment promises the refund within the policy's working days (setting, default 2). The queue has a prefilled WhatsApp message. Also adds the resolution-days setting (default 3) |
+| C3 late payment | `3eb31d8` | `commitReservations()` never sells past `batch_limit`: a lapsed hold is taken only if the stock is free. Otherwise the payment is recorded and the order waits (`needs_resolution`, `resolution_code=stock_gone`); the customer and owner are told. Studio decision with a reason: full refund (cancelled, all owed back), swap to an item with stock (lines record it; the difference becomes a balance by pay link or a refund owed), or wait for the next batch (`waiting_restock`). `serana:resolve-overdue` (hourly) refunds undecided cases after the policy's days. The old "commit released holds anyway" test was changed on purpose |
+| C4 shop mismatch | `5ea00dd` | More than the prompt: paid and the excess owed back. Less: a part payment, stock held 24 hours, balance email with the pay link (pay links now work for part-paid shop orders). Unpaid after the day: expired, what was received owed back, stock released. Short and sold out: waits like C3. Fractional amounts keep the old flag-for-review rule |
+| C5 quote lowered | `203dd6c` | Lowering a bespoke quote below what was paid needs a reason (Studio warns first). A paid-in-full quote may come down, never up. The excess is owed back, the pay page says "KSh X will be refunded to you", and shipping is blocked until the refund is recorded (owner override with a reason) |
+| C6 cancellation | `00cfef2` | Cancel a custom order with a reason (owner, manager). Before designing, everything paid is owed back. From designing on, the deposit (up to what was paid) is kept as a `retained_deposit` line with the reason and anything above it is owed back. The customer is emailed which applied |
+| C7 attention | `024d17d` | Home leads with one "Payment problems" list: refunds owed, `needs_resolution`, amount mismatches and unexpected bespoke amounts (until the owner confirms them), oldest first, with the count. Replaces the attempt-count "paid N times" heuristic |
+| Fixes | `978148d`, `7c0b773` | `ledger:verify` reversal-aware. Studio icons and light-theme contrast (found in the walk-through) |
+| Races | `c989749` | MariaDB: racing refunds refund once (N2); racing late payments sell the last unit once (I8) |
+
+**Migrations:**
+- `2026_10_19_000006`: `reference_scope` and the M-Pesa namespace index; `resolution_reason`.
+- `2026_10_19_000007`: `reverses_payment_id` and `payment_reviews`.
+- `2026_10_19_000008`: `refund_cause`, `refund_due_since`, `resolution_code`, `resolution_since`.
+
+Migration 000006 refuses to run if a code is already booked under both M-Pesa methods.
+
+**Judgement calls the owner may want to revisit:**
+- **Drop orders keep the old amount-mismatch rule** (flag for review, holds released) for now. Drops are paused. Bringing them in line with shop orders is a precondition for re-enabling them (D18).
+- **The duplicate-payment notice is the receipt for that payment**, not a separate email, so the customer gets one message per payment.
+- **A late payment whose item sold out still gets its payment receipt**, alongside the sold-out notice. The receipt (email and PDF) says "Payment received", that the item is no longer available, and points to the separate email for the options; it never reads as a confirmed order.
+- **The hold for a short shop payment is a Studio setting** (Orders & deposits, default 24 hours), like the refund promise and the resolution days.
+- **Cancelling keeps the production stage it reached.** The Studio shows "Cancelled at: <stage>" and won't move it, and the cancellation email says it when the deposit is kept. The cancelled order state takes it out of every queue and count in both read modes; legacy `status` reads `Cancelled`.
+- **The ship block for money owed back applies to custom orders** (C5). A shop order paid twice can still be packed: its refund is separate from the goods. A shop order with a **balance owed** (short payment, or a swap to a dearer item) can't move to any stage, shipped included, owner or not.
+- **Orders waiting for the next batch aren't on the problems list** and the overdue job leaves them alone. They are a decision already made.
+
+**Verification:** `docs/audit/verification/phase-c/README.md`. Before: `ledger-check` 2 mismatches (the two legacy double bookings). After: 0.

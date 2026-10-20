@@ -35,6 +35,8 @@ class ReleaseExpiredReservations extends Command
         // money if the callback is then lost.
         $expiredOrders = CustomOrder::withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->paidUp(false)
+            // A part-paid order is never silently expired: see below.
+            ->where('amount_paid', '<=', 0)
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->whereDoesntHave('stockReservations', fn ($q) => $q->where('status', 'held'))
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q
@@ -53,6 +55,23 @@ class ReleaseExpiredReservations extends Command
             $order->releaseReservations();
             $expiredOrders += CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
         }
+
+        // Phase C: a shop order paid short whose balance did not arrive within the
+        // day it was held: it expires, its stock is back on sale, and what was
+        // received is owed back (Studio → Refunds). No money moves here.
+        $settlement = app(\App\Services\OrderSettlementService::class);
+        $hours = \App\Support\OrderPolicy::balanceHoldHours();
+        CustomOrder::ofKind('shop')->where('order_state', 'open')->where('resolution', 'none')
+            ->where('amount_paid', '>', 0)->where('balance_due', '>', 0)
+            ->whereDoesntHave('stockReservations', fn ($q) => $q->active())
+            ->whereDoesntHave('payments', fn ($q) => $q->where('occurred_at', '>', now()->subHours($hours)))
+            ->whereDoesntHave('paymentAttempts', fn ($q) => $q->where('status', \App\Models\PaymentAttempt::PENDING)->where('created_at', '>=', now()->subMinutes($window)))
+            ->orderBy('id')
+            ->each(function (CustomOrder $order) use ($settlement, $hours, &$expiredOrders) {
+                $settlement->cancelForRefund($order, \App\Support\Actor::system(), "Balance not paid within {$hours} hours", 'Balance not paid in time', 'expired');
+                \App\Support\Audit::record('order.expired_part_paid', $order, [], ['refund_due' => -(int) $order->fresh()->balance_due], "Balance not paid within {$hours} hours", \App\Support\Actor::system());
+                $expiredOrders++;
+            });
 
         $this->info("Released {$released} reservation(s); expired {$expiredOrders} order(s).");
 

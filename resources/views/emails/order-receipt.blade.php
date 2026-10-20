@@ -24,10 +24,18 @@
                     <tr>
                         <td style="padding:36px 36px 8px;">
                             <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#57d5fc;">{{ $storeName }}</div>
+                            @if($unavailable)
+                            <h1 style="margin:14px 0 6px; font-size:26px; font-weight:300; color:#ffffff;">Payment received.</h1>
+                            <p style="margin:0; font-size:14px; color:#9a9aa0; line-height:1.6;">
+                                Thank you, {{ $order->full_name }}. We've received your payment, but {{ implode(', ', $unavailable) }} {{ count($unavailable) === 1 ? 'is' : 'are' }} no longer available: {{ count($unavailable) === 1 ? 'it' : 'they' }} sold out before your payment reached us, so this order can't be fulfilled as placed.
+                                Your money is safe. We've sent you a separate email with your options.
+                            </p>
+                            @else
                             <h1 style="margin:14px 0 6px; font-size:26px; font-weight:300; color:#ffffff;">Payment confirmed.</h1>
                             <p style="margin:0; font-size:14px; color:#9a9aa0; line-height:1.6;">
                                 Thank you, {{ $order->full_name }}. We've received your payment and your order is in our hands.
                             </p>
+                            @endif
                         </td>
                     </tr>
 
@@ -74,8 +82,10 @@
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px; color:#e8e8e8;">
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Order total</td><td style="padding:4px 0; text-align:right;">{{ $money($total) }}</td></tr>
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Paid to date</td><td style="padding:4px 0; text-align:right;">{{ $money($paidToDate) }}</td></tr>
-                                @if($excess > 0)
-                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">{{ $money($excess) }} more than the total was received. The studio will refund it.</td></tr>
+                                @if($unavailable)
+                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">Item unavailable: see our separate email for a swap, waiting for the next batch, or a full refund.</td></tr>
+                                @elseif($excess > 0)
+                                <tr><td colspan="2" style="padding:8px 0; color:#ffb454;">@if($paidTwice)We received this payment twice. @else{{ $money($excess) }} more than the total was received. @endif{{ $money($excess) }} will be refunded to you within {{ $refundDays }} working {{ $refundDays === 1 ? 'day' : 'days' }}.</td></tr>
                                 @elseif($paidInFull)
                                 <tr><td style="padding:4px 0; font-weight:bold;">Balance due</td><td style="padding:4px 0; text-align:right; color:#4fb33f; font-weight:bold;">Paid in full</td></tr>
                                 @else

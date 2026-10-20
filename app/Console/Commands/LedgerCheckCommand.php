@@ -73,8 +73,7 @@ class LedgerCheckCommand extends Command
     {
         $money = fn (int $v) => 'KSh ' . number_format($v);
         $chargeable = (int) $order->lines()->sum('amount');
-        $payments = (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount');
-        $refunds = (int) $order->payments()->where('type', OrderPayment::REFUND)->sum('amount');
+        ['payments' => $payments, 'refunds' => $refunds] = $order->ledgerSums();
         try {
             $ledger = OrderLedger::derive($chargeable, $payments, $refunds, $order->resolution ?? 'none');
         } catch (\DomainException $e) {
@@ -95,12 +94,20 @@ class LedgerCheckCommand extends Command
 
         if ($ledger['is_paid'] && $order->paid_at === null) {
             $issues[] = 'paid_at: legacy none, ledger paid';
-        } elseif (! $ledger['is_paid'] && ! $legacyPaid && $order->paid_at !== null) {
-            $issues[] = 'paid_at: legacy set, ledger not paid';
+        } elseif (! $ledger['is_paid'] && ! $legacyPaid && $order->paid_at !== null
+            && (int) $order->payments()->where('type', OrderPayment::PAYMENT)->sum('amount') < max(1, $chargeable)) {
+            // paid_at records when it was first paid in full; refunds and reversals may take it out of paid since.
+            $issues[] = 'paid_at: legacy set, ledger never fully paid';
         }
 
         if ($order->mpesa_receipt_number !== null && $order->mpesa_receipt_number !== '' && ! $this->ledgerHasReference($order, $order->mpesa_receipt_number)) {
             $issues[] = "receipt {$order->mpesa_receipt_number}: legacy has it, ledger has no payment with that reference";
+        }
+
+        // One code, one transaction (Phase C): a code booked on another order too
+        // (legacy data, marked by the backfill) needs the owner's review.
+        foreach ($this->sharedReferences($order) as [$code, $label, $others]) {
+            $issues[] = "{$label} {$code} is also booked on order " . implode(', ', $others) . ': reverse it or confirm it genuine';
         }
 
         foreach (['chargeable_total', 'amount_paid', 'balance_due', 'payment_status'] as $column) {
@@ -110,6 +117,32 @@ class LedgerCheckCommand extends Command
         }
 
         return $issues;
+    }
+
+    /**
+     * This order's payments whose reference is also booked on another order,
+     * as [code, label, other order references]. The backfill marked such rows
+     * with LedgerBackfill::DUPLICATE_MARK to get past the unique index.
+     *
+     * @return list<array{0: string, 1: string, 2: list<string>}>
+     */
+    private function sharedReferences(CustomOrder $order): array
+    {
+        $shared = [];
+        // Reversed or confirmed-genuine bookings are resolved.
+        $marked = $order->payments()->where('external_reference', 'like', '%' . LedgerBackfill::DUPLICATE_MARK . '%')->notReversed()
+            ->whereNotExists(fn ($q) => $q->selectRaw(1)->from('payment_reviews')->whereColumn('payment_reviews.order_payment_id', 'order_payments.id'))->get();
+        foreach ($marked as $payment) {
+            $code = strstr($payment->external_reference, LedgerBackfill::DUPLICATE_MARK, true);
+            $others = OrderPayment::where('reference_scope', $payment->reference_scope)->where('custom_order_id', '!=', $order->id)->notReversed()
+                ->where(fn ($q) => $q->where('external_reference', $code)->orWhere('external_reference', 'like', $code . '#%'))
+                ->with('order')->get()->map(fn ($p) => $p->order->cipher)->unique()->values()->all();
+            if ($others !== []) {
+                $shared[] = [$code, $payment->reference_scope === 'mpesa' ? 'M-Pesa code' : 'Reference', $others];
+            }
+        }
+
+        return $shared;
     }
 
     /** The reference as booked, or as marked when it was already used on another order. */

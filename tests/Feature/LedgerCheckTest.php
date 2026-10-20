@@ -75,7 +75,7 @@ class LedgerCheckTest extends TestCase
 
         $this->artisan('serana:ledger-check')
             ->expectsOutputToContain("{$paid->cipher}  paid_at: legacy none, ledger paid")
-            ->expectsOutputToContain("{$deposit->cipher}  paid_at: legacy set, ledger not paid")
+            ->expectsOutputToContain("{$deposit->cipher}  paid_at: legacy set, ledger never fully paid")
             ->assertFailed();
     }
 
