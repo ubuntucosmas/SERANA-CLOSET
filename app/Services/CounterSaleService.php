@@ -113,7 +113,7 @@ class CounterSaleService
      *
      * @return array{booked: int, change: int}
      */
-    public function tenderCash(CustomOrder $order, TillSession $till, User $by, int $amount, int $tendered): array
+    public function tenderCash(CustomOrder $order, TillSession $till, User $by, int $amount, int $tendered, ?\DateTimeInterface $at = null): array
     {
         $balance = max(0, (int) $order->fresh()->balance_due);
         if ($balance <= 0) {
@@ -125,25 +125,25 @@ class CounterSaleService
         $booked = min($amount, $balance);
         $this->secure($order);
 
-        DB::transaction(function () use ($order, $till, $by, $booked, $tendered) {
-            $result = $this->settlement->recordPayment($order, $booked, 'cash', Actor::user($by), null, null, 'Cash at ' . $till->register, [], false, $till->id);
+        DB::transaction(function () use ($order, $till, $by, $booked, $tendered, $at) {
+            $result = $this->settlement->recordPayment($order, $booked, 'cash', Actor::user($by), null, null, 'Cash at ' . $till->register, [], false, $till->id, $at);
             $session = $this->tills->lock($till); // the last lock
             $this->tills->cash($session, CashMovement::SALE, $booked, Actor::user($by), null,
-                ['order_payment_id' => $result['payment']?->id, 'custom_order_id' => $order->id, 'tendered' => $tendered]);
+                ['order_payment_id' => $result['payment']?->id, 'custom_order_id' => $order->id, 'tendered' => $tendered] + ($at ? ['occurred_at' => $at] : []));
         }, 3);
 
         return ['booked' => $booked, 'change' => $tendered - $booked];
     }
 
     /** An M-Pesa code the customer shows (Send Money / till number); unique like every code. */
-    public function tenderMpesaCode(CustomOrder $order, TillSession $till, User $by, int $amount, string $code): void
+    public function tenderMpesaCode(CustomOrder $order, TillSession $till, User $by, int $amount, string $code, ?\DateTimeInterface $at = null): void
     {
         if ($holder = $this->settlement->referenceHolder('mpesa_manual', $code)) {
             throw ValidationException::withMessages(['reference' => "This M-Pesa code is already recorded on order {$holder->order->cipher}."]);
         }
         $this->secure($order);
         try {
-            $this->settlement->recordPayment($order, $amount, 'mpesa_manual', Actor::user($by), $code, null, 'M-Pesa at ' . $till->register, [], true, $till->id);
+            $this->settlement->recordPayment($order, $amount, 'mpesa_manual', Actor::user($by), $code, null, 'M-Pesa at ' . $till->register, [], true, $till->id, $at);
         } catch (\DomainException $e) {
             throw ValidationException::withMessages(['amount' => $e->getMessage()]);
         }

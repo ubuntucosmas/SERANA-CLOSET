@@ -155,6 +155,10 @@ class StudioController extends Controller
             return back()->with('success', 'Notes saved. The order stays cancelled.');
         }
 
+        // Handing an order over checks the customer's phone and takes any balance: that is the till's job (Phase E).
+        if ($validated['status'] === 'collected' && $order->fulfilment_status !== 'collected') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Mark it collected at the till, after checking the customer’s phone.']);
+        }
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);
         }

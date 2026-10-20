@@ -41,9 +41,10 @@ class OrderSettlementService
      * @return array{booked: bool, became_paid: bool, payment: ?OrderPayment, stock_gone: list<string>}
      */
     public function recordPayment(CustomOrder $order, ?int $amount, string $method, Actor $actor, ?string $reference = null,
-        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false, ?int $tillSessionId = null): array
+        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false, ?int $tillSessionId = null,
+        ?\DateTimeInterface $occurredAt = null): array
     {
-        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance, $tillSessionId) {
+        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance, $tillSessionId, $occurredAt) {
             $locked = $this->lockForMoney($order);
 
             if ($existing = $this->alreadyBooked($method, $reference, $attempt)) {
@@ -64,7 +65,8 @@ class OrderSettlementService
             $cause = $balance <= 0 ? 'Paid twice' : 'Paid more than the total';
             // A till payment knows its session; so does an M-Pesa prompt sent from the till (Phase E).
             $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason,
-                ['till_session_id' => $tillSessionId ?? $locked->till_session_id]);
+                // A late entry (Phase E-g) books the time the money changed hands, from the paper slip.
+                ['till_session_id' => $tillSessionId ?? $locked->till_session_id] + ($occurredAt ? ['occurred_at' => $occurredAt] : []));
 
             // Booking the very code that was in conflict here settles the conflict.
             if ($reference !== null && $locked->resolution === 'needs_resolution' && str_starts_with((string) $locked->resolution_reason, "M-Pesa code {$reference} ")) {

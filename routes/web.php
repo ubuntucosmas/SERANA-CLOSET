@@ -211,5 +211,9 @@ Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
         Route::get('/sales/{order}/receipt', [App\Http\Controllers\Pos\SaleController::class, 'receipt'])->name('pos.sales.receipt');
         Route::get('/orders/find', [App\Http\Controllers\Pos\ReturnController::class, 'find'])->name('pos.orders.find');
         Route::post('/returns', [App\Http\Controllers\Pos\ReturnController::class, 'store'])->name('pos.returns.store');
+        Route::get('/collect/find', [App\Http\Controllers\Pos\DeskController::class, 'find'])->middleware('throttle:30,1')->name('pos.collect.find');
+        Route::post('/collect/{order}', [App\Http\Controllers\Pos\DeskController::class, 'collect'])->name('pos.collect.store');
+        Route::post('/intake', [App\Http\Controllers\Pos\DeskController::class, 'intake'])->name('pos.intake');
+        Route::post('/late-entry', [App\Http\Controllers\Pos\DeskController::class, 'lateEntry'])->name('pos.late_entry');
     });
 });

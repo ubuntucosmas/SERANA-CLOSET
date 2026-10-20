@@ -42,6 +42,17 @@ class SaleController extends Controller
         return $order;
     }
 
+    /** Money can be taken at the till on any open order: a sale, a collection's balance, a bespoke deposit (§15.5). */
+    private function payable(CustomOrder $order): CustomOrder
+    {
+        abort_if($order->trashed(), 404);
+        if ($order->order_state !== 'open') {
+            throw ValidationException::withMessages(['amount' => 'This order is ' . $order->order_state . '. Nothing can be taken on it.']);
+        }
+
+        return $order;
+    }
+
     /** Search by name, SKU or barcode; a scanned code picks its size. Stock is what this shop has. */
     public function catalogue(Request $request, StockService $stock)
     {
@@ -106,14 +117,17 @@ class SaleController extends Controller
         return response()->json(['sale' => $this->sales->present($order)]);
     }
 
+    /** Any order money is taken on at the till (an M-Pesa prompt is watched here). */
     public function show(CustomOrder $order)
     {
-        return response()->json(['sale' => $this->sales->present($this->counterSale($order))]);
+        abort_if($order->trashed(), 404);
+
+        return response()->json(['sale' => $this->sales->present($order)]);
     }
 
     public function tender(Request $request, CustomOrder $order)
     {
-        $this->counterSale($order);
+        $this->payable($order);
         $data = $request->validate([
             'method' => ['required', 'in:cash,mpesa_manual,mpesa_prompt,credit'],
             'credit_order_id' => ['required_if:method,credit', 'nullable', 'integer', 'exists:custom_orders,id'],
