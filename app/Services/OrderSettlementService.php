@@ -15,6 +15,7 @@ use App\Support\OrderStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The single writer of an order's money (design §1.1 principle 1, I4): ledger
@@ -692,6 +693,45 @@ class OrderSettlementService
         } catch (\Throwable $e) {
             Log::error("Payment problem alert could not be queued for Order #{$order->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Returned goods (Phase E-d): a negative adjustment line per returned
+     * line, pointing at it, with the disposition, who, why and any approver.
+     * The order then owes the value back (Phase C rules). Refuses more units
+     * than are still returnable, under the order lock.
+     *
+     * @param  list<array{line: OrderLine, quantity: int, disposition: string}>  $returns
+     * @return int the value returned
+     */
+    public function returnItems(CustomOrder $order, array $returns, Actor $actor, string $reason, ?int $approvedBy = null): int
+    {
+        return DB::transaction(function () use ($order, $returns, $actor, $reason, $approvedBy) {
+            $locked = $this->lockForMoney($order);
+            $value = 0;
+            foreach ($returns as $r) {
+                $left = $this->returnable($r['line']);
+                if ($r['quantity'] > $left) {
+                    throw ValidationException::withMessages(['lines' => "Only {$left} of {$r['line']->description} can still be returned."]);
+                }
+                $amount = (int) $r['line']->unit_amount;
+                $this->line($locked, OrderLine::ADJUSTMENT, "Returned: {$r['line']->description}", $r['quantity'], -$amount, $actor, $reason, $r['line']->product_id,
+                    ['return_of' => $r['line']->id, 'disposition' => $r['disposition'], 'approved_by' => $approvedBy]);
+                $value += $amount * $r['quantity'];
+            }
+            $this->recompute($locked, 'Returned at the till');
+
+            return $value;
+        }, 3);
+    }
+
+    /** Units of an item line not yet returned. */
+    public function returnable(OrderLine $line): int
+    {
+        $returned = OrderLine::where('custom_order_id', $line->custom_order_id)->where('line_type', OrderLine::ADJUSTMENT)->get()
+            ->filter(fn ($l) => (int) ($l->meta['return_of'] ?? 0) === $line->id)->sum('quantity');
+
+        return max(0, (int) $line->quantity - (int) $returned);
     }
 
     /**

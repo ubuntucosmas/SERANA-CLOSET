@@ -149,6 +149,33 @@ class CounterSaleService
         }
     }
 
+    /**
+     * An exchange (design §15.4): what an earlier sale owes back pays for
+     * this one. A 'credit' refund on the old sale and a 'credit' payment on
+     * this one, in one transaction; no cash moves. At most what is owed back
+     * and what this sale still owes.
+     */
+    public function tenderCredit(CustomOrder $order, TillSession $till, User $by, int $amount, CustomOrder $from): int
+    {
+        $owedBack = max(0, -(int) $from->fresh()->balance_due);
+        if ($owedBack <= 0) {
+            throw ValidationException::withMessages(['credit_order_id' => "Nothing is owed back on {$from->cipher} to use as credit."]);
+        }
+        $balance = max(0, (int) $order->fresh()->balance_due);
+        if ($balance <= 0) {
+            throw ValidationException::withMessages(['amount' => 'Nothing more is owed on this sale.']);
+        }
+        $credit = min($amount, $owedBack, $balance);
+        $this->secure($order);
+        DB::transaction(function () use ($order, $till, $by, $credit, $from) {
+            $n = $from->payments()->where('type', \App\Models\OrderPayment::REFUND)->where('method', 'credit')->count() + 1;
+            $this->settlement->recordRefund($from, $credit, 'credit', Actor::user($by), "Credit to {$order->cipher} #{$n}", "Exchanged for {$order->cipher}", $till->id);
+            $this->settlement->recordPayment($order, $credit, 'credit', Actor::user($by), "Credit from {$from->cipher} #{$n}", null, "Exchange from {$from->cipher}", [], true, $till->id);
+        }, 3);
+
+        return $credit;
+    }
+
     /** A prompt to the customer's phone; the callback books it to this till like any online payment. */
     public function tenderMpesaPrompt(CustomOrder $order, User $by, int $amount, string $phone): PaymentAttempt
     {

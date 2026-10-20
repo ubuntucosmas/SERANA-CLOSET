@@ -115,7 +115,8 @@ class SaleController extends Controller
     {
         $this->counterSale($order);
         $data = $request->validate([
-            'method' => ['required', 'in:cash,mpesa_manual,mpesa_prompt'],
+            'method' => ['required', 'in:cash,mpesa_manual,mpesa_prompt,credit'],
+            'credit_order_id' => ['required_if:method,credit', 'nullable', 'integer', 'exists:custom_orders,id'],
             'amount' => ['required', 'integer', 'min:1'],
             'tendered' => ['required_if:method,cash', 'nullable', 'integer', 'min:1'],
             'reference' => ['required_if:method,mpesa_manual', 'nullable', 'string', 'max:100'],
@@ -128,6 +129,7 @@ class SaleController extends Controller
         match ($data['method']) {
             'cash' => $out = $this->sales->tenderCash($order, $till, $by, (int) $data['amount'], (int) $data['tendered']),
             'mpesa_manual' => $this->sales->tenderMpesaCode($order, $till, $by, (int) $data['amount'], $data['reference']),
+            'credit' => $out = ['booked' => $this->sales->tenderCredit($order, $till, $by, (int) $data['amount'], CustomOrder::findOrFail($data['credit_order_id']))],
             'mpesa_prompt' => $out = ['prompt' => ['status' => 'sent', 'attempt' => $this->sales->tenderMpesaPrompt($order, $by, (int) $data['amount'], $data['phone'])->id]],
         };
 

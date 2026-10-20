@@ -209,5 +209,7 @@ Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
         Route::post('/sales/{order}/tender', [App\Http\Controllers\Pos\SaleController::class, 'tender'])->name('pos.sales.tender');
         Route::post('/sales/{order}/void', [App\Http\Controllers\Pos\SaleController::class, 'void'])->name('pos.sales.void');
         Route::get('/sales/{order}/receipt', [App\Http\Controllers\Pos\SaleController::class, 'receipt'])->name('pos.sales.receipt');
+        Route::get('/orders/find', [App\Http\Controllers\Pos\ReturnController::class, 'find'])->name('pos.orders.find');
+        Route::post('/returns', [App\Http\Controllers\Pos\ReturnController::class, 'store'])->name('pos.returns.store');
     });
 });

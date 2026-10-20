@@ -226,6 +226,36 @@ class StockService
         return $holds;
     }
 
+    /**
+     * Goods back over the counter (Phase E-d), as the stock writer. Restock:
+     * the unit is on sale again (a 'return' movement at this shop with stock
+     * per size; the old model's batch_sold goes down either way). Write off:
+     * it came back but can't be sold ('return' then 'damage', so the history
+     * shows both); the old model's count is unchanged. Untracked products
+     * move nothing.
+     *
+     * @param  list<ProductVariant>  $variants  the sizes the line sold (a set: top and bottom)
+     */
+    public function takeBack(Product $product, array $variants, Location $at, int $quantity, string $disposition, Actor $actor, string $reason, int $orderId): void
+    {
+        if (! $product->track_stock) {
+            return;
+        }
+        if ($disposition === 'restock') {
+            Product::withTrashed()->whereKey($product->id)->where('batch_sold', '>=', $quantity)->decrement('batch_sold', $quantity);
+        }
+        if (! \App\Support\StockMode::v2()) {
+            return;
+        }
+        foreach ($variants as $variant) {
+            $variant->setRelation('product', $product->fresh());
+            $this->move($variant, $at, StockMovement::RETURN, $quantity, $actor, $reason, ['custom_order_id' => $orderId]);
+            if ($disposition === 'write_off') {
+                $this->move($variant, $at, StockMovement::DAMAGE, -$quantity, $actor, "Written off on return: {$reason}", ['custom_order_id' => $orderId]);
+            }
+        }
+    }
+
     /** Write the holds an allocation decided, for an order, inside the same transaction. */
     public function hold(\App\Models\CustomOrder $order, array $allocations, \DateTimeInterface $until): void
     {
