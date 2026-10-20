@@ -1136,3 +1136,34 @@ The `ConcurrencyTest` harness adds STOCK_V2 workers for each row above. A new st
 - **P7. Bespoke delivery is chosen by the Studio when quoting** (default pickup), not by the customer on the pay page. Confirm.
 - **P8. Pickup verification before the till:** reference + phone, with the note logged; nothing owed. Confirm. A balance can still be taken first with Record payment.
 - **P9. CI time:** the D1 matrix doubles the runs (8 instead of 4, about +3 min). **Recommend accepting it** until V2 is the only model.
+
+## 14. Phase D1 as built (2026-10-20, branch `phase-d/stock`)
+
+| Step | Commit | What |
+|---|---|---|
+| 1 model | `458e599` | Locations (one seeded), product variants per offered size and part (a set as top and bottom), stock levels (never negative: a CHECK on MariaDB, triggers on SQLite), append-only stock movements, `products.track_stock`. The backfill maps live holds to sizes and reports any it can't read |
+| 2 service | `5443755` | `StockService`, the single writer: receive, damage, count (one correction, stamps the count) and transfer, with an actor and a reason and audited. Availability per size and per product |
+| 3 switch | `7483ce4` | `STOCK_V2` (`setting` / `on` / `off`). The storefront reads per-size availability when it's on |
+| 4 checkout | `db9de73` | Holds per size under the size locks; unreadable lines refused per line ("Choose a size for X") |
+| 5 settlement | `6189c0c` | Paying writes sale movements; the Phase C rules work per size (late payment, a set waits as a whole, M-Pesa retry, swap by size, part-payment hold) |
+| 6 cutover | `fd66968` | `serana:stock:reconcile`, `serana:stock:cutover` (preview / `--confirm` / `--rollback`), the old model's post-count sales replayed, `batch_limit` re-baselined, preflight gate |
+| 7 Studio | `abcb860` | Studio → Stock: count, receive, write off, sizes on offer, made to order, history per product, the owner's switch |
+| 8 storefront | `624dda0` | Size picker per size ("Only 2 left in M", "Sold out in L"), the bag capped per size, "Choose a size" for old bag lines |
+| 9 races | `efc6fd5` | MariaDB races per size; a static lock-order test |
+| 10 both models | `8508793` | The whole suite runs with `STOCK_V2` off and on; CI runs eight PHP passes |
+| Fixes | `b3443ff`, `d733eac`, `c0eea0b`, `d59dae6` | Old unsized holds don't block the switch and never sell blind; set swap fields; no switch offered while a live hold has no size; sale reasons |
+
+**Where the build departs from §13:**
+- **`stock_reservations.second_part`.** The backfill splits an old set hold into top and bottom rows, and the old model is still live until the switch. Every product-level count skips the bottom row, so a set counts and sells once. (§13.1 updated.)
+- **Locking reads.** Stock decisions taken under a size's level lock read the holds and the level with locking reads, never a REPEATABLE READ snapshot older than the lock. Every writer of holds takes the level lock first, so this can't form a lock cycle.
+- **Re-baselining after every movement.** While v2 is on, every non-sale movement re-baselines `batch_limit`, and every sale still adds to `batch_sold` (§13.2). Switching back shows the same totals: tested, and done in the walkthrough.
+- **What blocks the cutover.** Only live (`held`) holds without a size block it. Old released holds without a size are listed as a warning; a late payment on one waits for the studio.
+- **Product lists.** `StockService::preloadAvailability()` computes a whole list's availability in two queries.
+- **CI.** The four `STOCK_V2=on` passes are extra steps in the same `test` job, so the required check keeps its name.
+- **One-size pieces** read "One size", not "Size One size", and sold-out notices give their name alone.
+
+**For D2:**
+- P1 still stands: `Checkout.vue` and `CartDrawer.vue` carry outside edits and must be committed before D2.
+- Both still build their own "Size …" label rather than `sizes.js`'s `sizeLabel()`.
+
+**Verification:** `docs/audit/verification/phase-d/README.md`.
