@@ -126,6 +126,7 @@ class StockSchemaTest extends TestCase
 
     public function test_the_backfill_adds_sizes_seen_on_past_orders_and_maps_live_holds(): void
     {
+        config(['serana.stock_v2' => 'off']); // the backfill runs while the old model still sells
         $product = $this->product(['garment_type' => 'set', 'batch_limit' => 5, 'specifications' => ['ui' => ['sizes' => ['M', 'L']]]]);
         $order = CustomOrder::create(['full_name' => 'Jane', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000,
             'items_json' => [['id' => $product->id, 'name' => 'Set', 'price' => 5000, 'quantity' => 1, 'options' => ['top_size' => 'M', 'bottom_size' => 'XS']]]]);
@@ -153,6 +154,7 @@ class StockSchemaTest extends TestCase
 
     public function test_a_hold_whose_size_is_unknown_is_reported_not_guessed(): void
     {
+        config(['serana.stock_v2' => 'off']); // the backfill runs while the old model still sells
         $product = $this->product(['batch_limit' => 5]);
         $order = CustomOrder::create(['full_name' => 'Jane', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000,
             'items_json' => [['id' => $product->id, 'name' => 'Hoodie', 'price' => 5000, 'quantity' => 1]]]);
@@ -164,6 +166,7 @@ class StockSchemaTest extends TestCase
 
     public function test_paying_a_set_whose_hold_was_split_sells_one_set_in_the_old_model(): void
     {
+        config(['serana.stock_v2' => 'off']); // the backfill runs while the old model still sells
         $product = $this->product(['garment_type' => 'set', 'batch_limit' => 5]);
         $order = CustomOrder::create(['full_name' => 'Jane', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000,
             'items_json' => [['id' => $product->id, 'name' => 'Set', 'price' => 5000, 'quantity' => 1, 'options' => ['top_size' => 'M', 'bottom_size' => 'L']]]]);
@@ -178,6 +181,7 @@ class StockSchemaTest extends TestCase
 
     public function test_a_late_set_payment_after_the_split_is_checked_once_against_the_old_limit(): void
     {
+        config(['serana.stock_v2' => 'off']); // the backfill runs while the old model still sells
         $product = $this->product(['garment_type' => 'set', 'batch_limit' => 1]);
         $order = CustomOrder::create(['full_name' => 'Jane', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000,
             'items_json' => [['id' => $product->id, 'name' => 'Set', 'price' => 5000, 'quantity' => 1, 'options' => ['top_size' => 'M', 'bottom_size' => 'L']]]]);

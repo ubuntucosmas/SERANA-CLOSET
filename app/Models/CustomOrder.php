@@ -74,7 +74,10 @@ class CustomOrder extends Model
         $top = $options['top_size'] ?? null;
         $bottom = $options['bottom_size'] ?? null;
         if ($top && $bottom) return "Top {$top} · Bottom {$bottom}";
-        if ($top || $bottom) return 'Size ' . ($top ?: $bottom);
+        if ($top || $bottom) {
+            $size = $top ?: $bottom;
+            return $size === \App\Models\ProductVariant::ONE_SIZE ? $size : "Size {$size}";
+        }
         return null;
     }
 
@@ -190,7 +193,8 @@ class CustomOrder extends Model
             'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed(), 'variant'])->get()
                 ->groupBy('product_id')
                 ->map(fn ($rows) => ['product_id' => $rows->first()->product_id,
-                    'name' => ($rows->first()->product?->name ?? 'Item') . ($rows->first()->variant ? ' (' . $rows->pluck('variant')->filter()->map->label()->implode(' · ') . ')' : ''),
+                    'name' => ($rows->first()->product?->name ?? 'Item') . ($rows->first()->variant && $rows->first()->variant->size !== \App\Models\ProductVariant::ONE_SIZE
+                        ? ' (' . $rows->pluck('variant')->filter()->map->label()->implode(' · ') . ')' : ''),
                     'quantity' => (int) $rows->where('second_part', false)->sum('quantity')])
                 ->values()->all(),
         ];

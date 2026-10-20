@@ -19,6 +19,7 @@ use Tests\TestCase;
 class PaymentAttemptTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same rules in either stock model (Phase D1)
 
     protected function setUp(): void
     {
@@ -31,14 +32,7 @@ class PaymentAttemptTest extends TestCase
 
     private function product(int $limit = 3, float $price = 5000): Product
     {
-        return Product::create([
-            'name'        => 'Limited Jacket',
-            'slug'        => 'limited-jacket-' . uniqid(),
-            'price'       => $price,
-            'batch_limit' => $limit,
-            'batch_sold'  => 0,
-            'in_stock'    => true,
-        ]);
+        return $this->stockedProduct($limit, ['name' => 'Limited Jacket', 'slug' => 'limited-jacket-' . uniqid(), 'price' => $price]);
     }
 
     private function pendingOrder(array $overrides = []): CustomOrder
@@ -156,10 +150,7 @@ class PaymentAttemptTest extends TestCase
         $product = $this->product();
         $order = $this->pendingOrder(['status' => OrderStatus::EXPIRED, 'created_at' => now()->subMinutes(30)]);
         // The hold lapsed and was released before payment completed.
-        $order->stockReservations()->create([
-            'product_id' => $product->id, 'quantity' => 1,
-            'status' => 'released', 'expires_at' => now()->subMinutes(10),
-        ]);
+        $this->holdFor($order, $product, 1, 'released', now()->subMinutes(10));
         $order->paymentAttempts()->create([
             'checkout_request_id' => 'ws_CO_LATE',
             'phone' => '254712345678', 'amount' => 5000,
@@ -187,9 +178,9 @@ class PaymentAttemptTest extends TestCase
         ]);
 
         $product = $this->product(1);
-        $product->update(['batch_sold' => 1]); // someone else bought the last one meanwhile
+        $this->soldElsewhere($product); // someone else bought the last one meanwhile
         $order = $this->pendingOrder(['status' => OrderStatus::EXPIRED, 'created_at' => now()->subMinutes(30)]);
-        $order->stockReservations()->create(['product_id' => $product->id, 'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subMinutes(10)]);
+        $this->holdFor($order, $product, 1, 'released', now()->subMinutes(10));
         $order->paymentAttempts()->create([
             'checkout_request_id' => 'ws_CO_LATE2', 'phone' => '254712345678', 'amount' => 5000, 'status' => PaymentAttempt::PENDING,
         ])->forceFill(['created_at' => now()->subMinutes(10)])->save();
@@ -242,10 +233,7 @@ class PaymentAttemptTest extends TestCase
 
         $product = $this->product(limit: 1);
         $order = $this->pendingOrder();
-        $reservation = $order->stockReservations()->create([
-            'product_id' => $product->id, 'quantity' => 1,
-            'status' => 'released', 'expires_at' => now()->subMinutes(5),
-        ]);
+        $reservation = $this->holdFor($order, $product, 1, 'released', now()->subMinutes(5));
 
         // Stock still free → the hold is re-acquired and the push goes out.
         $this->withSession(['serana.order_ids' => [$order->id]])
@@ -256,7 +244,7 @@ class PaymentAttemptTest extends TestCase
         // Now the batch sells out to someone else and the hold lapses again.
         // (refresh first: initiate re-held the row behind this stale instance)
         $reservation->refresh()->update(['status' => 'released']);
-        $product->update(['batch_sold' => 1]);
+        $this->soldElsewhere($product);
 
         $this->withSession(['serana.order_ids' => [$order->id]])
             ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])
@@ -286,10 +274,7 @@ class PaymentAttemptTest extends TestCase
         Event::fake([\App\Events\MpesaWebhookHandled::class]); // only the receipt event: model events must still fire
         $product = $this->product();
         $order = $this->pendingOrder();
-        $order->stockReservations()->create([
-            'product_id' => $product->id, 'quantity' => 1,
-            'status' => 'held', 'expires_at' => now()->addMinutes(15),
-        ]);
+        $this->holdFor($order, $product, 1, 'held', now()->addMinutes(15));
         $this->fakeStkPushSequence(['ws_CO_FIRST', 'ws_CO_RETRY']);
         $session = ['serana.order_ids' => [$order->id]];
 
@@ -347,10 +332,7 @@ class PaymentAttemptTest extends TestCase
     {
         $product = $this->product();
         $order = $this->pendingOrder(['status' => OrderStatus::PAYMENT_FAILED]);
-        $reservation = $order->stockReservations()->create([
-            'product_id' => $product->id, 'quantity' => 1,
-            'status' => 'released', 'expires_at' => now()->subMinute(),
-        ]);
+        $reservation = $this->holdFor($order, $product, 1, 'released', now()->subMinute());
         $this->fakeStkPushSequence(['ws_CO_RETRY']);
 
         $this->withSession(['serana.order_ids' => [$order->id]])

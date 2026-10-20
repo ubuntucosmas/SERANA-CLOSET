@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sizesForRow, isSizeSoldOut, sizeNote, rowNotes, fallbackSizes } from '../../resources/js/Support/sizes.js';
+import { sizesForRow, isSizeSoldOut, sizeNote, rowNotes, fallbackSizes, sizeLabel } from '../../resources/js/Support/sizes.js';
 
 const set = [
     { id: 1, part: 'top', size: 'M', available: 2 },
@@ -35,4 +35,11 @@ test('without server sizes the product page falls back to the listed sizes', () 
     assert.deepEqual(fallbackSizes({ garment_type: 'set', specifications: { sizes: ['M', 'L'] } }).map(s => `${s.part}:${s.size}:${s.available}`),
         ['top:M:null', 'top:L:null', 'bottom:M:null', 'bottom:L:null']);
     assert.deepEqual(fallbackSizes({ garment_type: 'hoodie' }).map(s => s.size), ['S', 'M', 'L', 'XL', 'XXL']);
+});
+
+test('size labels read the same as the server, one size included', () => {
+    assert.equal(sizeLabel({ top_size: 'M', bottom_size: 'L' }), 'Top M · Bottom L');
+    assert.equal(sizeLabel({ bottom_size: 'L' }), 'Size L');
+    assert.equal(sizeLabel({ top_size: 'One size' }), 'One size');
+    assert.equal(sizeLabel(null), null);
 });

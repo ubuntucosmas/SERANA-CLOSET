@@ -11,7 +11,8 @@ class ShopController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('category')->withAvailability();
+        $v2 = \App\Support\StockMode::v2();
+        $query = Product::with('category')->when(! $v2, fn ($q) => $q->withAvailability());
         
         if ($request->filled('category') && $request->category !== 'all') {
             $query->whereHas('category', function($q) use ($request) {
@@ -21,7 +22,11 @@ class ShopController extends Controller
         
         // available_stock counts unpaid holds, so a piece held by another
         // checkout shows sold out here instead of failing at payment.
-        $products = $query->get()->append('available_stock');
+        $products = $query->get();
+        if ($v2) {
+            app(\App\Services\StockService::class)->preloadAvailability($products); // a few queries for the whole list
+        }
+        $products = $products->append('available_stock');
         $categories = Category::all();
 
         return Inertia::render('Shop', [

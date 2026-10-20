@@ -15,6 +15,7 @@ use Tests\TestCase;
 class StudioFulfilmentTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same Studio in either stock model (Phase D1)
 
     private function admin(): User
     {
@@ -61,7 +62,7 @@ class StudioFulfilmentTest extends TestCase
         // Phase C (changed on purpose): a second payment is booked in the ledger and listed as a refund owed.
         $order = CustomOrder::create(['full_name' => 'Twice', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 5000]);
         foreach (['A', 'B'] as $id) app(\App\Services\OrderSettlementService::class)->recordPayment($order->fresh(), 5000, 'mpesa_stk', \App\Support\Actor::safaricom(), "Q$id");
-        Product::create(['name' => 'Nearly Gone', 'slug' => 'nearly-gone', 'price' => 100, 'batch_limit' => 5, 'batch_sold' => 4, 'in_stock' => true]);
+        $this->stockedProduct(1, ['name' => 'Nearly Gone', 'slug' => 'nearly-gone', 'price' => 100, 'batch_sold' => 4]);
 
         $this->actingAs($this->admin())->get(route('studio.index'))->assertInertia(fn ($page) => $page
             ->where('attention.payments.0.label', 'Refund owed')

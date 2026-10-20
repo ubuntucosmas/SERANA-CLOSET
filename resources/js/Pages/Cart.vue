@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
 import { useCartStore } from '@/Stores/useCartStore';
 import { useCurrency } from '@/Composables/useCurrency';
+import { sizeLabel } from '@/Support/sizes';
 const cart = useCartStore();
 const { formatAmount } = useCurrency();
 </script>
@@ -24,7 +25,7 @@ const { formatAmount } = useCurrency();
                         <img :src="item.image" :alt="item.name" class="w-20 h-28 object-cover rounded-lg" />
                         <div class="flex-1 min-w-0">
                             <Link :href="route('shop.show', item.slug)" class="text-lg font-semibold">{{ item.name }}</Link>
-                            <p v-if="item.options?.top_size || item.options?.bottom_size" class="text-sm text-on-surface-variant">{{ item.options.top_size && item.options.bottom_size ? `Top ${item.options.top_size} · Bottom ${item.options.bottom_size}` : `Size ${item.options.top_size || item.options.bottom_size}` }}</p>
+                            <p v-if="item.options?.top_size || item.options?.bottom_size" class="text-sm text-on-surface-variant">{{ sizeLabel(item.options) }}</p>
                             <!-- A line saved before sizes were tracked: checkout will ask for one, so offer it here first. -->
                             <Link v-else-if="!item.variant_ids?.length" :href="route('shop.show', item.slug)" class="text-sm text-primary underline">Choose a size</Link>
                             <p class="my-2 font-semibold">{{ formatAmount(item.price * item.quantity) }}</p>

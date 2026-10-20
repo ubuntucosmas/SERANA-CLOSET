@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
+import { sizeLabel as formatSize } from '@/Support/sizes';
 
 // Shown once a WhatsApp order is recorded: a real order (code, held stock,
 // tracking, Studio) that the customer now sends on WhatsApp and pays as the
@@ -28,11 +29,7 @@ function send() {
 async function copyCode() {
     try { await navigator.clipboard.writeText(props.reference); copied.value = true; setTimeout(() => (copied.value = false), 2000); } catch { /* clipboard unavailable */ }
 }
-const sizeLabel = (options) => {
-    const { top_size: top, bottom_size: bottom } = options || {};
-    if (top && bottom) return `Top ${top} · Bottom ${bottom}`;
-    return top || bottom ? `Size ${top || bottom}` : null;
-};
+const sizeLabel = (options) => formatSize(options);
 </script>
 
 <template>

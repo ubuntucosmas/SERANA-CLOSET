@@ -26,6 +26,7 @@ use Tests\TestCase;
 class LatePaymentStockGoneTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same rules in either stock model (Phase D1)
 
     private Product $jacket;
 
@@ -37,10 +38,16 @@ class LatePaymentStockGoneTest extends TestCase
         $this->jacket = $this->product('Limited Jacket', 5000, 1);
     }
 
+    /** A one-size piece: $limit made, $sold of them gone (null limit = made to order). */
     private function product(string $name, int $price, ?int $limit, int $sold = 0): Product
     {
-        return Product::create(['name' => $name, 'slug' => str($name)->slug() . '-' . uniqid(), 'price' => $price,
-            'batch_limit' => $limit, 'batch_sold' => $sold, 'in_stock' => true]);
+        $product = Product::create(['name' => $name, 'slug' => str($name)->slug() . '-' . uniqid(), 'price' => $price, 'garment_type' => 'hoodie',
+            'specifications' => ['sizes' => [\App\Models\ProductVariant::ONE_SIZE]], 'batch_limit' => $limit, 'batch_sold' => $sold, 'in_stock' => true]);
+        if ($limit !== null) {
+            $this->setOnHand($product, $limit - $sold);
+        }
+
+        return $product->fresh();
     }
 
     /** Jane's hold on the only jacket lapsed; then someone else bought it. */
@@ -49,8 +56,8 @@ class LatePaymentStockGoneTest extends TestCase
         $order = CustomOrder::create(['full_name' => 'Jane Wanjiru', 'email' => 'jane@example.com', 'whatsapp_number' => '254712345678', 'phone' => '254712345678',
             'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000,
             'items_json' => [['id' => $this->jacket->id, 'name' => 'Limited Jacket', 'price' => 5000, 'quantity' => 1, 'size_label' => 'Size M']]]);
-        $order->stockReservations()->create(['product_id' => $this->jacket->id, 'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subMinutes(10)]);
-        $this->jacket->update(['batch_sold' => 1]);
+        $this->holdFor($order, $this->jacket, 1, 'released', now()->subMinutes(10));
+        $this->soldElsewhere($this->jacket);
         $order->paymentAttempts()->create(['checkout_request_id' => 'ws_LATE', 'phone' => '254712345678', 'amount' => 5000, 'status' => 'pending']);
 
         return $order->fresh();
@@ -98,6 +105,7 @@ class LatePaymentStockGoneTest extends TestCase
     {
         $order = $this->lapsedOrder();
         $this->jacket->update(['batch_sold' => 0]); // nobody bought it in the meantime
+        $this->setOnHand($this->jacket, 1);
 
         $this->paysLate($order);
 
@@ -129,7 +137,7 @@ class LatePaymentStockGoneTest extends TestCase
         $coat = $this->product('Wool Coat', 6000, 2);
 
         $this->actingAs($this->owner())->post(route('studio.order.resolve', $order), [
-            'action' => 'swap', 'from_product_id' => $this->jacket->id, 'to_product_id' => $coat->id, 'size' => 'Size L', 'reason' => 'Customer chose the coat',
+            'action' => 'swap', 'from_product_id' => $this->jacket->id, 'to_product_id' => $coat->id, 'reason' => 'Customer chose the coat',
         ])->assertSessionHasNoErrors();
 
         $fresh = $order->fresh();
@@ -169,7 +177,7 @@ class LatePaymentStockGoneTest extends TestCase
 
         $this->actingAs($this->owner())->post(route('studio.order.resolve', $order), [
             'action' => 'swap', 'from_product_id' => $this->jacket->id, 'to_product_id' => $gone->id, 'reason' => 'x',
-        ])->assertSessionHasErrors(['to_product_id' => 'Gone Too has no stock for this order.']);
+        ])->assertSessionHasErrors(['to_product_id' => \App\Support\StockMode::v2() ? 'Gone Too just sold out.' : 'Gone Too has no stock for this order.']);
         $this->assertSame('needs_resolution', $order->fresh()->resolution);
     }
 
@@ -190,8 +198,9 @@ class LatePaymentStockGoneTest extends TestCase
 
         // The batch is restocked: the Studio swaps her onto the same jacket.
         $this->jacket->update(['batch_limit' => 5]);
+        $this->setOnHand($this->jacket, 4);
         $this->actingAs($this->owner())->post(route('studio.order.resolve', $order), [
-            'action' => 'swap', 'from_product_id' => $this->jacket->id, 'to_product_id' => $this->jacket->id, 'size' => 'Size M', 'reason' => 'Restocked',
+            'action' => 'swap', 'from_product_id' => $this->jacket->id, 'to_product_id' => $this->jacket->id, 'reason' => 'Restocked',
         ])->assertSessionHasNoErrors();
         $this->assertSame(['paid', 2], [$order->fresh()->payment_status, $this->jacket->fresh()->batch_sold]);
     }
@@ -247,6 +256,7 @@ class LatePaymentStockGoneTest extends TestCase
     {
         $order = $this->lapsedOrder();
         $this->jacket->update(['batch_sold' => 0]);
+        $this->setOnHand($this->jacket, 1);
         Mail::fake();
         $this->paysLate($order);
 

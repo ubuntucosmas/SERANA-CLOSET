@@ -31,3 +31,12 @@ export function fallbackSizes(product) {
     const parts = type === 'set' ? ['top', 'bottom'] : type === 'jogger' ? ['bottom'] : ['single'];
     return parts.flatMap(part => list.map(size => ({ id: null, part, size, available: null })));
 }
+
+// The same wording as the server (CustomOrder::sizeLabel): "Top M · Bottom L", "Size M", "One size".
+export function sizeLabel(options) {
+    const { top_size: top, bottom_size: bottom } = options || {};
+    if (top && bottom) return `Top ${top} · Bottom ${bottom}`;
+    const size = top || bottom;
+    if (!size) return null;
+    return size === 'One size' ? size : `Size ${size}`;
+}

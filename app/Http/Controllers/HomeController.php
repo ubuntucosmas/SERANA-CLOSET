@@ -19,6 +19,7 @@ class HomeController extends Controller
                 ->latest()
                 ->take(4)
                 ->get()
+                ->tap(fn ($products) => \App\Support\StockMode::v2() ? app(\App\Services\StockService::class)->preloadAvailability($products) : null)
                 ->append('available_stock'),
             'showcaseProducts' => Product::with('category:id,name')
                 ->where('in_stock', true)
@@ -33,6 +34,7 @@ class HomeController extends Controller
                 ->latest()
                 ->limit(\App\Support\StockMode::v2() ? 48 : 12)
                 ->get()
+                ->tap(fn ($products) => \App\Support\StockMode::v2() ? app(\App\Services\StockService::class)->preloadAvailability($products) : null)
                 // Stock per size: a piece sold out in every size leaves the showcase (boutique-sized catalogue).
                 ->when(\App\Support\StockMode::v2(), fn ($products) => $products->filter(fn (Product $p) => $p->available_stock !== 0)->take(12)->values())
                 ->map(fn (Product $product) => [

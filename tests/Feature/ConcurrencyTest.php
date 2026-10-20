@@ -50,6 +50,7 @@ class ConcurrencyTest extends TestCase
 
     public function test_two_checkouts_racing_for_the_last_unit_sell_it_once(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 1);
 
         $results = $this->whileHoldingProduct($product, [
@@ -68,6 +69,7 @@ class ConcurrencyTest extends TestCase
 
     public function test_a_checkout_and_a_payment_retry_on_the_same_product_do_not_deadlock(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 2);
         // An earlier order whose hold lapsed: the STK retry must re-acquire it.
         $retrying = $this->unpaidOrderHolding($product, 'released');
@@ -90,6 +92,7 @@ class ConcurrencyTest extends TestCase
 
     public function test_a_checkout_and_a_payment_settling_on_the_same_product_do_not_deadlock(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 2);
         $paying = $this->unpaidOrderHolding($product, 'held');
 
@@ -128,6 +131,7 @@ class ConcurrencyTest extends TestCase
 
     public function test_a_checkout_that_loses_a_deadlock_retries_and_succeeds_once(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 3);
         // An unrelated hold, so the adversary has index records to gap-lock.
         $this->unpaidOrderHolding($this->product(batchLimit: 3, slug: 'other'), 'held');
@@ -155,6 +159,7 @@ class ConcurrencyTest extends TestCase
 
     public function test_a_settlement_that_loses_a_deadlock_retries_and_settles_once(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 3);
         $paying = $this->unpaidOrderHolding($product, 'held');
 
@@ -206,6 +211,7 @@ class ConcurrencyTest extends TestCase
     /** Phase C, I8 under real concurrency: two late payments for the last unit sell it once; the other waits for the studio. */
     public function test_two_late_payments_racing_for_the_last_unit_never_oversell(): void
     {
+        config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
         $product = $this->product(batchLimit: 1);
         $first = $this->unpaidOrderHolding($product, 'released');
         $second = $this->unpaidOrderHolding($product, 'released');
@@ -284,6 +290,27 @@ class ConcurrencyTest extends TestCase
         $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
         $this->assertSame(2, CustomOrder::count());
         $this->assertSame([0, 0], [app(\App\Services\StockService::class)->availableOnline($M), app(\App\Services\StockService::class)->availableOnline($L)]);
+    }
+
+    public function test_a_checkout_and_a_payment_retry_on_the_same_size_do_not_deadlock(): void
+    {
+        [$product, $M, , $shop] = $this->stockedSizes(2, 0);
+        // An earlier order whose hold on M lapsed: its M-Pesa retry must re-take it.
+        $retrying = CustomOrder::create(['full_name' => 'Retrying', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard',
+            'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2500,
+            'items_json' => [['id' => $product->id, 'name' => $product->name, 'price' => 2500, 'quantity' => 1, 'options' => ['top_size' => 'M']]]]);
+        $retrying->stockReservations()->create(['product_id' => $product->id, 'product_variant_id' => $M->id, 'location_id' => $shop->id,
+            'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subMinute()]);
+
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['checkout', $this->sizedPayload($product, 'M', 'New Buyer')],
+            ['secure-stock', (string) $retrying->id],
+        ]);
+
+        [$checkout, $retry] = $results;
+        $this->assertSame([200, 200], [$checkout['status'], $retry['status']], json_encode($results));
+        $this->assertTrue($retry['secured'], json_encode($results));
+        $this->assertSame(0, app(\App\Services\StockService::class)->availableOnline($M));
     }
 
     public function test_a_late_payment_and_a_checkout_racing_for_the_last_unit_of_a_size_get_it_once(): void

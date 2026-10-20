@@ -78,7 +78,7 @@ class CheckoutIntegrityTest extends TestCase
      */
     public function test_checkout_snapshots_items_server_side(): void
     {
-        $product = $this->product(price: 5000);
+        $product = $this->product(price: 5000, overrides: ['garment_type' => 'hoodie', 'specifications' => ['sizes' => ['One size']]]);
 
         $this->postJson(route('checkout.process'), $this->checkoutPayload([
             [
@@ -99,8 +99,10 @@ class CheckoutIntegrityTest extends TestCase
         $this->assertSame('254712345678', $order->phone, 'phone is stored normalized');
     }
 
+    /** The old product-level model (stock per size holds each size: CheckoutBySizeTest). */
     public function test_different_sizes_share_one_combined_stock_hold(): void
     {
+        config(['serana.stock_v2' => 'off']);
         $product = $this->product(overrides: ['batch_limit' => 3]);
         $this->postJson(route('checkout.process'), $this->checkoutPayload([
             ['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => 'M']],
@@ -114,8 +116,10 @@ class CheckoutIntegrityTest extends TestCase
         $this->assertSame(3, $order->stockReservations()->sole()->quantity);
     }
 
+    /** The old product-level model (per size: CheckoutBySizeTest). */
     public function test_multiple_sizes_cannot_exceed_combined_stock(): void
     {
+        config(['serana.stock_v2' => 'off']);
         $product = $this->product(overrides: ['batch_limit' => 2]);
         $this->postJson(route('checkout.process'), $this->checkoutPayload([
             ['id' => $product->id, 'quantity' => 2, 'options' => ['top_size' => 'M']],

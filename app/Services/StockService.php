@@ -342,14 +342,17 @@ class StockService
     {
         $name = ($variant->relationLoaded('product') ? $variant->product : Product::withTrashed()->find($variant->product_id))?->name ?? 'An item';
 
-        return "{$name} ({$variant->label()})";
+        // A one-size piece is just its name; otherwise the size says which.
+        return $variant->size === ProductVariant::ONE_SIZE ? $name : "{$name} ({$variant->label()})";
     }
 
     private function shortageMessage(ProductVariant $variant, int $left): string
     {
         $name = ($variant->relationLoaded('product') ? $variant->product : Product::withTrashed()->find($variant->product_id))?->name ?? 'An item';
 
-        return $left > 0 ? "{$name} in {$variant->label()}: only {$left} left." : "{$name} in {$variant->label()} just sold out.";
+        $what = $variant->size === ProductVariant::ONE_SIZE ? $name : "{$name} in {$variant->label()}";
+
+        return $left > 0 ? "{$what}: only {$left} left." : "{$what} just sold out.";
     }
 
     /**
@@ -396,6 +399,34 @@ class StockService
         return $product->variants()->where('active', true)->orderBy('sort')->get()
             ->map(fn (ProductVariant $v) => ['id' => $v->id, 'part' => $v->part, 'size' => $v->size, 'available' => $this->availableOnline($v)])
             ->all();
+    }
+
+    /**
+     * Availability for a whole product list in two queries (on hand and
+     * active holds, at online locations), cached on each model so cards and
+     * tables don't query per product. Same rule as productAvailableOnline().
+     */
+    public function preloadAvailability(Collection $products): void
+    {
+        $tracked = $products->filter(fn (Product $p) => $p->track_stock);
+        $products->each(fn (Product $p) => $p->preloadedAvailable = $p->track_stock ? 0 : null);
+        if ($tracked->isEmpty()) {
+            return;
+        }
+        $variants = ProductVariant::whereIn('product_id', $tracked->pluck('id'))->where('active', true)->get(['id', 'product_id', 'part']);
+        $online = Location::query()->online()->pluck('id');
+        $key = fn ($v, $l) => "{$v}:{$l}";
+        $onHand = StockLevel::whereIn('product_variant_id', $variants->pluck('id'))->whereIn('location_id', $online)->get(['product_variant_id', 'location_id', 'on_hand'])
+            ->mapWithKeys(fn ($l) => [$key($l->product_variant_id, $l->location_id) => (int) $l->on_hand]);
+        $held = StockReservation::active()->whereIn('product_variant_id', $variants->pluck('id'))->whereIn('location_id', $online)
+            ->selectRaw('product_variant_id, location_id, SUM(quantity) as held')->groupBy('product_variant_id', 'location_id')->get()
+            ->mapWithKeys(fn ($h) => [$key($h->product_variant_id, $h->location_id) => (int) $h->held]);
+
+        $byVariant = $variants->mapWithKeys(fn ($v) => [$v->id => $online->sum(fn ($l) => max(0, ($onHand[$key($v->id, $l)] ?? 0) - ($held[$key($v->id, $l)] ?? 0)))]);
+        foreach ($tracked as $product) {
+            $parts = $variants->where('product_id', $product->id)->groupBy('part')->map(fn ($vs) => (int) $vs->sum(fn ($v) => $byVariant[$v->id]));
+            $product->preloadedAvailable = $parts->isEmpty() ? 0 : (int) $parts->min();
+        }
     }
 
     /**

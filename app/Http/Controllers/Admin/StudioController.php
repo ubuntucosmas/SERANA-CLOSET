@@ -51,7 +51,11 @@ class StudioController extends Controller
 
         // One availability figure (sold + unpaid holds) for the stock alert, the
         // products table and the storefront, so they never disagree.
-        $products = Product::with('category')->withAvailability()->latest()->get()->append('available_stock');
+        $products = Product::with('category')->withAvailability()->latest()->get();
+        if (\App\Support\StockMode::v2()) {
+            app(\App\Services\StockService::class)->preloadAvailability($products);
+        }
+        $products = $products->append('available_stock');
 
         $workflow = [];
         foreach (StudioWorkflow::QUEUES as $queue) {

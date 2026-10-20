@@ -12,6 +12,7 @@ use Tests\TestCase;
 class SubmissionRetryTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // runs the same in either stock model (Phase D1)
 
     public function test_bespoke_retry_reuses_saved_reference(): void
     {
@@ -37,7 +38,7 @@ class SubmissionRetryTest extends TestCase
 
     public function test_checkout_retry_does_not_reserve_stock_twice(): void
     {
-        $product = Product::create(['name' => 'Jacket', 'slug' => 'jacket', 'price' => 5000, 'in_stock' => true, 'batch_limit' => 1]);
+        $product = $this->stockedProduct(1, ['name' => 'Jacket', 'slug' => 'jacket']);
         $payload = ['request_id' => (string) Str::uuid(), 'full_name' => 'Buyer', 'email' => 'buyer@example.com', 'phone' => '0712345678', 'address' => '1 Street', 'city' => 'Nairobi', 'items' => [['id' => $product->id, 'quantity' => 1]]];
         $first = $this->postJson(route('checkout.process'), $payload)->assertOk()->json();
         $this->postJson(route('checkout.process'), $payload)->assertOk()->assertJsonPath('order_id', $first['order_id']);
@@ -48,7 +49,7 @@ class SubmissionRetryTest extends TestCase
     /** A shopper restarting checkout is never blocked by their own abandoned hold, and the old order is closed. */
     public function test_new_checkout_supersedes_the_same_shoppers_abandoned_order(): void
     {
-        $product = Product::create(['name' => 'Last One', 'slug' => 'last-one', 'price' => 5000, 'in_stock' => true, 'batch_limit' => 1]);
+        $product = $this->stockedProduct(1, ['name' => 'Last One', 'slug' => 'last-one']);
         $base = ['full_name' => 'Buyer', 'email' => 'buyer@example.com', 'phone' => '0712345678', 'address' => '1 Street', 'city' => 'Nairobi', 'items' => [['id' => $product->id, 'quantity' => 1]]];
 
         $first = $this->postJson(route('checkout.process'), $base + ['request_id' => (string) Str::uuid()])->assertOk()->json();
@@ -63,7 +64,7 @@ class SubmissionRetryTest extends TestCase
     /** An order with an M-Pesa prompt in flight is never superseded: the customer may be paying it. */
     public function test_new_checkout_keeps_an_order_whose_payment_is_in_progress(): void
     {
-        $product = Product::create(['name' => 'Roomy', 'slug' => 'roomy', 'price' => 5000, 'in_stock' => true]);
+        $product = Product::create(['name' => 'Roomy', 'slug' => 'roomy', 'price' => 5000, 'in_stock' => true, 'garment_type' => 'hoodie', 'specifications' => ['sizes' => ['One size']]]);
         $base = ['full_name' => 'Buyer', 'email' => 'buyer@example.com', 'phone' => '0712345678', 'address' => '1 Street', 'city' => 'Nairobi', 'items' => [['id' => $product->id, 'quantity' => 1]]];
         $first = $this->postJson(route('checkout.process'), $base + ['request_id' => (string) Str::uuid()])->assertOk()->json();
         \App\Models\PaymentAttempt::create(['custom_order_id' => $first['order_id'], 'checkout_request_id' => 'ws_CO_LIVE', 'phone' => '254712345678', 'amount' => 5000, 'status' => 'pending']);
