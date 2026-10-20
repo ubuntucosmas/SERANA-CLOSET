@@ -59,8 +59,9 @@ return new class extends Migration
             $table->string('type', 20);
             $table->integer('quantity');
             $table->foreignId('custom_order_id')->nullable()->constrained();
-            // A sale is written once per hold it commits (idempotent replay at cutover).
-            $table->foreignId('stock_reservation_id')->nullable()->unique()->constrained();
+            // A sale is written once per hold and size it commits (idempotent, also when the cutover
+            // replays an old product-level hold of a set as its top and bottom).
+            $table->foreignId('stock_reservation_id')->nullable()->constrained();
             $table->uuid('transfer_id')->nullable()->index();
             $table->string('actor_type', 20);
             $table->unsignedBigInteger('actor_id')->nullable();
@@ -68,6 +69,7 @@ return new class extends Migration
             $table->timestamp('occurred_at');
             $table->timestamp('created_at')->nullable();
             $table->index(['product_variant_id', 'location_id']);
+            $table->unique(['stock_reservation_id', 'product_variant_id']);
         });
 
         Schema::table('stock_reservations', function (Blueprint $table) {
@@ -102,13 +104,22 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('products', fn (Blueprint $table) => $table->dropColumn('track_stock'));
+        // MariaDB doesn't roll back DDL: drop in dependency order (foreign keys before the
+        // index they use, then columns, then tables), so a failure never leaves half a schema.
+        if (DB::getDriverName() === 'sqlite') {
+            foreach (['INSERT', 'UPDATE'] as $event) {
+                DB::unprepared("DROP TRIGGER IF EXISTS stock_levels_on_hand_{$event}");
+            }
+        }
+        Schema::table('stock_reservations', function (Blueprint $table) {
+            $table->dropForeign(['product_variant_id']);
+            $table->dropForeign(['location_id']);
+        });
         Schema::table('stock_reservations', function (Blueprint $table) {
             $table->dropIndex(['product_variant_id', 'location_id', 'status']);
-            $table->dropColumn('second_part');
-            $table->dropConstrainedForeignId('location_id');
-            $table->dropConstrainedForeignId('product_variant_id');
+            $table->dropColumn(['product_variant_id', 'location_id', 'second_part']);
         });
+        Schema::table('products', fn (Blueprint $table) => $table->dropColumn('track_stock'));
         Schema::dropIfExists('stock_movements');
         Schema::dropIfExists('stock_levels');
         Schema::dropIfExists('product_variants');

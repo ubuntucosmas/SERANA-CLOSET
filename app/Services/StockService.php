@@ -403,6 +403,24 @@ class StockService
     }
 
     /**
+     * Set the old model's batch_limit so it offers exactly what stock per
+     * size has on hand online (design §13.2): sold + on hand, a set by its
+     * scarcer part. Keeps switching back safe.
+     */
+    public function rebaseline(?Product $product): void
+    {
+        if (! $product || ! $product->track_stock) {
+            return;
+        }
+        $online = Location::query()->online()->pluck('id');
+        $byPart = $product->variants()->where('active', true)->get()->groupBy('part')
+            ->map(fn ($variants) => (int) StockLevel::whereIn('product_variant_id', $variants->pluck('id'))->whereIn('location_id', $online)->sum('on_hand'));
+        $limit = (int) $product->fresh()->batch_sold + (int) ($byPart->min() ?? 0);
+        \Illuminate\Support\Facades\DB::table('products')->where('id', $product->id)->update(['batch_limit' => $limit]);
+        $product->batch_limit = $limit;
+    }
+
+    /**
      * What the stock reconciliation checks about the new model itself:
      * every level equals the sum of its movements, and nothing is negative.
      *
@@ -437,6 +455,11 @@ class StockService
             'occurred_at' => now(),
         ], $extra));
         $level->update(['on_hand' => $after]);
+        // While stock per size is the truth, the old batch numbers follow it (design §13.2):
+        // a sale already counts in batch_sold; anything else moves the baseline.
+        if ($type !== StockMovement::SALE && \App\Support\StockMode::v2()) {
+            $this->rebaseline($variant->product ?? Product::withTrashed()->find($variant->product_id));
+        }
 
         if ($actor->type === Actor::USER) {
             Audit::record('stock.moved', $variant, ['on_hand' => $after - $quantity],
