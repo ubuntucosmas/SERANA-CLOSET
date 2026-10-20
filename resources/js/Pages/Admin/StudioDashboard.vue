@@ -23,6 +23,7 @@ import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 import RefundsPanel from './Partials/RefundsPanel.vue';
 import PaymentAttention from './Partials/PaymentAttention.vue';
+import StockPanel from './Partials/StockPanel.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -44,6 +45,8 @@ const props = defineProps({
     payment_settings: { type: Object, default: () => ({ mpesa_enabled: true, whatsapp_enabled: true, instructions: '', whatsapp_hold_hours: 48, hold_options: [12, 24, 48, 72], mpesa_configured: false, mpesa_env: 'sandbox', prompts_in_progress: 0 }) },
     drops: { type: Array, default: () => [] },
     refunds: { type: Array, default: () => [] },
+    stock: { type: Object, default: null },
+    stock_v2: { type: Boolean, default: false },
     active_tab: { type: String, default: 'home' },
 });
 
@@ -448,6 +451,7 @@ function removeAsset(key) {
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
+        <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
@@ -704,7 +708,8 @@ function removeAsset(key) {
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.in_stock" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> In stock</label>
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.is_customizable" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Offer a custom version <span class="text-slate-500">("Custom option" badge + made-to-measure link)</span></label>
                 </div>
-                <label class="block">
+                <p v-if="stock_v2" class="text-sm text-slate-400">Stock is counted per size in <button type="button" @click="showProductModal = false; goTab('stock')" class="underline text-[#57d5fc]">Stock</button>.</p>
+                <label v-else class="block">
                     <span class="block text-sm text-slate-300 mb-2">Batch limit (optional)</span>
                     <input v-model="productForm.batch_limit" type="number" placeholder="Leave blank for unlimited" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                 </label>

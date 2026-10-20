@@ -134,6 +134,12 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
+    // Stock per size (Phase D1).
+    Route::post('/stock/move', [App\Http\Controllers\Admin\StockController::class, 'move'])->middleware('can:stock.manage')->name('studio.stock.move');
+    Route::post('/stock/product/{product}/sizes', [App\Http\Controllers\Admin\StockController::class, 'sizes'])->middleware('can:stock.manage')->name('studio.stock.sizes');
+    Route::post('/stock/product/{product}/track', [App\Http\Controllers\Admin\StockController::class, 'track'])->middleware('can:stock.manage')->name('studio.stock.track');
+    Route::post('/stock/cutover', [App\Http\Controllers\Admin\StockController::class, 'cutover'])->middleware('can:stock.cutover')->name('studio.stock.cutover');
+    Route::post('/stock/rollback', [App\Http\Controllers\Admin\StockController::class, 'rollback'])->middleware('can:stock.cutover')->name('studio.stock.rollback');
     Route::post('/order/{order}/cancel-bespoke', [StudioController::class, 'cancelBespoke'])->middleware('can:money.record')->name('studio.order.cancel_bespoke');
     Route::post('/order/{order}/resolve', [StudioController::class, 'resolveOrder'])->middleware('can:money.record')->name('studio.order.resolve');
     Route::post('/order/{order}/refund', [StudioController::class, 'recordRefund'])->middleware('can:refunds.mark')->name('studio.order.refund');

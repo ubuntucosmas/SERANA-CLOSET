@@ -118,6 +118,10 @@ class StudioController extends Controller
             'payment_settings'  => PaymentSettings::forStudio(),
             'order_policy'      => \App\Support\OrderPolicy::forStudio(),
             'refunds'           => fn () => $this->refundQueue($request),
+            // Built only for the Stock screen (it reconciles both models): opened directly, or reloaded by the panel.
+            'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
+                ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
+            'stock_v2'          => \App\Support\StockMode::v2(),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
