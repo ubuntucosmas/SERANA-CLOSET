@@ -508,6 +508,9 @@ class StudioController extends Controller
             'from_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
             'to_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
             'size' => ['nullable', 'string', 'max:60'],
+            // Stock per size: a set is swapped to a top size and a bottom size.
+            'top_size' => ['nullable', 'string', 'max:30'],
+            'bottom_size' => ['nullable', 'string', 'max:30'],
         ], [
             'reason.required' => 'Say why, for the record.',
             'to_product_id.required_if' => 'Choose the item to swap to.',
@@ -522,7 +525,8 @@ class StudioController extends Controller
                     ? $settlement->cancelForRefund($order, $actor, $data['reason'], 'Sold out after a late payment')
                     : throw new \DomainException('action|This order has no sold-out item waiting for a decision.'),
                 'wait' => $settlement->waitForRestock($order, $data['reason']),
-                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason']),
+                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason'],
+                    array_filter(['top_size' => $data['top_size'] ?? null, 'bottom_size' => $data['bottom_size'] ?? null])),
             };
         } catch (\DomainException $e) {
             [$field, $message] = str_contains($e->getMessage(), '|') ? explode('|', $e->getMessage(), 2) : ['action', $e->getMessage()];

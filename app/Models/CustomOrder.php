@@ -186,8 +186,13 @@ class CustomOrder extends Model
 
         return [
             'waiting' => $this->resolution === 'waiting_restock',
-            'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed()])->get()
-                ->map(fn ($r) => ['product_id' => $r->product_id, 'name' => $r->product?->name ?? 'Item', 'quantity' => (int) $r->quantity])->all(),
+            // One entry per sold-out product (a set's top and bottom rows together), named by size with stock per size.
+            'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed(), 'variant'])->get()
+                ->groupBy('product_id')
+                ->map(fn ($rows) => ['product_id' => $rows->first()->product_id,
+                    'name' => ($rows->first()->product?->name ?? 'Item') . ($rows->first()->variant ? ' (' . $rows->pluck('variant')->filter()->map->label()->implode(' · ') . ')' : ''),
+                    'quantity' => (int) $rows->where('second_part', false)->sum('quantity')])
+                ->values()->all(),
         ];
     }
 
@@ -299,6 +304,10 @@ class CustomOrder extends Model
      */
     public function commitReservations(?\DateTimeInterface $keepUntil = null): array
     {
+        if (\App\Support\StockMode::v2()) {
+            return app(\App\Services\StockService::class)->commit($this, $keepUntil);
+        }
+
         return DB::transaction(function () use ($keepUntil) {
             // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
             $this->lockReservedProducts();
@@ -355,6 +364,9 @@ class CustomOrder extends Model
     {
         // M-Pesa holds last minutes; a WhatsApp order passes its longer window.
         $window = $until ?? now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+        if (\App\Support\StockMode::v2()) {
+            return app(\App\Services\StockService::class)->secure($this, $window);
+        }
 
         return DB::transaction(function () use ($window) {
             // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
@@ -413,6 +425,11 @@ class CustomOrder extends Model
      */
     public function lockStock(): void
     {
+        if (\App\Support\StockMode::v2()) {
+            app(\App\Services\StockService::class)->lockForOrder($this); // stock levels by id, then holds (design §13.3)
+
+            return;
+        }
         $this->lockReservedProducts();
         $this->stockReservations()->whereIn('status', ['held', 'released'])->orderBy('id')->lockForUpdate()->get(['id']);
     }

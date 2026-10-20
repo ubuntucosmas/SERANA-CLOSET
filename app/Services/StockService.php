@@ -209,6 +209,142 @@ class StockService
         }
     }
 
+    /**
+     * Lock order steps 1 and 2 for an order (design §13.3): the level rows
+     * of its open holds' sizes, by id, then the holds themselves, by id.
+     *
+     * @return Collection<int, StockReservation> the order's held and released holds, locked
+     */
+    public function lockForOrder(\App\Models\CustomOrder $order, array $morePairs = []): Collection
+    {
+        $pairs = $order->stockReservations()->whereIn('status', ['held', 'released'])->whereNotNull('product_variant_id')
+            ->get(['product_variant_id', 'location_id'])->map(fn ($h) => [$h->product_variant_id, $h->location_id])->all();
+        $this->lockLevels([...$pairs, ...$morePairs]);
+
+        return $order->stockReservations()->whereIn('status', ['held', 'released'])->orderBy('id')->lockForUpdate()->get();
+    }
+
+    /**
+     * Sell an order's held sizes once it is paid (design §13.4): one sale
+     * movement per hold, at its location. A live hold is ours (if the count
+     * still covers it); a lapsed one is taken only if the size is still free,
+     * at its location or another online one. If any size can't be served,
+     * nothing is sold: the rest stay held until $keepUntil and the missing
+     * sizes are returned ("Linen Set (Bottom L)").
+     *
+     * Holds without a size (only from before the cutover) are passengers: they
+     * commit as they always did. Every piece still counts in batch_sold (a set
+     * once), so switching back to the old model stays safe (§13.2).
+     *
+     * @return list<string>
+     */
+    public function commit(\App\Models\CustomOrder $order, ?\DateTimeInterface $keepUntil = null): array
+    {
+        return DB::transaction(function () use ($order, $keepUntil) {
+            $rows = $this->lockForOrder($order);
+            $short = $this->shortRows($rows, true);
+
+            if ($short) {
+                foreach ($rows as $row) {
+                    if (! isset($short[$row->id])) {
+                        $row->update(['status' => 'held', 'expires_at' => $keepUntil]);
+                    } elseif ($row->status === 'held') {
+                        $row->update(['status' => 'released']);
+                    }
+                }
+
+                return array_values(array_unique($short));
+            }
+
+            foreach ($rows as $row) {
+                if ($row->product_variant_id) {
+                    $this->move($row->variant, $row->location, StockMovement::SALE, -$row->quantity, Actor::system(), "Sold: order {$order->cipher}",
+                        ['custom_order_id' => $order->id, 'stock_reservation_id' => $row->id]);
+                }
+                if (! $row->second_part) {
+                    Product::withTrashed()->whereKey($row->product_id)->increment('batch_sold', $row->quantity);
+                }
+                $row->update(['status' => 'committed']);
+            }
+
+            return [];
+        }, 3);
+    }
+
+    /**
+     * Before an M-Pesa prompt takes money (design §13.4): re-take lapsed sizes
+     * that are still free, give live holds a fresh window (never shortening a
+     * longer one). False, changing nothing, if any size is gone.
+     */
+    public function secure(\App\Models\CustomOrder $order, \DateTimeInterface $window): bool
+    {
+        return DB::transaction(function () use ($order, $window) {
+            $rows = $this->lockForOrder($order);
+            if ($this->shortRows($rows, false)) {
+                return false;
+            }
+            foreach ($rows as $row) {
+                $keep = $row->status === 'held' && ($row->expires_at === null || $row->expires_at > $window);
+                $row->update(['status' => 'held', 'expires_at' => $keep ? $row->expires_at : $window]);
+            }
+
+            return true;
+        }, 3);
+    }
+
+    /**
+     * Which locked holds can't be served now, by id => "Product (Size M)".
+     * A lapsed hold no longer counts against availability, so its size must
+     * be free again; it may move to another online location that has it.
+     * With $live, a live hold must still be covered by what is on hand (a
+     * stock take may have found fewer than were held).
+     */
+    private function shortRows(Collection $rows, bool $live): array
+    {
+        $short = [];
+        $locations = Location::query()->online()->get();
+        foreach ($rows->whereNotNull('product_variant_id')->groupBy(fn ($r) => "{$r->product_variant_id}:{$r->location_id}") as $group) {
+            $first = $group->first();
+            $variant = $first->variant;
+            if (! $this->tracked($variant)) {
+                continue;
+            }
+            $lapsed = $group->reject(fn ($r) => $r->status === 'held' && ($r->expires_at === null || $r->expires_at->isFuture()));
+            $need = (int) $lapsed->sum('quantity');
+            if ($need > 0 && $need > (int) $this->availableAt($variant, $first->location)) {
+                $elsewhere = $locations->first(fn (Location $l) => $l->id !== $first->location_id && $this->availableAt($variant, $l) >= $need);
+                if ($elsewhere) {
+                    $lapsed->each->update(['location_id' => $elsewhere->id]);
+                    $this->lockLevels([[$variant->id, $elsewhere->id]]);
+                } else {
+                    foreach ($group as $row) {
+                        $short[$row->id] = $this->describe($variant);
+                    }
+
+                    continue;
+                }
+            }
+            if ($live) {
+                $onHand = (int) StockLevel::where('product_variant_id', $variant->id)->where('location_id', $first->location_id)->value('on_hand');
+                if ((int) $group->sum('quantity') > $onHand) {
+                    foreach ($group as $row) {
+                        $short[$row->id] = $this->describe($variant);
+                    }
+                }
+            }
+        }
+
+        return $short;
+    }
+
+    /** "Linen Set (Bottom L)", for the Studio and the customer. */
+    public function describe(ProductVariant $variant): string
+    {
+        $name = ($variant->relationLoaded('product') ? $variant->product : Product::withTrashed()->find($variant->product_id))?->name ?? 'An item';
+
+        return "{$name} ({$variant->label()})";
+    }
+
     private function shortageMessage(ProductVariant $variant, int $left): string
     {
         $name = ($variant->relationLoaded('product') ? $variant->product : Product::withTrashed()->find($variant->product_id))?->name ?? 'An item';
