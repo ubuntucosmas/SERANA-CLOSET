@@ -163,14 +163,16 @@ function reviewBooking(row, action) {
     router.post(route(action === 'reverse' ? 'studio.payment.reverse' : 'studio.payment.confirm', row.id), { reason }, { preserveScroll: true });
 }
 // A late payment whose item sold out (Phase C): full refund, swap, or wait for the next batch, with a reason.
-const resolveForm = useForm({ action: '', reason: '', from_product_id: null, to_product_id: '', size: '' });
+const resolveForm = useForm({ action: '', reason: '', from_product_id: null, to_product_id: '', size: '', top_size: '', bottom_size: '' });
+// A set is swapped to a top size and a bottom size (stock per size).
+const swapTargetIsSet = computed(() => (props.products || []).find(p => p.id === Number(resolveForm.to_product_id))?.garment_type === 'set');
 const canResolve = computed(() => !!selectedOrder.value?.stock_problem && page.props.auth?.user?.abilities?.includes('money.record'));
 const swapChoices = computed(() => (props.products || []).filter(p => p.in_stock && (p.available_stock === null || p.available_stock > 0)));
 watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { resolveForm.reset(); resolveForm.clearErrors(); resolveForm.from_product_id = o?.stock_problem?.items?.[0]?.product_id ?? null; } });
 function resolveOrder(action) {
     if (!selectedOrder.value) return;
     resolveForm.action = action;
-    resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size') });
+    resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size', 'top_size', 'bottom_size') });
 }
 // Cancel a custom order (N8): before designing the deposit is refunded; from designing on it is kept.
 const canCancelBespoke = computed(() => {
@@ -571,7 +573,11 @@ function removeAsset(key) {
                                 <option value="">Swap to… (in stock)</option>
                                 <option v-for="p in swapChoices" :key="p.id" :value="p.id">{{ p.name }} · {{ formatAmount(p.price, page.props) }}<template v-if="p.available_stock !== null"> · {{ p.available_stock }} left</template></option>
                             </select>
-                            <input v-model="resolveForm.size" maxlength="60" aria-label="Size for the swap" placeholder="Size (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                            <div v-if="swapTargetIsSet" class="grid grid-cols-2 gap-2">
+                                <input v-model="resolveForm.top_size" maxlength="30" aria-label="Top size for the swap" placeholder="Top size" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                                <input v-model="resolveForm.bottom_size" maxlength="30" aria-label="Bottom size for the swap" placeholder="Bottom size" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                            </div>
+                            <input v-else v-model="resolveForm.size" maxlength="60" aria-label="Size for the swap" placeholder="Size (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
                         </div>
                         <input v-model="resolveForm.reason" maxlength="255" aria-label="Reason for this decision" placeholder="Reason (what the customer agreed)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
                         <div class="flex flex-wrap gap-2">
