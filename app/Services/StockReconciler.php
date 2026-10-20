@@ -55,7 +55,7 @@ class StockReconciler
 
         $integrity = $this->stock->integrityIssues();
         if (StockMode::v2()) {
-            foreach (StockReservation::whereIn('status', ['held', 'released'])->whereNull('product_variant_id')->with('order')->get() as $hold) {
+            foreach (StockReservation::where('status', 'held')->whereNull('product_variant_id')->with('order')->get() as $hold) {
                 $integrity[] = "A live hold on order {$hold->order?->cipher} has no size";
             }
         }

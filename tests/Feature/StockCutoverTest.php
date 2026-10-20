@@ -150,6 +150,26 @@ class StockCutoverTest extends TestCase
         app(StockCutover::class)->confirm($this->owner);
     }
 
+    public function test_an_old_released_hold_without_a_size_doesnt_block_the_switch_and_never_sells_blind(): void
+    {
+        $hoodie = $this->hoodie(10, 0);
+        $this->stockTake($hoodie, ['M' => 1, 'L' => 1]);
+        $old = CustomOrder::create(['full_name' => 'Old Buyer', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Expired', 'price_quoted' => 5000,
+            'items_json' => [['id' => $hoodie->id, 'name' => 'Hoodie', 'price' => 5000, 'quantity' => 1]]]); // no size recorded
+        $old->stockReservations()->create(['product_id' => $hoodie->id, 'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subDays(20)]);
+
+        $preview = app(StockCutover::class)->preview();
+        $this->assertSame([], $preview['unmapped_holds']);
+        $this->assertSame(["Order {$old->cipher}: a released hold with no size (a late payment would wait for the studio)"], $preview['unmapped_released']);
+        app(StockCutover::class)->confirm($this->owner);
+
+        // Weeks later its payment arrives anyway: the studio decides, nothing is sold blind.
+        $result = app(OrderSettlementService::class)->recordPayment($old->fresh(), 5000, 'mpesa_stk', Actor::safaricom(), 'QVERYLATE');
+        $this->assertSame(['Linen Hoodie'], $result['stock_gone']);
+        $this->assertSame(0, StockMovement::where('type', 'sale')->count());
+        $this->assertSame(2, (int) \App\Models\StockLevel::sum('on_hand'));
+    }
+
     public function test_after_the_switch_every_stock_change_keeps_switching_back_safe(): void
     {
         $hoodie = $this->hoodie(10, 0);

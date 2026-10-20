@@ -303,6 +303,13 @@ class StockService
     {
         $short = [];
         $locations = Location::query()->online()->get();
+        // A lapsed hold with no size (from before the switch) can't be checked: the studio decides, it is never sold blind.
+        foreach ($rows->whereNull('product_variant_id') as $row) {
+            $lapsed = ! ($row->status === 'held' && ($row->expires_at === null || $row->expires_at->isFuture()));
+            if ($lapsed && Product::withTrashed()->find($row->product_id)?->track_stock) {
+                $short[$row->id] = Product::withTrashed()->find($row->product_id)?->name ?? 'An item';
+            }
+        }
         foreach ($rows->whereNotNull('product_variant_id')->groupBy(fn ($r) => "{$r->product_variant_id}:{$r->location_id}") as $group) {
             $first = $group->first();
             $variant = $first->variant;

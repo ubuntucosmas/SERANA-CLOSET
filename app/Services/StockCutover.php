@@ -29,8 +29,13 @@ class StockCutover
     public function preview(): array
     {
         $report = $this->reconciler->report();
-        $report['unmapped_holds'] = StockReservation::whereIn('status', ['held', 'released'])->whereNull('product_variant_id')
+        // Only live holds block the switch: a shopper is paying for them right now.
+        $report['unmapped_holds'] = StockReservation::where('status', 'held')->whereNull('product_variant_id')
             ->with('order')->get()->map(fn ($h) => $h->order?->cipher)->filter()->unique()->values()->all();
+        // Old released holds whose size was never recorded: harmless, but a late payment on one waits for the studio.
+        $report['unmapped_released'] = StockReservation::where('status', 'released')->whereNull('product_variant_id')
+            ->with('order')->get()->map(fn ($h) => "Order {$h->order?->cipher}: a released hold with no size (a late payment would wait for the studio)")
+            ->unique()->values()->all();
         $report['ready'] = ! $report['v2'] && $report['uncounted'] === [] && $report['unreadable_sales'] === [] && $report['integrity'] === [];
 
         return $report;

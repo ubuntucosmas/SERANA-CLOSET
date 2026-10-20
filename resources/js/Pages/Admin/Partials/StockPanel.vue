@@ -94,7 +94,8 @@ const counted = (at) => at ? new Date(at).toLocaleDateString('en-GB', { day: 'nu
                     <ul v-if="!stock.mode.v2" class="mt-3 text-sm text-slate-300 space-y-1">
                         <li><strong class="text-white">{{ stock.mode.preview.uncounted.length }}</strong> size(s) not counted yet<template v-if="stock.mode.preview.uncounted.length">: {{ stock.mode.preview.uncounted.slice(0, 6).join(', ') }}<template v-if="stock.mode.preview.uncounted.length > 6">…</template></template></li>
                         <li v-if="stock.mode.preview.to_replay.length"><strong class="text-white">{{ stock.mode.preview.to_replay.length }}</strong> sale(s) since a count will be applied when you switch</li>
-                        <li v-if="stock.mode.preview.unmapped_holds.length" class="text-amber-400">Orders waiting with a size we can't read: {{ stock.mode.preview.unmapped_holds.join(', ') }}</li>
+                        <li v-if="stock.mode.preview.unmapped_holds.length" class="text-amber-400">Orders being paid now with a size we can't read: {{ stock.mode.preview.unmapped_holds.join(', ') }}. Let them finish or expire first.</li>
+                        <li v-if="stock.mode.preview.unmapped_released?.length" class="text-slate-400">{{ stock.mode.preview.unmapped_released.length }} old order(s) with no size recorded: if one is ever paid, it waits for your decision.</li>
                         <li v-for="issue in stock.mode.preview.integrity" :key="issue" class="text-rose-300">{{ issue }}</li>
                     </ul>
                     <div class="mt-3 flex flex-wrap gap-2">

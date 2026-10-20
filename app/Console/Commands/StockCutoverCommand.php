@@ -46,7 +46,7 @@ class StockCutoverCommand extends Command
 
         $preview = $cutover->preview();
         foreach (['uncounted' => 'Count these sizes first', 'unmapped_holds' => "Orders with holds that can't be read as a size",
-            'to_replay' => 'Sales to replay', 'unreadable_sales' => "Sales after a count whose size can't be read", 'integrity' => 'Integrity', 'differences' => 'Differences the count will correct'] as $key => $title) {
+            'unmapped_released' => 'Old holds with no size (not blocking)', 'to_replay' => 'Sales to replay', 'unreadable_sales' => "Sales after a count whose size can't be read", 'integrity' => 'Integrity', 'differences' => 'Differences the count will correct'] as $key => $title) {
             if ($preview[$key] !== []) {
                 $this->line("<options=bold>{$title}</>");
                 foreach ($preview[$key] as $line) {
