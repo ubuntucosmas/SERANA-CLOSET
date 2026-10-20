@@ -179,24 +179,51 @@ class StockService
      *
      * @return list<array{variant: ProductVariant, location_id: int, quantity: int, second_part: bool}>
      */
-    public function allocate(array $demands): array
+    public function allocate(array $demands, ?Location $only = null): array
     {
         if ($demands === []) {
             return [];
         }
-        $locations = Location::query()->online()->get();
+        // Online: any location that fulfils online, by priority. At the till: that shop only.
+        $locations = $only ? collect([$only]) : Location::query()->online()->get();
         $this->lockLevels(collect($demands)->flatMap(fn ($d) => $locations->map(fn ($l) => [$d['variant']->id, $l->id]))->all());
 
         $allocations = [];
         foreach ($demands as $demand) {
             $at = $locations->first(fn (Location $l) => $this->availableAt($demand['variant'], $l, current: true) >= $demand['quantity']);
             if (! $at) {
-                throw new \DomainException($this->shortageMessage($demand['variant'], (int) $this->availableOnline($demand['variant'])));
+                $left = $only ? (int) $this->availableAt($demand['variant'], $only, current: true) : (int) $this->availableOnline($demand['variant']);
+                throw new \DomainException($this->shortageMessage($demand['variant'], $left));
             }
             $allocations[] = ['variant' => $demand['variant'], 'location_id' => $at->id, 'quantity' => $demand['quantity'], 'second_part' => $demand['second_part']];
         }
 
         return $allocations;
+    }
+
+    /**
+     * The old product-level model (until stock per size is on): lock the
+     * products by id and check what is free, as checkout does. Returns the
+     * quantity to hold per batch-limited product. Inside a transaction.
+     *
+     * @param  array<int, int>  $quantities  product id => units
+     * @return array<int, int>
+     */
+    public function lockProductsForHold(array $quantities): array
+    {
+        ksort($quantities);
+        $holds = [];
+        foreach ($quantities as $productId => $quantity) {
+            $product = Product::whereKey($productId)->lockForUpdate()->first();
+            if ($product && $product->batch_limit !== null) {
+                if ($quantity > $product->availableStock()) {
+                    throw new \DomainException("{$product->name}: only {$product->availableStock()} left.");
+                }
+                $holds[$productId] = (int) $quantity;
+            }
+        }
+
+        return $holds;
     }
 
     /** Write the holds an allocation decided, for an order, inside the same transaction. */

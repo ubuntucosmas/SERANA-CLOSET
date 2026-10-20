@@ -39,6 +39,7 @@ return new class extends Migration
             $table->foreignId('till_session_id')->constrained();
             $table->string('type', 12); // float, sale, refund, payout, pickup
             $table->integer('amount'); // signed: into the drawer is positive
+            $table->integer('tendered')->nullable(); // cash handed over, for the receipt's change (never booked)
             $table->foreignId('order_payment_id')->nullable()->constrained();
             $table->foreignId('custom_order_id')->nullable()->constrained();
             $table->string('actor_type', 20);
@@ -53,6 +54,7 @@ return new class extends Migration
         // Counter sales and till payments know their session (the Z report reads them).
         Schema::table('custom_orders', function (Blueprint $table) {
             $table->foreignId('till_session_id')->nullable()->constrained();
+            $table->foreignId('sold_by')->nullable()->constrained('users'); // who rang it up
         });
         Schema::table('order_payments', function (Blueprint $table) {
             $table->foreignId('till_session_id')->nullable()->constrained();
@@ -62,7 +64,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('order_payments', fn (Blueprint $table) => $table->dropConstrainedForeignId('till_session_id'));
-        Schema::table('custom_orders', fn (Blueprint $table) => $table->dropConstrainedForeignId('till_session_id'));
+        Schema::table('custom_orders', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('sold_by');
+            $table->dropConstrainedForeignId('till_session_id');
+        });
         Schema::dropIfExists('cash_movements');
         Schema::dropIfExists('till_sessions');
     }

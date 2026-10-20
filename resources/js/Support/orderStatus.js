@@ -20,6 +20,6 @@ export function paymentStatus(order) {
     return { label: 'Payment Pending', tone: 'pending', next: 'We have not confirmed payment. If you approved an M-Pesa prompt, wait for confirmation before paying again.' };
 }
 export function fulfilmentStatus(order) {
-    const stages = { pending: 'Brief Received', designing: 'Designing', sewing: 'In Production', completed: 'Ready for Dispatch', shipped: 'Dispatched' };
+    const stages = { pending: 'Brief Received', designing: 'Designing', sewing: 'In Production', completed: 'Ready for Dispatch', shipped: 'Dispatched', collected: 'Collected' };
     return stages[order.status] || (order.is_paid ? 'Awaiting Fulfilment' : 'Payment Pending');
 }

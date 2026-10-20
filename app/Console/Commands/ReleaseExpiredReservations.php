@@ -37,6 +37,8 @@ class ReleaseExpiredReservations extends Command
             ->paidUp(false)
             // A part-paid order is never silently expired: see below.
             ->where('amount_paid', '<=', 0)
+            // A counter sale is voided at the till, not expired behind the cashier's back.
+            ->where('payment_method', '!=', 'counter')
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->whereDoesntHave('stockReservations', fn ($q) => $q->where('status', 'held'))
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q

@@ -26,7 +26,11 @@ final class LegacyOrderMap
 
     public static function channel(?string $paymentMethod): string
     {
-        return $paymentMethod === PaymentSettings::WHATSAPP ? 'whatsapp' : 'online';
+        return match ($paymentMethod) {
+            PaymentSettings::WHATSAPP => 'whatsapp',
+            'counter' => 'counter', // sold at the till (Phase E)
+            default => 'online',
+        };
     }
 
     public static function orderState(?string $status): string

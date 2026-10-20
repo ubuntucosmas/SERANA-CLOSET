@@ -40,9 +40,9 @@ class OrderSettlementService
      * @return array{booked: bool, became_paid: bool, payment: ?OrderPayment, stock_gone: list<string>}
      */
     public function recordPayment(CustomOrder $order, ?int $amount, string $method, Actor $actor, ?string $reference = null,
-        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false): array
+        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false, ?int $tillSessionId = null): array
     {
-        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance) {
+        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance, $tillSessionId) {
             $locked = $this->lockForMoney($order);
 
             if ($existing = $this->alreadyBooked($method, $reference, $attempt)) {
@@ -61,7 +61,9 @@ class OrderSettlementService
             $wasPaid = (bool) $locked->is_paid;
             // Why any excess is owed back: money on an order already settled is a second payment.
             $cause = $balance <= 0 ? 'Paid twice' : 'Paid more than the total';
-            $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason);
+            // A till payment knows its session; so does an M-Pesa prompt sent from the till (Phase E).
+            $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason,
+                ['till_session_id' => $tillSessionId ?? $locked->till_session_id]);
 
             // Booking the very code that was in conflict here settles the conflict.
             if ($reference !== null && $locked->resolution === 'needs_resolution' && str_starts_with((string) $locked->resolution_reason, "M-Pesa code {$reference} ")) {
@@ -89,6 +91,10 @@ class OrderSettlementService
                 // A paid shop or drop order is open again (a late payment); bespoke work keeps its stage.
                 if ($locked->kind !== 'bespoke') {
                     $settled['order_state'] = 'open';
+                }
+                // Sold at the counter: the customer walks out with it (Phase E).
+                if ($locked->channel === 'counter') {
+                    $settled['fulfilment_status'] = 'collected';
                 }
                 DB::table('custom_orders')->where('id', $locked->id)->update($settled);
                 $locked->forceFill($settled);
@@ -278,9 +284,9 @@ class OrderSettlementService
      * the order refund_due for the rest. The refund receipt is queued after
      * commit.
      */
-    public function recordRefund(CustomOrder $order, int $amount, string $method, Actor $actor, string $reference, string $reason): OrderPayment
+    public function recordRefund(CustomOrder $order, int $amount, string $method, Actor $actor, string $reference, string $reason, ?int $tillSessionId = null): OrderPayment
     {
-        $refund = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $reason) {
+        $refund = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $reason, $tillSessionId) {
             $locked = $this->lockForMoney($order);
             $owed = -$this->balance($locked);
             if ($owed <= 0) {
@@ -294,7 +300,7 @@ class OrderSettlementService
                     . " is already recorded on order {$holder->order->cipher}.");
             }
 
-            $refund = $this->book($locked, OrderPayment::REFUND, $amount, $method, $actor, $reference, null, $reason);
+            $refund = $this->book($locked, OrderPayment::REFUND, $amount, $method, $actor, $reference, null, $reason, ['till_session_id' => $tillSessionId]);
             $this->recompute($locked);
 
             return $refund;
@@ -689,6 +695,19 @@ class OrderSettlementService
     }
 
     /**
+     * A discount on a sale (Phase E, D4): a negative discount line with who,
+     * why and any approver, then the money columns follow.
+     */
+    public function addDiscount(CustomOrder $order, int $amount, Actor $actor, string $reason, ?int $approvedBy = null): void
+    {
+        DB::transaction(function () use ($order, $amount, $actor, $reason, $approvedBy) {
+            $locked = $this->lockForMoney($order);
+            $this->line($locked, OrderLine::DISCOUNT, 'Discount', 1, -$amount, $actor, $reason, null, $approvedBy ? ['approved_by' => $approvedBy] : null);
+            $this->recompute($locked);
+        }, 3);
+    }
+
+    /**
      * Set what a bespoke order costs. Lines are append-only (I3): the first quote
      * is an item line, later changes are adjustment lines for the difference.
      */
@@ -795,7 +814,7 @@ class OrderSettlementService
         return (int) $order->lines()->sum('amount') - $net;
     }
 
-    private function book(CustomOrder $order, string $type, int $amount, string $method, Actor $actor, ?string $reference, ?PaymentAttempt $attempt, ?string $reason): OrderPayment
+    private function book(CustomOrder $order, string $type, int $amount, string $method, Actor $actor, ?string $reference, ?PaymentAttempt $attempt, ?string $reason, array $extra = []): OrderPayment
     {
         // The row of a reversed booking keeps its code (append-only); a rebooking is marked and traceable.
         if ($reference !== null && ($reversed = OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))
@@ -803,7 +822,7 @@ class OrderSettlementService
             $reference = "{$reference}#after-reversal-{$reversed->id}";
         }
 
-        return OrderPayment::create([
+        return OrderPayment::create(array_merge([
             'custom_order_id' => $order->id,
             'type' => $type,
             'amount' => $amount,
@@ -814,6 +833,6 @@ class OrderSettlementService
             'actor_id' => $actor->id,
             'reason' => $reason,
             'occurred_at' => now(),
-        ]);
+        ], $extra));
     }
 }
