@@ -22,6 +22,7 @@ class Product extends Model
         'specifications',
         'batch_limit',
         'batch_sold',
+        'track_stock',
         'secondary_images',
     ];
 
@@ -35,6 +36,7 @@ class Product extends Model
         'specifications' => 'array',
         'batch_limit' => 'integer',
         'batch_sold' => 'integer',
+        'track_stock' => 'boolean',
         // Present only after withAvailability(); MariaDB sums arrive as strings.
         'reserved_quantity' => 'integer',
         'secondary_images' => 'array',
@@ -69,6 +71,28 @@ class Product extends Model
         return $this->secondary_image_urls;
     }
 
+    protected static function booted(): void
+    {
+        // D8: a batch limit means stocked, none means made to order. While the old model
+        // is live, track_stock follows the limit unless it is set explicitly.
+        static::saving(function (Product $product) {
+            if ($product->isDirty('batch_limit') && ! $product->isDirty('track_stock')) {
+                $product->track_stock = $product->batch_limit !== null;
+            }
+        });
+        // Every product has a variant per offered size (design §13.1).
+        static::saved(function (Product $product) {
+            if ($product->wasRecentlyCreated || $product->wasChanged(['garment_type', 'specifications'])) {
+                ProductVariant::ensureFor($product);
+            }
+        });
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -85,7 +109,7 @@ class Product extends Model
      */
     public function scopeWithAvailability($query)
     {
-        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()], 'quantity');
+        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()->countsForProduct()], 'quantity');
     }
 
     /**
@@ -104,7 +128,7 @@ class Product extends Model
             return (int) $this->attributes['reserved_quantity'];
         }
 
-        return (int) $this->reservations()->active()->sum('quantity');
+        return (int) $this->reservations()->active()->countsForProduct()->sum('quantity');
     }
 
     /**

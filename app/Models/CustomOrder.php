@@ -306,16 +306,17 @@ class CustomOrder extends Model
                 ->whereIn('status', ['held', 'released'])
                 ->lockForUpdate()->get();
 
+            // A lapsed hold no longer counts against availability, so its units must be free again.
+            // Per product, all its lapsed units together (a set counts once, by its first part).
             $short = [];
-            foreach ($reservations as $reservation) {
-                $live = $reservation->status === 'held' && ($reservation->expires_at === null || $reservation->expires_at->isFuture());
-                if ($live) {
-                    continue;
-                }
-                $product = Product::withTrashed()->find($reservation->product_id);
-                // A lapsed hold no longer counts against availability, so its full quantity must be free.
-                if (! $product || ($product->batch_limit !== null && $reservation->quantity > (int) $product->availableStock())) {
-                    $short[$reservation->id] = $product?->name ?? 'An item';
+            $lapsed = $reservations->reject(fn ($r) => $r->status === 'held' && ($r->expires_at === null || $r->expires_at->isFuture()));
+            foreach ($lapsed->groupBy('product_id') as $productId => $rows) {
+                $product = Product::withTrashed()->find($productId);
+                $units = (int) $rows->where('second_part', false)->sum('quantity');
+                if (! $product || ($product->batch_limit !== null && $units > (int) $product->availableStock())) {
+                    foreach ($rows as $row) {
+                        $short[$row->id] = $product?->name ?? 'An item';
+                    }
                 }
             }
 
@@ -332,7 +333,9 @@ class CustomOrder extends Model
             }
 
             foreach ($reservations as $reservation) {
-                Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
+                if (! $reservation->second_part) {
+                    Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
+                }
                 $reservation->update(['status' => 'committed']);
             }
 
@@ -362,14 +365,14 @@ class CustomOrder extends Model
 
             // Validate first, mutate after — a bare `return false` from this
             // closure commits, so nothing may change until all lines pass.
-            foreach ($reservations->where('status', 'released') as $reservation) {
-                $product = Product::whereKey($reservation->product_id)->lockForUpdate()->first();
+            foreach ($reservations->where('status', 'released')->groupBy('product_id') as $productId => $rows) {
+                $product = Product::whereKey($productId)->lockForUpdate()->first();
                 if (! $product) {
                     return false;
                 }
-                // The released hold no longer counts against availability, so
-                // the full quantity must still be free to re-claim it.
-                if ($product->batch_limit && $reservation->quantity > (int) $product->availableStock()) {
+                // A released hold no longer counts against availability, so all of this
+                // product's released units must still be free to re-claim them (a set once).
+                if ($product->batch_limit && (int) $rows->where('second_part', false)->sum('quantity') > (int) $product->availableStock()) {
                     return false;
                 }
             }

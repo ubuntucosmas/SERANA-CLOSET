@@ -932,6 +932,7 @@ erDiagram
     bigint product_variant_id FK "new, nullable while STOCK_V2 is off"
     bigint location_id FK "new"
     bigint product_id FK "kept for the old model and rollback"
+    bool second_part "a set's bottom row: the old product-level model counts the set once"
   }
 ```
 
@@ -949,7 +950,7 @@ erDiagram
 - **Locations.** One row is seeded from the store profile ("Serana Studio", the store address), with `fulfils_online` and `accepts_pickup` both true. Nothing in code assumes one location; only the Studio UI does, by not offering a location picker while there is one.
 - **Stock levels and movements.**
   - `stock_movements` is append-only, like the money ledger: no update, no delete; a mistake is corrected by another movement.
-  - `stock_levels.on_hand` is a cached sum of movements per (variant, location), written only by `StockService` in the same transaction as the movement. `CHECK (on_hand >= 0)` is enforced by the database. Laravel's schema builder has no CHECK, so the migration adds it in raw SQL: `ALTER TABLE … ADD CONSTRAINT` on MariaDB, and on SQLite as part of the table definition. A test proves both refuse a negative level. It's the first CHECK constraint in the schema.
+  - `stock_levels.on_hand` is a cached sum of movements per (variant, location), written only by `StockService` in the same transaction as the movement. `CHECK (on_hand >= 0)` is enforced by the database. Laravel's schema builder has no CHECK, so the migration adds it in raw SQL: `ALTER TABLE … ADD CONSTRAINT` on MariaDB, and `BEFORE INSERT/UPDATE` triggers on SQLite (which can't add a constraint to an existing table). A test proves both refuse a negative level. It's the first CHECK constraint in the schema.
   - **Holds are not movements.** A hold reserves units without moving them (`stock_reservations`, as today, plus variant and location). Committing a hold writes the `sale` movement; releasing it writes nothing. This keeps the movement history to things that physically happened.
 - **Single writer.** `StockService` is the only code that writes `stock_levels`, `stock_movements` and the variant/location fields and status of `stock_reservations`. Checkout, settlement, the expiry job, Phase C's swap and part-payment hold, and the Studio stock screens all call it. `OrderSettlementService` stays the only money writer and calls `StockService` inside its own transaction.
 - **Tracked or not.** `products.track_stock`, per product:

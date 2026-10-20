@@ -489,16 +489,18 @@ class OrderSettlementService
             $locked = $this->lockForMoney($order);
             $this->assertStockProblem($locked);
 
-            $from = $locked->stockReservations()->where('product_id', $fromProductId)->where('status', 'released')->first();
+            // All of the sold-out product's released rows (a set's top and bottom), counted once.
+            $fromRows = $locked->stockReservations()->where('product_id', $fromProductId)->where('status', 'released')->get();
+            $from = $fromRows->first();
             if (! $from) {
                 throw new \DomainException('from_product_id|That is not the item that sold out.');
             }
             $to = Product::find($toProductId);
-            if (! $to || ! $to->in_stock || ($to->batch_limit !== null && $from->quantity > (int) $to->availableStock())) {
+            $quantity = (int) $fromRows->where('second_part', false)->sum('quantity');
+            if (! $to || ! $to->in_stock || ($to->batch_limit !== null && $quantity > (int) $to->availableStock())) {
                 throw new \DomainException('to_product_id|' . ($to?->name ?? 'That item') . ' has no stock for this order.');
             }
 
-            $quantity = (int) $from->quantity;
             $oldUnit = (int) ($locked->lines()->where('product_id', $fromProductId)->where('line_type', OrderLine::ITEM)->value('unit_amount')
                 ?? round((float) Product::withTrashed()->find($fromProductId)?->price));
             $newUnit = (int) round((float) $to->price);
@@ -507,7 +509,7 @@ class OrderSettlementService
             $this->line($locked, OrderLine::ADJUSTMENT, "Swapped out: {$oldName}", $quantity, -$oldUnit, $actor, $reason, $fromProductId);
             $this->line($locked, OrderLine::ITEM, $to->name . ($label ? " ({$label})" : ''), $quantity, $newUnit, $actor, $reason, $to->id, $label ? ['size' => $label] : null);
 
-            $from->update(['status' => 'cancelled']);
+            $fromRows->each->update(['status' => 'cancelled']);
             if ($to->batch_limit !== null) {
                 $locked->stockReservations()->create(['product_id' => $to->id, 'quantity' => $quantity, 'status' => 'held',
                     'expires_at' => now()->addHours(OrderPolicy::balanceHoldHours())]);

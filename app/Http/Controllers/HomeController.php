@@ -26,7 +26,7 @@ class HomeController extends Controller
                 ->where('image_path', '!=', '')
                 ->where(function ($query) {
                     $query->whereNull('batch_limit')->orWhereRaw(
-                        'batch_limit > COALESCE(batch_sold, 0) + (SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations WHERE stock_reservations.product_id = products.id AND status = ? AND (expires_at IS NULL OR expires_at > ?))',
+                        'batch_limit > COALESCE(batch_sold, 0) + (SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations WHERE stock_reservations.product_id = products.id AND second_part = 0 AND status = ? AND (expires_at IS NULL OR expires_at > ?))',
                         ['held', now()]
                     );
                 })

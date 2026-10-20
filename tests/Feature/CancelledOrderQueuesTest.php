@@ -54,7 +54,7 @@ class CancelledOrderQueuesTest extends TestCase
         }
     }
 
-    /** @dataProvider modes */
+    #[\PHPUnit\Framework\Attributes\DataProvider('modes')]
     public function test_cancelled_orders_are_in_no_studio_queue_or_count(bool $ledgerReads): void
     {
         config(['serana.ledger_reads' => $ledgerReads]);

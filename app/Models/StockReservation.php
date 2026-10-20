@@ -10,6 +10,9 @@ class StockReservation extends Model
     protected $fillable = [
         'custom_order_id',
         'product_id',
+        'product_variant_id',
+        'location_id',
+        'second_part',
         'quantity',
         'status',
         'expires_at',
@@ -17,6 +20,7 @@ class StockReservation extends Model
 
     protected $casts = [
         'quantity'   => 'integer',
+        'second_part' => 'boolean',
         'expires_at' => 'datetime',
     ];
 
@@ -29,9 +33,25 @@ class StockReservation extends Model
             });
     }
 
+    /** Rows the old product-level model counts: a set's bottom row rides with its top. */
+    public function scopeCountsForProduct(Builder $query): Builder
+    {
+        return $query->where('second_part', false);
+    }
+
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variant()
+    {
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function order()

@@ -26,6 +26,9 @@ class ConcurrencyTest extends TestCase
 {
     use DatabaseTruncation;
 
+    /** Rows the migrations seed (the one location, Phase D1): later tests rely on them. */
+    protected $exceptTables = ['locations'];
+
     protected function setUp(): void
     {
         parent::setUp();
