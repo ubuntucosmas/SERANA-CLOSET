@@ -134,6 +134,12 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
+    // Staff (Phase E-a), owner only.
+    Route::post('/staff', [App\Http\Controllers\Admin\StaffController::class, 'store'])->middleware('can:staff.manage')->name('studio.staff.store');
+    Route::put('/staff/{user}/role', [App\Http\Controllers\Admin\StaffController::class, 'role'])->middleware('can:staff.manage')->name('studio.staff.role');
+    Route::post('/staff/{user}/suspend', [App\Http\Controllers\Admin\StaffController::class, 'suspend'])->middleware('can:staff.manage')->name('studio.staff.suspend');
+    Route::post('/staff/{user}/reactivate', [App\Http\Controllers\Admin\StaffController::class, 'reactivate'])->middleware('can:staff.manage')->name('studio.staff.reactivate');
+    Route::put('/staff/{user}/pin', [App\Http\Controllers\Admin\StaffController::class, 'pin'])->middleware('can:staff.manage')->name('studio.staff.pin');
     // Stock per size (Phase D1).
     Route::post('/stock/move', [App\Http\Controllers\Admin\StockController::class, 'move'])->middleware('can:stock.manage')->name('studio.stock.move');
     Route::post('/stock/product/{product}/sizes', [App\Http\Controllers\Admin\StockController::class, 'sizes'])->middleware('can:stock.manage')->name('studio.stock.sizes');

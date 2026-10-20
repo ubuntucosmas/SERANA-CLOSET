@@ -126,6 +126,8 @@ class StudioController extends Controller
             'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
                 ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
             'stock_v2'          => \App\Support\StockMode::v2(),
+            // Studio → Staff (owner), built only for that screen.
+            'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
