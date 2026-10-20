@@ -26,6 +26,9 @@ class Product extends Model
         'secondary_images',
     ];
 
+    /** Mirrors the column default, so variants are built for the garment the row will actually be. */
+    protected $attributes = ['garment_type' => 'set'];
+
     protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls'];
 
     protected $casts = [

@@ -189,7 +189,7 @@ class StockService
 
         $allocations = [];
         foreach ($demands as $demand) {
-            $at = $locations->first(fn (Location $l) => $this->availableAt($demand['variant'], $l) >= $demand['quantity']);
+            $at = $locations->first(fn (Location $l) => $this->availableAt($demand['variant'], $l, current: true) >= $demand['quantity']);
             if (! $at) {
                 throw new \DomainException($this->shortageMessage($demand['variant'], (int) $this->availableOnline($demand['variant'])));
             }
@@ -311,8 +311,8 @@ class StockService
             }
             $lapsed = $group->reject(fn ($r) => $r->status === 'held' && ($r->expires_at === null || $r->expires_at->isFuture()));
             $need = (int) $lapsed->sum('quantity');
-            if ($need > 0 && $need > (int) $this->availableAt($variant, $first->location)) {
-                $elsewhere = $locations->first(fn (Location $l) => $l->id !== $first->location_id && $this->availableAt($variant, $l) >= $need);
+            if ($need > 0 && $need > (int) $this->availableAt($variant, $first->location, current: true)) {
+                $elsewhere = $locations->first(fn (Location $l) => $l->id !== $first->location_id && $this->availableAt($variant, $l, current: true) >= $need);
                 if ($elsewhere) {
                     $lapsed->each->update(['location_id' => $elsewhere->id]);
                     $this->lockLevels([[$variant->id, $elsewhere->id]]);
@@ -325,7 +325,7 @@ class StockService
                 }
             }
             if ($live) {
-                $onHand = (int) StockLevel::where('product_variant_id', $variant->id)->where('location_id', $first->location_id)->value('on_hand');
+                $onHand = (int) StockLevel::where('product_variant_id', $variant->id)->where('location_id', $first->location_id)->lockForUpdate()->value('on_hand');
                 if ((int) $group->sum('quantity') > $onHand) {
                     foreach ($group as $row) {
                         $short[$row->id] = $this->describe($variant);
@@ -352,14 +352,25 @@ class StockService
         return $left > 0 ? "{$name} in {$variant->label()}: only {$left} left." : "{$name} in {$variant->label()} just sold out.";
     }
 
-    /** Units that can be sold at one location: on hand less its active holds, never below zero. Null = made to order. */
-    public function availableAt(ProductVariant $variant, Location $at): ?int
+    /**
+     * Units that can be sold at one location: on hand less its active holds,
+     * never below zero. Null = made to order.
+     *
+     * $current: a decision made while holding this size's level lock (lock
+     * order step 1) reads the rows as they are now, with locking reads. Under
+     * REPEATABLE READ a plain read may come from a snapshot taken before the
+     * lock was granted; a locking read never does. Every writer of holds takes
+     * the level lock first, so these reads can't join a lock cycle.
+     */
+    public function availableAt(ProductVariant $variant, Location $at, bool $current = false): ?int
     {
         if (! $this->tracked($variant)) {
             return null;
         }
-        $onHand = (int) StockLevel::where('product_variant_id', $variant->id)->where('location_id', $at->id)->value('on_hand');
-        $held = (int) StockReservation::active()->where('product_variant_id', $variant->id)->where('location_id', $at->id)->sum('quantity');
+        $level = StockLevel::where('product_variant_id', $variant->id)->where('location_id', $at->id);
+        $holds = StockReservation::active()->where('product_variant_id', $variant->id)->where('location_id', $at->id);
+        $onHand = (int) ($current ? $level->lockForUpdate()->value('on_hand') : $level->value('on_hand'));
+        $held = (int) ($current ? $holds->sharedLock()->sum('quantity') : $holds->sum('quantity'));
 
         return max(0, $onHand - $held);
     }

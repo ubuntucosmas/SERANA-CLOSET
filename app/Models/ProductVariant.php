@@ -113,6 +113,8 @@ class ProductVariant extends Model
     {
         $created = 0;
         $parts = self::partsFor($product->garment_type);
+        // A garment that changed type no longer sells its old parts (kept, inactive, for history).
+        self::where('product_id', $product->id)->whereNotIn('part', $parts)->where('active', true)->update(['active' => false]);
         $offered = self::offeredSizes($product);
         foreach ($parts as $p => $part) {
             $sizes = array_map(fn ($s) => [$s, true], $offered);

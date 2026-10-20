@@ -51,6 +51,23 @@ class StockSchemaTest extends TestCase
         $this->assertSame(['single:One size'], $this->variants($this->product(['specifications' => ['sizes' => ['One size']]])));
     }
 
+    public function test_a_product_created_without_a_garment_type_gets_the_variants_the_database_says(): void
+    {
+        $product = Product::create(['name' => 'No Type', 'slug' => 'no-type', 'price' => 5000, 'in_stock' => true, 'specifications' => ['sizes' => ['M']]]);
+
+        $this->assertSame('set', $product->fresh()->garment_type);
+        $this->assertSame(['top:M', 'bottom:M'], $this->variants($product));
+    }
+
+    public function test_a_garment_that_changes_type_withdraws_its_old_parts(): void
+    {
+        $product = $this->product(['garment_type' => 'set', 'specifications' => ['sizes' => ['M']]]);
+
+        $product->update(['garment_type' => 'hoodie']);
+
+        $this->assertEqualsCanonicalizing(['top:M (inactive)', 'bottom:M (inactive)', 'single:M'], $this->variants($product));
+    }
+
     public function test_a_product_with_a_batch_limit_is_tracked_and_one_without_is_made_to_order(): void
     {
         $this->assertTrue($this->product(['batch_limit' => 10])->fresh()->track_stock);

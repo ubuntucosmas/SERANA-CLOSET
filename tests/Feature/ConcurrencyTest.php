@@ -222,6 +222,116 @@ class ConcurrencyTest extends TestCase
         $this->assertSame([['needs_resolution', 2500], ['paid', 2500]], $states);
     }
 
+    // ---- Stock per size (Phase D1, design §13.3): the size level is the unit of contention. ----
+
+    private function stockedSizes(int $m, int $l): array
+    {
+        config(['serana.stock_v2' => 'on']);
+        $owner = \App\Models\User::factory()->create(['role' => \App\Support\Role::OWNER]);
+        $product = Product::create(['name' => 'Hoodie sized-hoodie', 'slug' => 'sized-hoodie', 'description' => 'Two sizes.', 'price' => 2500, 'in_stock' => true,
+            'garment_type' => 'hoodie', 'batch_limit' => 10, 'batch_sold' => 0, 'specifications' => ['sizes' => ['M', 'L']]]);
+        $shop = \App\Models\Location::sole();
+        $stock = app(\App\Services\StockService::class);
+        $M = $product->variants()->where('size', 'M')->sole();
+        $L = $product->variants()->where('size', 'L')->sole();
+        foreach ([[$M, $m], [$L, $l]] as [$variant, $units]) {
+            if ($units > 0) {
+                $stock->receive($variant, $shop, $units, \App\Support\Actor::user($owner), 'Batch');
+            }
+        }
+        $stock->lockLevels([[$M->id, $shop->id], [$L->id, $shop->id]]); // both level rows exist, even at zero
+
+        return [$product, $M, $L, $shop];
+    }
+
+    private function levelOf($variant): \App\Models\StockLevel
+    {
+        return \App\Models\StockLevel::where('product_variant_id', $variant->id)->sole();
+    }
+
+    private function sizedPayload(Product $product, string $size, string $name): string
+    {
+        return json_encode(['full_name' => $name, 'email' => 'buyer@example.com', 'address' => '1 Moi Avenue', 'city' => 'Nairobi',
+            'phone' => '0712345678', 'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => $size]]]]);
+    }
+
+    public function test_two_buyers_racing_for_the_last_unit_of_one_size_get_it_once(): void
+    {
+        [$product, $M] = $this->stockedSizes(1, 3);
+
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['checkout', $this->sizedPayload($product, 'M', 'Buyer One')],
+            ['checkout', $this->sizedPayload($product, 'M', 'Buyer Two')],
+        ]);
+
+        $this->assertSame([200, 422], collect($results)->pluck('status')->sort()->values()->all(), json_encode($results));
+        $this->assertStringContainsString('in Size M just sold out', collect($results)->firstWhere('status', 422)['body']['message']);
+        $this->assertSame(1, (int) StockReservation::where('product_variant_id', $M->id)->where('status', 'held')->sum('quantity'));
+        $this->assertSame(0, app(\App\Services\StockService::class)->availableOnline($M));
+    }
+
+    public function test_buyers_of_the_last_m_and_the_last_l_both_get_theirs(): void
+    {
+        [$product, $M, $L] = $this->stockedSizes(1, 1);
+
+        $results = $this->whileHolding(function () use ($M, $L) {
+            \App\Models\StockLevel::whereIn('id', [$this->levelOf($M)->id, $this->levelOf($L)->id])->orderBy('id')->lockForUpdate()->get();
+        }, [
+            ['checkout', $this->sizedPayload($product, 'M', 'Buyer M')],
+            ['checkout', $this->sizedPayload($product, 'L', 'Buyer L')],
+        ]);
+
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(2, CustomOrder::count());
+        $this->assertSame([0, 0], [app(\App\Services\StockService::class)->availableOnline($M), app(\App\Services\StockService::class)->availableOnline($L)]);
+    }
+
+    public function test_a_late_payment_and_a_checkout_racing_for_the_last_unit_of_a_size_get_it_once(): void
+    {
+        [$product, $M, , $shop] = $this->stockedSizes(1, 0);
+        $late = CustomOrder::create(['full_name' => 'Late Payer', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard',
+            'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2500,
+            'items_json' => [['id' => $product->id, 'name' => $product->name, 'price' => 2500, 'quantity' => 1, 'options' => ['top_size' => 'M']]]]);
+        $late->stockReservations()->create(['product_id' => $product->id, 'product_variant_id' => $M->id, 'location_id' => $shop->id,
+            'quantity' => 1, 'status' => 'released', 'expires_at' => now()->subMinute()]);
+
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['settle-ref', "{$late->id}:QLATERACE"],
+            ['checkout', $this->sizedPayload($product, 'M', 'New Buyer')],
+        ]);
+
+        [$settle, $checkout] = $results;
+        $this->assertSame(200, $settle['status'], json_encode($results));
+        $paid = $settle['became_paid'];
+        $this->assertSame($paid ? 422 : 200, $checkout['status'], 'exactly one of them gets the M: ' . json_encode($results));
+        $this->assertSame($paid ? [] : ['Hoodie sized-hoodie (Size M)'], $settle['stock_gone']);
+        $level = $this->levelOf($M)->fresh();
+        $this->assertSame($paid ? 0 : 1, $level->on_hand);
+        $this->assertSame([], app(\App\Services\StockService::class)->integrityIssues());
+    }
+
+    public function test_a_stock_take_during_a_live_payment_never_goes_below_zero(): void
+    {
+        [$product, $M, , $shop] = $this->stockedSizes(1, 0);
+        $paying = CustomOrder::create(['full_name' => 'Payer', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard',
+            'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2500,
+            'items_json' => [['id' => $product->id, 'name' => $product->name, 'price' => 2500, 'quantity' => 1, 'options' => ['top_size' => 'M']]]]);
+        $paying->stockReservations()->create(['product_id' => $product->id, 'product_variant_id' => $M->id, 'location_id' => $shop->id,
+            'quantity' => 1, 'status' => 'held', 'expires_at' => now()->addMinutes(10)]);
+
+        // The owner finds the M missing (counts 0) while its buyer's payment settles.
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['count', "{$M->id}:{$shop->id}:0"],
+            ['settle-ref', "{$paying->id}:QCOUNTRACE"],
+        ]);
+
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $this->levelOf($M)->fresh()->on_hand, 'never below zero');
+        $this->assertSame([], app(\App\Services\StockService::class)->integrityIssues());
+        // The count ran first (it queued first): the payment found nothing to sell and waits for the studio.
+        $this->assertSame('needs_resolution', $paying->fresh()->payment_status, json_encode($results));
+    }
+
     private function whileHoldingProduct(Product $product, array $jobs): array
     {
         return $this->whileHolding(fn () => Product::whereKey($product->id)->lockForUpdate()->first(), $jobs);
@@ -277,6 +387,8 @@ class ConcurrencyTest extends TestCase
             'MPESA_SHORTCODE' => '174379',
             'MPESA_PASSKEY' => 'test-passkey',
             'MPESA_CALLBACK_TOKEN' => 'test-callback-token',
+            // Workers sell from the same stock model as the test (Phase D1).
+            'STOCK_V2' => (string) config('serana.stock_v2', 'setting'),
         ])->timeout(60)->start([PHP_BINARY, base_path('tests/Concurrency/worker.php'), $action, $arg]);
     }
 
