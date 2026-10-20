@@ -1125,7 +1125,7 @@ The `ConcurrencyTest` harness adds STOCK_V2 workers for each row above. A new st
 | Money path | `OrderSettlementService` is unchanged as the money writer. Ledger-check and the after-each-test `LedgerVerifier` safety net keep running in every mode |
 | Outside-edited storefront files | See decision P1 below |
 
-**Decisions needed before D1/D2** (recommendations first):
+**Owner decisions (2026-10-20):** the full design is approved, and the recommendations are accepted for P2–P9. **P1 is open:** the outside edits to `Checkout.vue` and `CartDrawer.vue` must be committed before D2 starts. D1 doesn't touch them. The decisions as asked:
 - **P1. Files with uncommitted outside edits.** D2 can't be built without editing `Checkout.vue` (the delivery picker) and `CartDrawer.vue` (the "delivery incl." text). D1 needs small changes to `ProductCard.vue` only if cards should show per-size hints (otherwise none). `ProductsPanel.vue` should show stock per size; D1 can instead put stock in a new Stock panel and leave it alone. **Recommend:** commit or merge those edits before D2 starts. D1 avoids them.
 - **P2. Sets as two components of the same set product** (D7 (a)): confirm that a set's top and bottom are stocked separately per size, and are not shared with standalone hoodies or joggers.
 - **P3. Default sizes:** every product gets S, M, L, XL, XXL (today's default) unless the owner narrows it per product in the Studio. One-size products are set to "One size" by the owner. Confirm the default list.
