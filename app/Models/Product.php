@@ -116,9 +116,10 @@ class Product extends Model
      * What a shopper sees and the Studio reports: null when unlimited.
      * Listings must append() it after withAvailability() (see ShopController).
      */
+    /** What the storefront shows: per-size stock when v2 is on (design §13.3), else the batch numbers. Null = unlimited. */
     public function getAvailableStockAttribute(): ?int
     {
-        return $this->availableStock();
+        return \App\Support\StockMode::v2() ? app(\App\Services\StockService::class)->productAvailableOnline($this) : $this->availableStock();
     }
 
     /** Quantity currently held by unpaid, non-expired checkouts. */

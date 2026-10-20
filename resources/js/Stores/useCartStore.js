@@ -56,7 +56,8 @@ export const useCartStore = defineStore('cart', () => {
                 // Carried so the +/- stepper can respect the batch cap too.
                 batch_limit: product.batch_limit ?? null,
                 batch_sold: product.batch_sold ?? 0,
-                available_stock: product.available_stock ?? null
+                available_stock: product.available_stock ?? null,
+                track_stock: product.track_stock ?? null
             });
         }
 

@@ -34,8 +34,15 @@ class ShopController extends Controller
     public function show(Product $product)
     {
         // Load related cross-sells logic later if needed
+        $v2 = \App\Support\StockMode::v2();
+
         return Inertia::render('ProductDetail', [
-            'product' => $product->load('category')->append('available_stock')
+            'product' => $product->load('category')->append('available_stock'),
+            // The sizes on offer, per part, with what is left of each once stock is per size (null = no count).
+            'sizes' => $v2
+                ? app(\App\Services\StockService::class)->sizesOnline($product)
+                : $product->variants()->where('active', true)->orderBy('sort')->get()
+                    ->map(fn ($v) => ['id' => $v->id, 'part' => $v->part, 'size' => $v->size, 'available' => null])->all(),
         ]);
     }
 }
