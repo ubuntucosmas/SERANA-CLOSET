@@ -979,7 +979,7 @@ erDiagram
 - **Per location:** availability floors at 0. A stock take can find fewer units than are already held; the holds then keep their claim and the shortfall surfaces at commit (§13.4).
 - **Pickup:** availability is per location. A pickup order holds at its pickup location.
 - **Untracked products:** always available.
-- **Product cards:** they keep reading one `available_stock` per product, now Σ over its variants. For a set, it's the number of complete sets: min over parts of the best size. Cards change no code (`stock.js` gets a `track_stock` branch).
+- **Product cards:** they keep reading one `available_stock` per product, now Σ over its variants. For a set, it's the number of complete sets: the scarcer part's total over its sizes. Cards change no code (`stock.js` gets a `track_stock` branch).
 
 **Allocation across locations** (designed now, exercised once a second shop exists):
 - An online delivery order holds each line at the first location by `sort` that has the full quantity.
