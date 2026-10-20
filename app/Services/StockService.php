@@ -120,6 +120,102 @@ class StockService
         })->orderBy('id')->lockForUpdate()->get();
     }
 
+    /**
+     * What a bag asks for, per size (design §13.6): each line resolved to its
+     * variant(s) — a set to its top and bottom — and summed per variant.
+     * Lines the server can't read as sizes come back as errors, never guessed.
+     *
+     * @param  array<int, array{id: int, quantity: int, options?: ?array, variant_ids?: ?array}>  $items
+     * @return array{demands: list<array{variant: ProductVariant, quantity: int, second_part: bool}>, variant_ids: array<int, list<int>>, errors: list<array{index: int, product_id: int, message: string}>}
+     */
+    public function demandsFor(array $items, Collection $products): array
+    {
+        $demands = [];
+        $variantIds = [];
+        $errors = [];
+        foreach (array_values($items) as $index => $item) {
+            $product = $products->get($item['id']);
+            $variants = $product ? ProductVariant::resolve($product, $item['options'] ?? null) : null;
+            $claimed = isset($item['variant_ids']) ? collect($item['variant_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all() : null;
+            if ($variants === null || ($claimed !== null && $claimed !== collect($variants)->pluck('id')->sort()->values()->all())) {
+                $errors[] = ['index' => $index, 'product_id' => (int) $item['id'], 'message' => 'Choose a size for ' . ($product?->name ?? 'this item') . '.'];
+
+                continue;
+            }
+            $variantIds[$index] = collect($variants)->pluck('id')->all();
+            if (! $product->track_stock) {
+                continue;
+            }
+            $firstPart = ProductVariant::partsFor($product->garment_type)[0];
+            foreach ($variants as $variant) {
+                $variant->setRelation('product', $product);
+                $demands[$variant->id] ??= ['variant' => $variant, 'quantity' => 0, 'second_part' => $variant->part !== $firstPart];
+                $demands[$variant->id]['quantity'] += (int) $item['quantity'];
+            }
+        }
+
+        return ['demands' => array_values($demands), 'variant_ids' => $variantIds, 'errors' => $errors];
+    }
+
+    /** Why these demands can't be met right now, read without locks (a friendly pre-check), or null. */
+    public function shortageFor(array $demands): ?string
+    {
+        foreach ($demands as $demand) {
+            $left = (int) $this->availableOnline($demand['variant']);
+            if ($demand['quantity'] > $left) {
+                return $this->shortageMessage($demand['variant'], $left);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Inside a transaction: lock the level rows of every demanded size at
+     * every online location (lock order step 1), and pick, per size, the
+     * first location by priority that has all of it (design §13.3; a line is
+     * never split across locations). Throws a DomainException naming the size
+     * when one can't be met.
+     *
+     * @return list<array{variant: ProductVariant, location_id: int, quantity: int, second_part: bool}>
+     */
+    public function allocate(array $demands): array
+    {
+        if ($demands === []) {
+            return [];
+        }
+        $locations = Location::query()->online()->get();
+        $this->lockLevels(collect($demands)->flatMap(fn ($d) => $locations->map(fn ($l) => [$d['variant']->id, $l->id]))->all());
+
+        $allocations = [];
+        foreach ($demands as $demand) {
+            $at = $locations->first(fn (Location $l) => $this->availableAt($demand['variant'], $l) >= $demand['quantity']);
+            if (! $at) {
+                throw new \DomainException($this->shortageMessage($demand['variant'], (int) $this->availableOnline($demand['variant'])));
+            }
+            $allocations[] = ['variant' => $demand['variant'], 'location_id' => $at->id, 'quantity' => $demand['quantity'], 'second_part' => $demand['second_part']];
+        }
+
+        return $allocations;
+    }
+
+    /** Write the holds an allocation decided, for an order, inside the same transaction. */
+    public function hold(\App\Models\CustomOrder $order, array $allocations, \DateTimeInterface $until): void
+    {
+        foreach ($allocations as $a) {
+            $order->stockReservations()->create(['product_id' => $a['variant']->product_id, 'product_variant_id' => $a['variant']->id,
+                'location_id' => $a['location_id'], 'quantity' => $a['quantity'], 'second_part' => $a['second_part'],
+                'status' => 'held', 'expires_at' => $until]);
+        }
+    }
+
+    private function shortageMessage(ProductVariant $variant, int $left): string
+    {
+        $name = ($variant->relationLoaded('product') ? $variant->product : Product::withTrashed()->find($variant->product_id))?->name ?? 'An item';
+
+        return $left > 0 ? "{$name} in {$variant->label()}: only {$left} left." : "{$name} in {$variant->label()} just sold out.";
+    }
+
     /** Units that can be sold at one location: on hand less its active holds, never below zero. Null = made to order. */
     public function availableAt(ProductVariant $variant, Location $at): ?int
     {
