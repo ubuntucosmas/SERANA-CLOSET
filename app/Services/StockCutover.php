@@ -36,7 +36,8 @@ class StockCutover
         $report['unmapped_released'] = StockReservation::where('status', 'released')->whereNull('product_variant_id')
             ->with('order')->get()->map(fn ($h) => "Order {$h->order?->cipher}: a released hold with no size (a late payment would wait for the studio)")
             ->unique()->values()->all();
-        $report['ready'] = ! $report['v2'] && $report['uncounted'] === [] && $report['unreadable_sales'] === [] && $report['integrity'] === [];
+        $report['ready'] = ! $report['v2'] && $report['uncounted'] === [] && $report['unmapped_holds'] === []
+            && $report['unreadable_sales'] === [] && $report['integrity'] === [];
 
         return $report;
     }

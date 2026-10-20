@@ -146,6 +146,7 @@ class StockCutoverTest extends TestCase
             'items_json' => [['id' => $hoodie->id, 'name' => 'Hoodie', 'price' => 5000, 'quantity' => 1]]]);
         $order->stockReservations()->create(['product_id' => $hoodie->id, 'quantity' => 1, 'status' => 'held', 'expires_at' => now()->addMinutes(10)]);
 
+        $this->assertFalse(app(StockCutover::class)->preview()['ready'], 'the Studio button stays off while a live hold has no size');
         $this->expectExceptionMessage("hold(s) on order {$order->cipher}");
         app(StockCutover::class)->confirm($this->owner);
     }
