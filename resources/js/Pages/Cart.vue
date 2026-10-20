@@ -25,6 +25,8 @@ const { formatAmount } = useCurrency();
                         <div class="flex-1 min-w-0">
                             <Link :href="route('shop.show', item.slug)" class="text-lg font-semibold">{{ item.name }}</Link>
                             <p v-if="item.options?.top_size || item.options?.bottom_size" class="text-sm text-on-surface-variant">{{ item.options.top_size && item.options.bottom_size ? `Top ${item.options.top_size} · Bottom ${item.options.bottom_size}` : `Size ${item.options.top_size || item.options.bottom_size}` }}</p>
+                            <!-- A line saved before sizes were tracked: checkout will ask for one, so offer it here first. -->
+                            <Link v-else-if="!item.variant_ids?.length" :href="route('shop.show', item.slug)" class="text-sm text-primary underline">Choose a size</Link>
                             <p class="my-2 font-semibold">{{ formatAmount(item.price * item.quantity) }}</p>
                             <div class="flex items-center gap-4">
                                 <button :aria-label="`Decrease quantity of ${item.name}`" @click="cart.updateQuantity(item.line_key, -1)" class="w-11 h-11 border border-outline-variant rounded-lg">−</button>

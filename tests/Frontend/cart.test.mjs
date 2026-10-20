@@ -96,3 +96,33 @@ test('the bag cap counts units held by other checkouts', () => {
     assert.equal(cart.addItem(held), false, 'only one unit is actually free');
     assert.equal(cart.remainingFor(cart.items[0].line_key), 0);
 });
+
+test('with stock per size, each line is capped by its own size', () => {
+    const cart = useCartStore();
+    const hoodie = { id: 7, slug: 'hoodie', name: 'Hoodie', price: 5000, garment_type: 'hoodie', track_stock: true, available_stock: 3 };
+    assert.equal(cart.addItem({ ...hoodie, options: { top_size: 'M' }, variant_ids: [71], variant_caps: { 71: 1 } }), true);
+    assert.equal(cart.addItem({ ...hoodie, options: { top_size: 'M' }, variant_ids: [71], variant_caps: { 71: 1 } }), false, 'the last M is already in the bag');
+    assert.equal(cart.addItem({ ...hoodie, options: { top_size: 'L' }, variant_ids: [72], variant_caps: { 72: 2 } }), true, 'L is a different size');
+    const l = cart.items.find(i => i.options.top_size === 'L');
+    assert.equal(cart.canIncrease(l.line_key), true);
+    cart.updateQuantity(l.line_key, 1);
+    assert.equal(l.quantity, 2);
+    assert.equal(cart.canIncrease(l.line_key), false);
+    cart.updateQuantity(l.line_key, 1);
+    assert.equal(l.quantity, 2);
+});
+
+test('a set line is capped by its scarcer part', () => {
+    const cart = useCartStore();
+    const set = { id: 8, slug: 'set', name: 'Set', price: 9000, garment_type: 'set', track_stock: true, available_stock: 4 };
+    cart.addItem({ ...set, options: { top_size: 'M', bottom_size: 'L' }, variant_ids: [81, 84], variant_caps: { 81: 5, 84: 1 } });
+    assert.equal(cart.canIncrease(cart.items[0].line_key), false);
+});
+
+test('a made-to-order size has no cap', () => {
+    const cart = useCartStore();
+    const free = { id: 9, slug: 'tee', name: 'Tee', price: 2000, garment_type: 'hoodie', track_stock: false, available_stock: null };
+    cart.addItem({ ...free, options: { top_size: 'M' }, variant_ids: [91], variant_caps: { 91: null } });
+    for (let i = 0; i < 5; i++) cart.updateQuantity(cart.items[0].line_key, 1);
+    assert.equal(cart.items[0].quantity, 6);
+});

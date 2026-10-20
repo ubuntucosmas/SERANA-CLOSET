@@ -8,9 +8,12 @@ import { useWhatsApp } from '@/Composables/useWhatsApp';
 import { usePulseStore } from '@/Stores/usePulseStore';
 import { useBackToShop } from '@/Composables/useBackToShop';
 import { isSoldOut as soldOut, lowStockNote } from '@/Support/stock';
+import { sizesForRow, isSizeSoldOut, rowNotes, fallbackSizes } from '@/Support/sizes';
 
 const props = defineProps({
-    product: Object
+    product: Object,
+    // Each offered size per part, with what's left of it (stock per size); null counts when not tracked.
+    sizes: { type: Array, default: null },
 });
 
 const page = usePage();
@@ -24,7 +27,8 @@ const stockNote = computed(() => lowStockNote(props.product));
 
 // Admin-editable piece names (Studio → product specs), with plain defaults.
 const ui = computed(() => props.product.specifications?.ui || {});
-const sizes = computed(() => ui.value.sizes || props.product.specifications?.sizes || ['S', 'M', 'L', 'XL', 'XXL']);
+const allSizes = computed(() => props.sizes?.length ? props.sizes : fallbackSizes(props.product));
+const rowSizes = (row) => sizesForRow(allSizes.value, row.key);
 
 // Which sizes this piece needs: a set needs both, a jogger the bottom only,
 // everything else the top only. Each gets its own visible row, so nothing
@@ -52,9 +56,13 @@ const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: sele
 
 const addToBag = () => {
     if (isSoldOut.value || missing.value.length) return;
+    // The chosen size(s), so the bag can cap each line by what's left of that size.
+    const chosen = sizeRows.value.map(row => rowSizes(row).find(s => s.size === selected[row.key])).filter(s => s?.id);
     const added = cart.addItem({
         ...props.product,
         options: { top_size: selected.top, bottom_size: selected.bottom },
+        variant_ids: chosen.length === sizeRows.value.length ? chosen.map(s => s.id) : null,
+        variant_caps: chosen.length === sizeRows.value.length ? Object.fromEntries(chosen.map(s => [s.id, s.available])) : null,
     });
     // On success the bag drawer opens: that is the confirmation.
     if (!added) pulse.emit("That's all we have of this piece right now. Check your bag.", 'error');
@@ -182,16 +190,21 @@ const goTo = (index) => {
                                 </div>
                                 <div class="grid grid-cols-5 gap-2">
                                     <button
-                                        v-for="size in sizes" :key="size"
+                                        v-for="size in rowSizes(row)" :key="size.id ?? size.size"
                                         type="button"
-                                        @click="selected[row.key] = size"
-                                        :aria-pressed="selected[row.key] === size"
+                                        @click="selected[row.key] = size.size"
+                                        :disabled="isSizeSoldOut(size)"
+                                        :aria-pressed="selected[row.key] === size.size"
+                                        :aria-label="isSizeSoldOut(size) ? `Sold out in ${size.size}` : null"
                                         class="min-h-[48px] rounded-xl border text-sm font-semibold transition-colors"
-                                        :class="selected[row.key] === size
-                                            ? 'border-primary bg-primary/10 text-primary'
-                                            : 'border-black/10 text-on-surface hover:border-black/30 dark:border-white/10 dark:hover:border-white/30'"
-                                    >{{ size }}</button>
+                                        :class="isSizeSoldOut(size)
+                                            ? 'border-black/5 text-on-surface-variant/50 line-through cursor-not-allowed dark:border-white/5'
+                                            : selected[row.key] === size.size
+                                                ? 'border-primary bg-primary/10 text-primary'
+                                                : 'border-black/10 text-on-surface hover:border-black/30 dark:border-white/10 dark:hover:border-white/30'"
+                                    >{{ size.size }}</button>
                                 </div>
+                                <p v-if="rowNotes(rowSizes(row))" class="mt-2 text-xs text-on-surface-variant">{{ rowNotes(rowSizes(row)) }}</p>
                             </fieldset>
                         </div>
 

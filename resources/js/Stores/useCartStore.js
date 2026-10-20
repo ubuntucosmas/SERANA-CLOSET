@@ -24,13 +24,31 @@ export const useCartStore = defineStore('cart', () => {
     // Units a shopper may hold in the bag: unpaid holds by others count too.
     const capOf = (x) => availableStock(x) ?? Infinity;
 
+    // Stock per size (Phase D1): a line knows its size(s) and what was left of each when added.
+    // Units of a size already in the bag, across every line that holds it.
+    const usedOf = (variantId, exceptKey = null) => items.value
+        .filter(line => line.line_key !== exceptKey && (line.variant_ids || []).includes(variantId))
+        .reduce((sum, line) => sum + line.quantity, 0);
+    const hasSizeCaps = (x) => Array.isArray(x.variant_ids) && x.variant_ids.length > 0 && x.variant_caps && typeof x.variant_caps === 'object';
+    // How many more of this line's sizes can go in the bag (a set: its scarcer part); Infinity when uncounted.
+    function sizeRoom(x, exceptKey = null, alreadyHere = 0) {
+        return Math.min(...x.variant_ids.map(id => {
+            const cap = x.variant_caps[id];
+            return cap == null ? Infinity : Math.max(0, Number(cap) - usedOf(id, exceptKey) - alreadyHere);
+        }));
+    }
+
     const totalItems = computed(() => items.value.reduce((acc, item) => acc + item.quantity, 0));
     const totalPrice = computed(() => items.value.reduce((acc, item) => acc + (item.price * item.quantity), 0));
 
     function addItem(product) {
         if (product.in_stock === false) return false;
-        const currentQty = items.value.filter(item => item.id === product.id).reduce((sum, item) => sum + item.quantity, 0);
-        if (currentQty >= capOf(product)) return false;
+        if (hasSizeCaps(product)) {
+            if (sizeRoom(product) <= 0) return false;
+        } else {
+            const currentQty = items.value.filter(item => item.id === product.id).reduce((sum, item) => sum + item.quantity, 0);
+            if (currentQty >= capOf(product)) return false;
+        }
         const key = lineKey(product);
         const existing = items.value.find(item => item.line_key === key);
 
@@ -57,7 +75,9 @@ export const useCartStore = defineStore('cart', () => {
                 batch_limit: product.batch_limit ?? null,
                 batch_sold: product.batch_sold ?? 0,
                 available_stock: product.available_stock ?? null,
-                track_stock: product.track_stock ?? null
+                track_stock: product.track_stock ?? null,
+                variant_ids: product.variant_ids ?? null,
+                variant_caps: product.variant_caps ?? null
             });
         }
 
@@ -72,8 +92,14 @@ export const useCartStore = defineStore('cart', () => {
     function updateQuantity(key, delta) {
         const item = items.value.find(item => item.line_key === key);
         if (!item || !Number.isInteger(delta)) return;
-        const total = items.value.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0);
-        if (delta > 0 && total + delta > capOf(item)) return;
+        if (delta > 0) {
+            if (hasSizeCaps(item)) {
+                if (sizeRoom(item, item.line_key, item.quantity) < delta) return;
+            } else {
+                const total = items.value.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0);
+                if (total + delta > capOf(item)) return;
+            }
+        }
         item.quantity += delta;
         if (item.quantity <= 0) removeItem(key);
     }
@@ -81,7 +107,9 @@ export const useCartStore = defineStore('cart', () => {
     /** Units of this product the customer may still add, across all its size lines. */
     function remainingFor(key) {
         const item = items.value.find(line => line.line_key === key);
-        if (!item || item.batch_limit == null) return Infinity;
+        if (!item) return Infinity;
+        if (hasSizeCaps(item)) return sizeRoom(item, item.line_key, item.quantity);
+        if (item.batch_limit == null && item.available_stock == null) return Infinity;
         const total = items.value.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0);
         return Math.max(0, capOf(item) - total);
     }
