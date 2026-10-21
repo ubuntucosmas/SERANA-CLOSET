@@ -13,7 +13,7 @@ class StockLevel extends Model
 {
     protected $guarded = [];
 
-    protected $casts = ['on_hand' => 'integer', 'counted_at' => 'datetime'];
+    protected $casts = ['on_hand' => 'integer', 'version' => 'integer', 'counted_at' => 'datetime'];
 
     public function variant()
     {

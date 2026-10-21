@@ -1,0 +1,450 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "home",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "orders",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "bespoke",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "refunds",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "products",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "activity",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "settings",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "tills",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "manager",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "home",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "orders",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "bespoke",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "refunds",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "products",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "activity",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "settings",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "tills",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "manager",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "home",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "orders",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "bespoke",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "refunds",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "products",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "activity",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "settings",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "tills",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "manager",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "home",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "orders",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "bespoke",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "refunds",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "products",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "activity",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "settings",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "tills",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "manager",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  }
+]

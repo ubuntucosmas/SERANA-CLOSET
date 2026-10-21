@@ -1,0 +1,98 @@
+[
+  {
+    "width": 1920,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 1850.90625,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": true
+    }
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 1388.1875,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": true
+    }
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 987.15625,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": true
+    }
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 736,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": true
+    }
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 343,
+      "cartTop": 947,
+      "workspaceTop": 291.5,
+      "checkoutBottom": 3070,
+      "viewportHeight": 950,
+      "cartScrolls": false
+    }
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 1388.1875,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": true
+    }
+  }
+]

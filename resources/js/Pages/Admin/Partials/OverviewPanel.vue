@@ -1,4 +1,5 @@
 <script setup>
+import { registerLabel } from '@/Support/register';
 import { computed, ref } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
@@ -30,22 +31,24 @@ const stock = computed(() => props.attention.low_stock || []);
 const focus = computed(() => {
     if (paymentCases.value.length) {
         const count = props.attention.payments_count ?? paymentCases.value.length;
-        return { title: 'Review financial exceptions first', detail: `${count} payment ${count === 1 ? 'case needs' : 'cases need'} review. Check the evidence and agree the next step before further fulfilment.`, action: 'Review cases', anchor: '#overview-payment-cases', tone: 'stage-error' };
+        return { title: 'Review payments and refunds first', detail: `${count} payment ${count === 1 ? 'case needs' : 'cases need'} review. Check the evidence and agree the next step before further fulfilment.`, action: 'Review cases', anchor: '#overview-payment-cases', tone: 'stage-error' };
     }
-    const priority = ['review', 'dispatch', 'quotes', 'fulfilment', 'payment', 'production'];
+    const priority = ['attention', 'review', 'pickup', 'dispatch', 'quotes', 'fulfilment', 'payment', 'production'];
     const queue = priority.map(id => managerQueues.find(item => item.id === id)).find(item => Number(props.workflow[item.id]) > 0);
     if (queue) return { title: queue.label, detail: `${props.workflow[queue.id]} matching orders. ${queue.why}`, action: queue.action, queue: queue.id, tone: queue.tone };
     if (stock.value.length) return { title: 'Review product availability', detail: 'Some products are unavailable or running low. Check their availability before promoting them.', action: 'Review stock', tab: 'products', tone: 'stage-waiting' };
     return { title: 'No orders in the current work queues', detail: 'Review the order list for other activity, or update your products. This snapshot does not confirm that every business task is complete.', action: 'View orders', tab: 'orders', tone: 'stage-complete' };
 });
 const summaries = {
+    attention: 'Review payment, refund or stock decisions before continuing.',
+    complete: 'Already dispatched or collected; review the saved history.',
     review: 'Verify the payment or receipt before requesting another payment.',
     quotes: 'Agree requirements, price and timing with the customer.',
     payment: 'Follow up and verify money received before confirming payment.',
     fulfilment: 'Check items, sizes and delivery details before starting work.',
     production: 'Check progress, blockers and customer updates.',
     dispatch: 'Check the parcel and address before marking dispatched.',
-    pickup: 'Waiting at the shop; collected at the till after the phone check.',
+    pickup: 'Waiting at the shop; collected at Sales Desk after the phone check.',
 };
 const allFollowups = computed(() => {
     const financialIds = new Set(paymentCases.value.map(item => item.id));
@@ -56,6 +59,8 @@ const allFollowups = computed(() => {
         return true;
     });
 });
+const showAllQueues = ref(false);
+const visibleQueues = computed(() => managerQueues.filter(queue => !['review', 'complete'].includes(queue.id) && (showAllQueues.value || Number(props.workflow[queue.id]) > 0)));
 const expanded = ref(false);
 const followups = computed(() => expanded.value ? allFollowups.value : allFollowups.value.slice(0, 5));
 </script>
@@ -66,17 +71,6 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
             <p class="text-xs text-slate-400" aria-live="polite">{{ updated }} · Amounts in KES</p>
             <button type="button" @click="emit('refresh')" class="table-action">Refresh overview</button>
         </div>
-
-        <section aria-labelledby="overview-snapshot-title">
-            <h2 id="overview-snapshot-title" class="overview-label mb-2">Business snapshot</h2>
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3">
-                <button v-for="metric in metrics" :key="metric.label" type="button" @click="metric.queue ? emit('queue', metric.queue) : emit('go', metric.tab)" class="overview-panel metric text-left">
-                    <span class="block text-xs font-medium text-slate-300">{{ metric.label }}</span>
-                    <strong class="block mt-2 text-xl sm:text-2xl font-semibold text-white tabular-nums break-words">{{ metric.value }}</strong>
-                    <span class="block mt-2 text-xs text-slate-400 leading-snug">{{ metric.period }}</span>
-                </button>
-            </div>
-        </section>
 
         <section aria-labelledby="overview-focus-title" class="overview-panel flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="min-w-0"><span class="stage-badge mb-2" :class="focus.tone">Next decision</span><h2 id="overview-focus-title" class="text-base font-semibold text-white">{{ focus.title }}</h2><p class="mt-1 text-sm text-slate-300 max-w-3xl">{{ focus.detail }}</p></div>
@@ -92,11 +86,13 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
                 <section class="overview-panel !p-0 overflow-hidden" aria-labelledby="overview-queues-title">
                     <header class="p-4 border-b border-white/10"><h2 id="overview-queues-title" class="text-base font-semibold text-white">Order work queues</h2><p class="mt-1 text-xs text-slate-400">Current active orders. Open a queue to work oldest-first.</p></header>
                     <div class="divide-y divide-white/10">
-                        <div v-for="queue in managerQueues" :key="queue.id" class="queue-row">
+                        <div v-for="queue in visibleQueues" :key="queue.id" class="queue-row">
                             <div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="stage-badge" :class="Number(workflow[queue.id]) ? queue.tone : 'queue-empty'">{{ queue.label }}</span><strong class="text-white tabular-nums text-base" :aria-label="`${workflow[queue.id] ?? 0} orders`">{{ workflow[queue.id] ?? 0 }}</strong></div><p class="mt-1 text-xs text-slate-400 leading-snug">{{ summaries[queue.id] }}</p></div>
                             <button type="button" @click="emit('queue', queue.id)" class="table-action" :aria-label="`${queue.action}: ${workflow[queue.id] ?? 0} orders`">{{ queue.action }}</button>
                         </div>
                     </div>
+                    <p v-if="!visibleQueues.length" class="p-4 text-sm text-slate-400">No orders need action in these queues. Review all orders for completed work.</p>
+                    <button type="button" @click="showAllQueues = !showAllQueues" :aria-expanded="showAllQueues" class="table-action m-4">{{ showAllQueues ? 'Show active queues' : 'Show all queues' }}</button>
                 </section>
             </div>
 
@@ -106,11 +102,11 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
                     <p class="mt-1 text-xs text-slate-400">Closed with more than the alert short or over.</p>
                     <ul class="mt-3 divide-y divide-white/10">
                         <li v-for="t in attention.till_variances" :key="t.id" class="py-3 text-sm">
-                            <p class="text-white">{{ t.register }} · {{ t.variance < 0 ? 'KSh ' + Math.abs(t.variance).toLocaleString() + ' short' : 'KSh ' + t.variance.toLocaleString() + ' over' }}</p>
+                            <p class="text-white">{{ registerLabel(t.register) }} · {{ t.variance < 0 ? 'KSh ' + Math.abs(t.variance).toLocaleString() + ' short' : 'KSh ' + t.variance.toLocaleString() + ' over' }}</p>
                             <p class="mt-1 text-xs text-slate-400">{{ t.closed_at }} · closed by {{ t.closed_by }}<template v-if="t.reason"> · “{{ t.reason }}”</template></p>
                         </li>
                     </ul>
-                    <button type="button" @click="emit('go', 'tills')" class="table-action mt-3 w-full">Open till history</button>
+                    <button type="button" @click="emit('go', 'tills')" class="table-action mt-3 w-full">Open Sales Desk History</button>
                 </section>
                 <section class="overview-panel" aria-labelledby="overview-stock-title">
                     <div class="flex items-center justify-between gap-2"><h2 id="overview-stock-title" class="text-base font-semibold text-white">Stock to review</h2><span class="text-xs text-slate-400">{{ stock.length }} shown</span></div>
@@ -121,7 +117,7 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
                 </section>
                 <section class="overview-panel" aria-labelledby="overview-actions-title">
                     <h2 id="overview-actions-title" class="text-base font-semibold text-white">Quick actions</h2><p class="mt-1 mb-3 text-xs text-slate-400">Create or maintain customer-facing content.</p>
-                    <div class="grid grid-cols-2 gap-2"><button type="button" @click="emit('create', 'product')" class="table-action">Add product</button><button type="button" @click="emit('create', 'campaign')" class="table-action">New pre-order</button><button type="button" @click="emit('go', 'showcase')" class="table-action">Photo gallery</button><button type="button" @click="emit('go', 'settings')" class="table-action">Store settings</button></div>
+                    <div class="grid grid-cols-2 gap-2"><button type="button" @click="emit('create', 'product')" class="table-action">Add product</button><button v-if="$page.props.drops_enabled" type="button" @click="emit('create', 'campaign')" class="table-action">New pre-order</button><button type="button" @click="emit('go', 'showcase')" class="table-action">Photo gallery</button><button type="button" @click="emit('go', 'settings')" class="table-action">Store settings</button></div>
                 </section>
             </aside>
         </div>
@@ -133,6 +129,17 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
             </div>
             <p v-else class="overview-panel text-sm text-slate-400">No additional orders in this follow-up snapshot. Use the queues to check current work.</p>
             <button v-if="allFollowups.length > 5" type="button" @click="expanded = !expanded" :aria-expanded="expanded" class="table-action">{{ expanded ? 'Show fewer' : `Show all ${allFollowups.length} follow-ups` }}</button>
+        </section>
+
+        <section aria-labelledby="overview-snapshot-title">
+            <h2 id="overview-snapshot-title" class="overview-label mb-2">Business snapshot</h2>
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3">
+                <button v-for="metric in metrics" :key="metric.label" type="button" @click="metric.queue ? emit('queue', metric.queue) : emit('go', metric.tab)" class="overview-panel metric text-left">
+                    <span class="block text-xs font-medium text-slate-300">{{ metric.label }}</span>
+                    <strong class="block mt-2 text-xl sm:text-2xl font-semibold text-white tabular-nums break-words">{{ metric.value }}</strong>
+                    <span class="block mt-2 text-xs text-slate-400 leading-snug">{{ metric.period }}</span>
+                </button>
+            </div>
         </section>
 
         <details class="overview-panel text-sm text-slate-400"><summary class="cursor-pointer font-medium text-slate-300">What these figures mean</summary><div class="mt-3 space-y-2"><p class="text-sm">The 7-day figures use a rolling period. Paid order value follows the payment date and includes archived paid orders; it is not profit, bank balance or a refund-adjusted ledger.</p><p class="text-sm">Queues can overlap: custom work in production may still await payment. Counts are not added together. Dates and age do not establish a promised delivery deadline.</p><p class="text-sm">Financial exceptions require checking payment evidence. A failed payment does not establish whether a customer was charged. Refresh the overview after changes.</p></div></details>

@@ -1,0 +1,29 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "staff_management": "passed"
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "staff_management": "passed"
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "staff",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "staff_management": "passed"
+  }
+]

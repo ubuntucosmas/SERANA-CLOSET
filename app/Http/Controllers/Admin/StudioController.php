@@ -54,7 +54,9 @@ class StudioController extends Controller
 
         // One availability figure (sold + unpaid holds) for the stock alert, the
         // products table and the storefront, so they never disagree.
-        $products = Product::with('category')->withAvailability()->latest()->get();
+        $products = Product::with('category')
+            ->when($request->get('tab') === 'products', fn ($query) => $query->with('variants:id,product_id,sku,size,part,active'))
+            ->withAvailability()->latest()->get();
         if (\App\Support\StockMode::v2()) {
             app(\App\Services\StockService::class)->preloadAvailability($products);
         }
@@ -112,26 +114,25 @@ class StudioController extends Controller
             'attention'  => $attention,
             'active_tab' => $request->get('tab', 'home'),
 
-            // Eager so every list stays in sync after a save/redirect. The dataset
-            // is boutique-sized; paginate here if a section ever grows large.
+            // Load unrelated archives, content and customer lists only in their workspaces.
             // One page at a time, filtered and searched on the server: sending every
             // order made the page 5.7MB at 3,000 orders. Lazy, so partial reloads
             // (search, Load more) compute only what was asked for.
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order'))?->append(self::ORDER_APPENDS)
+                ? $this->presentOrder(CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order')))
                 : null,
             'products'          => $products,
-            'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
+            'archived_products' => fn () => $request->get('tab') === 'products' ? Product::onlyTrashed()->with('category')->latest()->get() : [],
             'categories'        => Category::all(),
-            'gallery'           => GalleryImage::latest()->get(),
-            'archived_gallery'  => GalleryImage::onlyTrashed()->latest()->get(),
-            'leads'             => Lead::latest()->get(['id', 'email', 'created_at']),
+            'gallery'           => fn () => $request->get('tab') === 'showcase' ? GalleryImage::latest()->get() : [],
+            'archived_gallery'  => fn () => $request->get('tab') === 'showcase' ? GalleryImage::onlyTrashed()->latest()->get() : [],
+            'leads'             => fn () => $request->get('tab') === 'subscribers' ? Lead::latest()->get(['id', 'email', 'created_at']) : [],
             'custom_order_options' => \App\Support\CustomOrderOptions::all(),
             'payment_settings'  => PaymentSettings::forStudio(),
             'order_policy'      => \App\Support\OrderPolicy::forStudio(),
-            'refunds'           => fn () => $this->refundQueue($request),
+            'refunds'           => fn () => $request->get('tab') === 'refunds' ? $this->refundQueue($request) : [],
             // Built only for the Stock screen (it reconciles both models): opened directly, or reloaded by the panel.
             'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
                 ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
@@ -143,8 +144,8 @@ class StudioController extends Controller
             'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
             'activity' => fn () => $request->user()->can('audit.review') && $request->get('tab') === 'activity' ? ActivityController::data($request) : null,
             'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory($request) : null,
-            'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
-                                        ->withCount('paidReservations')->latest()->get(),
+            'drops'             => fn () => config('services.drops.enabled', false) && $request->get('tab') === 'drops'
+                ? Drop::with(['reservations' => fn ($q) => $q->latest()])->withCount('paidReservations')->latest()->get() : [],
         ]);
     }
 
@@ -301,10 +302,11 @@ class StudioController extends Controller
     private function orderPage(Request $request): array
     {
         $q = trim((string) $request->input('o_q', ''));
-        $filter = $request->input('o_filter', 'all');
+        $filter = $request->get('tab') === 'bespoke' ? 'bespoke' : $request->input('o_filter', 'all');
 
         $page = StudioWorkflow::apply(CustomOrder::query(), $request->input('o_queue'))
             ->when($request->boolean('o_archived'), fn ($query) => $query->onlyTrashed())
+            ->when($filter === 'bespoke', fn ($query) => $query->ofKind('bespoke'))
             ->when($filter === 'shop', fn ($query) => $query->ofKind('shop'))
             ->when($filter === 'till', fn ($query) => $query->where('channel', 'counter'))
             // "Custom" has always meant anything that isn't a shop order (drops included).
@@ -330,7 +332,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(self::ORDER_APPENDS);
+        $orders = collect($page->items())->map(fn ($order) => $this->presentOrder($order));
 
         return [
             'data' => $orders->all(),
@@ -341,8 +343,41 @@ class StudioController extends Controller
             'queue' => in_array($request->input('o_queue'), StudioWorkflow::QUEUES, true) ? $request->input('o_queue') : 'all',
             'sort' => $request->input('o_sort') === 'oldest' ? 'oldest' : 'newest',
             'query' => $q,
-            'filter' => in_array($filter, ['shop', 'custom', 'till'], true) ? $filter : 'all',
+            'filter' => in_array($filter, ['shop', 'custom', 'bespoke', 'till'], true) ? $filter : 'all',
         ];
+    }
+
+    /** Presentation only: transitions are still validated by update() and the settlement service. */
+    private function presentOrder(?CustomOrder $order): ?CustomOrder
+    {
+        if (! $order) return null;
+        $order->append(self::ORDER_APPENDS);
+        $stage = $order->legacyStatus();
+        $next = ['kind' => 'review', 'label' => 'Review order', 'stage' => null, 'blocker' => null];
+        if ($order->trashed() || $order->order_state === 'cancelled' || in_array($stage, ['shipped', 'collected', OrderStatus::EXPIRED], true)) {
+            $next['label'] = 'Review history';
+        } elseif ((int) $order->balance_due < 0) {
+            $next = array_merge($next, ['kind' => 'payment', 'label' => 'Review refund']);
+        } elseif (in_array($order->resolution, ['needs_resolution', 'amount_mismatch', 'waiting_restock'], true) || in_array($stage, [OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH], true)) {
+            $next = array_merge($next, ['kind' => 'payment', 'label' => 'Resolve payment']);
+        } elseif ($order->isBespoke() && $order->quoteAmount() <= 0) {
+            $next = array_merge($next, ['kind' => 'quote', 'label' => 'Add quote']);
+        } elseif ($stage === 'ready_for_pickup') {
+            $next = array_merge($next, ['kind' => 'pickup', 'label' => 'Collect at Sales Desk']);
+        } else {
+            $target = match ($stage) {
+                'designing' => 'sewing',
+                'sewing' => 'completed',
+                'completed' => $order->fulfilment_method === 'pickup' ? 'ready_for_pickup' : 'shipped',
+                default => $order->isBespoke() ? 'designing' : 'completed',
+            };
+            $blocked = $order->isBespoke() ? $this->fulfilmentBlock($order, $target)
+                : (! $order->isPaidUp() ? 'Confirm payment before updating fulfilment.' : null);
+            $next = ['kind' => 'stage', 'label' => ['designing' => 'Start designing', 'sewing' => 'Move to sewing', 'completed' => $order->isBespoke() ? 'Mark complete' : 'Mark packed', 'ready_for_pickup' => 'Ready for pickup', 'shipped' => 'Mark shipped'][$target], 'stage' => $target, 'blocker' => $blocked];
+            if ($blocked) $next['label'] = 'Review payment before continuing';
+        }
+        $order->setAttribute('next_action', $next);
+        return $order;
     }
 
     public function recordPayment(Request $request, CustomOrder $order)
@@ -524,7 +559,7 @@ class StudioController extends Controller
                     $items->push($item($o, 'needs_resolution', 'Needs a decision', $o->resolution_reason ?? 'Payment needs review', (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
                 }
                 if ($o->resolution === 'amount_mismatch') {
-                    $items->push($item($o, 'amount_mismatch', 'Amount mismatch', 'Paid KSh ' . number_format((int) $o->amount_paid) . ' of KSh ' . number_format((int) $o->chargeable_total) . ': review the payment',
+                    $items->push($item($o, 'amount_mismatch', 'Payment amount does not match order', 'Paid KSh ' . number_format((int) $o->amount_paid) . ' of KSh ' . number_format((int) $o->chargeable_total) . ': review the payment',
                         (int) $o->amount_paid, $o->resolution_since ?? $o->updated_at));
                 }
             });

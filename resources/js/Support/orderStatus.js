@@ -25,3 +25,13 @@ export function fulfilmentStatus(order) {
         ready_for_pickup: 'Ready for Pickup', shipped: 'Dispatched', collected: 'Collected' };
     return stages[order.status] || (order.is_paid ? 'Awaiting Fulfilment' : 'Payment Pending');
 }
+
+// Internal queues prioritise outstanding obligations over an otherwise paid badge.
+// Values come from the server; this function only chooses a label and tone.
+export function operationalPaymentStatus(order) {
+    if (Number(order.balance_due) < 0) return { label: 'Refund owed', tone: 'warning' };
+    if (['needs_resolution', 'amount_mismatch', 'waiting_restock'].includes(order.resolution)) return { label: 'Needs attention', tone: 'error' };
+    if (Number(order.amount_paid) > 0 && Number(order.balance_due) > 0) return { label: 'Part paid', tone: 'pending' };
+    if (order.is_paid) return { label: 'Paid', tone: 'success' };
+    return paymentStatus(order);
+}

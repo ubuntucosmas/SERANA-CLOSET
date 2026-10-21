@@ -1,6 +1,8 @@
 <!-- Payment problems (Phase C): refunds owed, orders waiting for a decision,
      amount mismatches and unexpected amounts, oldest first. -->
 <script setup>
+import { useCurrency } from '@/Composables/useCurrency';
+import { usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -10,7 +12,9 @@ const emit = defineEmits(['openOrder', 'go']);
 const expanded = ref(false);
 const visibleItems = computed(() => expanded.value ? props.items : props.items.slice(0, 5));
 
-const money = (v) => 'KSh ' + Number(v || 0).toLocaleString('en-KE');
+const page = usePage();
+const { formatAmount } = useCurrency();
+const money = value => formatAmount(value, page.props);
 const age = (d) => d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`;
 // Shades the Studio light theme remaps for contrast (app.css).
 const tone = { refund_due: 'text-amber-400', needs_resolution: 'text-rose-300', amount_mismatch: 'text-rose-300', unexpected_amount: 'text-amber-400' };
@@ -25,7 +29,7 @@ function open(item) {
 <template>
     <section class="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-4 sm:p-6 mb-5" aria-labelledby="payment-attention-title">
         <div class="flex items-center justify-between gap-3 mb-1">
-            <h2 id="payment-attention-title" class="text-white font-headline text-lg sm:text-xl">Financial exceptions</h2>
+            <h2 id="payment-attention-title" class="text-white font-headline text-lg sm:text-xl">Payments & refunds needing attention</h2>
             <span class="rounded-full px-3 py-1 text-sm font-semibold tabular-nums" :class="count ? 'bg-amber-500/15 text-amber-400' : 'bg-white/5 text-slate-400'" :aria-label="`${count} payment problems`">{{ count }}</span>
         </div>
         <p class="text-slate-500 text-sm mb-4">Refunds owed, orders waiting for your decision and payments for the wrong amount. Oldest first.</p>
@@ -41,7 +45,7 @@ function open(item) {
                             <span class="block text-xs text-slate-500 font-mono">{{ item.reference }} · {{ age(item.age_days) }}</span>
                         </span>
                     </span>
-                    <span class="text-slate-300 text-sm shrink-0 tabular-nums">{{ money(item.amount) }}<span class="block text-xs text-cyan-300 mt-1">{{ item.kind === 'refund_due' ? 'Open refunds →' : 'Review order →' }}</span></span>
+                    <span class="text-slate-300 text-sm shrink-0 tabular-nums">{{ money(item.amount) }}<span class="block text-xs text-cyan-300 mt-1">{{ item.kind === 'refund_due' ? 'Review refund →' : 'Review payment →' }}</span></span>
                 </button>
             </li>
         </ul>

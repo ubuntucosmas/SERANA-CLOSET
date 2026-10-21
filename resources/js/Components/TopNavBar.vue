@@ -115,6 +115,7 @@
                         </Link>
                     </template>
                     <template v-else>
+                        <Link v-if="$page.props.auth?.user?.abilities?.includes('pos.sell')" :href="route('pos.index')" class="hidden sm:inline-flex min-h-11 items-center gap-2 rounded-full bg-primary/10 px-3 text-sm font-semibold text-primary" aria-label="Open POS"><span aria-hidden="true" class="material-symbols-outlined text-xl">point_of_sale</span>POS</Link>
                         <Link v-if="$page.props.auth?.user?.studio" :href="route('studio.index')" class="icon-btn !hidden sm:!inline-flex" aria-label="Studio admin">
                             <span class="material-symbols-outlined !text-[24px]" aria-hidden="true">dashboard</span>
                         </Link>
@@ -150,6 +151,7 @@
                         </Link>
                     </div>
                     <div v-else class="mt-5 space-y-2 border-t border-black/5 pt-5 dark:border-white/5">
+                        <Link v-if="$page.props.auth?.user?.abilities?.includes('pos.sell')" :href="route('pos.index')" @click="closeMobileMenu()" class="action-primary w-full"><span aria-hidden="true" class="material-symbols-outlined text-xl">point_of_sale</span>Open POS</Link>
                         <Link v-if="$page.props.auth?.user?.studio" :href="route('studio.index')" @click="closeMobileMenu()" class="flex min-h-11 items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium text-on-surface hover:bg-primary/5">Studio management <span class="material-symbols-outlined text-base" aria-hidden="true">dashboard</span></Link>
                         <Link :href="route('profile.designs')" @click="closeMobileMenu()" class="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium text-on-surface hover:bg-primary/5">Your Orders <span class="material-symbols-outlined text-base" aria-hidden="true">receipt_long</span></Link>
                         <Link :href="route('profile.edit')" @click="closeMobileMenu()" class="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium text-on-surface hover:bg-primary/5">Account Settings <span class="material-symbols-outlined text-base" aria-hidden="true">settings</span></Link>

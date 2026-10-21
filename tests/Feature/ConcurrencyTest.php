@@ -429,6 +429,44 @@ class ConcurrencyTest extends TestCase
         $this->assertSame('needs_resolution', $paying->fresh()->payment_status, json_encode($results));
     }
 
+    public function test_stock_entry_concurrent_delivery_retries_receive_only_once(): void
+    {
+        [$product, $M, $L, $shop] = $this->stockedSizes(1, 1);
+        $user = \App\Models\User::factory()->create(['role' => 'manager']);
+        $entry = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'action' => 'receive', 'reason' => 'New delivery', 'rows' => [
+            ['variant_id' => $M->id, 'quantity' => 2], ['variant_id' => $L->id, 'quantity' => 3],
+        ]];
+        $payload = json_encode(['product_id' => $product->id, 'location_id' => $shop->id, 'user_id' => $user->id, 'entry' => $entry]);
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['stock-entry', $payload], ['stock-entry', $payload],
+        ]);
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([false, true], collect($results)->pluck('repeated')->sort()->values()->all());
+        $this->assertSame([3, 4], [$this->levelOf($M)->on_hand, $this->levelOf($L)->on_hand]);
+        $this->assertSame(1, \App\Models\StockOperation::count());
+        $this->assertSame(2, \App\Models\StockMovement::whereNotNull('stock_operation_id')->count());
+    }
+
+    public function test_stock_entry_count_waiting_behind_delivery_refuses_outdated_versions(): void
+    {
+        [$product, $M, $L, $shop] = $this->stockedSizes(1, 1);
+        $user = \App\Models\User::factory()->create(['role' => 'manager']);
+        $count = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'action' => 'count', 'reason' => 'Count', 'exclude_paid_pickups' => true, 'rows' => [
+            ['variant_id' => $M->id, 'quantity' => 1, 'expected_version' => $this->levelOf($M)->version],
+            ['variant_id' => $L->id, 'quantity' => 1, 'expected_version' => $this->levelOf($L)->version],
+        ]];
+        $receive = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'action' => 'receive', 'reason' => 'Delivery', 'rows' => [
+            ['variant_id' => $L->id, 'quantity' => 3], ['variant_id' => $M->id, 'quantity' => 2],
+        ]];
+        $payload = fn ($entry) => json_encode(['product_id' => $product->id, 'location_id' => $shop->id, 'user_id' => $user->id, 'entry' => $entry]);
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['stock-entry', $payload($receive)], ['stock-entry', $payload($count)],
+        ]);
+        $this->assertSame([200, 422], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([3, 4], [$this->levelOf($M)->on_hand, $this->levelOf($L)->on_hand]);
+        $this->assertSame(1, \App\Models\StockOperation::count());
+    }
+
     private function whileHoldingProduct(Product $product, array $jobs): array
     {
         return $this->whileHolding(fn () => Product::whereKey($product->id)->lockForUpdate()->first(), $jobs);

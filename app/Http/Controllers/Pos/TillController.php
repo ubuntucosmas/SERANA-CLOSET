@@ -26,7 +26,9 @@ class TillController extends Controller
         $data = $request->validate(['register' => ['required', 'string', 'max:40'], 'float' => ['required', 'integer', 'min:0', 'max:10000000']]);
         $session = $this->tills->open(Location::query()->online()->firstOrFail(), $data['register'], (int) $data['float'], $this->operator($request));
 
-        return response()->json(['till' => ['id' => $session->id, 'register' => $session->register, 'opening_float' => $session->opening_float]]);
+        return response()->json(['till' => ['id' => $session->id, 'register' => $session->register, 'opening_float' => $session->opening_float,
+            'opened_by' => $this->operator($request)->name,
+            'opened_at' => $session->opened_at->copy()->timezone(config('app.display_timezone'))->format('d M, H:i')]]);
     }
 
     public function payout(Request $request)

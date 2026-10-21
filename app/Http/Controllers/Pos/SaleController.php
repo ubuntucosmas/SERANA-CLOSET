@@ -62,17 +62,26 @@ class SaleController extends Controller
     /** Search by name, SKU or barcode; a scanned code picks its size. Stock is what this shop has. */
     public function catalogue(Request $request, StockService $stock)
     {
+        $request->validate(['q' => ['nullable', 'string', 'max:120'], 'category_id' => ['nullable', 'integer']]);
         $q = trim((string) $request->query('q', ''));
         $shop = Location::query()->online()->first();
         $exact = $q !== '' ? ProductVariant::where('active', true)->where(fn ($w) => $w->where('sku', $q)->orWhere('barcode', $q))->first() : null;
         $products = Product::where('in_stock', true)->with(['variants' => fn ($v) => $v->where('active', true)->orderBy('sort')])
             ->when($exact, fn ($p) => $p->whereKey($exact->product_id))
-            ->when(! $exact && $q !== '', fn ($p) => $p->where('name', 'like', '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%'))
+            ->when($request->filled('category_id'), fn ($p) => $p->where('category_id', $request->integer('category_id')))
+            ->when(! $exact && $q !== '', function ($p) use ($q) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+                $p->where(fn ($w) => $w->where('name', 'like', $like)
+                    ->orWhereHas('category', fn ($c) => $c->where('name', 'like', $like))
+                    ->orWhereHas('variants', fn ($v) => $v->where('active', true)
+                        ->where(fn ($v) => $v->where('sku', 'like', $like)->orWhere('size', 'like', $like))));
+            })
             // Nothing typed: the newest pieces first (what the shop floor is selling now); a search reads alphabetically.
             ->when($q === '', fn ($p) => $p->latest('id'), fn ($p) => $p->orderBy('name'))->limit(60)->get();
         $v2 = StockMode::v2();
 
         return response()->json([
+            'categories' => \App\Models\Category::orderBy('name')->get(['id', 'name']),
             'exact' => $exact ? ['product_id' => $exact->product_id, 'variant_id' => $exact->id] : null,
             'products' => $products->map(fn (Product $p) => [
                 'id' => $p->id, 'name' => $p->name, 'price' => (int) round((float) $p->price), 'image_url' => $p->image_url, 'garment_type' => $p->garment_type,

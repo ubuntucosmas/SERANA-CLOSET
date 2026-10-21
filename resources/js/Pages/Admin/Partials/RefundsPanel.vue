@@ -2,6 +2,8 @@
      contact. Staff send the money themselves and record it here; nothing is
      ever sent automatically. A part refund leaves the rest in the queue. -->
 <script setup>
+import { useCurrency } from '@/Composables/useCurrency';
+import { usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 
@@ -10,7 +12,9 @@ defineProps({
 });
 const emit = defineEmits(['openOrder']);
 
-const money = (v) => 'KSh ' + Number(v || 0).toLocaleString('en-KE');
+const page = usePage();
+const { formatAmount } = useCurrency();
+const money = value => formatAmount(value, page.props);
 const age = (days) => days === 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
 
 const openId = ref(null);

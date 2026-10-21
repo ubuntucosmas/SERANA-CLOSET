@@ -33,6 +33,11 @@ class StockMovement extends Model
         static::deleting(fn () => throw new \LogicException('Stock movements are append-only: record a correcting movement instead.'));
     }
 
+    public function operation()
+    {
+        return $this->belongsTo(StockOperation::class, 'stock_operation_id');
+    }
+
     public function variant()
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');

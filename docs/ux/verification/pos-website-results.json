@@ -1,0 +1,34 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 1388.1875,
+      "cartTop": 220.6875,
+      "workspaceTop": 220.6875,
+      "checkoutBottom": 928.6875,
+      "viewportHeight": 950,
+      "cartScrolls": false
+    }
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "pos_layout": {
+      "workspaceWidth": 343,
+      "cartTop": 816.484375,
+      "workspaceTop": 343.796875,
+      "checkoutBottom": 1246.984375,
+      "viewportHeight": 950,
+      "cartScrolls": false
+    }
+  }
+]

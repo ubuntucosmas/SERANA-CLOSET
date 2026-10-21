@@ -35,6 +35,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'session_version',
         'pos_pin',
     ];
 
@@ -51,6 +52,7 @@ class User extends Authenticatable
             'suspended_at' => 'datetime',
             'last_login_at' => 'datetime',
             'must_change_password' => 'boolean',
+            'session_version' => 'integer',
         ];
     }
 

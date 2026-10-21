@@ -46,7 +46,7 @@ class StudioStockTest extends TestCase
 
     private function move(User $as, string $action, string $size, int $quantity, string $reason = 'Stock take')
     {
-        return $this->actingAs($as)->post(route('studio.stock.move'), ['variant_id' => $this->variantOf($size)->id, 'action' => $action, 'quantity' => $quantity, 'reason' => $reason]);
+        return $this->actingAs($as)->post(route('studio.stock.move'), ['variant_id' => $this->variantOf($size)->id, 'action' => $action, 'quantity' => $quantity, 'reason' => $reason, 'operation_id' => (string) \Illuminate\Support\Str::uuid(), 'expected_version' => \App\Models\StockLevel::where('product_variant_id', $this->variantOf($size)->id)->value('version') ?? 0, 'exclude_paid_pickups' => true]);
     }
 
     private function stockProp(User $as): array

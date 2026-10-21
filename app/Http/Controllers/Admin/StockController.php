@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Services\StockCutover;
 use App\Services\StockService;
+use App\Services\StockEntryService;
 use App\Support\Actor;
 use App\Support\Audit;
 use Illuminate\Http\Request;
@@ -39,37 +40,47 @@ class StockController extends Controller
         return response()->json(['sizes' => $sizes, 'where' => $location?->name ?: 'Online fulfilment stock']);
     }
 
-    /** Count (set what's on hand), receive, or write off (damage) one size at the shop. */
-    public function move(Request $request, StockService $stock)
+    /** The single-row route uses the same safeguards as the size matrix. */
+    public function move(Request $request, StockEntryService $entries)
     {
+        $request->validate(['variant_id' => ['required', 'integer', 'exists:product_variants,id']]);
+        $variant = ProductVariant::with('product')->findOrFail($request->integer('variant_id'));
+        $request->merge(['rows' => [[
+            'variant_id' => $variant->id, 'quantity' => $request->input('quantity'),
+            'expected_version' => $request->input('expected_version'),
+        ]]]);
+        try {
+            return $this->batch($request, $variant->product, $entries);
+        } catch (ValidationException $e) {
+            $messages = [];
+            foreach ($e->errors() as $key => $errors) $messages[str_starts_with($key, 'rows.') ? 'quantity' : $key] = $errors;
+            throw ValidationException::withMessages($messages);
+        }
+    }
+
+    public function batch(Request $request, Product $product, StockEntryService $entries)
+    {
+        $counting = $request->input('action') === 'count';
         $data = $request->validate([
-            'variant_id' => ['required', 'integer', 'exists:product_variants,id'],
+            'operation_id' => ['required', 'uuid'],
             'action' => ['required', \Illuminate\Validation\Rule::in(['count', 'receive', 'damage'])],
-            'quantity' => ['required', 'integer', $request->input('action') === 'count' ? 'min:0' : 'min:1', 'max:100000'],
             'reason' => ['required', 'string', 'max:255'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'exclude_paid_pickups' => $counting ? ['required', 'accepted'] : ['nullable', 'boolean'],
+            'rows' => ['required', 'array', 'min:1', 'max:100'],
+            'rows.*.variant_id' => ['required', 'integer', 'distinct', 'exists:product_variants,id'],
+            'rows.*.quantity' => ['required', 'integer', $counting ? 'min:0' : 'min:1', 'max:100000'],
+            'rows.*.expected_version' => [$counting ? 'required' : 'nullable', 'integer', 'min:0'],
         ], [
             'reason.required' => 'Say why, for the stock history.',
-            'quantity.min' => $request->input('action') === 'count' ? 'A count can’t be negative.' : 'Enter at least 1.',
+            'exclude_paid_pickups.accepted' => 'Confirm that paid orders awaiting pickup are excluded from this unsold-stock count.',
+            'exclude_paid_pickups.required' => 'Confirm that paid orders awaiting pickup are excluded from this unsold-stock count.',
         ]);
-        $variant = ProductVariant::with('product')->findOrFail($data['variant_id']);
         $shop = Location::query()->online()->firstOrFail();
-        $actor = Actor::user($request->user());
-
-        try {
-            match ($data['action']) {
-                'count' => $stock->count($variant, $shop, (int) $data['quantity'], $actor, $data['reason']),
-                'receive' => $stock->receive($variant, $shop, (int) $data['quantity'], $actor, $data['reason']),
-                'damage' => $stock->damage($variant, $shop, (int) $data['quantity'], $actor, $data['reason']),
-            };
-        } catch (\DomainException $e) {
-            throw ValidationException::withMessages(['quantity' => $e->getMessage()]);
-        }
-
-        return back()->with('success', match ($data['action']) {
-            'count' => 'Count saved',
-            'receive' => 'Stock received',
-            'damage' => 'Written off',
-        } . ': ' . $stock->describe($variant) . '.');
+        $repeated = $entries->save($product, $shop, Actor::user($request->user()), $data);
+        return back()->with('success', $repeated ? 'This stock entry was already saved. No units were added again.' : match ($data['action']) {
+            'count' => 'Unsold-stock counts saved.', 'receive' => 'Delivery received.', 'damage' => 'Stock written off.',
+        });
     }
 
     /** Offer a new size (every part of a set), or withdraw / bring back one. */

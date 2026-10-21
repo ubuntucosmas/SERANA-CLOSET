@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { paymentStatus } from '../../resources/js/Support/orderStatus.js';
+import { paymentStatus, operationalPaymentStatus } from '../../resources/js/Support/orderStatus.js';
 
 const bespoke = (o = {}) => ({ type: 'Gown', status: 'designing', is_paid: false, price_quoted: 10000, ...o });
 
@@ -31,4 +31,12 @@ test('a pickup order is ready for pickup only when the Studio says so, never "re
     assert.equal(fulfilmentStatus({ status: 'ready_for_pickup', fulfilment_method: 'pickup' }), 'Ready for Pickup');
     assert.equal(fulfilmentStatus({ status: 'completed', handover: { method: 'pickup' } }), 'Finished');
     assert.equal(fulfilmentStatus({ status: 'completed', fulfilment_method: 'delivery' }), 'Ready for Dispatch');
+});
+
+
+test('staff badges surface a refund obligation even if the order is otherwise paid', () => {
+    assert.equal(operationalPaymentStatus({ is_paid: true, balance_due: -500 }).label, 'Refund owed');
+    assert.equal(operationalPaymentStatus({ is_paid: true, balance_due: 0, resolution: 'needs_resolution' }).label, 'Needs attention');
+    assert.equal(operationalPaymentStatus({ amount_paid: 500, balance_due: 2000 }).label, 'Part paid');
+    assert.equal(operationalPaymentStatus({ is_paid: true, balance_due: 0 }).label, 'Paid');
 });

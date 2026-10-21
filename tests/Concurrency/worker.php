@@ -65,6 +65,15 @@ try {
         $response = $kernel->handle($request);
         echo json_encode(['status' => $response->getStatusCode(), 'body' => json_decode($response->getContent(), true), 'rollbacks' => $rollbacks]);
         $kernel->terminate($request, $response);
+    } elseif ($action === 'stock-entry') {
+        $app->make(ConsoleKernel::class)->bootstrap();
+        $input = json_decode($arg, true, flags: JSON_THROW_ON_ERROR);
+        try {
+            $repeated = app(\App\Services\StockEntryService::class)->save(\App\Models\Product::findOrFail($input['product_id']), \App\Models\Location::findOrFail($input['location_id']), \App\Support\Actor::user(\App\Models\User::findOrFail($input['user_id'])), $input['entry']);
+            echo json_encode(['status' => 200, 'repeated' => $repeated, 'rollbacks' => $rollbacks]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            echo json_encode(['status' => 422, 'errors' => $e->errors(), 'rollbacks' => $rollbacks]);
+        }
     } elseif ($action === 'secure-stock') {
         $app->make(ConsoleKernel::class)->bootstrap();
         echo json_encode(['status' => 200, 'secured' => CustomOrder::findOrFail((int) $arg)->secureStockForPayment()]);

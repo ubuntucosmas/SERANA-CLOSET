@@ -24,18 +24,18 @@ use Illuminate\Support\Facades\DB;
  */
 class StockService
 {
-    public function receive(ProductVariant $variant, Location $at, int $quantity, Actor $actor, string $reason): StockMovement
+    public function receive(ProductVariant $variant, Location $at, int $quantity, Actor $actor, string $reason, array $extra = []): StockMovement
     {
         $this->positive($quantity);
 
-        return $this->move($variant, $at, StockMovement::RECEIVE, $quantity, $actor, $reason);
+        return $this->move($variant, $at, StockMovement::RECEIVE, $quantity, $actor, $reason, $extra);
     }
 
-    public function damage(ProductVariant $variant, Location $at, int $quantity, Actor $actor, string $reason): StockMovement
+    public function damage(ProductVariant $variant, Location $at, int $quantity, Actor $actor, string $reason, array $extra = []): StockMovement
     {
         $this->positive($quantity);
 
-        return $this->move($variant, $at, StockMovement::DAMAGE, -$quantity, $actor, $reason);
+        return $this->move($variant, $at, StockMovement::DAMAGE, -$quantity, $actor, $reason, $extra);
     }
 
     /**
@@ -43,19 +43,19 @@ class StockService
      * count_correction for the difference (none when it matches), and stamp
      * the count either way.
      */
-    public function count(ProductVariant $variant, Location $at, int $counted, Actor $actor, string $reason): ?StockMovement
+    public function count(ProductVariant $variant, Location $at, int $counted, Actor $actor, string $reason, array $extra = []): ?StockMovement
     {
         if ($counted < 0) {
             throw new \DomainException('A count can’t be negative.');
         }
         $this->reason($actor, $reason);
 
-        return DB::transaction(function () use ($variant, $at, $counted, $actor, $reason) {
+        return DB::transaction(function () use ($variant, $at, $counted, $actor, $reason, $extra) {
             $level = $this->lockLevels([[$variant->id, $at->id]])->first();
             $movement = $counted !== $level->on_hand
-                ? $this->write($variant, $at, $level, StockMovement::COUNT_CORRECTION, $counted - $level->on_hand, $actor, $reason)
+                ? $this->write($variant, $at, $level, StockMovement::COUNT_CORRECTION, $counted - $level->on_hand, $actor, $reason, $extra)
                 : null;
-            $level->update(['counted_at' => now()]);
+            $level->update(['counted_at' => now(), 'version' => $level->version + ($movement === null ? 1 : 0)]);
             if ($movement === null && $actor->type === Actor::USER) {
                 Audit::record('stock.counted', $variant, [], ['location' => $at->id, 'on_hand' => $counted], $reason, $actor);
             }
@@ -662,7 +662,7 @@ class StockService
             'actor_type' => $actor->type, 'actor_id' => $actor->id, 'reason' => $reason !== null ? mb_substr(trim($reason), 0, 255) : null,
             'occurred_at' => now(),
         ], $extra));
-        $level->update(['on_hand' => $after]);
+        $level->update(['on_hand' => $after, 'version' => $level->version + 1]);
         // While stock per size is the truth, the old batch numbers follow it (design §13.2):
         // a sale already counts in batch_sold; anything else moves the baseline.
         if ($type !== StockMovement::SALE && \App\Support\StockMode::v2()) {

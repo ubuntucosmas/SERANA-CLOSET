@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -46,10 +45,14 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
-                $user->forceFill([
-                    'password' => Hash::make($request->password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+                if ($user->must_change_password && Hash::check($request->password, $user->password)) {
+                    throw ValidationException::withMessages(['password' => 'Choose a new password different from your temporary password.']);
+                }
+                \Illuminate\Support\Facades\DB::transaction(function () use ($user, $request) {
+                    $user->forceFill(['password' => Hash::make($request->password), 'must_change_password' => false])->save();
+                    \App\Support\StaffAccess::revoke($user);
+                    if ($user->isStaff()) \App\Support\Audit::record('staff.password_recovered', $user, [], ['password_changed' => true, 'sessions_ended' => true], 'Password recovered using an email reset link.', \App\Support\Actor::user($user));
+                });
 
                 event(new PasswordReset($user));
             }

@@ -31,6 +31,13 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        if ($request->user()->isStaff()) {
+            $version = (int) $request->user()->session_version;
+            \App\Support\StaffAccess::updateDetails($request->user(), $request->validated(), 'Staff member updated their own account details.');
+            if ($version !== (int) $request->user()->session_version) $request->session()->regenerate(true);
+            $request->session()->put(\App\Support\StaffAccess::SESSION_VERSION, (int) $request->user()->session_version);
+            return Redirect::route('profile.edit');
+        }
         $request->user()->fill($request->validated());
 
         if ($request->user()->isDirty('email')) {

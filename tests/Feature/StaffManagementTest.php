@@ -65,6 +65,37 @@ class StaffManagementTest extends TestCase
         $this->get(route('studio.index', ['tab' => 'staff']))->assertInertia(fn ($page) => $page->where('flash.staff_password', null));
     }
 
+    public function test_owner_can_choose_the_temporary_password_and_cashier_must_replace_it(): void
+    {
+        $temporary = 'cashier-start-4821';
+        $this->actingAs($this->owner)->post(route('studio.staff.store'), [
+            'name' => 'New Cashier', 'email' => 'new-cashier@serana.test', 'role' => Role::CASHIER,
+            'reason' => 'New shift', 'password' => $temporary, 'password_confirmation' => $temporary,
+        ])->assertSessionHasNoErrors()->assertSessionHas('staff_password.password', $temporary);
+        $cashier = User::where('email', 'new-cashier@serana.test')->sole();
+        $this->assertTrue(Hash::check($temporary, $cashier->password));
+        $this->assertTrue($cashier->must_change_password);
+        $this->assertStringNotContainsString($temporary, json_encode(AuditLog::all()));
+        auth()->logout();
+        $this->post(route('login'), ['email' => $cashier->email, 'password' => $temporary])->assertRedirect(route('pos.index'));
+        $this->get(route('pos.index'))->assertRedirect(route('profile.edit'));
+        $this->put(route('password.update'), ['current_password' => $temporary, 'password' => 'cashier-own-password-9944', 'password_confirmation' => 'cashier-own-password-9944'])->assertSessionHasNoErrors();
+        $this->assertFalse($cashier->fresh()->must_change_password);
+        $this->assertTrue(Hash::check('cashier-own-password-9944', $cashier->fresh()->password));
+    }
+
+    public function test_chosen_temporary_password_requires_strength_and_matching_confirmation(): void
+    {
+        $base = ['name' => 'Cashier', 'email' => 'not-created@serana.test', 'role' => Role::CASHIER, 'reason' => 'New shift'];
+        $this->actingAs($this->owner);
+        foreach ([['password' => 'short', 'password_confirmation' => 'short'],
+            ['password' => 'temporary-4821', 'password_confirmation' => 'different-9944'],
+            ['password_confirmation' => 'temporary-4821']] as $passwords) {
+            $this->post(route('studio.staff.store'), $base + $passwords)->assertSessionHasErrors('password');
+        }
+        $this->assertDatabaseMissing('users', ['email' => 'not-created@serana.test']);
+    }
+
     public function test_adding_is_validated_and_owner_only(): void
     {
         $this->staff();

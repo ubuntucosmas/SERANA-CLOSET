@@ -1,0 +1,38 @@
+[
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "stock_entry": "passed"
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "stock_entry": "passed"
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "stock_entry": "passed"
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "stock",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": [],
+    "stock_entry": "passed"
+  }
+]

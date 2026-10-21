@@ -9,9 +9,11 @@ import { orderImages } from '@/Support/orderImages';
 import { ref, computed, watch, onMounted } from 'vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
-import { paymentStatus } from '@/Support/orderStatus';
+import { operationalPaymentStatus as paymentStatus } from '@/Support/orderStatus';
 import AdminShell from '@/Layouts/AdminShell.vue';
 import Modal from '@/Components/Modal.vue';
+import OrderMoney from '@/Components/OrderMoney.vue';
+import { fulfilmentStatus } from '@/Support/orderStatus';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import OverviewPanel from './Partials/OverviewPanel.vue';
 import OrdersPanel from './Partials/OrdersPanel.vue';
@@ -67,6 +69,13 @@ const { formatAmount } = useCurrency();
 
 /* ───────── Navigation + lazy per-section loading ───────── */
 const currentTab = ref(props.active_tab);
+const settingsTab = ref('store');
+const settingsSections = computed(() => [
+    { id: 'store', label: 'Store & contact' },
+    { id: 'delivery', label: 'Delivery & pickup', ability: 'settings.policies' },
+    { id: 'payments', label: 'Payments', ability: 'settings.payments' },
+    { id: 'bespoke', label: 'Bespoke' },
+].filter(item => !item.ability || page.props.auth?.user?.abilities?.includes(item.ability)));
 function goTab(id) {
     if (id === currentTab.value) return;
     router.get(route('studio.index'), { tab: id }, { preserveScroll: false, preserveState: true });
@@ -75,6 +84,8 @@ watch(() => props.active_tab, id => { currentTab.value = id; });
 function openQueue(queue) {
     router.get(route('studio.index'), { tab: 'orders', o_queue: queue, o_sort: 'oldest' }, { preserveScroll: false });
 }
+function openProductStock(id) { router.get(route('studio.index'), { tab: 'stock', product: id }, { preserveScroll: false }); }
+const focusedStockProduct = computed(() => Number(new URL(page.url, 'https://serana.local').searchParams.get('product')) || null);
 function refreshOverview() {
     router.reload({ only: ['stats', 'workflow', 'attention', 'generated_at'] });
 }
@@ -92,7 +103,7 @@ const getObjectURL = (file) => {
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
 const productionStages = ['pending', 'designing', 'sewing', 'completed', 'ready_for_pickup', 'shipped'];
-// A pickup is made ready for pickup and collected at the till; everything else ships (Phase D2).
+// A pickup is made ready for pickup and collected at Sales Desk; everything else ships (Phase D2).
 const stageLabels = { pending: 'Pending', designing: 'Designing', sewing: 'Sewing', completed: 'Completed', ready_for_pickup: 'Ready for pickup', shipped: 'Shipped' };
 const stagesFor = (order) => productionStages.filter(stage => order?.fulfilment_method === 'pickup' ? stage !== 'shipped' : stage !== 'ready_for_pickup');
 const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '', quote_reason: '' });
@@ -139,6 +150,13 @@ function bindOrder(order) {
     orderForm.is_paid = !!order.is_paid;
     orderForm.clearErrors();
     progressSnapForm.reset();
+}
+function performNextAction() {
+    const action = selectedOrder.value?.next_action;
+    if (!action) return;
+    if (action.kind === 'stage' && !action.blocker) { orderForm.status = action.stage; saveOrder(); return; }
+    document.getElementById('order-payment-title')?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    if (action.kind === 'quote') document.getElementById('order-quote')?.focus();
 }
 function closeOrder() { selectedOrder.value = null; setUrlOrder(null); }
 // Keep the open editor in sync after a save / payment record refreshes the props.
@@ -514,25 +532,28 @@ function removeAsset(key) {
         </template>
 
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
-        <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
-        <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" :stock-v2="stock_v2" @stock="goTab('stock')" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
+        <OrdersPanel v-else-if="['orders', 'bespoke'].includes(currentTab)" :key="currentTab" :bespoke-only="currentTab === 'bespoke'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
+        <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" :stock-v2="stock_v2" @stock="openProductStock" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
-        <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" />
+        <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" :focus-product="focusedStockProduct" />
         <ActivityPanel v-else-if="currentTab === 'activity'" :activity="activity" />
         <TillsPanel v-else-if="currentTab === 'tills' && $page.props.auth?.user?.abilities?.includes('till.review')" :tills="tills" />
         <StaffPanel v-else-if="currentTab === 'staff' && $page.props.auth?.user?.abilities?.includes('staff.manage')" :staff="staff" />
         <template v-else-if="currentTab === 'settings'">
+            <nav class="flex flex-wrap gap-2 mb-5" aria-label="Settings sections"><button v-for="section in settingsSections" :key="section.id" type="button" @click="settingsTab = section.id" :aria-current="settingsTab === section.id ? 'page' : undefined" class="table-action" :class="settingsTab === section.id ? 'ring-2 ring-cyan-400' : ''">{{ section.label }}</button></nav>
+            <div v-show="settingsTab === 'delivery'">
             <HandoverSettingsPanel v-for="location in handover_locations" :key="location.id" :location="location" />
             <DeliveryOptionsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :options="delivery_options" />
-            <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
-            <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
-            <SettingsPanel :form="siteInfoForm" :categories="categories"
+            </div>
+            <PaymentsPanel v-show="settingsTab === 'payments'" v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
+            <OrderPolicyPanel v-show="settingsTab === 'bespoke'" v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
+            <SettingsPanel v-show="settingsTab === 'store'" :form="siteInfoForm" :categories="categories"
                 @save="saveSiteInfo" @uploadAsset="uploadAsset" @removeAsset="removeAsset"
                 @uploadCategoryBanner="updateCategoryBanner" @removeCategoryBanner="removeCategoryBanner" />
-            <CustomOrderOptionsPanel :options="custom_order_options" />
+            <CustomOrderOptionsPanel v-show="settingsTab === 'bespoke'" :options="custom_order_options" />
         </template>
     </AdminShell>
 
@@ -543,15 +564,16 @@ function removeAsset(key) {
                 <div class="min-w-0">
                     <p class="text-xs text-slate-400 mb-1">{{ orderKindLabel }} · {{ selectedOrder.reference || selectedOrder.cipher || ('#' + selectedOrder.id) }}<span v-if="orderArchived" class="text-amber-400"> · Archived</span></p>
                     <p v-if="selectedOrder.sold_by" class="text-xs text-slate-400 mb-1">
-                        {{ selectedOrder.channel === 'counter' ? 'Sold at the till' : 'Taken at the till' }}<template v-if="selectedOrder.seller_name"> by {{ selectedOrder.seller_name }}</template><template v-if="selectedOrder.slip_number"> · entered from paper slip {{ selectedOrder.slip_number }}</template>
+                        {{ selectedOrder.channel === 'counter' ? 'Sold at Sales Desk' : 'Taken at Sales Desk' }}<template v-if="selectedOrder.seller_name"> by {{ selectedOrder.seller_name }}</template><template v-if="selectedOrder.slip_number"> · entered from paper slip {{ selectedOrder.slip_number }}</template>
                     </p>
                     <h2 id="order-preview-title" class="text-lg sm:text-xl font-semibold text-white break-words">{{ selectedOrder.full_name || 'Customer' }}</h2>
-                    <div class="flex flex-wrap gap-2 mt-2"><StatusBadge v-bind="paymentStatus(selectedOrder)" /><span class="stage-badge" :class="selectedOrder.status === 'shipped' ? 'stage-complete' : selectedOrder.status === 'completed' ? 'stage-ready' : 'stage-working'">{{ selectedOrder.order_state === 'cancelled' ? 'Cancelled' : ({ pending: isCommerceOrder ? 'Awaiting fulfilment' : 'Brief received', designing: 'Designing', sewing: 'In production', completed: 'Ready for dispatch', shipped: 'Dispatched' })[selectedOrder.status] || (selectedOrder.is_paid ? 'Awaiting fulfilment' : 'Work not started') }}</span></div>
+                    <div class="flex flex-wrap gap-2 mt-2"><StatusBadge v-bind="paymentStatus(selectedOrder)" /><span class="stage-badge" :class="selectedOrder.status === 'shipped' ? 'stage-complete' : selectedOrder.status === 'completed' ? 'stage-ready' : 'stage-working'">{{ selectedOrder.order_state === 'cancelled' ? 'Cancelled' : fulfilmentStatus(selectedOrder) }}</span></div>
                 </div>
                 <button type="button" @click="closeOrder" aria-label="Close order preview" class="order-close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
             </header>
             <div class="order-preview-body">
-                <div class="order-decision mb-5"><p class="text-sm font-semibold text-white">Next decision</p><p class="mt-1 text-sm text-slate-300">{{ orderDecision }}</p><p class="mt-2 text-xs text-slate-400">Last saved: {{ selectedOrder.updated_at ? new Date(selectedOrder.updated_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) + ' · Nairobi' : 'Unknown' }}</p></div>
+                <div class="order-decision mb-5"><div v-if="selectedOrder.next_action" class="mb-3"><a v-if="selectedOrder.next_action.kind === 'pickup'" :href="route('pos.index', { order: selectedOrder.id })" class="table-action">Collect at Sales Desk</a><button v-else-if="selectedOrder.next_action.kind !== 'review'" type="button" @click="performNextAction" :disabled="orderForm.processing" class="table-action font-semibold">{{ orderForm.processing ? 'Updating order…' : selectedOrder.next_action.label }}</button><p v-if="selectedOrder.next_action.blocker" class="text-sm text-amber-300 mt-2">{{ selectedOrder.next_action.blocker }}</p></div><p class="text-sm font-semibold text-white">Next decision</p><p class="mt-1 text-sm text-slate-300">{{ orderDecision }}</p><p class="mt-2 text-xs text-slate-400">Last saved: {{ selectedOrder.updated_at ? new Date(selectedOrder.updated_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) + ' · Nairobi' : 'Unknown' }}</p></div>
+                <OrderMoney :order="selectedOrder" class="mb-5" />
                 <div class="order-preview-columns">
                     <section aria-labelledby="order-requirements-title" class="order-preview-section min-w-0">
                         <h3 id="order-requirements-title" class="order-section-title">Order requirements</h3>
@@ -579,7 +601,7 @@ function removeAsset(key) {
                 </div>
                 <div class="bg-slate-950/60 rounded-xl p-4">
                     <span class="text-slate-500 text-xs block mb-1">{{ selectedOrder.fulfilment_method === 'pickup' ? 'Collect from shop' : 'Deliver to' }}</span>
-                    <p v-if="selectedOrder.fulfilment_method === 'pickup'" class="text-white">{{ selectedOrder.fulfilment_snapshot?.name }} · {{ selectedOrder.fulfilment_snapshot?.address }}<span class="block text-xs text-slate-400">Mark completed when packed and ready. Verify collection at the till.</span></p>
+                    <p v-if="selectedOrder.fulfilment_method === 'pickup'" class="text-white">{{ selectedOrder.fulfilment_snapshot?.name }} · {{ selectedOrder.fulfilment_snapshot?.address }}<span class="block text-xs text-slate-400">Mark completed when packed and ready. Verify collection at Sales Desk.</span></p>
                     <span class="text-white">{{ selectedOrder.address || '—' }}</span>
                     <span v-if="selectedOrder.city" class="block text-slate-300">{{ selectedOrder.city }}</span>
                 </div>
@@ -620,7 +642,7 @@ function removeAsset(key) {
                     </div>
                     <label v-else class="block">
                         <span class="block text-sm text-slate-300 mb-2">Quote, without delivery (KES)</span>
-                        <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                        <input id="order-quote" v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
 
                             </div>
@@ -839,7 +861,7 @@ function removeAsset(key) {
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.in_stock" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> In stock</label>
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.is_customizable" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Offer a custom version <span class="text-slate-500">("Custom option" badge + made-to-measure link)</span></label>
                 </div>
-                <p v-if="stock_v2" class="text-sm text-slate-400">Stock is counted per size in <button type="button" @click="showProductModal = false; goTab('stock')" class="underline text-[#57d5fc]">Stock</button>.</p>
+                <p v-if="stock_v2" class="text-sm text-slate-400">Stock is counted per size in <button type="button" @click="showProductModal = false; openProductStock(productForm.id)" class="underline text-[#57d5fc]">Stock</button>.</p>
                 <label v-else class="block">
                     <span class="block text-sm text-slate-300 mb-2">Batch limit (optional)</span>
                     <input v-model="productForm.batch_limit" type="number" placeholder="Leave blank for unlimited" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />

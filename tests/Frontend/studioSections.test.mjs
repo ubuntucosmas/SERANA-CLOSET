@@ -29,15 +29,15 @@ test('the till history is for those who review tills', () => {
     assert.ok(!sectionsFor([]).some(s => s.id === 'tills'));
 });
 
-test('navigation groups serve daily work, money, inventory and setup without duplicate sections', async () => {
+test('navigation groups serve selling, catalogue and operations without duplicate sections', async () => {
     const { groupedSections, completionFor } = await import('../../resources/js/Support/studioSections.js');
     const sections = sectionsFor(['stock.manage', 'staff.manage', 'till.review', 'audit.review'], { drops_enabled: true });
     const groups = groupedSections(sections);
     const ids = groups.flatMap(group => group.sections.map(section => section.id));
     assert.equal(new Set(ids).size, ids.length);
     assert.equal(ids.length, sections.length);
-    assert.ok(groups.find(group => group.label === 'Money').sections.some(section => section.id === 'refunds'));
-    assert.ok(groups.find(group => group.label === 'Inventory').sections.some(section => section.id === 'stock'));
+    assert.ok(groups.find(group => group.label === 'Selling').sections.some(section => section.id === 'refunds'));
+    assert.ok(groups.find(group => group.label === 'Catalogue').sections.some(section => section.id === 'stock'));
     assert.ok(sections.every(section => completionFor(section.id).length > 20));
     assert.ok(!sectionsFor([]).some(section => section.id === 'activity'));
 });

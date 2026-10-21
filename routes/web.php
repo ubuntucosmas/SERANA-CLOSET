@@ -137,12 +137,17 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     // Staff (Phase E-a), owner only.
     Route::get('/till/{till}/report', [App\Http\Controllers\Admin\TillReportController::class, 'show'])->middleware('can:till.review')->name('studio.till.report');
     Route::post('/staff', [App\Http\Controllers\Admin\StaffController::class, 'store'])->middleware('can:staff.manage')->name('studio.staff.store');
+    Route::put('/staff/{user}/details', [App\Http\Controllers\Admin\StaffController::class, 'details'])->middleware('can:staff.manage')->name('studio.staff.details');
+    Route::post('/staff/{user}/reset-password', [App\Http\Controllers\Admin\StaffController::class, 'resetPassword'])->middleware('can:staff.manage')->name('studio.staff.reset_password');
+    Route::post('/staff/{user}/end-sessions', [App\Http\Controllers\Admin\StaffController::class, 'endSessions'])->middleware('can:staff.manage')->name('studio.staff.end_sessions');
+    Route::get('/staff/{user}/history', [App\Http\Controllers\Admin\StaffController::class, 'history'])->middleware('can:staff.manage')->name('studio.staff.history');
     Route::put('/staff/{user}/role', [App\Http\Controllers\Admin\StaffController::class, 'role'])->middleware('can:staff.manage')->name('studio.staff.role');
     Route::post('/staff/{user}/suspend', [App\Http\Controllers\Admin\StaffController::class, 'suspend'])->middleware('can:staff.manage')->name('studio.staff.suspend');
     Route::post('/staff/{user}/reactivate', [App\Http\Controllers\Admin\StaffController::class, 'reactivate'])->middleware('can:staff.manage')->name('studio.staff.reactivate');
     Route::put('/staff/{user}/pin', [App\Http\Controllers\Admin\StaffController::class, 'pin'])->middleware('can:staff.manage')->name('studio.staff.pin');
     // Stock per size (Phase D1).
     Route::get('/stock/product/{product}/options', [App\Http\Controllers\Admin\StockController::class, 'options'])->middleware('can:stock.manage')->name('studio.stock.options');
+    Route::post('/stock/product/{product}/batch', [App\Http\Controllers\Admin\StockController::class, 'batch'])->middleware('can:stock.manage')->name('studio.stock.batch');
     Route::post('/stock/move', [App\Http\Controllers\Admin\StockController::class, 'move'])->middleware('can:stock.manage')->name('studio.stock.move');
     Route::post('/stock/product/{product}/sizes', [App\Http\Controllers\Admin\StockController::class, 'sizes'])->middleware('can:stock.manage')->name('studio.stock.sizes');
     Route::post('/stock/product/{product}/track', [App\Http\Controllers\Admin\StockController::class, 'track'])->middleware('can:stock.manage')->name('studio.stock.track');

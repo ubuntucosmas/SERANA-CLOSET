@@ -83,10 +83,10 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <button v-for="s in group.sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                     :class="['w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors',
                              current === s.id ? 'bg-[#57d5fc]/10 text-white font-semibold ring-1 ring-[#57d5fc]/25' : 'text-slate-400 hover:text-white hover:bg-white/5']">
-                    <span class="material-symbols-outlined text-[21px]" :class="current === s.id ? 'text-[#57d5fc]' : ''">{{ s.icon }}</span>
+                    <span aria-hidden="true" class="material-symbols-outlined text-[21px]" :class="current === s.id ? 'text-[#57d5fc]' : ''">{{ s.icon }}</span>
                     {{ s.label }}
                 </button>
-                <a v-if="group.label === 'Daily work' && canUseTill" :href="route('pos.index')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-white/5"><span class="material-symbols-outlined text-[21px]">point_of_sale</span>Sell at till</a>
+                <a v-if="group.label === 'Home' && canUseTill" :href="route('pos.index')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-white/5"><span aria-hidden="true" class="material-symbols-outlined text-[21px]">point_of_sale</span>Open Sales Desk</a>
                 </section>
             </nav>
 
@@ -94,10 +94,10 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <div class="flex items-center justify-between px-4 pb-2"><span class="text-sm text-slate-400">Appearance</span><ThemeToggle /></div>
 
                 <Link :href="route('home')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">storefront</span> Back to shop
+                    <span aria-hidden="true" class="material-symbols-outlined text-[20px]">storefront</span> Back to shop
                 </Link>
                 <Link :href="route('logout')" method="post" as="button" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors text-left">
-                    <span class="material-symbols-outlined text-[20px]">logout</span> Sign out
+                    <span aria-hidden="true" class="material-symbols-outlined text-[20px]">logout</span> Sign out
                 </Link>
             </div>
         </aside>
@@ -124,7 +124,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
             </div>
 
             <div class="px-3 sm:px-5 lg:px-7 pb-8 sm:pb-12">
-                <WorkflowContext class="mb-4 text-slate-300" :actor="`${page.props.auth?.user?.name || 'Signed-in staff'} · ${page.props.auth?.user?.role || 'staff'}`" :task="guidance.question" :reason="guidance.next" :when="guidance.when" :where="guidance.where" :confirmation="completionFor(current)" />
+                <details class="mb-4"><summary class="cursor-pointer text-xs text-slate-400">Workspace guide</summary><WorkflowContext class="mb-4 text-slate-300" :actor="`${page.props.auth?.user?.name || 'Signed-in staff'} · ${page.props.auth?.user?.role || 'staff'}`" :task="guidance.question" :reason="guidance.next" :when="guidance.when" :where="guidance.where" :confirmation="completionFor(current)" /></details>
                 <slot />
             </div>
         </main>
@@ -134,14 +134,14 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
             <button v-for="s in primary" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
                 :class="current === s.id ? 'text-[#57d5fc]' : 'text-slate-500'">
-                <span class="material-symbols-outlined text-[22px]">{{ s.icon }}</span>
+                <span aria-hidden="true" class="material-symbols-outlined text-[22px]">{{ s.icon }}</span>
                 <span class="text-xs font-medium">{{ s.label }}</span>
             </button>
-            <a v-if="canUseTill" :href="route('pos.index')" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-slate-400"><span class="material-symbols-outlined text-[22px]">point_of_sale</span><span class="text-xs font-medium">Sell</span></a>
+            <a v-if="canUseTill" :href="route('pos.index')" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-slate-400"><span aria-hidden="true" class="material-symbols-outlined text-[22px]">point_of_sale</span><span class="text-xs font-medium">Sell</span></a>
             <button @click="moreOpen = true"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
                 :class="secondary.some(s => s.id === current) ? 'text-[#57d5fc]' : 'text-slate-500'">
-                <span class="material-symbols-outlined text-[22px]">more_horiz</span>
+                <span aria-hidden="true" class="material-symbols-outlined text-[22px]">more_horiz</span>
                 <span class="text-xs font-medium">More</span>
             </button>
         </nav>
@@ -156,17 +156,17 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                     <button v-for="s in group.sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                         :class="['w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm',
                                  current === s.id ? 'bg-[#57d5fc]/10 text-white' : 'text-slate-300 hover:bg-white/5']">
-                        <span class="material-symbols-outlined text-[22px]">{{ s.icon }}</span> {{ s.label }}
+                        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">{{ s.icon }}</span> {{ s.label }}
                     </button>
                     </section>
                     <a v-if="canUseTill" :href="route('pos.index')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-slate-300 hover:bg-white/5">
-                        <span class="material-symbols-outlined text-[22px]">point_of_sale</span> Open the till
+                        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">point_of_sale</span> Open Sales Desk
                     </a>
                     <Link :href="route('home')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-slate-300 hover:bg-white/5">
-                        <span class="material-symbols-outlined text-[22px]">storefront</span> Back to shop
+                        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">storefront</span> Back to shop
                     </Link>
                     <Link :href="route('logout')" method="post" as="button" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-red-400 hover:bg-white/5 text-left">
-                        <span class="material-symbols-outlined text-[22px]">logout</span> Sign out
+                        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">logout</span> Sign out
                     </Link>
                 </div>
         </Modal>

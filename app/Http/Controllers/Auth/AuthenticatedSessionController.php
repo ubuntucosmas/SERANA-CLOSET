@@ -32,6 +32,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->put(\App\Support\StaffAccess::SESSION_VERSION, (int) $request->user()->session_version);
 
         if ($request->user()->canUseStudio()) {
             return redirect()->route('studio.index');

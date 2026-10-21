@@ -826,3 +826,9 @@ html.studio-active:not(.dark) .stage-error { color: #be123c; background: #fff1f2
     html.studio-active .studio-table .cell-note { font-size: 11px; }
     html.studio-active .table-action { font-size: 12px; }
 }
+
+/* Operational secondary text must remain readable on dark work surfaces. */
+html.studio-active.dark .text-slate-500,
+html.studio-active.dark .text-slate-600,
+.sales-desk .text-slate-500,
+.sales-desk .text-slate-600 { color: #94a3b8; }

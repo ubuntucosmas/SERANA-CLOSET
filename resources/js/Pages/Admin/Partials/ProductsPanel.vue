@@ -45,7 +45,7 @@ const list = computed(() => {
     const pool = showArchived.value ? props.archived : props.products;
     const q = query.value.trim().toLowerCase();
     if (!q) return pool;
-    return pool.filter(p => [p.name, p.category?.name].filter(Boolean).some(v => v.toLowerCase().includes(q)));
+    return pool.filter(p => [p.name, p.category?.name, ...(p.variants || []).map(size => size.sku)].filter(Boolean).some(v => v.toLowerCase().includes(q)));
 });
 </script>
 
@@ -75,13 +75,13 @@ const list = computed(() => {
                 <caption class="sr-only">Products with category, price, availability, stock left and actions</caption>
                 <thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="numeric">Price</th><th scope="col">Availability</th><th scope="col" class="numeric">Stock</th><th scope="col" class="row-action">Actions</th></tr></thead>
                 <tbody><tr v-for="p in list" :key="p.id">
-                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button v-if="stockV2 && !showArchived" @click="emit('stock')" class="table-action">View sizes</button><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}</button></div></td>
+                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}<span class="cell-note capitalize">{{ p.garment_type || 'Garment type not set' }}</span><span v-if="p.variants?.length" class="cell-note font-mono">{{ p.variants.map(size => size.sku).filter(Boolean).join(' · ') }}</span></button></div></td>
                     <td>{{ p.category?.name || 'Uncategorised' }}</td>
                     <td class="numeric text-white">{{ formatAmount(p.price, page.props) }}</td>
                     <td><span class="stage-badge" :class="availability(p).tone">{{ availability(p).label }}</span></td>
                     <td class="numeric"><span class="block text-white">{{ stockLine(p).main }}</span><span v-if="stockLine(p).detail" class="block text-xs text-slate-400">{{ stockLine(p).detail }}</span></td>
                     <td class="row-action"><div class="flex justify-end gap-2">
-                        <button v-if="stockV2 && !showArchived" @click="emit('stock')" class="table-action">View sizes</button><button @click="openPreview(p)" :aria-label="`Preview ${p.name}`" class="table-action">Preview</button>
+                        <button v-if="stockV2 && !showArchived" @click="emit('stock', p.id)" class="table-action">Sizes &amp; stock</button><button @click="openPreview(p)" :aria-label="`Preview ${p.name}`" class="table-action">Preview</button>
                         <template v-if="!showArchived"><button @click="emit('edit', p)" :aria-label="`Edit ${p.name}`" class="table-action">Edit</button><button @click="emit('delete', p.id)" :aria-label="`Archive ${p.name}`" class="table-action">Archive</button></template>
                         <template v-else><button @click="emit('restore', p.id)" :aria-label="`Restore ${p.name}`" class="table-action">Restore</button><button @click="emit('forceDelete', p.id)" :aria-label="`Permanently delete ${p.name}`" class="table-action text-rose-300">Delete permanently</button></template>
                     </div></td>

@@ -19,6 +19,18 @@ class EnsureStaffAccountIsUsable
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        // Reload security state: revocation must apply to every following request.
+        if ($user) $user->refresh();
+        if ($user && Auth::viaRemember()) {
+            $request->session()->put(\App\Support\StaffAccess::SESSION_VERSION, (int) $user->session_version);
+        }
+        if ($user && (int) $request->session()->get(\App\Support\StaffAccess::SESSION_VERSION, 0) !== (int) $user->session_version) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            if ($request->expectsJson()) return response()->json(['message' => 'Your sign-in session ended. Sign in again.'], 401);
+            return redirect()->route('login')->with('error', 'Your sign-in session ended. Sign in again.');
+        }
         if ($user?->isSuspended()) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();

@@ -4,7 +4,7 @@ import { managerQueues } from '@/Support/studioWorkflow';
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import StatusBadge from '@/Components/StatusBadge.vue';
-import { paymentStatus, fulfilmentStatus } from '@/Support/orderStatus';
+import { operationalPaymentStatus as paymentStatus, fulfilmentStatus } from '@/Support/orderStatus';
 import { useCurrency } from '@/Composables/useCurrency';
 
 // Orders arrive a page at a time ({ data, page, last_page, total, archived });
@@ -12,6 +12,7 @@ import { useCurrency } from '@/Composables/useCurrency';
 // Studio stays fast with thousands of orders.
 const props = defineProps({
     orders: { type: Object, default: () => ({ data: [], page: 1, last_page: 1, total: 0, archived: false }) },
+    bespokeOnly: { type: Boolean, default: false },
     selectedId: { type: [Number, String], default: null },
 });
 const emit = defineEmits(['select']);
@@ -32,7 +33,7 @@ function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
 // Where it was sold: a till sale says so, with who sold it and any paper slip (audit P1-5).
 function typeLabel(o) {
-    if (o.channel === 'counter') return `Till${o.seller_name ? ' · ' + o.seller_name : ''}${o.slip_number ? ' · slip ' + o.slip_number : ''}`;
+    if (o.channel === 'counter') return `Sales Desk${o.seller_name ? ' · ' + o.seller_name : ''}${o.slip_number ? ' · slip ' + o.slip_number : ''}`;
     return typeLabelOnline(o);
 }
 function typeLabelOnline(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? (o.payment_method === 'whatsapp' ? 'Shop · WhatsApp' : 'Shop') : 'Custom'); }
@@ -75,11 +76,12 @@ watch([filter, showArchived, queue, sort], () => fetchOrders(1));
 const canLoadMore = computed(() => props.orders.page < props.orders.last_page);
 const filtered = list;
 
-const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre-orders' }, { id: 'shop', label: 'Shop' }, { id: 'till', label: 'Till sales' }];
+const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre-orders' }, { id: 'bespoke', label: 'Bespoke' }, { id: 'shop', label: 'Shop' }, { id: 'till', label: 'In-store sales' }];
 </script>
 
 <template>
     <div class="space-y-5">
+        <nav class="flex flex-wrap gap-2" aria-label="Order work views"><button v-for="view in [{ id: 'attention', label: 'Needs attention' }, { id: 'fulfilment', label: 'New / to start' }, { id: 'production', label: 'In production' }, { id: 'pickup', label: 'Ready for pickup' }, { id: 'dispatch', label: 'Ready to ship' }, { id: 'complete', label: 'Completed' }, { id: 'all', label: 'All' }]" :key="view.id" type="button" @click="queue = view.id" :aria-pressed="queue === view.id" class="table-action" :class="queue === view.id ? 'ring-2 ring-cyan-400' : ''">{{ view.label }}</button></nav>
         <div class="flex flex-wrap items-end gap-3">
             <label class="text-xs text-slate-400">Work queue<select v-model="queue" class="block mt-1 bg-slate-900 text-white border border-white/10 rounded-lg text-sm py-2"><option value="all">All orders</option><option v-for="item in managerQueues" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
             <label class="text-xs text-slate-400">Order by<select v-model="sort" class="block mt-1 bg-slate-900 text-white border border-white/10 rounded-lg text-sm py-2"><option value="oldest">Oldest first</option><option value="newest">Newest first</option></select></label>
@@ -88,7 +90,7 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre
         <p v-if="activeQueue" class="text-sm text-slate-300 border-l-2 border-cyan-400 pl-3">{{ activeQueue.why }}</p>
         <!-- Controls -->
         <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div class="flex gap-2">
+            <div v-if="!bespokeOnly" class="flex flex-wrap gap-2">
                 <button v-for="c in chips" :key="c.id" @click="filter = c.id"
                     :class="['px-4 py-2 rounded-full text-xs font-semibold transition-colors',
                              filter === c.id ? 'bg-[#57d5fc] text-slate-900' : 'bg-white/5 text-slate-400 hover:text-white']">
@@ -127,11 +129,11 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre
                             <td><button @click="emit('select', o)" class="text-cyan-300 hover:underline font-mono text-xs">{{ o.reference || o.cipher || '#' + o.id }}</button><span class="cell-note">{{ typeLabel(o) }}</span></td>
                             <td class="whitespace-nowrap text-xs">{{ o.created_at ? new Date(o.created_at).toLocaleDateString('en-GB', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown' }}</td>
                             <td><span class="font-medium text-white">{{ o.full_name || 'Customer' }}</span><span class="cell-note">{{ o.whatsapp_number || o.phone || 'No phone supplied' }}</span></td>
-                            <td class="max-w-72 min-w-48 whitespace-normal">{{ itemOf(o) }}</td>
+                            <td class="max-w-72 min-w-48 whitespace-normal">{{ itemOf(o) }}<span v-if="o.items_json?.occasion" class="cell-note">{{ o.items_json.occasion }}</span><span v-if="o.items_json?.deadline" class="cell-note">Needed by {{ o.items_json.deadline }}</span></td>
                             <td class="numeric font-medium text-white">{{ formatAmount(amountOf(o), page.props) }}</td>
-                            <td><StatusBadge v-bind="paymentStatus(o)" /></td>
+                            <td><StatusBadge v-bind="paymentStatus(o)" /><span class="cell-note">Received {{ formatAmount(o.amount_paid ?? 0, page.props) }}</span><span class="cell-note" :class="Number(o.balance_due) < 0 ? 'text-rose-300' : ''">{{ Number(o.balance_due) < 0 ? 'Refund owed' : 'Balance due' }} {{ formatAmount(Math.abs(Number(o.balance_due ?? 0)), page.props) }}</span></td>
                             <td><span class="stage-badge" :class="['shipped', 'collected'].includes(stage(o)) ? 'stage-complete' : stage(o) === 'completed' ? 'stage-ready' : stage(o) ? 'stage-working' : 'stage-waiting'">{{ stage(o) ? fulfilmentStatus(o) : o.status === 'Cancelled' ? 'Cancelled' : o.is_paid ? 'Awaiting fulfilment' : 'Not started' }}</span></td>
-                            <td class="row-action"><button @click="emit('select', o)" :aria-label="`Open order ${o.reference || o.cipher || o.id}`" class="table-action">Open order</button></td>
+                            <td class="row-action"><button @click="emit('select', o)" :aria-label="`Open order ${o.reference || o.cipher || o.id}`" class="table-action">{{ o.next_action?.label || 'Open order' }}</button></td>
                         </tr>
                     </tbody>
                 </table>

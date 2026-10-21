@@ -1,0 +1,146 @@
+[
+  {
+    "width": 1920,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1920,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1920,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 375,
+    "theme": "light",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "pos",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "pos-closed",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "tab": "cashier",
+    "overflow": 0,
+    "errors": [],
+    "accessibility": []
+  }
+]
