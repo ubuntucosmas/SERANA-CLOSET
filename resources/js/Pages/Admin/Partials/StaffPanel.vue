@@ -88,7 +88,7 @@ const field = 'w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 t
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <select :value="member.role" :disabled="member.id === me" @change="changeRole(member, $event.target.value)" :aria-label="`Role of ${member.name}`"
-                                class="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm disabled:opacity-50">
+                                class="bg-slate-950 border border-white/10 rounded-xl pl-3 pr-9 py-2 text-white text-sm disabled:opacity-50">
                                 <option v-for="r in staff.roles" :key="r.value" :value="r.value">{{ r.label }}</option>
                             </select>
                             <button type="button" @click="startPin(member)" class="table-action">{{ member.has_pin ? 'Change PIN' : 'Set PIN' }}</button>

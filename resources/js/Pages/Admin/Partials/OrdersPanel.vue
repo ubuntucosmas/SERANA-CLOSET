@@ -19,18 +19,23 @@ const emit = defineEmits(['select']);
 const page = usePage();
 const { formatAmount } = useCurrency();
 
-const filter = ref(props.orders.filter || 'all');      // all | custom | shop
+const filter = ref(props.orders.filter || 'all');      // all | custom | shop | till
 const showArchived = ref(!!props.orders.archived);
 const query = ref(props.orders.query || '');
 const queue = ref(props.orders.queue || 'all');
 const sort = ref(props.orders.sort || 'newest');
 const activeQueue = computed(() => managerQueues.find(item => item.id === queue.value));
 
-const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
+const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped', 'collected']; // collected: handed over at the till
 
 function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
-function typeLabel(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? (o.payment_method === 'whatsapp' ? 'Shop · WhatsApp' : 'Shop') : 'Custom'); }
+// Where it was sold: a till sale says so, with who sold it and any paper slip (audit P1-5).
+function typeLabel(o) {
+    if (o.channel === 'counter') return `Till${o.seller_name ? ' · ' + o.seller_name : ''}${o.slip_number ? ' · slip ' + o.slip_number : ''}`;
+    return typeLabelOnline(o);
+}
+function typeLabelOnline(o) { return o.type === 'drop' ? 'Drop' : (o.type === 'standard' ? (o.payment_method === 'whatsapp' ? 'Shop · WhatsApp' : 'Shop') : 'Custom'); }
 // What the order is, in words staff recognise: the pieces for shop orders,
 // the Drop title, or the requested piece for a bespoke brief.
 function itemOf(o) {
@@ -70,7 +75,7 @@ watch([filter, showArchived, queue, sort], () => fetchOrders(1));
 const canLoadMore = computed(() => props.orders.page < props.orders.last_page);
 const filtered = list;
 
-const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre-orders' }, { id: 'shop', label: 'Shop' }];
+const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre-orders' }, { id: 'shop', label: 'Shop' }, { id: 'till', label: 'Till sales' }];
 </script>
 
 <template>
@@ -125,7 +130,7 @@ const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre
                             <td class="max-w-72 min-w-48 whitespace-normal">{{ itemOf(o) }}</td>
                             <td class="numeric font-medium text-white">{{ formatAmount(amountOf(o), page.props) }}</td>
                             <td><StatusBadge v-bind="paymentStatus(o)" /></td>
-                            <td><span class="stage-badge" :class="stage(o) === 'shipped' ? 'stage-complete' : stage(o) === 'completed' ? 'stage-ready' : stage(o) ? 'stage-working' : 'stage-waiting'">{{ stage(o) ? fulfilmentStatus(o) : o.is_paid ? 'Awaiting fulfilment' : 'Not started' }}</span></td>
+                            <td><span class="stage-badge" :class="['shipped', 'collected'].includes(stage(o)) ? 'stage-complete' : stage(o) === 'completed' ? 'stage-ready' : stage(o) ? 'stage-working' : 'stage-waiting'">{{ stage(o) ? fulfilmentStatus(o) : o.status === 'Cancelled' ? 'Cancelled' : o.is_paid ? 'Awaiting fulfilment' : 'Not started' }}</span></td>
                             <td class="row-action"><button @click="emit('select', o)" :aria-label="`Open order ${o.reference || o.cipher || o.id}`" class="table-action">Open order</button></td>
                         </tr>
                     </tbody>

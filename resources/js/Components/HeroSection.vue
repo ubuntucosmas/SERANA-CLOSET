@@ -1,4 +1,6 @@
 <script setup>
+import StitchShoppingGuide from '@/Components/StitchShoppingGuide.vue';
+import StitchedHeadline from '@/Components/StitchedHeadline.vue';
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
@@ -6,6 +8,8 @@ import { useCurrency } from '@/Composables/useCurrency';
 const props = defineProps({ products: { type: Array, default: () => [] } });
 const page = usePage();
 const { formatAmount } = useCurrency();
+const stitchPaused = ref(false);
+const stitchCycle = ref(0);
 const showcase = ref(null);
 const order = ref([]);
 const activeLook = ref(0);
@@ -72,36 +76,30 @@ const onImageError = event => {
 </script>
 
 <template>
-    <section data-cinema-scene class="home-hero relative isolate overflow-hidden pb-12 pt-8 sm:pb-16 sm:pt-12 lg:pb-20 lg:pt-14" aria-labelledby="home-heading">
+    <section data-cinema-scene class="home-hero relative isolate overflow-hidden pb-6 pt-5 sm:pb-16 sm:pt-12 lg:pb-20 lg:pt-14" aria-labelledby="home-heading">
         <div v-if="page.props.theme_settings?.hero_bg" class="hero-background" aria-hidden="true">
             <img :src="page.props.theme_settings.hero_bg" alt="" width="1920" height="1080" class="h-full w-full object-cover" @error="onImageError" />
         </div>
         <div class="hero-halo" aria-hidden="true"></div>
         <div class="page-container relative">
-            <div class="grid items-center gap-10 lg:grid-cols-[.95fr_1.05fr] lg:gap-12 xl:gap-20">
-                <div class="relative z-10 max-w-xl lg:py-8">
-                    <p data-cinema-reveal class="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[.16em] text-on-surface-variant">
-                        <span class="h-px w-8 bg-primary" aria-hidden="true"></span>
-                        Serana Closet · Nairobi
+            <div class="grid items-center gap-5 sm:gap-10 lg:grid-cols-[.95fr_1.05fr] lg:gap-12 xl:gap-20">
+                <div class="hero-copy relative z-10 max-w-xl lg:py-8" :class="{ 'stitch-guidance-paused': stitchPaused }">
+                    <StitchedHeadline @motion-state="stitchPaused = $event" @cycle="stitchCycle++" />
+                    <StitchShoppingGuide :key="stitchCycle" :target-selector="stitchCycle % 2 ? '[data-custom-action]' : '[data-shop-action]'" :entry-side="stitchCycle % 2 ? 'right' : 'left'" />
+                    <p data-cinema-reveal data-cinema-delay="160" class="mt-4 sm:mt-6 max-w-[27rem] text-sm leading-relaxed text-on-surface-variant sm:text-lg">
+                        Shop ready-to-wear pieces, or share your idea for a custom order.
                     </p>
-                    <h1 data-cinema-reveal data-cinema-delay="80" id="home-heading" class="font-headline text-[clamp(3rem,6.4vw,6.4rem)] font-semibold leading-[1.02] tracking-[-.065em] text-on-surface">
-                        Good style.<br />
-                        <span class="hero-heading-accent">Entirely you.</span>
-                    </h1>
-                    <p data-cinema-reveal data-cinema-delay="160" class="mt-6 max-w-[27rem] text-base leading-relaxed text-on-surface-variant sm:text-lg">
-                        Pieces you’ll reach for. Details that feel like you. Discover the collection, or let’s make something personal.
-                    </p>
-                    <div class="mt-8 flex flex-wrap items-center gap-4">
-                        <Link :href="route('shop')" class="action-primary group">
+                    <div class="mt-5 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
+                        <Link :href="route('shop')" data-shop-action class="action-primary group relative z-10">
                             Shop Collection
                             <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1" aria-hidden="true">arrow_forward</span>
                         </Link>
-                        <Link :href="route('custom-order')" class="hero-bespoke-link inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-on-surface">
+                        <Link :href="route('custom-order')" data-custom-action class="hero-bespoke-link relative z-10 inline-flex min-h-[44px] items-center gap-2 px-1 text-sm font-semibold text-on-surface">
                             Start a Custom Order
                             <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span>
                         </Link>
                     </div>
-                    <div class="mt-9 flex items-center gap-3 border-t border-outline-variant/50 pt-5 text-sm text-on-surface-variant lg:mt-12">
+                    <div class="mt-4 sm:mt-9 flex items-center gap-3 border-t border-outline-variant/50 pt-3 sm:pt-5 text-sm text-on-surface-variant lg:mt-12">
                         <span class="material-symbols-outlined text-xl text-primary" aria-hidden="true">gesture</span>
                         <p>Ready to wear. Room to make it your own.</p>
                     </div>

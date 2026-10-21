@@ -1,10 +1,23 @@
 <script setup>
-import { watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 
 const page = usePage();
 const pulse = usePulseStore();
+const modalHost = ref(null);
+const destination = computed(() => modalHost.value || 'body');
+let observer;
+function updateHost() {
+    const hosts = [...document.querySelectorAll('[data-notification-host]')].filter(host => {
+        const modal = host.closest('[data-notification-modal]');
+        return modal && modal.getAttribute('data-notification-active') !== 'false' && modal.getClientRects().length > 0;
+    });
+    // Native dialogs occupy the browser top layer, above ordinary overlays.
+    const nativeHosts = hosts.filter(host => host.closest('dialog[open]'));
+    modalHost.value = (nativeHosts.length ? nativeHosts : hosts).at(-1) || null;
+}
+
 
 // Watch for Inertia Flash messages and pipe them to Pulse
 watch(() => page.props.flash, (flash) => {
@@ -13,15 +26,23 @@ watch(() => page.props.flash, (flash) => {
 }, { deep: true, immediate: true });
 
 const handleToast = (event) => pulse.emit(event.detail.message, event.detail.type || 'success');
-onMounted(() => window.addEventListener('serana-toast', handleToast));
-onUnmounted(() => window.removeEventListener('serana-toast', handleToast));
+onMounted(() => {
+    window.addEventListener('serana-toast', handleToast);
+    observer = new MutationObserver(updateHost);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'hidden', 'data-notification-active'] });
+    updateHost();
+});
+onUnmounted(() => {
+    window.removeEventListener('serana-toast', handleToast);
+    observer?.disconnect();
+});
 
 const icons = { success: 'check_circle', error: 'warning', info: 'chat', warning: 'warning' };
 </script>
 
 <template>
-    <!-- Top-centre on phones (clear of the bottom bar), top-right on desktop. -->
-    <div aria-live="polite" class="fixed inset-x-4 top-4 z-[200] pointer-events-none flex flex-col items-center gap-2 sm:inset-x-auto sm:right-8 sm:top-8 sm:items-end">
+    <Teleport :to="destination">
+    <div v-if="pulse.notifications.length" aria-live="polite" :class="modalHost ? 'modal-notifications' : 'page-notifications'" class="pointer-events-none flex flex-col gap-2">
         <transition-group name="toast">
             <div
                 v-for="note in pulse.notifications"
@@ -38,9 +59,15 @@ const icons = { success: 'check_circle', error: 'warning', info: 'chat', warning
             </div>
         </transition-group>
     </div>
+    </Teleport>
 </template>
 
 <style scoped>
+.page-notifications { position: fixed; inset: 16px 16px auto; z-index: 500; align-items: center; }
+.modal-notifications { position: relative; width: 100%; align-items: stretch; padding: 12px; }
+.modal-notifications .toast { max-width: none; }
+@media (min-width: 640px) { .page-notifications { left: auto; right: 32px; top: 32px; align-items: flex-end; } }
+
 .toast {
     background: rgb(var(--surface-rgb) / 0.94);
     border-color: var(--card-border, rgba(127, 127, 127, 0.2));

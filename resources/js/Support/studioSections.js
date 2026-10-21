@@ -20,12 +20,12 @@ export const studioSections = [
         who: 'Staff managing the product catalogue', where: 'Available products appear in the online shop. Archived products are hidden.',
         next: 'Add a product or edit an existing one, check its details, then save the changes.',
         when: 'Save changes when prices, stock or product details change.' },
-    { id: 'stock', label: 'Stock', icon: 'inventory', primary: false,
+    { id: 'stock', label: 'Stock', icon: 'inventory', primary: false, ability: 'stock.manage',
         question: 'How many of each size do we have?', description: 'Count, receive and write off stock per size, and see every change with who made it and why.',
         who: 'Owner and managers', where: 'Internal. Once stock per size is on, the shop sells only what is counted here, size by size.',
         next: 'Open a product, then Count, Receive or Write off a size. Each change needs a reason.',
         when: 'Count when a batch arrives or before switching on; receive new batches; write off damage as it happens.' },
-    { id: 'drops', label: 'Pre-orders', icon: 'bolt', primary: true,
+    { id: 'drops', label: 'Pre-orders', icon: 'bolt', primary: true, flag: 'drops_enabled',
         question: 'What can customers reserve before production?', description: 'Manage pre-order campaigns, called Drops in the shop, and their reservation goals.',
         who: 'Staff planning production campaigns', where: 'Campaign visibility follows its status: drafts are hidden; live campaigns accept reservations.',
         next: 'Create or edit a campaign with a price, production goal and offered sizes. View reservations to review customers.',
@@ -40,10 +40,24 @@ export const studioSections = [
         who: 'Staff managing newsletter contacts', where: 'This contact list is internal. Export downloads a CSV file.',
         next: 'Search for an email address or select Export CSV to download the list.',
         when: 'Export when you need the current subscriber list.' },
+    { id: 'tills', label: 'Till', icon: 'point_of_sale', primary: false, ability: 'till.review',
+        question: 'Did each drawer balance, and who ran it?', description: 'Every till session: who opened and closed it, the cash expected and counted, any difference and why, and its Z report.',
+        who: 'Owner and managers', where: 'Internal. The till itself is at Open the till.',
+        next: 'Open a session to read its Z report. Ask about any difference over the alert.',
+        when: 'Each morning, for the day before.' },
+    { id: 'staff', label: 'Staff', icon: 'badge', primary: false, ability: 'staff.manage',
+        question: 'Who can sign in, and what can they do?', description: 'Add staff, set their roles and till PINs, suspend anyone who leaves, and set the till rules.',
+        who: 'The owner', where: 'Internal. Every change asks why and is kept in the audit log.',
+        next: 'Add someone (give them the one-time password in person), then set their till PIN.',
+        when: 'When someone joins, changes role or leaves; set the till rules before the shop opens.' },
     { id: 'settings', label: 'Store settings', icon: 'settings', primary: false,
         question: 'How does the store appear and accept orders?', description: 'Manage contact details, store images, custom-order choices and payment options.',
         who: 'Store owners and authorised staff', where: 'Customer-facing details and options are used throughout the shop. Payment configuration affects checkout.',
         next: 'Find the relevant section, edit its fields and use that section’s save button.',
         when: 'Each section saves separately. Check the confirmation after saving or uploading an image.' },
 ];
+// The sections a person may open: a section with an ability shows only to those who have it (the server checks too).
+// A section with a flag shows only while that feature is on (Drops are paused for launch: DROPS_ENABLED).
+export const sectionsFor = (abilities = [], flags = {}) => studioSections.filter(section =>
+    (!section.ability || abilities.includes(section.ability)) && (!section.flag || flags[section.flag]));
 export const studioSection = (id) => studioSections.find(section => section.id === id) || studioSections[0];

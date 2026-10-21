@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Staff is in the Studio nav",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Open the till link",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "till rules saved",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "PIN saved and audited",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Staff and the till in the phone More sheet",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "no sideways scroll at 390px",
+    "ok": true,
+    "detail": ""
+  }
+]

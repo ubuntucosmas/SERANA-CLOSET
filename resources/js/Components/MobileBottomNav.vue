@@ -14,15 +14,15 @@ function isActive(routeName) {
     }
 }
 
-// Home and Shop on the left, the bag in the centre, Custom Order and Track on the
+// Home and Shop on the left, a labelled bag in the centre, Custom and Track on the
 // right. Drops, when switched on, takes Track's slot (Track stays in the menu
-// and footer). Account lives in the header and menu.
+// and footer). Account lives in the desktop header and mobile menu.
 const left = [
     { label: 'Home', icon: 'home', route: 'home', active: 'home' },
     { label: 'Shop', icon: 'storefront', route: 'shop', active: 'shop*' },
 ];
 const right = computed(() => [
-    { label: 'Custom Order', icon: 'content_cut', route: 'custom-order', active: 'custom-order*' },
+    { label: 'Custom', icon: 'content_cut', route: 'custom-order', active: 'custom-order*' },
     page.props.drops_enabled
         ? { label: 'Drops', icon: 'bolt', route: 'drops', active: 'drops*' }
         : { label: 'Track', icon: 'local_shipping', route: 'track', active: 'track' },
@@ -30,56 +30,31 @@ const right = computed(() => [
 </script>
 
 <template>
-    <nav aria-label="Quick links" class="always-dark lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[94%] max-w-sm">
-        <div class="bg-black/80 backdrop-blur-3xl border border-white/5 rounded-full px-3 py-1.5 grid grid-cols-5 items-center shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
-            <Link v-for="item in left" :key="item.route" :href="route(item.route)" prefetch class="bottom-link" :class="isActive(item.active) ? 'text-primary' : 'text-white/75'" :aria-current="isActive(item.active) ? 'page' : undefined">
-                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{ item.icon }}</span>
+    <nav aria-label="Quick links" class="mobile-quick-nav lg:hidden fixed inset-x-3 z-[100] mx-auto max-w-md">
+        <div class="quick-nav-grid">
+            <Link v-for="item in left" :key="item.route" :href="route(item.route)" prefetch class="bottom-link" :class="{ 'is-active': isActive(item.active) }" :aria-current="isActive(item.active) ? 'page' : undefined">
+                <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
                 <span>{{ item.label }}</span>
             </Link>
-
-            <button :aria-label="`Open bag, ${cart.totalItems} ${cart.totalItems === 1 ? 'piece' : 'pieces'}`" @click="cart.isOpen = true" class="relative -mt-8 mx-auto w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-[0_10px_25px_rgb(var(--primary-rgb)/0.35)] active:scale-90 transition-transform">
-                <span class="material-symbols-outlined text-black text-[26px]" aria-hidden="true">shopping_bag</span>
-                <span v-if="cart.totalItems > 0" :key="cart.totalItems" class="bag-pop absolute -top-1 -right-1 bg-white text-black text-[11px] font-bold min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-primary">
-                    {{ cart.totalItems }}
-                </span>
+            <button type="button" :aria-label="`Open bag, ${cart.totalItems} ${cart.totalItems === 1 ? 'piece' : 'pieces'}`" @click="cart.isOpen = true" class="bottom-link" :class="{ 'is-active': cart.isOpen }" :aria-expanded="cart.isOpen">
+                <span class="relative inline-flex"><span class="material-symbols-outlined" aria-hidden="true">shopping_bag</span><span v-if="cart.totalItems > 0" class="bag-count">{{ cart.totalItems > 99 ? '99+' : cart.totalItems }}</span></span>
+                <span>Bag</span>
             </button>
-
-            <Link v-for="item in right" :key="item.route" :href="route(item.route)" prefetch class="bottom-link" :class="isActive(item.active) ? 'text-primary' : 'text-white/75'" :aria-current="isActive(item.active) ? 'page' : undefined">
-                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{ item.icon }}</span>
+            <Link v-for="item in right" :key="item.route" :href="route(item.route)" prefetch class="bottom-link" :class="{ 'is-active': isActive(item.active) }" :aria-current="isActive(item.active) ? 'page' : undefined">
+                <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
                 <span>{{ item.label }}</span>
             </Link>
         </div>
-
-        <!-- Safari Safe Area Spacer -->
-        <div class="h-safe-area"></div>
     </nav>
 </template>
 
 <style scoped>
-.bottom-link {
-    display: flex;
-    min-height: 48px;
-    flex-direction: column;
-    align-items: center;
-    /* Top-aligned so icons stay level when "Custom Order" wraps to two lines. */
-    justify-content: flex-start;
-    padding-top: 6px;
-    gap: 2px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.1;
-    text-align: center;
-    transition: color 0.15s;
-}
-.h-safe-area {
-    height: env(safe-area-inset-bottom, 0px);
-}
-/* The count pops when it changes, so adding to the bag is felt, not just shown. */
-.bag-pop {
-    animation: bag-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes bag-pop {
-    from { transform: scale(0.4); }
-    to { transform: scale(1); }
-}
+.mobile-quick-nav { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.quick-nav-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 5px; border-radius: 20px; border: 1px solid var(--card-border); background: var(--bg-glass); backdrop-filter: blur(24px); box-shadow: 0 8px 28px #0000001f; }
+.bottom-link { display: flex; min-width: 0; min-height: 52px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 5px 2px; border-radius: 14px; font-size: 11px; font-weight: 600; line-height: 1.2; text-align: center; color: var(--on-surface-variant); transition: color .15s, background-color .15s; }
+.bottom-link > span:last-child { white-space: nowrap; }
+.bottom-link .material-symbols-outlined { font-size: 22px; line-height: 1; }
+.bottom-link:hover, .bottom-link.is-active { color: var(--primary); background: var(--tint-bg); }
+.bottom-link.is-active .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400; }
+.bag-count { position: absolute; top: -5px; right: -10px; display: flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--primary); color: var(--background); font-size: 10px; font-weight: 700; line-height: 1; }
 </style>

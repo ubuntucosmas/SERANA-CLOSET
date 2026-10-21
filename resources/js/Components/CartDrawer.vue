@@ -76,10 +76,11 @@ onUnmounted(() => { document.removeEventListener('keydown', handleKeys); documen
         <div ref="overlayRef" @click="closeDrawer" class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0"></div>
 
         <div
-            role="dialog" aria-modal="true" aria-labelledby="bag-heading"
+            data-notification-modal role="dialog" aria-modal="true" aria-labelledby="bag-heading"
             ref="drawerRef"
             class="relative z-10 flex h-full w-full max-w-md flex-col border-l border-black/10 bg-surface shadow-2xl dark:border-white/10 dark:bg-black translate-x-full"
         >
+            <div data-notification-host class="relative z-20 shrink-0 bg-surface"></div>
             <!-- Header -->
             <div class="flex items-center justify-between border-b border-black/5 px-5 py-4 dark:border-white/5 sm:px-6">
                 <div>

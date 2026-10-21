@@ -205,6 +205,7 @@ Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
         Route::post('/till/close', [App\Http\Controllers\Pos\TillController::class, 'close'])->name('pos.till.close');
         Route::get('/till/report', [App\Http\Controllers\Pos\TillController::class, 'report'])->name('pos.till.report');
         Route::get('/catalogue', [App\Http\Controllers\Pos\SaleController::class, 'catalogue'])->name('pos.catalogue');
+        Route::get('/sales', [App\Http\Controllers\Pos\SaleController::class, 'index'])->name('pos.sales.index');
         Route::post('/sales', [App\Http\Controllers\Pos\SaleController::class, 'store'])->name('pos.sales.store');
         Route::get('/sales/{order}', [App\Http\Controllers\Pos\SaleController::class, 'show'])->name('pos.sales.show');
         Route::post('/sales/{order}/tender', [App\Http\Controllers\Pos\SaleController::class, 'tender'])->name('pos.sales.tender');

@@ -46,6 +46,8 @@ final class Role
         'pos.sell' => [self::OWNER, self::MANAGER, self::CASHIER],
         // Approve at the till with a PIN: discounts over the limit, voids, returns, refunds, payouts, variance.
         'pos.approve' => [self::OWNER, self::MANAGER],
+        // Studio → Till: past drawers, their counts, variances and Z reports.
+        'till.review' => [self::OWNER, self::MANAGER],
     ];
 
     public static function allows(?string $role, string $ability): bool

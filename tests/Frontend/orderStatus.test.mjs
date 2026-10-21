@@ -18,3 +18,8 @@ test('a quoted bespoke order with nothing paid is still "Quote Ready"', () => {
 test('a fully paid order is "Payment Confirmed" whatever was paid before', () => {
     assert.equal(paymentStatus(bespoke({ is_paid: true, amount_paid: 10000, balance_due: 0 })).label, 'Payment Confirmed');
 });
+
+test('an order handed over at the till reads Collected', async () => {
+    const { fulfilmentStatus } = await import('../../resources/js/Support/orderStatus.js');
+    assert.equal(fulfilmentStatus({ status: 'collected', is_paid: true }), 'Collected');
+});

@@ -11,7 +11,7 @@
     </AdminShell>
 -->
 <script setup>
-import { studioSections, studioSection } from '@/Support/studioSections';
+import { sectionsFor, studioSection } from '@/Support/studioSections';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import SiteSeo from '@/Components/SiteSeo.vue';
 import Notification from '@/Components/Notification.vue';
@@ -29,11 +29,13 @@ const page = usePage();
 
 // One source of truth for the navigation. `primary` items show in the mobile
 // bottom bar; the rest live behind "More".
-const sections = studioSections;
+const abilities = computed(() => page.props.auth?.user?.abilities || []);
+const sections = computed(() => sectionsFor(abilities.value, { drops_enabled: !!page.props.drops_enabled }));
+const canUseTill = computed(() => abilities.value.includes('pos.sell'));
 const guidance = computed(() => studioSection(props.current));
 
-const primary = sections.filter(s => s.primary);
-const secondary = sections.filter(s => !s.primary);
+const primary = computed(() => sections.value.filter(s => s.primary));
+const secondary = computed(() => sections.value.filter(s => !s.primary));
 
 const moreOpen = ref(false);
 
@@ -82,6 +84,9 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
 
             <div class="mt-auto pt-6 border-t border-white/5 space-y-1">
                 <div class="flex items-center justify-between px-4 pb-2"><span class="text-sm text-slate-400">Appearance</span><ThemeToggle /></div>
+                <a v-if="canUseTill" :href="route('pos.index')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">point_of_sale</span> Open the till
+                </a>
                 <Link :href="route('home')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
                     <span class="material-symbols-outlined text-[20px]">storefront</span> Back to shop
                 </Link>
@@ -104,15 +109,15 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
         <!-- ───────── Main content ───────── -->
         <main class="lg:ml-64 min-h-screen pb-24 lg:pb-0">
             <!-- Section header -->
-            <div class="px-5 lg:px-7 pt-5 lg:pt-6 pb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div class="px-3 sm:px-5 lg:px-7 pt-3 sm:pt-5 lg:pt-6 pb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                 <div>
-                    <h1 class="text-3xl lg:text-4xl font-headline font-light text-white tracking-tight">{{ title }}</h1>
+                    <h1 class="text-xl sm:text-3xl lg:text-4xl font-headline font-light text-white tracking-tight">{{ title }}</h1>
                     <p v-if="subtitle" class="text-slate-400 text-sm mt-1.5 max-w-xl">{{ subtitle }}</p>
                 </div>
                 <div class="shrink-0"><slot name="actions" /></div>
             </div>
 
-            <div class="px-5 lg:px-7 pb-12">
+            <div class="px-3 sm:px-5 lg:px-7 pb-8 sm:pb-12">
                 <details :key="current" class="mb-4 rounded-xl border border-white/10 bg-slate-900/70 p-3">
                     <summary class="cursor-pointer text-sm text-slate-300">{{ guidance.question }} <span class="text-cyan-300 ml-2">Screen help</span></summary><div class="pt-3">
                     <p class="text-xs font-semibold uppercase tracking-wide text-cyan-300">Serana Studio · Staff workspace</p>
@@ -156,6 +161,9 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                                  current === s.id ? 'bg-[#57d5fc]/10 text-white' : 'text-slate-300 hover:bg-white/5']">
                         <span class="material-symbols-outlined text-[22px]">{{ s.icon }}</span> {{ s.label }}
                     </button>
+                    <a v-if="canUseTill" :href="route('pos.index')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-slate-300 hover:bg-white/5">
+                        <span class="material-symbols-outlined text-[22px]">point_of_sale</span> Open the till
+                    </a>
                     <Link :href="route('home')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-slate-300 hover:bg-white/5">
                         <span class="material-symbols-outlined text-[22px]">storefront</span> Back to shop
                     </Link>

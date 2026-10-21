@@ -63,7 +63,7 @@ function backToTop() {
                     </form>
                 </section>
 
-                <div class="grid gap-10 py-10 sm:py-12 lg:grid-cols-[1fr_1.8fr] lg:gap-16 xl:gap-24">
+                <div class="grid gap-6 sm:gap-10 py-7 sm:py-12 lg:grid-cols-[1fr_1.8fr] lg:gap-16 xl:gap-24">
                     <section aria-label="About Serana Closet" class="min-w-0">
                         <Link :href="route('home')" class="inline-flex rounded-sm" aria-label="Serana Closet home"><ApplicationLogo /></Link>
                         <p class="mt-5 max-w-xs text-sm leading-relaxed text-on-surface-variant">Ready-to-wear pieces and custom orders, designed and made in Nairobi.</p>

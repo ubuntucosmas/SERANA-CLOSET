@@ -29,6 +29,16 @@ class TillSession extends Model
         return $this->belongsTo(User::class, 'opened_by');
     }
 
+    public function closedBy()
+    {
+        return $this->belongsTo(User::class, 'closed_by');
+    }
+
+    public function acknowledgedBy()
+    {
+        return $this->belongsTo(User::class, 'acknowledged_by');
+    }
+
     public function isOpen(): bool
     {
         return $this->status === 'open';

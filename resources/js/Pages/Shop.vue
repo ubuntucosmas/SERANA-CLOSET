@@ -174,7 +174,7 @@ const toSentenceCase = (str) =>
                     <p v-if="activeCategory || searchQuery" class="mt-3 text-sm text-on-surface-variant" aria-live="polite">{{ sortedProducts.length }} results<span v-if="activeCategory"> in {{ activeCategory.name }}</span><span v-if="searchQuery"> for “{{ searchQuery }}”</span>. <button @click="clearFilters" class="font-semibold text-primary underline-offset-2 hover:underline">Clear Filters</button></p>
                 </div>
 
-                <div class="flex flex-col gap-8 md:flex-row">
+                <div class="flex flex-col gap-5 sm:gap-8 md:flex-row">
                     <!-- Desktop category sidebar -->
                     <aside class="hidden w-60 flex-shrink-0 md:block">
                         <nav aria-label="Categories" class="card sticky top-28 p-4">
@@ -210,7 +210,7 @@ const toSentenceCase = (str) =>
                         </div>
 
                         <div v-else>
-                            <div class="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                            <div class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                                 <ProductCard
                                     v-for="(product, i) in visibleProducts"
                                     :key="product.id"

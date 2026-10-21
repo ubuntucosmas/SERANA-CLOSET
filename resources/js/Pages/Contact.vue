@@ -8,12 +8,12 @@
             <!-- Header Section -->
             <PageHeader kicker="Contact" title="Contact" accent="Serana" subtitle="Ask about an order, sizing or a custom order. Send your message to our team on WhatsApp." />
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-start">
                 <!-- Contact Channels -->
-                <div class="space-y-12 reveal">
+                <div class="space-y-7 sm:space-y-12 reveal">
                     <div class="space-y-8">
-                        <div class="flex items-start gap-8 group">
-                            <div class="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-500">
+                        <div class="flex items-start gap-4 sm:gap-8 group">
+                            <div class="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-500">
                                 <span class="material-symbols-outlined text-primary group-hover:text-background text-3xl">chat</span>
                             </div>
                             <div>
@@ -25,8 +25,8 @@
                             </div>
                         </div>
 
-                        <div class="flex items-start gap-8 group">
-                            <div class="w-16 h-16 dark:bg-white/5 dark:bg-black bg-white/5 border dark:border-white/10 border-black/10 rounded-2xl flex items-center justify-center shrink-0 dark:group-hover:bg-primary group-hover:bg-primary transition-all duration-500">
+                        <div class="flex items-start gap-4 sm:gap-8 group">
+                            <div class="w-12 h-12 sm:w-16 sm:h-16 dark:bg-white/5 dark:bg-black bg-white/5 border dark:border-white/10 border-black/10 rounded-2xl flex items-center justify-center shrink-0 dark:group-hover:bg-primary group-hover:bg-primary transition-all duration-500">
                                 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-background text-3xl">mail</span>
                             </div>
                             <div>
@@ -38,8 +38,8 @@
                             </div>
                         </div>
 
-                        <div class="flex items-start gap-8 group">
-                            <div class="w-16 h-16 dark:bg-white/5 dark:bg-black bg-white/5 border dark:border-white/10 border-black/10 rounded-2xl flex items-center justify-center shrink-0 dark:group-hover:bg-primary group-hover:bg-primary transition-all duration-500">
+                        <div class="flex items-start gap-4 sm:gap-8 group">
+                            <div class="w-12 h-12 sm:w-16 sm:h-16 dark:bg-white/5 dark:bg-black bg-white/5 border dark:border-white/10 border-black/10 rounded-2xl flex items-center justify-center shrink-0 dark:group-hover:bg-primary group-hover:bg-primary transition-all duration-500">
                                 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-background text-3xl">pin_drop</span>
                             </div>
                             <div>
@@ -52,8 +52,8 @@
                         </div>
 
                         <!-- Calls, when a separate care line is set in the Studio -->
-                        <div v-if="store.phone && store.phone !== store.whatsapp" class="flex items-start gap-8 group">
-                            <div class="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0">
+                        <div v-if="store.phone && store.phone !== store.whatsapp" class="flex items-start gap-4 sm:gap-8 group">
+                            <div class="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0">
                                 <span class="material-symbols-outlined text-primary text-3xl" aria-hidden="true">support_agent</span>
                             </div>
                             <div>
@@ -67,7 +67,7 @@
                     </div>
 
                     <!-- Studio Status -->
-                    <div class="glass-panel p-8 rounded-sm space-y-4 relative overflow-hidden">
+                    <div class="glass-panel p-4 sm:p-8 rounded-sm space-y-4 relative overflow-hidden">
                         <div class="flex items-center gap-3">
                             <span class="relative flex h-2 w-2">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -82,7 +82,7 @@
                 </div>
 
                 <!-- Contact Form / Lead Capture -->
-                <div class="glass-panel rounded-sm p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
+                <div class="glass-panel rounded-sm p-4 sm:p-8 lg:p-12 shadow-2xl reveal reveal-delay-200">
                     <form @submit.prevent="submitForm" class="space-y-8">
                         <div class="space-y-3">
                             <label class="text-[11px] font-headline tracking-wider text-primary font-black" for="contact-type">Nature of inquiry</label>
@@ -94,7 +94,7 @@
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                             <div class="space-y-3">
                                 <label class="text-[11px] font-headline tracking-wider text-on-surface-variant font-black" for="contact-name">Your name</label>
                                 <input id="contact-name" v-model="form.name" type="text" placeholder="John Doe" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl outline-none transition-all placeholder:opacity-50" required />
