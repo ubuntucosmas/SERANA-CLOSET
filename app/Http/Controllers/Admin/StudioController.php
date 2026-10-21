@@ -741,8 +741,14 @@ class StudioController extends Controller
         if ($order->isPaidUp() || $order->payment_method !== PaymentSettings::WHATSAPP || $order->legacyStatus() !== OrderStatus::PENDING_PAYMENT) {
             return back()->with('error', 'Only unpaid WhatsApp orders can be cancelled here.');
         }
+        // Money received is never cancelled away: it is refunded or settled (V1 money invariant 2).
+        if (! $order->isUnfunded()) {
+            return back()->with('error', 'Money has been received on this order. Record the rest of the payment, or wait for it to expire into the Refunds queue.');
+        }
+        if (CustomOrder::whereKey($order->id)->paidUp(false)->unfunded()->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::CANCELLED)) === 0) {
+            return back()->with('error', 'A payment arrived for this order just now. Refresh and check it.');
+        }
         $order->releaseReservations();
-        CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::CANCELLED));
         \App\Support\Audit::record('order.cancelled', $order, ['status' => $order->status], ['status' => OrderStatus::CANCELLED]);
 
         return back()->with('success', 'Order cancelled. Its stock is back on sale.');
@@ -755,6 +761,11 @@ class StudioController extends Controller
         }
         if ($order->isPaidUp() && ! in_array($order->legacyStatus(), OrderStatus::PRODUCTION_TERMINAL, true)) {
             return back()->with('error', 'Paid orders can be archived once they are completed or dispatched.');
+        }
+        // Part-paid, or a payment awaiting a decision: archiving would take it out of the
+        // jobs and lists that settle or refund it (V1 money invariant 2).
+        if (! $order->isPaidUp() && ! $order->isUnfunded()) {
+            return back()->with('error', 'Money has been received on this order and it is not settled. Resolve the payment or refund before archiving.');
         }
 
         $order->delete();

@@ -296,6 +296,26 @@ class CustomOrder extends Model
     }
 
     /**
+     * No money is held on this order and nothing awaits a decision: the only
+     * kind of order that may be expired, cancelled, superseded or archived as
+     * abandoned. One definition for every such path (V1 money invariant 2).
+     * amount_paid is derived from the ledger (payments − refunds) on every
+     * money write, whatever LEDGER_READS says. An order with money on it goes
+     * through the financial paths instead: the balance hold and its expiry to
+     * a refund, the Refunds queue, or the Studio's payment problems.
+     */
+    public function scopeUnfunded(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('amount_paid', '<=', 0)
+            ->where(fn ($q) => $q->where('resolution', 'none')->orWhereNull('resolution'));
+    }
+
+    public function isUnfunded(): bool
+    {
+        return (int) $this->amount_paid <= 0 && ($this->resolution ?? 'none') === 'none';
+    }
+
+    /**
      * Is any STK push for this order still awaiting its outcome (or already
      * paid)? While one is, a *different* attempt failing must not fail the
      * order — the customer may have paid the other prompt.

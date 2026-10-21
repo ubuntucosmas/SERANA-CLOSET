@@ -68,6 +68,8 @@ class ReconcilePendingPayments extends Command
                 if ($booked['became_paid']) {
                     $resolved++;
                     Log::info("Reconciliation: Order #{$order->id} confirmed paid via STK Query.");
+                } elseif ($booked['booked'] && (int) $order->fresh()?->balance_due < 0) {
+                    Log::warning("Reconciliation: a second payment was confirmed on Order #{$order->id}; it is in the Refunds queue.");
                 }
             } elseif (in_array((int) $code, self::FAILURE_CODES, true)) {
                 // Cancelled / timed out / failed — release the hold, unless some
@@ -99,16 +101,19 @@ class ReconcilePendingPayments extends Command
         $reconcilable = [OrderStatus::PENDING_PAYMENT, OrderStatus::EXPIRED];
 
         // Give the callback a grace window first; ignore ancient abandoned pushes.
-        // Any unpaid order qualifies, whatever its status: an unresolved push is
-        // what matters, and a status-based filter is how a paid retry on a
-        // "Payment Failed" order once went unsettled.
+        // Any order qualifies, whatever its status: an unresolved push is what
+        // matters, and a status-based filter is how a paid retry on a "Payment
+        // Failed" order once went unsettled (B-01). A paid order's push is asked
+        // about too: money on it is a second payment, owed back.
         $attempts = PaymentAttempt::with('order')
             ->pending()
             ->where('created_at', '<=', now()->subMinutes(2))
             ->where('created_at', '>=', now()->subDay())
             ->orderByDesc('created_at')
             ->get()
-            ->filter(fn ($attempt) => $attempt->order && ! $attempt->order->isPaidUp())
+            // Paid orders too: a second prompt the customer also paid, whose callback was
+            // lost, is booked like a duplicate callback (refund owed), never left unseen.
+            ->filter(fn ($attempt) => $attempt->order !== null)
             ->map(fn ($attempt) => [
                 'order'       => $attempt->order,
                 'checkout_id' => $attempt->checkout_request_id,

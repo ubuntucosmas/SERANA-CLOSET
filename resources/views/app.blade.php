@@ -37,13 +37,8 @@
 
         <!-- Dynamic Favicon -->
         @if(isset($page['props']['theme_settings']['site_favicon']))
-            @php
-                $favicon = $page['props']['theme_settings']['site_favicon'];
-                // If it's already a full URL (resolved by ThemeSetting model), use it directly
-                // otherwise fall back to storage URL
-                $faviconUrl = str_starts_with($favicon, 'http') ? $favicon : \Illuminate\Support\Facades\Storage::disk('public')->url($favicon);
-            @endphp
-            <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+            {{-- Already a browser URL on the configured public disk (ThemeSetting::get). --}}
+            <link rel="icon" type="image/png" href="{{ $page['props']['theme_settings']['site_favicon'] }}">
         @endif
         
         <link rel="preconnect" href="https://fonts.googleapis.com">

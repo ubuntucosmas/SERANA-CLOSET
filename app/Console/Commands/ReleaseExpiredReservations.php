@@ -36,7 +36,7 @@ class ReleaseExpiredReservations extends Command
         $expiredOrders = CustomOrder::withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->paidUp(false)
             // A part-paid order is never silently expired: see below.
-            ->where('amount_paid', '<=', 0)
+            ->unfunded()
             // A counter sale is voided at the till, not expired behind the cashier's back.
             ->where('payment_method', '!=', 'counter')
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
@@ -51,11 +51,16 @@ class ReleaseExpiredReservations extends Command
         $staleWhatsApp = CustomOrder::where('payment_method', PaymentSettings::WHATSAPP)
             ->withLegacyStatus([OrderStatus::PENDING_PAYMENT])
             ->paidUp(false)
+            // Money received on a WhatsApp order takes the part-paid path below, never this one.
+            ->unfunded()
             ->where('created_at', '<=', now()->subHours(PaymentSettings::holdHours()))
             ->get();
         foreach ($staleWhatsApp as $order) {
-            $order->releaseReservations();
-            $expiredOrders += CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
+            $expired = CustomOrder::whereKey($order->id)->paidUp(false)->unfunded()->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
+            if ($expired > 0) {
+                $order->releaseReservations();
+                $expiredOrders += $expired;
+            }
         }
 
         // Phase C: a shop order paid short whose balance did not arrive within the

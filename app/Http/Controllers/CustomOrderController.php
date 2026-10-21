@@ -234,10 +234,9 @@ class CustomOrderController extends Controller
         // — References —
         if (count($imagePaths) > 0) {
             $lines[] = "\n*Reference images* (" . count($imagePaths) . ")";
-            $base = rtrim(config('app.url'), '/');
+            // Wherever the public disk lives (local /storage, S3, R2): the configured URL.
             foreach ($imagePaths as $index => $path) {
-                $url = $base . '/storage/' . ltrim($path, '/');
-                $lines[] = ($index + 1) . ". {$url}";
+                $lines[] = ($index + 1) . '. ' . \App\Support\PublicUrl::absolute($path);
             }
         }
 
