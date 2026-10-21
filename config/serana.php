@@ -18,4 +18,18 @@ return [
 
     'ledger_reads' => (bool) env('LEDGER_READS', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Stock per size (Phase D1, design §13.5)
+    |--------------------------------------------------------------------------
+    |
+    | "setting" (default): the Studio decides. Off until the owner's stock take
+    | is confirmed (serana:stock:cutover), which turns it on; turning it off
+    | again is the rollback. "on" / "off" force it (CI runs the suite both
+    | ways; "off" is the emergency brake without a deploy of code).
+    |
+    */
+
+    'stock_v2' => env('STOCK_V2', 'setting'),
+
 ];

@@ -41,6 +41,9 @@ class StoreCheckoutRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
             // Size/variant selections chosen by the customer (not pricing data).
             'items.*.options'  => ['nullable', 'array'],
+            // The sizes the bag says it holds (stock per size); checked against the options, never trusted alone.
+            'items.*.variant_ids'   => ['nullable', 'array', 'max:2'],
+            'items.*.variant_ids.*' => ['integer'],
 
             // Optional Precision Sizing
             'height_cm' => ['nullable', 'numeric', 'min:50', 'max:250'],

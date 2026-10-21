@@ -51,7 +51,11 @@ class StudioController extends Controller
 
         // One availability figure (sold + unpaid holds) for the stock alert, the
         // products table and the storefront, so they never disagree.
-        $products = Product::with('category')->withAvailability()->latest()->get()->append('available_stock');
+        $products = Product::with('category')->withAvailability()->latest()->get();
+        if (\App\Support\StockMode::v2()) {
+            app(\App\Services\StockService::class)->preloadAvailability($products);
+        }
+        $products = $products->append('available_stock');
 
         $workflow = [];
         foreach (StudioWorkflow::QUEUES as $queue) {
@@ -118,6 +122,10 @@ class StudioController extends Controller
             'payment_settings'  => PaymentSettings::forStudio(),
             'order_policy'      => \App\Support\OrderPolicy::forStudio(),
             'refunds'           => fn () => $this->refundQueue($request),
+            // Built only for the Stock screen (it reconciles both models): opened directly, or reloaded by the panel.
+            'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
+                ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
+            'stock_v2'          => \App\Support\StockMode::v2(),
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -508,6 +516,9 @@ class StudioController extends Controller
             'from_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
             'to_product_id' => ['required_if:action,swap', 'nullable', 'integer'],
             'size' => ['nullable', 'string', 'max:60'],
+            // Stock per size: a set is swapped to a top size and a bottom size.
+            'top_size' => ['nullable', 'string', 'max:30'],
+            'bottom_size' => ['nullable', 'string', 'max:30'],
         ], [
             'reason.required' => 'Say why, for the record.',
             'to_product_id.required_if' => 'Choose the item to swap to.',
@@ -522,7 +533,8 @@ class StudioController extends Controller
                     ? $settlement->cancelForRefund($order, $actor, $data['reason'], 'Sold out after a late payment')
                     : throw new \DomainException('action|This order has no sold-out item waiting for a decision.'),
                 'wait' => $settlement->waitForRestock($order, $data['reason']),
-                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason']),
+                'swap' => $settlement->swapItem($order, (int) $data['from_product_id'], (int) $data['to_product_id'], $data['size'] ?? null, $actor, $data['reason'],
+                    array_filter(['top_size' => $data['top_size'] ?? null, 'bottom_size' => $data['bottom_size'] ?? null])),
             };
         } catch (\DomainException $e) {
             [$field, $message] = str_contains($e->getMessage(), '|') ? explode('|', $e->getMessage(), 2) : ['action', $e->getMessage()];

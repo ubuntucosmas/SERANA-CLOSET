@@ -38,6 +38,10 @@ final class Role
         'ledger.reverse' => [self::OWNER],
         // The Refunds queue: record money sent back to a customer (never automatic).
         'refunds.mark' => [self::OWNER, self::MANAGER],
+        // Studio → Stock: count, receive, write off, sizes on offer, made to order (Phase D1).
+        'stock.manage' => [self::OWNER, self::MANAGER],
+        // Switch stock per size on or off (the cutover and its rollback).
+        'stock.cutover' => [self::OWNER],
     ];
 
     public static function allows(?string $role, string $ability): bool

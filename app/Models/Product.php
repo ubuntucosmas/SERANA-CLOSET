@@ -22,8 +22,12 @@ class Product extends Model
         'specifications',
         'batch_limit',
         'batch_sold',
+        'track_stock',
         'secondary_images',
     ];
+
+    /** Mirrors the column default, so variants are built for the garment the row will actually be. */
+    protected $attributes = ['garment_type' => 'set'];
 
     protected $appends = ['image_url', 'secondary_image_urls', 'optimized_image_url', 'optimized_secondary_urls'];
 
@@ -35,6 +39,7 @@ class Product extends Model
         'specifications' => 'array',
         'batch_limit' => 'integer',
         'batch_sold' => 'integer',
+        'track_stock' => 'boolean',
         // Present only after withAvailability(); MariaDB sums arrive as strings.
         'reserved_quantity' => 'integer',
         'secondary_images' => 'array',
@@ -69,6 +74,28 @@ class Product extends Model
         return $this->secondary_image_urls;
     }
 
+    protected static function booted(): void
+    {
+        // D8: a batch limit means stocked, none means made to order. While the old model
+        // is live, track_stock follows the limit unless it is set explicitly.
+        static::saving(function (Product $product) {
+            if ($product->isDirty('batch_limit') && ! $product->isDirty('track_stock')) {
+                $product->track_stock = $product->batch_limit !== null;
+            }
+        });
+        // Every product has a variant per offered size (design §13.1).
+        static::saved(function (Product $product) {
+            if ($product->wasRecentlyCreated || $product->wasChanged(['garment_type', 'specifications'])) {
+                ProductVariant::ensureFor($product);
+            }
+        });
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -85,16 +112,24 @@ class Product extends Model
      */
     public function scopeWithAvailability($query)
     {
-        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()], 'quantity');
+        return $query->withSum(['reservations as reserved_quantity' => fn ($q) => $q->active()->countsForProduct()], 'quantity');
     }
 
     /**
      * What a shopper sees and the Studio reports: null when unlimited.
      * Listings must append() it after withAvailability() (see ShopController).
      */
+    /** Set by StockService::preloadAvailability() for lists (false = not preloaded). */
+    public int|null|false $preloadedAvailable = false;
+
+    /** What the storefront shows: per-size stock when v2 is on (design §13.3), else the batch numbers. Null = unlimited. */
     public function getAvailableStockAttribute(): ?int
     {
-        return $this->availableStock();
+        if (! \App\Support\StockMode::v2()) {
+            return $this->availableStock();
+        }
+
+        return $this->preloadedAvailable !== false ? $this->preloadedAvailable : app(\App\Services\StockService::class)->productAvailableOnline($this);
     }
 
     /** Quantity currently held by unpaid, non-expired checkouts. */
@@ -104,7 +139,7 @@ class Product extends Model
             return (int) $this->attributes['reserved_quantity'];
         }
 
-        return (int) $this->reservations()->active()->sum('quantity');
+        return (int) $this->reservations()->active()->countsForProduct()->sum('quantity');
     }
 
     /**

@@ -19,20 +19,24 @@ class HomeController extends Controller
                 ->latest()
                 ->take(4)
                 ->get()
+                ->tap(fn ($products) => \App\Support\StockMode::v2() ? app(\App\Services\StockService::class)->preloadAvailability($products) : null)
                 ->append('available_stock'),
             'showcaseProducts' => Product::with('category:id,name')
                 ->where('in_stock', true)
                 ->whereNotNull('image_path')
                 ->where('image_path', '!=', '')
-                ->where(function ($query) {
+                ->when(! \App\Support\StockMode::v2(), fn ($q) => $q->where(function ($query) {
                     $query->whereNull('batch_limit')->orWhereRaw(
-                        'batch_limit > COALESCE(batch_sold, 0) + (SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations WHERE stock_reservations.product_id = products.id AND status = ? AND (expires_at IS NULL OR expires_at > ?))',
+                        'batch_limit > COALESCE(batch_sold, 0) + (SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations WHERE stock_reservations.product_id = products.id AND second_part = 0 AND status = ? AND (expires_at IS NULL OR expires_at > ?))',
                         ['held', now()]
                     );
-                })
+                }))
                 ->latest()
-                ->limit(12)
+                ->limit(\App\Support\StockMode::v2() ? 48 : 12)
                 ->get()
+                ->tap(fn ($products) => \App\Support\StockMode::v2() ? app(\App\Services\StockService::class)->preloadAvailability($products) : null)
+                // Stock per size: a piece sold out in every size leaves the showcase (boutique-sized catalogue).
+                ->when(\App\Support\StockMode::v2(), fn ($products) => $products->filter(fn (Product $p) => $p->available_stock !== 0)->take(12)->values())
                 ->map(fn (Product $product) => [
                     'id' => $product->id,
                     'slug' => $product->slug,

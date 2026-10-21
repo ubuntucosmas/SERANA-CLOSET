@@ -21,6 +21,7 @@ use Tests\TestCase;
 class ShopShippingBlockTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same rules in either stock model (Phase D1)
 
     private User $owner;
 
@@ -33,10 +34,10 @@ class ShopShippingBlockTest extends TestCase
 
     private function shop(int $price = 5000, ?Product $product = null): CustomOrder
     {
-        $product ??= Product::create(['name' => 'Linen Set', 'slug' => 'linen-' . uniqid(), 'price' => $price, 'batch_limit' => 5, 'batch_sold' => 0, 'in_stock' => true]);
+        $product ??= $this->stockedProduct(5, ['name' => 'Linen Set', 'slug' => 'linen-' . uniqid(), 'price' => $price]);
         $order = CustomOrder::create(['full_name' => 'Jane', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => OrderStatus::PENDING_PAYMENT,
             'price_quoted' => $price, 'items_json' => [['id' => $product->id, 'name' => $product->name, 'price' => $price, 'quantity' => 1]]]);
-        $order->stockReservations()->create(['product_id' => $product->id, 'quantity' => 1, 'status' => 'held', 'expires_at' => now()->addMinutes(15)]);
+        $this->holdFor($order, $product, 1, 'held', now()->addMinutes(15));
 
         return $order;
     }
@@ -65,11 +66,11 @@ class ShopShippingBlockTest extends TestCase
 
     public function test_a_swap_to_a_dearer_item_cannot_ship_until_the_difference_is_paid(): void
     {
-        $jacket = Product::create(['name' => 'Last Jacket', 'slug' => 'last-jacket', 'price' => 5000, 'batch_limit' => 1, 'batch_sold' => 1, 'in_stock' => true]);
+        $jacket = $this->stockedProduct(0, ['name' => 'Last Jacket', 'slug' => 'last-jacket', 'batch_sold' => 1]);
         $order = $this->shop(5000, $jacket);
         $order->stockReservations()->update(['status' => 'released']);
         app(OrderSettlementService::class)->recordPayment($order, 5000, 'mpesa_stk', Actor::safaricom(), 'QLATE1');
-        $coat = Product::create(['name' => 'Wool Coat', 'slug' => 'wool-coat', 'price' => 6000, 'batch_limit' => 3, 'batch_sold' => 0, 'in_stock' => true]);
+        $coat = $this->stockedProduct(3, ['name' => 'Wool Coat', 'slug' => 'wool-coat', 'price' => 6000]);
         app(OrderSettlementService::class)->swapItem($order->fresh(), $jacket->id, $coat->id, null, Actor::user($this->owner), 'Chose the coat');
 
         $this->move($order, 'shipped')->assertSessionHasErrors(['status' => 'KSh 1,000 is still owed on this order. Take the balance before it leaves the studio.']);

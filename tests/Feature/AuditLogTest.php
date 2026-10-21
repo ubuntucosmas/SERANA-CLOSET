@@ -82,8 +82,10 @@ class AuditLogTest extends TestCase
         $this->assertSame($order->cipher, AuditLog::where('action', 'order.purged')->sole()->before['cipher']);
     }
 
+    /** The old model's batch limit set from the product form (with stock per size, stock changes are audited in Studio → Stock: StudioStockTest). */
     public function test_product_price_and_stock_changes_are_audited(): void
     {
+        config(['serana.stock_v2' => 'off']);
         $category = Category::create(['name' => 'Sets', 'slug' => 'sets']);
         $product = Product::create(['category_id' => $category->id, 'name' => 'Set', 'slug' => 'set', 'description' => 'x', 'price' => 5000, 'batch_limit' => 10, 'in_stock' => true]);
 

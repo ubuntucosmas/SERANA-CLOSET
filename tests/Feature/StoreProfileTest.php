@@ -69,7 +69,7 @@ class StoreProfileTest extends TestCase
             ->assertOk()->assertJsonPath('whatsapp_url', fn ($url) => str_starts_with($url, 'https://wa.me/254799888777?'));
 
         PaymentSettings::save(['mpesa_enabled' => false, 'whatsapp_enabled' => true, 'instructions' => 'Send Money to {whatsapp} ({store})', 'whatsapp_hold_hours' => 48]);
-        $product = Product::create(['name' => 'Hoodie', 'slug' => 'h', 'price' => 2500, 'in_stock' => true, 'garment_type' => 'hoodie']);
+        $product = Product::create(['name' => 'Hoodie', 'slug' => 'h', 'price' => 2500, 'in_stock' => true, 'garment_type' => 'hoodie', 'specifications' => ['sizes' => ['One size']]]);
         Mail::fake();
         $res = $this->postJson(route('checkout.process'), ['request_id' => (string) Str::uuid(), 'full_name' => 'B', 'email' => 'b@example.com', 'phone' => '0712345678',
             'address' => 'X', 'city' => 'Nairobi', 'payment_method' => 'whatsapp', 'items' => [['id' => $product->id, 'quantity' => 1]]])->assertOk();

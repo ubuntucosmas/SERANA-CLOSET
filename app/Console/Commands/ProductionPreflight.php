@@ -56,6 +56,13 @@ class ProductionPreflight extends Command
             $this->check($mismatched === 0, 'Ledger matches the legacy order fields',
                 "LEDGER_READS is on but serana:ledger-check finds {$mismatched} mismatch(es). Set LEDGER_READS=false, run php artisan serana:ledger-check and resolve them.");
         }
+        // The stock gate (Phase D1): while stock per size sells, both models must agree.
+        if (\App\Support\StockMode::v2()) {
+            $reconciler = app(\App\Services\StockReconciler::class);
+            $problems = count($reconciler->failures($reconciler->report()));
+            $this->check($problems === 0, 'Stock per size matches the old batch numbers',
+                "serana:stock:reconcile finds {$problems} problem(s). Run it, fix them (recount if needed), or switch stock per size off: php artisan serana:stock:cutover --rollback.");
+        }
         $this->check($defaults->isEmpty(), 'No staff account uses the default password', 'Reset: php artisan serana:admin <email> for ' . $defaults->implode(', '));
 
         $this->section('Email');

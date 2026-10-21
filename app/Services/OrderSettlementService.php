@@ -350,8 +350,8 @@ class OrderSettlementService
                 return null;
             }
             if (! $locked->secureStockForPayment(now()->addHours(OrderPolicy::balanceHoldHours()))) {
-                $gone = $locked->stockReservations()->whereIn('status', ['held', 'released'])->with('product')->get()
-                    ->map(fn ($r) => $r->product?->name ?? 'An item')->unique()->values()->all();
+                $gone = $locked->stockReservations()->whereIn('status', ['held', 'released'])->with(['product', 'variant'])->get()
+                    ->map(fn ($r) => $r->variant ? app(\App\Services\StockService::class)->describe($r->variant) : ($r->product?->name ?? 'An item'))->unique()->values()->all();
                 $this->openResolution($locked, 'needs_resolution', 'stock_gone',
                     'Paid short after the hold lapsed: ' . implode(', ', $gone) . ' sold out in the meantime.');
                 $this->recompute($locked);
@@ -480,8 +480,14 @@ class OrderSettlementService
      * balance due or a refund owed. Once nothing is short and the order is
      * paid, its stock is sold.
      */
-    public function swapItem(CustomOrder $order, int $fromProductId, int $toProductId, ?string $size, Actor $actor, string $reason): void
+    public function swapItem(CustomOrder $order, int $fromProductId, int $toProductId, ?string $size, Actor $actor, string $reason, array $options = []): void
     {
+        if (\App\Support\StockMode::v2()) {
+            $this->swapToSize($order, $fromProductId, $toProductId, $options + ['top_size' => $size], $actor, $reason);
+
+            return;
+        }
+
         DB::transaction(function () use ($order, $fromProductId, $toProductId, $size, $actor, $reason) {
             // Lock order N9 with one more product: every product involved, by id, before holds and the order row.
             $ids = $order->stockReservations()->pluck('product_id')->push($toProductId)->unique()->sort()->values();
@@ -489,16 +495,18 @@ class OrderSettlementService
             $locked = $this->lockForMoney($order);
             $this->assertStockProblem($locked);
 
-            $from = $locked->stockReservations()->where('product_id', $fromProductId)->where('status', 'released')->first();
+            // All of the sold-out product's released rows (a set's top and bottom), counted once.
+            $fromRows = $locked->stockReservations()->where('product_id', $fromProductId)->where('status', 'released')->get();
+            $from = $fromRows->first();
             if (! $from) {
                 throw new \DomainException('from_product_id|That is not the item that sold out.');
             }
             $to = Product::find($toProductId);
-            if (! $to || ! $to->in_stock || ($to->batch_limit !== null && $from->quantity > (int) $to->availableStock())) {
+            $quantity = (int) $fromRows->where('second_part', false)->sum('quantity');
+            if (! $to || ! $to->in_stock || ($to->batch_limit !== null && $quantity > (int) $to->availableStock())) {
                 throw new \DomainException('to_product_id|' . ($to?->name ?? 'That item') . ' has no stock for this order.');
             }
 
-            $quantity = (int) $from->quantity;
             $oldUnit = (int) ($locked->lines()->where('product_id', $fromProductId)->where('line_type', OrderLine::ITEM)->value('unit_amount')
                 ?? round((float) Product::withTrashed()->find($fromProductId)?->price));
             $newUnit = (int) round((float) $to->price);
@@ -507,7 +515,7 @@ class OrderSettlementService
             $this->line($locked, OrderLine::ADJUSTMENT, "Swapped out: {$oldName}", $quantity, -$oldUnit, $actor, $reason, $fromProductId);
             $this->line($locked, OrderLine::ITEM, $to->name . ($label ? " ({$label})" : ''), $quantity, $newUnit, $actor, $reason, $to->id, $label ? ['size' => $label] : null);
 
-            $from->update(['status' => 'cancelled']);
+            $fromRows->each->update(['status' => 'cancelled']);
             if ($to->batch_limit !== null) {
                 $locked->stockReservations()->create(['product_id' => $to->id, 'quantity' => $quantity, 'status' => 'held',
                     'expires_at' => now()->addHours(OrderPolicy::balanceHoldHours())]);
@@ -532,6 +540,78 @@ class OrderSettlementService
                 $locked->commitReservations();
             } elseif ($derived['balance_due'] > 0) {
                 // The difference is paid by pay link; the new item is held meanwhile.
+                DB::table('custom_orders')->where('id', $locked->id)->update(['order_state' => 'open']);
+            }
+        }, 3);
+    }
+
+    /**
+     * The swap with stock per size (design §13.4): to a size (a set: its top
+     * and bottom sizes) that has stock, held at the shop that has it. Lock
+     * order: every level involved (the order's holds and the new sizes at
+     * every online location), by id, then the holds, then the order row.
+     */
+    private function swapToSize(CustomOrder $order, int $fromProductId, int $toProductId, array $options, Actor $actor, string $reason): void
+    {
+        $stock = app(\App\Services\StockService::class);
+        DB::transaction(function () use ($order, $fromProductId, $toProductId, $options, $actor, $reason, $stock) {
+            $to = Product::find($toProductId);
+            $toVariants = $to ? \App\Models\ProductVariant::resolve($to, array_filter($options, fn ($v) => $v !== null && $v !== '')) : null;
+            $online = \App\Models\Location::query()->online()->pluck('id');
+            $stock->lockForOrder($order, collect($toVariants ?? [])->flatMap(fn ($v) => $online->map(fn ($l) => [$v->id, $l]))->all());
+            $locked = $this->lockForMoney($order);
+            $this->assertStockProblem($locked);
+
+            $fromRows = $locked->stockReservations()->where('product_id', $fromProductId)->where('status', 'released')->get();
+            if ($fromRows->isEmpty()) {
+                throw new \DomainException('from_product_id|That is not the item that sold out.');
+            }
+            if (! $to || ! $to->in_stock) {
+                throw new \DomainException('to_product_id|' . ($to?->name ?? 'That item') . ' is not available.');
+            }
+            if ($toVariants === null) {
+                throw new \DomainException('to_product_id|Choose ' . ($to->garment_type === 'set' ? 'both sizes' : 'a size') . " of {$to->name}.");
+            }
+            $quantity = (int) $fromRows->where('second_part', false)->sum('quantity');
+            $firstPart = \App\Models\ProductVariant::partsFor($to->garment_type)[0];
+            $demands = $to->track_stock ? collect($toVariants)->map(fn ($v) => ['variant' => $v->setRelation('product', $to), 'quantity' => $quantity, 'second_part' => $v->part !== $firstPart])->all() : [];
+            try {
+                $allocations = $stock->allocate($demands);
+            } catch (\DomainException $e) {
+                throw new \DomainException('to_product_id|' . $e->getMessage());
+            }
+
+            $label = collect($toVariants)->map->label()->implode(' · ');
+            $oldUnit = (int) ($locked->lines()->where('product_id', $fromProductId)->where('line_type', OrderLine::ITEM)->value('unit_amount')
+                ?? round((float) Product::withTrashed()->find($fromProductId)?->price));
+            $newUnit = (int) round((float) $to->price);
+            $oldName = Product::withTrashed()->find($fromProductId)?->name ?? 'item';
+            $this->line($locked, OrderLine::ADJUSTMENT, "Swapped out: {$oldName}", $quantity, -$oldUnit, $actor, $reason, $fromProductId);
+            $this->line($locked, OrderLine::ITEM, "{$to->name} ({$label})", $quantity, $newUnit, $actor, $reason, $to->id,
+                ['size' => $label, 'variant_ids' => collect($toVariants)->pluck('id')->all()]);
+
+            $fromRows->each->update(['status' => 'cancelled']);
+            $stock->hold($locked, $allocations, now()->addHours(OrderPolicy::balanceHoldHours()));
+
+            $sizeOptions = collect($toVariants)->mapWithKeys(fn ($v) => [$v->part === \App\Models\ProductVariant::BOTTOM ? 'bottom_size' : 'top_size' => $v->size])->all();
+            $items = collect($locked->items_json ?? [])->map(function ($item) use ($fromProductId, $to, $newUnit, $label, $sizeOptions, $toVariants) {
+                if (! is_array($item) || (int) ($item['id'] ?? 0) !== $fromProductId) {
+                    return $item;
+                }
+
+                return array_merge($item, ['id' => $to->id, 'name' => $to->name, 'slug' => $to->slug, 'price' => $newUnit, 'size_label' => $label,
+                    'options' => $sizeOptions, 'variant_ids' => collect($toVariants)->pluck('id')->all()]);
+            })->all();
+            DB::table('custom_orders')->where('id', $locked->id)->update(['items_json' => json_encode($items)]);
+            $locked->forceFill(['items_json' => $items]);
+
+            if (! $locked->stockReservations()->where('status', 'released')->exists()) {
+                $this->clearResolution($locked);
+            }
+            $derived = $this->recompute($locked, 'Swapped to a cheaper item');
+            if ($derived['is_paid']) {
+                $locked->commitReservations();
+            } elseif ($derived['balance_due'] > 0) {
                 DB::table('custom_orders')->where('id', $locked->id)->update(['order_state' => 'open']);
             }
         }, 3);

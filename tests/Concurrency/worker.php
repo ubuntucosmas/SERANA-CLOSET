@@ -11,6 +11,7 @@
  *   php tests/Concurrency/worker.php pay-attempt <order id>:<attempt id>:<safaricom|system>
  *   php tests/Concurrency/worker.php settle-ref <order id>:<M-Pesa code>
  *   php tests/Concurrency/worker.php refund <order id>:<amount>:<code>
+ *   php tests/Concurrency/worker.php count <variant id>:<location id>:<counted>   (a stock take, Phase D1)
  *
  * Adversaries (test-only: take locks in the wrong order on purpose, to force
  * a deadlock on the app's first attempt). Each first writes throwaway rows so
@@ -93,6 +94,13 @@ try {
         } catch (DomainException $e) {
             echo json_encode(['status' => 200, 'refunded' => false, 'error' => $e->getMessage()]);
         }
+    } elseif ($action === 'count') {
+        [$variantId, $locationId, $counted] = array_map('intval', explode(':', $arg));
+        $app->make(ConsoleKernel::class)->bootstrap();
+        $owner = \App\Models\User::where('role', 'owner')->firstOrFail();
+        app(\App\Services\StockService::class)->count(\App\Models\ProductVariant::findOrFail($variantId), \App\Models\Location::findOrFail($locationId),
+            $counted, \App\Support\Actor::user($owner), 'Race: stock take');
+        echo json_encode(['status' => 200, 'counted' => $counted, 'rollbacks' => $rollbacks]);
     } elseif ($action === 'block-holds-then-product') {
         // Gap-lock all of stock_reservations (blocks any new hold), then want the product.
         $app->make(ConsoleKernel::class)->bootstrap();

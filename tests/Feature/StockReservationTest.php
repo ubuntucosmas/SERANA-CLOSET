@@ -13,17 +13,11 @@ use Tests\TestCase;
 class StockReservationTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same invariants in either stock model (Phase D1)
 
     private function product(int $limit = 3, int $sold = 0, float $price = 5000): Product
     {
-        return Product::create([
-            'name'        => 'Limited Jacket',
-            'slug'        => 'limited-jacket-' . uniqid(),
-            'price'       => $price,
-            'batch_limit' => $limit,
-            'batch_sold'  => $sold,
-            'in_stock'    => true,
-        ]);
+        return $this->stockedProduct($limit - $sold, ['name' => 'Limited Jacket', 'slug' => 'limited-jacket-' . uniqid(), 'price' => $price, 'batch_sold' => $sold]);
     }
 
     private function orderHolding(Product $product, int $qty = 2, array $overrides = []): CustomOrder
@@ -40,12 +34,7 @@ class StockReservationTest extends TestCase
             'mpesa_checkout_id' => 'ws_CO_' . uniqid(),
         ], $overrides));
 
-        $order->stockReservations()->create([
-            'product_id' => $product->id,
-            'quantity'   => $qty,
-            'status'     => 'held',
-            'expires_at' => now()->addMinutes(15),
-        ]);
+        $this->holdFor($order, $product, $qty, 'held', now()->addMinutes(15));
 
         return $order;
     }

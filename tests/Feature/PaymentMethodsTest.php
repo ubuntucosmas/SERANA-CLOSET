@@ -21,6 +21,7 @@ use Tests\TestCase;
 class PaymentMethodsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // runs the same in either stock model (Phase D1)
 
     private function admin(): User
     {
@@ -34,12 +35,13 @@ class PaymentMethodsTest extends TestCase
 
     private function checkout(array $extra = [], ?Product $product = null): \Illuminate\Testing\TestResponse
     {
-        $product ??= Product::create(['name' => 'Hoodie', 'slug' => 'hoodie-' . Str::random(4), 'price' => 2500, 'in_stock' => true, 'batch_limit' => 3, 'garment_type' => 'hoodie']);
+        $product ??= $this->stockedProduct(3, ['name' => 'Hoodie', 'slug' => 'hoodie-' . Str::random(4), 'price' => 2500]);
+        $size = $product->variants()->where('size', \App\Models\ProductVariant::ONE_SIZE)->exists() ? \App\Models\ProductVariant::ONE_SIZE : 'M';
 
         return $this->postJson(route('checkout.process'), array_merge([
             'request_id' => (string) Str::uuid(), 'full_name' => 'Wanjiru', 'email' => 'wanjiru@example.com',
             'phone' => '0712345678', 'address' => 'Moi Ave 1', 'city' => 'Nairobi',
-            'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => 'M']]],
+            'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => $size]]],
         ], $extra));
     }
 
@@ -77,7 +79,8 @@ class PaymentMethodsTest extends TestCase
         $this->assertSame(OrderStatus::PENDING_PAYMENT, $order->status);
         $this->assertStringContainsString('wa.me', $res->json('whatsapp_url'));
         $this->assertStringContainsString(urlencode($order->cipher), $res->json('whatsapp_url'));
-        $this->assertStringContainsString(rawurlencode('Size M'), str_replace('+', '%20', $res->json('whatsapp_url')));
+        $this->assertStringContainsString(rawurlencode('One size'), str_replace('+', '%20', $res->json('whatsapp_url')), 'the size, as a one-size piece reads');
+        $this->assertStringNotContainsString(rawurlencode('Size One size'), str_replace('+', '%20', $res->json('whatsapp_url')));
 
         $hold = StockReservation::where('custom_order_id', $order->id)->firstOrFail();
         $this->assertTrue($hold->expires_at->greaterThan(now()->addHours(23)), 'WhatsApp holds last hours, not minutes');

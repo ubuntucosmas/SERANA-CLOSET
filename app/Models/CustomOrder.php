@@ -74,7 +74,10 @@ class CustomOrder extends Model
         $top = $options['top_size'] ?? null;
         $bottom = $options['bottom_size'] ?? null;
         if ($top && $bottom) return "Top {$top} · Bottom {$bottom}";
-        if ($top || $bottom) return 'Size ' . ($top ?: $bottom);
+        if ($top || $bottom) {
+            $size = $top ?: $bottom;
+            return $size === \App\Models\ProductVariant::ONE_SIZE ? $size : "Size {$size}";
+        }
         return null;
     }
 
@@ -186,8 +189,14 @@ class CustomOrder extends Model
 
         return [
             'waiting' => $this->resolution === 'waiting_restock',
-            'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed()])->get()
-                ->map(fn ($r) => ['product_id' => $r->product_id, 'name' => $r->product?->name ?? 'Item', 'quantity' => (int) $r->quantity])->all(),
+            // One entry per sold-out product (a set's top and bottom rows together), named by size with stock per size.
+            'items' => $this->stockReservations()->where('status', 'released')->with(['product' => fn ($q) => $q->withTrashed(), 'variant'])->get()
+                ->groupBy('product_id')
+                ->map(fn ($rows) => ['product_id' => $rows->first()->product_id,
+                    'name' => ($rows->first()->product?->name ?? 'Item') . ($rows->first()->variant && $rows->first()->variant->size !== \App\Models\ProductVariant::ONE_SIZE
+                        ? ' (' . $rows->pluck('variant')->filter()->map->label()->implode(' · ') . ')' : ''),
+                    'quantity' => (int) $rows->where('second_part', false)->sum('quantity')])
+                ->values()->all(),
         ];
     }
 
@@ -299,6 +308,10 @@ class CustomOrder extends Model
      */
     public function commitReservations(?\DateTimeInterface $keepUntil = null): array
     {
+        if (\App\Support\StockMode::v2()) {
+            return app(\App\Services\StockService::class)->commit($this, $keepUntil);
+        }
+
         return DB::transaction(function () use ($keepUntil) {
             // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
             $this->lockReservedProducts();
@@ -306,16 +319,17 @@ class CustomOrder extends Model
                 ->whereIn('status', ['held', 'released'])
                 ->lockForUpdate()->get();
 
+            // A lapsed hold no longer counts against availability, so its units must be free again.
+            // Per product, all its lapsed units together (a set counts once, by its first part).
             $short = [];
-            foreach ($reservations as $reservation) {
-                $live = $reservation->status === 'held' && ($reservation->expires_at === null || $reservation->expires_at->isFuture());
-                if ($live) {
-                    continue;
-                }
-                $product = Product::withTrashed()->find($reservation->product_id);
-                // A lapsed hold no longer counts against availability, so its full quantity must be free.
-                if (! $product || ($product->batch_limit !== null && $reservation->quantity > (int) $product->availableStock())) {
-                    $short[$reservation->id] = $product?->name ?? 'An item';
+            $lapsed = $reservations->reject(fn ($r) => $r->status === 'held' && ($r->expires_at === null || $r->expires_at->isFuture()));
+            foreach ($lapsed->groupBy('product_id') as $productId => $rows) {
+                $product = Product::withTrashed()->find($productId);
+                $units = (int) $rows->where('second_part', false)->sum('quantity');
+                if (! $product || ($product->batch_limit !== null && $units > (int) $product->availableStock())) {
+                    foreach ($rows as $row) {
+                        $short[$row->id] = $product?->name ?? 'An item';
+                    }
                 }
             }
 
@@ -332,7 +346,9 @@ class CustomOrder extends Model
             }
 
             foreach ($reservations as $reservation) {
-                Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
+                if (! $reservation->second_part) {
+                    Product::where('id', $reservation->product_id)->increment('batch_sold', $reservation->quantity);
+                }
                 $reservation->update(['status' => 'committed']);
             }
 
@@ -352,6 +368,9 @@ class CustomOrder extends Model
     {
         // M-Pesa holds last minutes; a WhatsApp order passes its longer window.
         $window = $until ?? now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
+        if (\App\Support\StockMode::v2()) {
+            return app(\App\Services\StockService::class)->secure($this, $window);
+        }
 
         return DB::transaction(function () use ($window) {
             // Lock order: products (by id), then stock_reservations. See lockReservedProducts().
@@ -362,14 +381,14 @@ class CustomOrder extends Model
 
             // Validate first, mutate after — a bare `return false` from this
             // closure commits, so nothing may change until all lines pass.
-            foreach ($reservations->where('status', 'released') as $reservation) {
-                $product = Product::whereKey($reservation->product_id)->lockForUpdate()->first();
+            foreach ($reservations->where('status', 'released')->groupBy('product_id') as $productId => $rows) {
+                $product = Product::whereKey($productId)->lockForUpdate()->first();
                 if (! $product) {
                     return false;
                 }
-                // The released hold no longer counts against availability, so
-                // the full quantity must still be free to re-claim it.
-                if ($product->batch_limit && $reservation->quantity > (int) $product->availableStock()) {
+                // A released hold no longer counts against availability, so all of this
+                // product's released units must still be free to re-claim them (a set once).
+                if ($product->batch_limit && (int) $rows->where('second_part', false)->sum('quantity') > (int) $product->availableStock()) {
                     return false;
                 }
             }
@@ -410,6 +429,11 @@ class CustomOrder extends Model
      */
     public function lockStock(): void
     {
+        if (\App\Support\StockMode::v2()) {
+            app(\App\Services\StockService::class)->lockForOrder($this); // stock levels by id, then holds (design §13.3)
+
+            return;
+        }
         $this->lockReservedProducts();
         $this->stockReservations()->whereIn('status', ['held', 'released'])->orderBy('id')->lockForUpdate()->get(['id']);
     }

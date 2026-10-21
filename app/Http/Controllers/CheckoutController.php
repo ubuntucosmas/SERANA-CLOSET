@@ -71,8 +71,8 @@ class CheckoutController extends Controller
 
             $quantity = (int) $item['quantity'];
 
-            // Batch-limited products: availability accounts for active holds.
-            if (! $product->in_stock || ($product->batch_limit !== null && $quantities[$product->id] > $product->availableStock())) {
+            // Batch-limited products: availability accounts for active holds (the old model; v2 checks per size below).
+            if (! \App\Support\StockMode::v2() && (! $product->in_stock || ($product->batch_limit !== null && $quantities[$product->id] > $product->availableStock()))) {
                 $stockErrors[] = "{$product->name} — only {$product->availableStock()} available (requested: {$quantity})";
             }
 
@@ -88,6 +88,30 @@ class CheckoutController extends Controller
                 'is_bespoke' => (bool) $product->is_customizable,
                 'options'    => $item['options'] ?? null,
             ];
+        }
+
+        // Stock per size (design §13.6): each line is read as its size(s), and sizes are what's held.
+        $v2 = \App\Support\StockMode::v2();
+        $demands = [];
+        if ($v2) {
+            $stock = app(\App\Services\StockService::class);
+            $plan = $stock->demandsFor($validated['items'], $products);
+            if ($plan['errors']) {
+                return response()->json(['success' => false, 'message' => $plan['errors'][0]['message'], 'line_errors' => $plan['errors']], 422);
+            }
+            foreach ($plan['variant_ids'] as $index => $ids) {
+                $snapshotItems[$index]['variant_ids'] = $ids;
+            }
+            $demands = $plan['demands'];
+            $stockErrors = array_filter([$stock->shortageFor($demands)]);
+            foreach ($products as $product) {
+                if (! $product->in_stock) {
+                    $stockErrors[] = "{$product->name} is no longer available.";
+                }
+            }
+            if ($stockErrors) {
+                return response()->json(['success' => false, 'message' => $stockErrors[0] . ' Please review your bag and try again.'], 422);
+            }
         }
 
         if (! empty($stockErrors)) {
@@ -116,18 +140,20 @@ class CheckoutController extends Controller
         // rolls the whole transaction back, and this closure only touches the
         // database (mail and the session come after it), so re-running is safe.
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp) {
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp, $v2, $demands) {
                 // A prompt is paid in minutes; a WhatsApp order needs time to arrange payment.
                 $expiresAt = $isWhatsApp
                     ? now()->addHours(PaymentSettings::holdHours())
                     : now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
+                // Stock per size: lock the size levels (lock order step 1), choose a location per size.
+                $allocations = $v2 ? app(\App\Services\StockService::class)->allocate($demands) : [];
 
                 // Hold (not sell) batch stock for each item under a row lock so
                 // concurrent checkouts serialize on the product and can't oversell.
                 // Lock order: products (by id), then stock_reservations — the
                 // global order every stock path follows (CustomOrder::lockReservedProducts).
-                foreach ($quantities->sortKeys() as $productId => $quantity) {
+                foreach ($v2 ? [] : $quantities->sortKeys() as $productId => $quantity) {
                     $product = Product::where('id', $productId)->lockForUpdate()->first();
                     if (! $product || ! $product->in_stock) {
                         throw new \DomainException('This item is no longer available.');
@@ -163,6 +189,7 @@ class CheckoutController extends Controller
                 ]);
 
                 // Persist the holds now that we have an order id.
+                app(\App\Services\StockService::class)->hold($order, $allocations, $expiresAt);
                 foreach ($toReserve as $reservation) {
                     $order->stockReservations()->create([
                         'product_id' => $reservation['product_id'],
@@ -175,10 +202,10 @@ class CheckoutController extends Controller
                 return $order;
             }, 3);
         } catch (\DomainException $e) {
-            // Stock race: someone else claimed the last unit(s) mid-checkout.
+            // Stock race: someone else claimed the last unit(s) mid-checkout. Per size, say which.
             return response()->json([
                 'success' => false,
-                'message' => 'An item in your bag just sold out. Please review your bag and try again.',
+                'message' => $v2 ? $e->getMessage() . ' Please review your bag and try again.' : 'An item in your bag just sold out. Please review your bag and try again.',
             ], 422);
         } catch (\Throwable $e) {
             Log::error("🚨 [Checkout_Fault] " . $e->getMessage(), [

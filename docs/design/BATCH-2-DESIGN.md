@@ -860,3 +860,310 @@ Migration 000006 refuses to run if a code is already booked under both M-Pesa me
 - **Orders waiting for the next batch aren't on the problems list** and the overdue job leaves them alone. They are a decision already made.
 
 **Verification:** `docs/audit/verification/phase-c/README.md`. Before: `ledger-check` 2 mismatches (the two legacy double bookings). After: 0.
+
+## 13. Phase D addendum: stock per size and location, then delivery (design, 2026-10-20)
+
+**Owner decisions in force:**
+- **Stock is tracked per size.**
+- **One shop now, more planned:** the model takes many locations; the UI is built for one.
+- **Delivery zones and fees** are entered by the owner in the Studio. Only "Pickup at shop" and "Outside our zones — quote on WhatsApp" are seeded.
+- **Earlier decisions still in force:** D7 (a), a set is stocked as two components (top and bottom), and D8, "limited batch of N" becomes receiving N units.
+
+This section supersedes the Phase D and E1 sketches above (§2.1 `product_variants.on_hand`, `stock_movements`, `delivery_options`; §8 Phase D and E1) where they differ. The till, POS sale and returns screens (E2–E5) are unchanged and come later.
+
+### 13.1 Model
+
+```mermaid
+erDiagram
+  products ||--o{ product_variants : "sizes"
+  locations ||--o{ stock_levels : "holds"
+  product_variants ||--o{ stock_levels : "per location"
+  product_variants ||--o{ stock_movements : "history"
+  locations ||--o{ stock_movements : "at"
+  product_variants ||--o{ stock_reservations : "held"
+  locations ||--o{ stock_reservations : "from"
+  product_variants ||--o{ order_lines : "sold as"
+  locations ||--o{ delivery_options : "pickup at"
+  delivery_options ||--o{ custom_orders : "chosen"
+  products {
+    bool track_stock "false = made to order, always available"
+  }
+  product_variants {
+    bigint id PK
+    bigint product_id FK
+    string part "single, top or bottom"
+    string size "S, M, ... or One size"
+    string sku UK "SRN-0041-T-M"
+    string barcode UK "EAN-13, in-store range 2xxxxxxxxxxxc"
+    bool active
+    int sort
+  }
+  locations {
+    bigint id PK
+    string name
+    string address
+    bool fulfils_online
+    bool accepts_pickup
+    int sort "allocation priority"
+    bool active
+  }
+  stock_levels {
+    bigint id PK
+    bigint product_variant_id FK
+    bigint location_id FK "unique with variant"
+    int on_hand "CHECK on_hand >= 0, written only by StockService"
+    timestamp counted_at "last stock take, nullable"
+  }
+  stock_movements {
+    bigint id PK
+    bigint product_variant_id FK
+    bigint location_id FK
+    string type "receive, sale, return, count_correction, damage, transfer_out, transfer_in"
+    int quantity "signed delta"
+    bigint custom_order_id FK "nullable: sale, return"
+    bigint order_line_id FK "nullable, unique with type for sale: one sale movement per line"
+    uuid transfer_id "pairs transfer_out with transfer_in"
+    string actor_type
+    bigint actor_id
+    string reason "required for every human movement"
+    timestamp occurred_at
+  }
+  stock_reservations {
+    bigint product_variant_id FK "new, nullable while STOCK_V2 is off"
+    bigint location_id FK "new"
+    bigint product_id FK "kept for the old model and rollback"
+    bool second_part "a set's bottom row: the old product-level model counts the set once"
+  }
+```
+
+- **Variants.**
+  - A product's variants are its offered sizes per part:
+    - a single piece (hoodie, tee): `part=single`;
+    - a jogger: `part=bottom`, as today's size picker already treats it;
+    - a set: a `top` and a `bottom` variant per size (D7 (a)). A set sold as "Top M · Bottom L" holds and sells one Top-M unit and one Bottom-L unit **of that set product**. Set components are not shared with standalone hoodies or joggers.
+  - A one-size product has a single variant, `size = "One size"`.
+  - Variants are never deleted, only deactivated (`active=false`): an inactive size can't be bought, but its history stays.
+- **SKU and barcode** are generated once per variant and never reused.
+  - The SKU is `SRN-{product id, 4 digits}-{S|T|B}-{size}`.
+  - The barcode is an EAN-13 in the GS1 in-store range (prefix `2`), with a check digit, so standard scanners read it and it can't collide with real retail barcodes.
+  - Label printing waits for the till phase.
+- **Locations.** One row is seeded from the store profile ("Serana Studio", the store address), with `fulfils_online` and `accepts_pickup` both true. Nothing in code assumes one location; only the Studio UI does, by not offering a location picker while there is one.
+- **Stock levels and movements.**
+  - `stock_movements` is append-only, like the money ledger: no update, no delete; a mistake is corrected by another movement.
+  - `stock_levels.on_hand` is a cached sum of movements per (variant, location), written only by `StockService` in the same transaction as the movement. `CHECK (on_hand >= 0)` is enforced by the database. Laravel's schema builder has no CHECK, so the migration adds it in raw SQL: `ALTER TABLE … ADD CONSTRAINT` on MariaDB, and `BEFORE INSERT/UPDATE` triggers on SQLite (which can't add a constraint to an existing table). A test proves both refuse a negative level. It's the first CHECK constraint in the schema.
+  - **Holds are not movements.** A hold reserves units without moving them (`stock_reservations`, as today, plus variant and location). Committing a hold writes the `sale` movement; releasing it writes nothing. This keeps the movement history to things that physically happened.
+- **Single writer.** `StockService` is the only code that writes `stock_levels`, `stock_movements` and the variant/location fields and status of `stock_reservations`. Checkout, settlement, the expiry job, Phase C's swap and part-payment hold, and the Studio stock screens all call it. `OrderSettlementService` stays the only money writer and calls `StockService` inside its own transaction.
+- **Tracked or not.** `products.track_stock`, per product:
+  - `false`: made to order. Variants still exist (sizes, SKU), but there are no levels or holds, and the item is always available.
+  - `true`: availability comes from the levels.
+
+### 13.2 `batch_limit` and `batch_sold` after cutover
+
+**Options:**
+- keep them as a production-plan metric;
+- retire them;
+- derive them from the new model.
+
+**Recommendation: retire them as a source of truth, but keep them correct until they're dropped.**
+
+- **D8 already decided** that "limited batch of N" means receiving N units, and that a product with no limit is made to order (`track_stock=false`).
+- **While `STOCK_V2` is off:** the old model is the truth, exactly as today.
+- **At cutover:** the confirm step re-baselines `batch_limit := batch_sold + Σ on_hand` for each tracked product. From then on, every committed sale still increments `batch_sold` (a dual write). So turning `STOCK_V2` off again gives the old model the same product totals as the new one. That's the rollback guarantee; sizes are lost on rollback, totals are not.
+- **The Studio stops showing batch numbers** when `STOCK_V2` is on; scarcity on the storefront reads on-hand per size.
+- **A later cleanup PR,** after one release cycle with reconciliation at 0, stops the dual write and drops both columns. Any "we plan to make 15" production figure the owner wants is a separate, display-only field if ever needed.
+
+### 13.3 Availability and the lock order
+
+**Availability.**
+- **Online, per variant:** Σ over active locations with `fulfils_online` of max(0, `on_hand` − active holds at that location). An active hold is `held` and not yet expired, as today.
+- **Per location:** availability floors at 0. A stock take can find fewer units than are already held; the holds then keep their claim and the shortfall surfaces at commit (§13.4).
+- **Pickup:** availability is per location. A pickup order holds at its pickup location.
+- **Untracked products:** always available.
+- **Product cards:** they keep reading one `available_stock` per product, now Σ over its variants. For a set, it's the number of complete sets: the scarcer part's total over its sizes. Cards change no code (`stock.js` gets a `track_stock` branch).
+
+**Allocation across locations** (designed now, exercised once a second shop exists):
+- An online delivery order holds each line at the first location by `sort` that has the full quantity.
+- Lines of one order may come from different locations; each hold records its own.
+- No split of one line across locations.
+
+**Global lock order (STOCK_V2):** `stock_levels` rows by id → `stock_reservations` rows by id → the order row → ledger rows (→ till session, later).
+- Products are no longer locked for stock: the level row is the unit of contention, so two buyers of different sizes no longer queue on each other.
+- Untracked variants have no level row and take no stock lock.
+- `StockService::lockLevels($pairs)` takes the (variant, location) pairs, locks every level row in id order in one statement, then the order's holds in id order. `lockForMoney()` calls it before the order row, exactly where it calls `lockStock()` today.
+
+| Lock site today | STOCK_V2 |
+|---|---|
+| `CheckoutController` locks each product by id, then inserts holds | `StockService::hold()`: lock the level rows of every line (sorted), check per-location availability, insert holds |
+| `CustomOrder::lockReservedProducts()` / `lockStock()` | `StockService::lockForOrder($order)`: level rows of the order's holds, then the holds |
+| `commitReservations()` (Phase C, never past the limit) | `StockService::commit($order, $keepUntil)`: same rule per variant and location; writes `sale` movements and decrements `on_hand` |
+| `secureStockForPayment()` (re-take lapsed holds, never shorten a longer hold) | `StockService::secure($order, $until)`: same rule per variant and location |
+| `releaseReservations()`, WhatsApp cancel, `cancelForRefund` | `StockService::release()`: status only, no level lock needed (it only frees stock), still under the hold row lock |
+| `stock:release-expired` bulk update | Unchanged: an UPDATE of `held` → `released` takes the hold row locks a commit would wait on |
+| `swapItem()` locks old and new products by id | Locks the union of both variants' level rows in id order, then holds, then the order |
+| *(new)* stock take, receive, damage, transfer | `StockService::move()`: lock the level row(s), write the movement and the level, audited with actor and reason |
+
+The `ConcurrencyTest` harness adds STOCK_V2 workers for each row above. A new static test, like `LedgerReadsCutoverTest`, fails on any `lockForUpdate()` of `products`, `stock_levels` or `stock_reservations` outside `StockService` (today nothing enforces the lock order statically; only the race tests do).
+
+### 13.4 Phase C rules on variants
+
+- **Never oversell:** per variant and location, enforced twice:
+  - a commit takes a lapsed hold only if `on_hand − other active holds ≥ quantity` at that location;
+  - the database refuses `on_hand < 0`.
+- **Late payment with stock gone:** unchanged flow (`needs_resolution`, `stock_gone`, a customer email naming "Linen Set (M)"). The shortfall is per variant: a set whose Top M is free but whose Bottom L sold waits as a whole; the available part is held while the studio decides, as today.
+- **Swap:** the Studio picks a target **variant** (product + size; for a set, both sizes). It can be the same product in another size, or the same size once restocked. The price difference flows to the balance or a refund as today, and the new variant is held for the balance-hold hours.
+- **Part-payment hold:** holds the order's variants at their locations for the balance-hold hours; if they can't be secured, the order waits like a late payment.
+- **Refund/cancel after a sale has been committed** (not reachable today, reachable once collected orders can be returned): a `return` movement puts the unit back, with actor and reason. Never automatic: restock is a Studio choice (restock or write off).
+
+### 13.5 Cutover
+
+1. **Deploy D1 with `STOCK_V2=false`.** Migrations:
+   - create `locations` (one row), `product_variants`, `stock_levels`, `stock_movements`, the new reservation columns, and `products.track_stock = (batch_limit IS NOT NULL)`;
+   - create variants from the sizes each product offers (`specifications.ui.sizes`, then `specifications.sizes`, then today's default S–XXL), per part by garment type, plus any size found in past order lines' options that isn't in that list, created **inactive**;
+   - backfill `product_variant_id` and `location_id` on existing holds from their order's `items_json` options.
+
+   Nothing reads any of this yet. The backfill obeys the Phase A rule: it only writes columns that exist at or before its migration.
+2. **Stock take (Studio → Stock).** The owner enters counted units per variant (tracked products only; untracked ones show "made to order"). Each entry is a `count_correction` movement (reason "Opening stock take", actor logged) and stamps `counted_at`. It can be done in several sittings; the old model keeps selling meanwhile.
+3. **Reconcile.** `serana:stock:reconcile` reports, per tracked product:
+   - (a) old availability (`batch_limit − batch_sold − holds`) against new (Σ variant availability), and the difference;
+   - (b) variants never counted;
+   - (c) sales committed by the old model after a variant was counted. These are known by order line options and `paid_at`, and are replayed at confirm.
+   - Integrity: `on_hand` = Σ movements per (variant, location); no negative levels; every committed V2 hold has exactly one `sale` movement; every active hold has a variant (when V2 is on).
+
+   Exit 1 on any integrity failure. Differences in (a) are expected before confirm: they're what the count corrects.
+4. **Confirm and switch on** (owner, in the Studio or `serana:stock:cutover --confirm`):
+   - refuses while any tracked variant is uncounted or any active hold can't be mapped to a variant;
+   - in one transaction: replays (c) as `sale` movements (idempotent by order line), re-baselines `batch_limit` (§13.2), and writes the audit row;
+   - then sets the `stock_v2` setting on.
+
+   The flag is a Studio setting backed by `STOCK_V2` as the default, so switching back needs no deploy. The `.env` value can force it off.
+5. **After the switch:**
+   - reconciliation (a) must be 0 for every product;
+   - `serana:preflight` runs the reconciliation whenever `STOCK_V2` is on and fails on any mismatch, as it does for the ledger.
+6. **Rollback:**
+   - turn `stock_v2` off. The old model's totals are already right (dual write), and holds keep their `product_id`;
+   - V2 data stays, untouched, for a second attempt. A second confirm re-baselines again; it doesn't re-count;
+   - code rollback (redeploying the previous tag) is safe because the migrations only add tables and columns.
+7. **Old carts:** a bag in `localStorage` from before D1 has `id`, `quantity` and the size options, but no variant.
+   - The server resolves the variant from the options, so most old carts just work.
+   - A line it can't resolve (no size chosen for a sized product, an unknown or inactive size) fails with `422` and a per-line message, "Choose a size for Linen Set". The cart and checkout show it on that line, with a link to the product page to pick the size. The bag isn't cleared.
+   - The client also starts sending `variant_ids`; the server checks they match the options and the product.
+
+### 13.6 Customer side
+
+- **Product page:** each size row shows per-size availability from the server:
+  - available sizes are plain;
+  - "Only 2 left in M" at 3 or fewer;
+  - sold-out sizes are struck through and disabled, with an `aria-label` saying "Sold out in L".
+  - A set shows both rows, each against its own part.
+  - Untracked products show sizes with no counts.
+  - Picking a sold-out size is impossible; a size that sells out while the page is open fails at checkout, per line, as above.
+- **Cart:** carries `variant_ids` per line next to the options (the line key stays options-based, so old lines merge correctly). The +/− stepper caps at that variant's availability.
+- **Checkout:** sends items as today, plus `variant_ids`, and shows per-line errors.
+- **Receipts, tracking and the Studio:** show the size labels they show today. Order lines get `product_variant_id`, so history keeps the exact SKU.
+
+### 13.7 Delivery
+
+- **`delivery_options`:**
+  - fields: `name`, `type` (`pickup` / `zone` / `quote`), `fee` (whole KES), `free_over` (nullable, compared with the item subtotal), `eta_text` (e.g. "1–2 working days"), `location_id` (pickup only, must have `accepts_pickup`), `active`, `sort`;
+  - Studio → Settings → Delivery (owner) edits it: no deletes, deactivate instead;
+  - seeds: "Pickup at shop" (pickup, KES 0, location 1) and "Outside our zones — quote on WhatsApp" (quote). No zones are seeded.
+- **Checkout:**
+  - the customer picks an active option and sends only its id;
+  - the server computes the fee (`0` if `free_over` is set and subtotal ≥ `free_over`, otherwise `fee`) and writes a `delivery` order line snapshotting the name and fee, plus `delivery_option_id` on the order;
+  - a tampered fee or an inactive option is ignored or refused.
+- **Quote on WhatsApp:**
+  - forces the WhatsApp payment method;
+  - the order has no delivery line yet, and STK and the pay link refuse it until one exists;
+  - the Studio adds the fee ("Set delivery fee", with a reason), which writes the delivery line, and the WhatsApp confirmation then uses the real total.
+- **Bespoke:** when quoting, the Studio picks a delivery option (default "Pickup at shop"). It becomes a delivery line next to the quote, so the deposit, the balance, the pay page and the quote message all include it. It can be changed until the order ships, as an adjustment line.
+- **Copy:** "(delivery included)", "Delivery included" and "No delivery fee added at checkout" are removed everywhere (WhatsApp message, cart drawer, trust bar, WhatsApp order panel, product page, order-placed email). Receipts, tracking, the WhatsApp message and the Studio show the delivery line. Old orders, which have no delivery line, show nothing extra.
+- **Fulfilment stages:**
+  - add `ready_for_pickup` and `collected`;
+  - pickup orders: `pending` → (paid) → `ready_for_pickup` → `collected`;
+  - delivery orders: `… → shipped`. A pickup order can't be marked shipped, and a delivery order can't be marked ready for pickup or collected;
+  - **guards:** nothing owed (`balance_due ≤ 0`) for `ready_for_pickup`, `collected` and `shipped`, with the owner override and reason for bespoke as today. A shop order with a balance never moves (Phase C);
+  - **`ready_for_pickup`** sends a "ready for pickup" email: the location's address, opening text and reference, plus "bring the phone number you ordered with";
+  - **Collection before the till:** the Studio action "Mark collected" asks for the reference and the phone number the customer gives. It checks `matchesContact()`, refuses on mismatch, and logs the actor plus a reason/note. Shop orders: stock was already committed at payment, so no stock movement happens here.
+  - Queues and labels: a "Ready for pickup" queue, tracking-page labels, and the legacy status mapping (each stage maps to itself, as today).
+
+### 13.8 Phase plan
+
+**D1: variants, locations, stock service, stock take, cutover** (one PR)
+- **Scope:** §13.1–13.6:
+  - migrations and backfill;
+  - `StockService`;
+  - the STOCK_V2 paths in checkout, settlement, Phase C, the expiry job and availability;
+  - Studio → Stock (stock take, receive, damage with reason, movement history per product);
+  - SKU and barcode generation;
+  - `serana:stock:reconcile` (in `serana:preflight` when V2 is on) and `serana:stock:cutover`;
+  - the size picker, cart and checkout variant handling;
+  - the old-cart fallback.
+- **Done when:**
+  - the whole suite passes with `STOCK_V2` on **and** off, on both databases, with `LEDGER_READS` on and off (CI matrix 2 × 2 × 2);
+  - the MariaDB race tests pass: two buyers for the last unit of one size, one wins; two buyers of the last M and the last L of one product both win; a late payment against a checkout for the last unit; a stock take during a live hold;
+  - the browser walkthrough covers stock take → reconcile → confirm → buy a size → sold out in that size only → late payment / swap by size → rollback and back on;
+  - `ledger-check` and stock reconciliation are at 0.
+
+**D2: delivery options, pickup, collection** (one PR)
+- **Scope:** §13.7.
+- **Done when:**
+  - every new order's total visibly includes its delivery line on checkout, receipts (email and PDF), tracking, the WhatsApp message and the Studio;
+  - quote orders can't be paid until the Studio adds the fee;
+  - pickup orders run `ready_for_pickup` → email → `collected` with a verified phone and the actor logged;
+  - the free-over boundary, tampered option and fee, and inactive option are tested;
+  - the walkthrough and ledger check are at 0.
+
+**Risks, and what protects checkout and settlement through the cutover:**
+
+| Risk | Protection |
+|---|---|
+| Two models disagree; a flip oversells | The flip is refused until counts are complete and reconciliation is clean. The dual write keeps `batch_sold` true, so a flip back is safe. `preflight` fails on any mismatch while V2 is on |
+| Sales during a multi-day stock take | Replayed at confirm from order lines and `paid_at`, idempotent per line, and listed in the reconciliation before confirm |
+| A new lock order deadlocks with old paths | Every lock site goes through `StockService`. The race tests cover each pair (checkout × settle, checkout × secure, settle × stock take, swap × checkout), and deadlock retry is kept (3 attempts) |
+| Sets | Both parts are held and committed in one transaction; tests cover a set whose second part sold out |
+| Old carts | Server-side resolution from options; a per-line 422 for the rest; a test with a pre-D1 payload |
+| Phase C regressions | The Phase C tests run in both modes (the same assertions, made per variant) |
+| Money path | `OrderSettlementService` is unchanged as the money writer. Ledger-check and the after-each-test `LedgerVerifier` safety net keep running in every mode |
+| Outside-edited storefront files | See decision P1 below |
+
+**Owner decisions (2026-10-20):** the full design is approved, and the recommendations are accepted for P2–P9. **P1 is open:** the outside edits to `Checkout.vue` and `CartDrawer.vue` must be committed before D2 starts. D1 doesn't touch them. The decisions as asked:
+- **P1. Files with uncommitted outside edits.** D2 can't be built without editing `Checkout.vue` (the delivery picker) and `CartDrawer.vue` (the "delivery incl." text). D1 needs small changes to `ProductCard.vue` only if cards should show per-size hints (otherwise none). `ProductsPanel.vue` should show stock per size; D1 can instead put stock in a new Stock panel and leave it alone. **Recommend:** commit or merge those edits before D2 starts. D1 avoids them.
+- **P2. Sets as two components of the same set product** (D7 (a)): confirm that a set's top and bottom are stocked separately per size, and are not shared with standalone hoodies or joggers.
+- **P3. Default sizes:** every product gets S, M, L, XL, XXL (today's default) unless the owner narrows it per product in the Studio. One-size products are set to "One size" by the owner. Confirm the default list.
+- **P4. Receive and damage forms in D1** (not only the stock take), since after the switch on-hand can't otherwise go up. **Recommend: yes,** with a reason on each.
+- **P5. Barcode format:** EAN-13 in the in-store `2…` range (scanner-friendly) rather than a Code 128 of the SKU. **Recommend EAN-13.**
+- **P6. Multi-location rule for later:** each line ships from the first location (by priority) that has all of it; no splitting a line. Confirm.
+- **P7. Bespoke delivery is chosen by the Studio when quoting** (default pickup), not by the customer on the pay page. Confirm.
+- **P8. Pickup verification before the till:** reference + phone, with the note logged; nothing owed. Confirm. A balance can still be taken first with Record payment.
+- **P9. CI time:** the D1 matrix doubles the runs (8 instead of 4, about +3 min). **Recommend accepting it** until V2 is the only model.
+
+## 14. Phase D1 as built (2026-10-20, branch `phase-d/stock`)
+
+| Step | Commit | What |
+|---|---|---|
+| 1 model | `458e599` | Locations (one seeded), product variants per offered size and part (a set as top and bottom), stock levels (never negative: a CHECK on MariaDB, triggers on SQLite), append-only stock movements, `products.track_stock`. The backfill maps live holds to sizes and reports any it can't read |
+| 2 service | `5443755` | `StockService`, the single writer: receive, damage, count (one correction, stamps the count) and transfer, with an actor and a reason and audited. Availability per size and per product |
+| 3 switch | `7483ce4` | `STOCK_V2` (`setting` / `on` / `off`). The storefront reads per-size availability when it's on |
+| 4 checkout | `db9de73` | Holds per size under the size locks; unreadable lines refused per line ("Choose a size for X") |
+| 5 settlement | `6189c0c` | Paying writes sale movements; the Phase C rules work per size (late payment, a set waits as a whole, M-Pesa retry, swap by size, part-payment hold) |
+| 6 cutover | `fd66968` | `serana:stock:reconcile`, `serana:stock:cutover` (preview / `--confirm` / `--rollback`), the old model's post-count sales replayed, `batch_limit` re-baselined, preflight gate |
+| 7 Studio | `abcb860` | Studio → Stock: count, receive, write off, sizes on offer, made to order, history per product, the owner's switch |
+| 8 storefront | `624dda0` | Size picker per size ("Only 2 left in M", "Sold out in L"), the bag capped per size, "Choose a size" for old bag lines |
+| 9 races | `efc6fd5` | MariaDB races per size; a static lock-order test |
+| 10 both models | `8508793` | The whole suite runs with `STOCK_V2` off and on; CI runs eight PHP passes |
+| Fixes | `b3443ff`, `d733eac`, `c0eea0b`, `d59dae6` | Old unsized holds don't block the switch and never sell blind; set swap fields; no switch offered while a live hold has no size; sale reasons |
+
+**Where the build departs from §13:**
+- **`stock_reservations.second_part`.** The backfill splits an old set hold into top and bottom rows, and the old model is still live until the switch. Every product-level count skips the bottom row, so a set counts and sells once. (§13.1 updated.)
+- **Locking reads.** Stock decisions taken under a size's level lock read the holds and the level with locking reads, never a REPEATABLE READ snapshot older than the lock. Every writer of holds takes the level lock first, so this can't form a lock cycle.
+- **Re-baselining after every movement.** While v2 is on, every non-sale movement re-baselines `batch_limit`, and every sale still adds to `batch_sold` (§13.2). Switching back shows the same totals: tested, and done in the walkthrough.
+- **What blocks the cutover.** Only live (`held`) holds without a size block it. Old released holds without a size are listed as a warning; a late payment on one waits for the studio.
+- **Product lists.** `StockService::preloadAvailability()` computes a whole list's availability in two queries.
+- **CI.** The four `STOCK_V2=on` passes are extra steps in the same `test` job, so the required check keeps its name.
+- **One-size pieces** read "One size", not "Size One size", and sold-out notices give their name alone.
+
+**For D2:**
+- P1 still stands: `Checkout.vue` and `CartDrawer.vue` carry outside edits and must be committed before D2.
+- Both still build their own "Size …" label rather than `sizes.js`'s `sizeLabel()`.
+
+**Verification:** `docs/audit/verification/phase-d/README.md`.

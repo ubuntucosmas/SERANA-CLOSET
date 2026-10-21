@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCurrency } from '@/Composables/useCurrency';
+import { sizeLabel as formatSize } from '@/Support/sizes';
 
 const page = usePage();
 const props = defineProps({
@@ -46,12 +47,8 @@ onMounted(() => {
 onBeforeUnmount(stopCountdown);
 function openedByTap() { stopCountdown(); markOpened(); }
 
-// Same wording as the bag and checkout: "Top M · Bottom L" or "Size M".
-function sizeLabel(item) {
-    const { top_size: top, bottom_size: bottom } = item.options || {};
-    if (top && bottom) return `Top ${top} · Bottom ${bottom}`;
-    return top || bottom ? `Size ${top || bottom}` : null;
-}
+// Same wording as the bag and checkout: "Top M · Bottom L", "Size M" or "One size".
+const sizeLabel = (item) => formatSize(item.options);
 </script>
 
 <template>

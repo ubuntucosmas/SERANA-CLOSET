@@ -86,5 +86,41 @@ jobs:
           DB_USERNAME: testing
           DB_PASSWORD: testing
 
+      # Phase D1: the same four runs selling from stock per size (STOCK_V2=on), so the
+      # old model and the new one stay green until the old one is retired.
+      - name: PHP tests (SQLite, stock per size)
+        run: php artisan test
+        env:
+          STOCK_V2: 'on'
+
+      - name: PHP tests (MariaDB, stock per size)
+        run: php artisan test --fail-on-skipped
+        env:
+          STOCK_V2: 'on'
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: testing
+          DB_PASSWORD: testing
+
+      - name: PHP tests (SQLite, stock per size, ledger reads)
+        run: php artisan test
+        env:
+          STOCK_V2: 'on'
+          LEDGER_READS: 'true'
+
+      - name: PHP tests (MariaDB, stock per size, ledger reads)
+        run: php artisan test --fail-on-skipped
+        env:
+          STOCK_V2: 'on'
+          LEDGER_READS: 'true'
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: testing
+          DB_PASSWORD: testing
+
       - name: Frontend tests
         run: node --test 'tests/Frontend/*.test.mjs'

@@ -91,6 +91,11 @@ class CatalogController extends Controller
             'price.min' => 'Price must be at least KSh 1.',
         ]);
 
+        // With stock per size on, stock lives in Studio → Stock: the batch numbers follow it.
+        if (\App\Support\StockMode::v2()) {
+            unset($validated['batch_limit']);
+        }
+
         $targetDisk = config('filesystems.public_disk');
         if ($request->hasFile('image')) {
             // Delete old primary image if it exists

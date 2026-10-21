@@ -23,14 +23,12 @@ use Tests\TestCase;
 class StorefrontStudioSyncTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StockFixtures; // the same storefront in either stock model (Phase D1)
 
     private function product(int $limit = 3, int $sold = 0): Product
     {
-        return Product::create([
-            'name' => 'Limited Set ' . uniqid(), 'slug' => 'limited-set-' . uniqid(), 'description' => 'A set',
-            'price' => 5000, 'batch_limit' => $limit, 'batch_sold' => $sold, 'in_stock' => true,
-            'image_path' => 'products/a.webp',
-        ]);
+        return $this->stockedProduct($limit - $sold, ['name' => 'Limited Set ' . uniqid(), 'slug' => 'limited-set-' . uniqid(), 'description' => 'A set',
+            'batch_sold' => $sold, 'image_path' => 'products/a.webp']);
     }
 
     private function order(array $attrs = []): CustomOrder
@@ -42,7 +40,7 @@ class StorefrontStudioSyncTest extends TestCase
     private function hold(Product $product, int $qty, array $orderAttrs = []): CustomOrder
     {
         $order = $this->order($orderAttrs);
-        $order->stockReservations()->create(['product_id' => $product->id, 'quantity' => $qty, 'status' => 'held', 'expires_at' => now()->addHours(48)]);
+        $this->holdFor($order, $product, $qty, 'held', now()->addHours(48));
 
         return $order;
     }
