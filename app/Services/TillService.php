@@ -118,8 +118,12 @@ class TillService
                 ->mapWithKeys(fn ($t) => [$t => (int) ($cash[$t]->total ?? 0)])->all(),
             'sales_by_method' => $payments->where('type', 'payment')->mapWithKeys(fn ($p) => [$p->method => (int) $p->total])->all(),
             'refunds_by_method' => $payments->where('type', 'refund')->mapWithKeys(fn ($p) => [$p->method => (int) $p->total])->all(),
-            'sales_count' => (clone $orders)->where('order_state', '!=', 'cancelled')->count(),
+            // A sale counts once it takes money; one rung up and never paid is a void (or voided at close).
+            'sales_count' => (clone $orders)->where('order_state', '!=', 'cancelled')
+                ->whereExists(fn ($q) => $q->from('order_payments')->whereColumn('order_payments.custom_order_id', 'custom_orders.id')->where('order_payments.type', 'payment'))->count(),
             'voids' => (clone $orders)->where('order_state', 'cancelled')->count(),
+            'unfinished' => \App\Models\CustomOrder::where('till_session_id', $session->id)->where('order_state', 'open')->orderBy('id')->get()
+                ->filter(fn ($o) => (int) $o->balance_due > 0)->map(fn ($o) => ['reference' => $o->cipher, 'balance_due' => (int) $o->balance_due])->values()->all(),
             'discounts' => (int) DB::table('order_lines')->whereIn('custom_order_id', (clone $orders)->pluck('id'))->where('line_type', 'discount')->sum('amount') * -1,
             'expected_cash' => $session->expected_cash ?? $this->expectedCash($session),
             'counted_cash' => $session->counted_cash,

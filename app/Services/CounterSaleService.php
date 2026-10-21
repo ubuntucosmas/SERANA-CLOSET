@@ -216,6 +216,30 @@ class CounterSaleService
         Audit::record('pos.sale_voided', $order, [], ['approved_by' => $approver?->id], $reason, Actor::user($by));
     }
 
+    /**
+     * At close: void this drawer's sales that never took money, so their stock
+     * goes back on sale (counter holds never expire on their own). A sale with
+     * money on it, or an M-Pesa prompt still waiting, is left for the Z report.
+     */
+    public function voidUnpaid(TillSession $till, User $by): int
+    {
+        $voided = 0;
+        $orders = CustomOrder::where('till_session_id', $till->id)->where('channel', 'counter')->where('order_state', 'open')->get();
+        foreach ($orders as $order) {
+            if ($order->payments()->exists() || $order->paymentAttempts()->where('status', PaymentAttempt::PENDING)->exists()) {
+                continue;
+            }
+            try {
+                $this->void($order, $by, "Not paid when {$till->register} closed", null);
+                $voided++;
+            } catch (ValidationException) {
+                // Paid in the meantime: it stays.
+            }
+        }
+
+        return $voided;
+    }
+
     /** Re-take the sale's holds before money is taken (a slow customer may outlast them). */
     private function secure(CustomOrder $order): void
     {

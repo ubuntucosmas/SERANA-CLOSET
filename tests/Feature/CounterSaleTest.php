@@ -212,6 +212,47 @@ class CounterSaleTest extends TestCase
         $this->assertSame((int) OrderPayment::where('till_session_id', TillSession::sole()->id)->sum('amount'), array_sum($report['sales_by_method']));
     }
 
+    public function test_closing_voids_sales_never_paid_and_lists_those_part_paid(): void
+    {
+        // Counter holds never expire on their own, so an abandoned sale would hold its stock for ever.
+        $abandoned = $this->sale([$this->line($this->jacket)])->json('sale.id');
+        $partPaid = $this->sale([$this->line($this->jacket)])->json('sale.id');
+        $this->tender($partPaid, 'cash', 1000, ['tendered' => 1000]);
+        $this->assertSame(1, $this->jacket->fresh()->available_stock);
+
+        $report = $this->postJson(route('pos.till.close'), ['counted' => 3000])->assertOk()->json('report');
+
+        $this->assertSame('cancelled', CustomOrder::find($abandoned)->order_state);
+        $this->assertSame('Not paid when Till 1 closed', \App\Models\AuditLog::where('action', 'pos.sale_voided')->sole()->reason);
+        $this->assertSame(2, $this->jacket->fresh()->available_stock, 'the abandoned jacket is back on sale');
+        $this->assertSame([1, 1], [$report['sales_count'], $report['voids']], 'a sale counts once it takes money');
+        $this->assertSame([['reference' => CustomOrder::find($partPaid)->cipher, 'balance_due' => 4000]], $report['unfinished']);
+    }
+
+    public function test_closing_never_voids_a_sale_that_took_any_money(): void
+    {
+        $this->jacket = $this->stockedProduct(5, ['name' => 'Wool Coat', 'price' => 5000]);
+        $paid = $this->sale([$this->line($this->jacket)])->json('sale.id');
+        $this->tender($paid, 'cash', 5000, ['tendered' => 5000]);
+        $partPaid = $this->sale([$this->line($this->jacket)])->json('sale.id');
+        $this->tender($partPaid, 'mpesa_manual', 1500, ['reference' => 'QPART1']);
+        // Paid, then all of it came back: nothing is owed either way, but money moved.
+        $refunded = $this->sale([$this->line($this->jacket)])->json('sale.id');
+        $this->tender($refunded, 'cash', 5000, ['tendered' => 5000]);
+        $line = CustomOrder::find($refunded)->lines()->where('line_type', 'item')->sole();
+        $this->postJson(route('pos.returns.store'), ['order_id' => $refunded, 'reason' => 'Wrong colour', 'refund_method' => 'cash', 'approval_pin' => '9753',
+            'lines' => [['order_line_id' => $line->id, 'quantity' => 1, 'disposition' => 'restock']]])->assertOk();
+
+        $report = $this->postJson(route('pos.till.close'), ['counted' => 7000])->assertOk()->json('report');
+
+        foreach ([$paid, $partPaid, $refunded] as $id) {
+            $this->assertNotSame('cancelled', CustomOrder::find($id)->order_state, "sale {$id} took money and stays");
+        }
+        $this->assertSame(0, \App\Models\AuditLog::where('action', 'pos.sale_voided')->count());
+        $this->assertSame([['reference' => CustomOrder::find($partPaid)->cipher, 'balance_due' => 3500]], $report['unfinished']);
+        $this->assertSame([3, 0], [$report['sales_count'], $report['voids']]);
+    }
+
     public function test_only_staff_with_the_till_permission_sell(): void
     {
         $this->actingAs(User::factory()->create(['role' => Role::CLIENT]))->postJson(route('pos.sales.store'), ['items' => [$this->line($this->jacket)]])->assertForbidden();

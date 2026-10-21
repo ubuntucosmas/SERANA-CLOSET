@@ -56,6 +56,9 @@ class TillController extends Controller
             $approver = PosOperator::approver($data['approval_pin']);
         }
 
+        // Only once the close will go through: sales never paid are voided and their stock released.
+        app(\App\Services\CounterSaleService::class)->voidUnpaid($session, $this->operator($request));
+
         return response()->json(['report' => $this->tills->close($session, (int) $data['counted'], $this->operator($request), $data['variance_reason'] ?? null, $approver)]);
     }
 
