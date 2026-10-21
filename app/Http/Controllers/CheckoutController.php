@@ -279,6 +279,10 @@ class CheckoutController extends Controller
         if ($order->isPaidUp()) {
             return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
         }
+        // Part of it is paid: the balance is paid by M-Pesa (its pay link), so the money stays on one path.
+        if (! $order->isUnfunded()) {
+            return response()->json(['success' => false, 'message' => 'Part of this order is already paid. Pay the balance by M-Pesa, or contact us with your order reference.'], 409);
+        }
         if (! in_array($order->legacyStatus(), [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED], true)) {
             return response()->json(['success' => false, 'message' => 'This order can no longer be changed. Please check out again.'], 409);
         }
@@ -334,14 +338,21 @@ class CheckoutController extends Controller
         CustomOrder::whereIn('id', $ids)
             ->ofKind('shop')
             ->paidUp(false)
+            // Money received (a short payment, a swap to a dearer piece) is never abandoned:
+            // the order keeps its holds and its balance pay link (V1 money invariant 2).
+            ->unfunded()
             // A WhatsApp order is waiting on the studio, not abandoned.
             ->where('payment_method', '!=', PaymentSettings::WHATSAPP)
             ->withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED])
             ->whereDoesntHave('paymentAttempts', fn ($q) => $q->where('status', \App\Models\PaymentAttempt::PENDING))
             ->get()
             ->each(function (CustomOrder $order) {
-                $order->releaseReservations();
-                CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
+                // Conditional: a payment booked since the read above keeps the order.
+                $expired = CustomOrder::whereKey($order->id)->paidUp(false)->unfunded()
+                    ->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::EXPIRED));
+                if ($expired > 0) {
+                    $order->releaseReservations();
+                }
             });
     }
 }
