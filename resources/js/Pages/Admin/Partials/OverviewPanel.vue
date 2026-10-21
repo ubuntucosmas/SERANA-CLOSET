@@ -100,6 +100,17 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
             </div>
 
             <aside class="min-w-0 space-y-5" aria-label="Stock and quick actions">
+                <section v-if="attention.till_variances?.length" class="overview-panel ring-1 ring-amber-400/30" aria-labelledby="overview-till-title">
+                    <h2 id="overview-till-title" class="text-base font-semibold text-white">Drawer differences this week</h2>
+                    <p class="mt-1 text-xs text-slate-400">Closed with more than the alert short or over.</p>
+                    <ul class="mt-3 divide-y divide-white/10">
+                        <li v-for="t in attention.till_variances" :key="t.id" class="py-3 text-sm">
+                            <p class="text-white">{{ t.register }} · {{ t.variance < 0 ? 'KSh ' + Math.abs(t.variance).toLocaleString() + ' short' : 'KSh ' + t.variance.toLocaleString() + ' over' }}</p>
+                            <p class="mt-1 text-xs text-slate-400">{{ t.closed_at }} · closed by {{ t.closed_by }}<template v-if="t.reason"> · “{{ t.reason }}”</template></p>
+                        </li>
+                    </ul>
+                    <button type="button" @click="emit('go', 'tills')" class="table-action mt-3 w-full">Open till history</button>
+                </section>
                 <section class="overview-panel" aria-labelledby="overview-stock-title">
                     <div class="flex items-center justify-between gap-2"><h2 id="overview-stock-title" class="text-base font-semibold text-white">Stock to review</h2><span class="text-xs text-slate-400">{{ stock.length }} shown</span></div>
                     <p class="mt-1 text-xs text-slate-400">Up to 8 unavailable or low-stock products. Unpaid holds affect availability.</p>

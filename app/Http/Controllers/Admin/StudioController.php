@@ -63,7 +63,8 @@ class StudioController extends Controller
         }
 
         $attention = [
-            'awaiting' => CustomOrder::where(function ($query) {
+            // A sale still at the counter is the till's, not Studio work.
+            'awaiting' => CustomOrder::where('channel', '!=', 'counter')->where(function ($query) {
                 $query->withLegacyStatus([OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED, OrderStatus::AMOUNT_MISMATCH, OrderStatus::PAID, 'pending']);
             })->latest()->take(12)->get()
                 ->map(fn ($o) => [
@@ -91,6 +92,12 @@ class StudioController extends Controller
                         . ($p->reservedQuantity() ? ' · ' . $p->reservedQuantity() . ' on hold awaiting payment' : '')]),
         ];
 
+        // Phase E: a drawer closed in the last week with a difference over the alert.
+        $attention['till_variances'] = $request->user()->can('till.review') ? \App\Models\TillSession::where('status', 'closed')
+            ->where('closed_at', '>=', now()->subDays(7))->whereRaw('ABS(variance) > ?', [\App\Support\ShopPolicy::tillVarianceAlert()])
+            ->with('closedBy:id,name')->latest('closed_at')->take(5)->get()->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'variance' => (int) $t->variance,
+                'closed_by' => $t->closedBy?->name, 'closed_at' => $t->closed_at?->copy()->timezone(config('app.display_timezone'))->format('d M, H:i'), 'reason' => $t->variance_reason])->values()->all() : [];
+
         // Phase C: every payment problem, oldest first, with the count for the dashboard.
         $attention['payments'] = $this->paymentAttention();
         $attention['payments_count'] = count($attention['payments']);
@@ -110,7 +117,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem'])
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem'])
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -128,6 +135,7 @@ class StudioController extends Controller
             'stock_v2'          => \App\Support\StockMode::v2(),
             // Studio → Staff (owner), built only for that screen.
             'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
+            'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory() : null,
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -224,7 +232,23 @@ class StudioController extends Controller
      * the customer's tracking and the Studio show it as paid. Shop orders and
      * Drop reservations can only be confirmed by M-Pesa settlement.
      */
-    /** Studio order list: ?o_q= search, ?o_filter=all|custom|shop, ?o_archived=1, ?o_page=N. */
+    /** Studio → Till (Phase E): the last 30 drawers, open ones first, each with its Z report. */
+    private function tillHistory(): array
+    {
+        $tills = app(\App\Services\TillService::class);
+        $alert = \App\Support\ShopPolicy::tillVarianceAlert();
+
+        return [
+            'variance_alert' => $alert,
+            'sessions' => \App\Models\TillSession::with(['openedBy:id,name', 'closedBy:id,name', 'acknowledgedBy:id,name'])
+                ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")->latest('opened_at')->take(30)->get()
+                ->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'status' => $t->status,
+                    'opened_by' => $t->openedBy?->name, 'closed_by' => $t->closedBy?->name, 'acknowledged_by' => $t->acknowledgedBy?->name,
+                    'over_alert' => $t->variance !== null && abs((int) $t->variance) > $alert, 'report' => $tills->report($t)])->values()->all(),
+        ];
+    }
+
+    /** Studio order list: ?o_q= search, ?o_filter=all|custom|shop|till, ?o_archived=1, ?o_page=N. */
     private function orderPage(Request $request): array
     {
         $q = trim((string) $request->input('o_q', ''));
@@ -233,6 +257,7 @@ class StudioController extends Controller
         $page = StudioWorkflow::apply(CustomOrder::query(), $request->input('o_queue'))
             ->when($request->boolean('o_archived'), fn ($query) => $query->onlyTrashed())
             ->when($filter === 'shop', fn ($query) => $query->ofKind('shop'))
+            ->when($filter === 'till', fn ($query) => $query->where('channel', 'counter'))
             // "Custom" has always meant anything that isn't a shop order (drops included).
             ->when($filter === 'custom', fn ($query) => $query->ofKind('bespoke', 'drop'))
             ->when($q !== '', function ($query) use ($q) {
@@ -256,7 +281,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem']);
+        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem', 'seller_name']);
 
         return [
             'data' => $orders->all(),
@@ -267,7 +292,7 @@ class StudioController extends Controller
             'queue' => in_array($request->input('o_queue'), StudioWorkflow::QUEUES, true) ? $request->input('o_queue') : 'all',
             'sort' => $request->input('o_sort') === 'oldest' ? 'oldest' : 'newest',
             'query' => $q,
-            'filter' => in_array($filter, ['shop', 'custom'], true) ? $filter : 'all',
+            'filter' => in_array($filter, ['shop', 'custom', 'till'], true) ? $filter : 'all',
         ];
     }
 

@@ -18,3 +18,13 @@ test('sections without an ability show to every Studio user', () => {
 test('the Staff section explains itself', () => {
     assert.equal(studioSection('staff').label, 'Staff');
 });
+
+test('Pre-orders show only while Drops are on', () => {
+    assert.ok(!sectionsFor([], { drops_enabled: false }).some(s => s.id === 'drops'));
+    assert.ok(sectionsFor([], { drops_enabled: true }).some(s => s.id === 'drops'));
+});
+
+test('the till history is for those who review tills', () => {
+    assert.ok(sectionsFor(['till.review']).some(s => s.id === 'tills'));
+    assert.ok(!sectionsFor([]).some(s => s.id === 'tills'));
+});

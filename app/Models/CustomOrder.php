@@ -124,6 +124,18 @@ class CustomOrder extends Model
         return $this->hasMany(OrderProgressSnap::class);
     }
 
+    /** Who sold it at the till (Phase E); null for online orders. */
+    public function seller()
+    {
+        return $this->belongsTo(User::class, 'sold_by');
+    }
+
+    /** For the Studio list: "where was this sold, and by whom". */
+    public function getSellerNameAttribute(): ?string
+    {
+        return $this->sold_by ? $this->seller?->name : null;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

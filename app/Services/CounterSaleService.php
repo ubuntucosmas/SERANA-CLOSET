@@ -261,6 +261,25 @@ class CounterSaleService
             'payments' => $order->payments()->orderBy('id')->get()->map(fn ($p) => ['type' => $p->type, 'method' => $p->method, 'amount' => $p->amount, 'reference' => $p->external_reference])->all(),
             'state' => $order->order_state, 'fulfilment' => $order->fulfilment_status, 'resolution' => $order->resolution,
             'prompt' => ($attempt = $order->paymentAttempts()->latest('id')->first()) ? ['status' => $attempt->status, 'amount' => $attempt->amount] : null,
+            // What was rung up, so a reopened sale can change its pieces (void, then the same bag again).
+            'items' => collect(is_array($order->items_json) && array_is_list($order->items_json) ? $order->items_json : [])->map(fn ($i) => [
+                'id' => (int) ($i['id'] ?? 0), 'name' => $i['name'] ?? '', 'price' => (int) round((float) ($i['price'] ?? 0)), 'quantity' => (int) ($i['quantity'] ?? 1),
+                'options' => $i['options'] ?? null, 'variant_ids' => $i['variant_ids'] ?? null,
+            ])->all(),
+            'seller' => $order->sold_by ? \App\Models\User::find($order->sold_by)?->name : null,
+            'slip_number' => $order->slip_number,
+            'time' => $order->created_at?->copy()->timezone(config('app.display_timezone'))->format('H:i'),
         ];
+    }
+
+    /** Today's sales on this drawer, newest first: find one again after a reload, reprint, or void. */
+    public function today(TillSession $till): array
+    {
+        return CustomOrder::where('till_session_id', $till->id)->with('seller:id,name')->latest('id')->get()->map(fn (CustomOrder $o) => [
+            'id' => $o->id, 'reference' => $o->cipher, 'customer' => $o->full_name, 'seller' => $o->seller?->name,
+            'time' => $o->created_at?->copy()->timezone(config('app.display_timezone'))->format('H:i'),
+            'total' => (int) $o->chargeable_total, 'balance_due' => max(0, (int) $o->balance_due),
+            'paid' => (int) $o->chargeable_total > 0 && (int) $o->balance_due <= 0, 'state' => $o->order_state, 'slip_number' => $o->slip_number,
+        ])->all();
     }
 }

@@ -25,6 +25,7 @@ import DropsPanel from './Partials/DropsPanel.vue';
 import RefundsPanel from './Partials/RefundsPanel.vue';
 import StockPanel from './Partials/StockPanel.vue';
 import StaffPanel from './Partials/StaffPanel.vue';
+import TillsPanel from './Partials/TillsPanel.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -48,6 +49,7 @@ const props = defineProps({
     refunds: { type: Array, default: () => [] },
     stock: { type: Object, default: null },
     staff: { type: Object, default: null },
+    tills: { type: Object, default: null },
     stock_v2: { type: Boolean, default: false },
     active_tab: { type: String, default: 'home' },
 });
@@ -468,6 +470,7 @@ function removeAsset(key) {
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
         <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" />
+        <TillsPanel v-else-if="currentTab === 'tills' && $page.props.auth?.user?.abilities?.includes('till.review')" :tills="tills" />
         <StaffPanel v-else-if="currentTab === 'staff' && $page.props.auth?.user?.abilities?.includes('staff.manage')" :staff="staff" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
@@ -485,6 +488,9 @@ function removeAsset(key) {
             <header class="order-preview-header">
                 <div class="min-w-0">
                     <p class="text-xs text-slate-400 mb-1">{{ orderKindLabel }} · {{ selectedOrder.reference || selectedOrder.cipher || ('#' + selectedOrder.id) }}<span v-if="orderArchived" class="text-amber-400"> · Archived</span></p>
+                    <p v-if="selectedOrder.sold_by" class="text-xs text-slate-400 mb-1">
+                        {{ selectedOrder.channel === 'counter' ? 'Sold at the till' : 'Taken at the till' }}<template v-if="selectedOrder.seller_name"> by {{ selectedOrder.seller_name }}</template><template v-if="selectedOrder.slip_number"> · entered from paper slip {{ selectedOrder.slip_number }}</template>
+                    </p>
                     <h2 id="order-preview-title" class="text-lg sm:text-xl font-semibold text-white break-words">{{ selectedOrder.full_name || 'Customer' }}</h2>
                     <div class="flex flex-wrap gap-2 mt-2"><StatusBadge v-bind="paymentStatus(selectedOrder)" /><span class="stage-badge" :class="selectedOrder.status === 'shipped' ? 'stage-complete' : selectedOrder.status === 'completed' ? 'stage-ready' : 'stage-working'">{{ selectedOrder.order_state === 'cancelled' ? 'Cancelled' : ({ pending: isCommerceOrder ? 'Awaiting fulfilment' : 'Brief received', designing: 'Designing', sewing: 'In production', completed: 'Ready for dispatch', shipped: 'Dispatched' })[selectedOrder.status] || (selectedOrder.is_paid ? 'Awaiting fulfilment' : 'Work not started') }}</span></div>
                 </div>

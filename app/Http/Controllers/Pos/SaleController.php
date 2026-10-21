@@ -53,6 +53,12 @@ class SaleController extends Controller
         return $order;
     }
 
+    /** Today's sales on this drawer (audit P1-1): nothing rung up is lost to a reload. */
+    public function index(Request $request)
+    {
+        return response()->json(['sales' => $this->sales->today($this->till($request))]);
+    }
+
     /** Search by name, SKU or barcode; a scanned code picks its size. Stock is what this shop has. */
     public function catalogue(Request $request, StockService $stock)
     {
@@ -62,7 +68,8 @@ class SaleController extends Controller
         $products = Product::where('in_stock', true)->with(['variants' => fn ($v) => $v->where('active', true)->orderBy('sort')])
             ->when($exact, fn ($p) => $p->whereKey($exact->product_id))
             ->when(! $exact && $q !== '', fn ($p) => $p->where('name', 'like', '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%'))
-            ->orderBy('name')->limit(60)->get();
+            // Nothing typed: the newest pieces first (what the shop floor is selling now); a search reads alphabetically.
+            ->when($q === '', fn ($p) => $p->latest('id'), fn ($p) => $p->orderBy('name'))->limit(60)->get();
         $v2 = StockMode::v2();
 
         return response()->json([

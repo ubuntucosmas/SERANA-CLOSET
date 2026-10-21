@@ -21,9 +21,12 @@ const operator = ref(props.operator);
 const tills = ref(props.tills);
 const register = ref(props.tills[0]?.register || 'Till 1');
 const till = computed(() => tills.value.find(t => t.register === register.value) || null);
+// One shop, one till: the picker shows only when more than one register is open (audit P2-7).
+const registers = computed(() => [...new Set(['Till 1', ...tills.value.map(t => t.register)])]);
 const tab = ref('sell');
 const tabs = [
     { key: 'sell', label: 'Sell', icon: 'point_of_sale' },
+    { key: 'sales', label: 'Today', icon: 'receipt_long' },
     { key: 'orders', label: 'Orders', icon: 'inventory_2' },
     { key: 'bespoke', label: 'Bespoke', icon: 'design_services' },
     { key: 'till', label: 'Drawer', icon: 'payments' },
@@ -64,6 +67,7 @@ async function unlock() {
         const data = await call('post', route('pos.unlock'), { pin: pin.value });
         operator.value = data.operator;
         touch();
+        if (till.value && !results.value.length) search(false);
     } catch (e) { fail(e); } finally { pin.value = ''; }
 }
 function press(d) { if (pin.value.length < 6) pin.value += d; }
@@ -78,7 +82,11 @@ function touch() {
     clearTimeout(idleTimer);
     if (operator.value) idleTimer = setTimeout(() => { operator.value = null; }, props.policy.idle_minutes * 60 * 1000);
 }
-onMounted(() => { touch(); ['pointerdown', 'keydown'].forEach(e => window.addEventListener(e, touch)); });
+onMounted(() => {
+    touch(); ['pointerdown', 'keydown'].forEach(e => window.addEventListener(e, touch));
+    // The pieces show straight away; typing narrows them (audit P2-9).
+    if (operator.value && till.value) search(false);
+});
 onBeforeUnmount(() => { clearTimeout(idleTimer); clearInterval(promptPoll); ['pointerdown', 'keydown'].forEach(e => window.removeEventListener(e, touch)); });
 
 // ---- Open the drawer ----
@@ -88,6 +96,7 @@ async function openTill() {
         const data = await call('post', route('pos.till.open'), { float: Number(openFloat.value || 0) });
         tills.value = [...tills.value.filter(t => t.register !== register.value), { ...data.till, opened_by: operator.value.name, opened_at: new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }];
         openFloat.value = '';
+        search(false);
     } catch (e) { fail(e); }
 }
 
@@ -140,7 +149,7 @@ function addLine(product, byPart) {
         available: Math.min(...sizes.map(s => s.available ?? Infinity)) });
 }
 const subtotal = computed(() => cart.value.reduce((n, l) => n + l.price * l.quantity, 0));
-const customer = reactive({ name: '', phone: '' });
+const customer = reactive({ name: '', phone: '', email: '' });
 const discount = reactive({ amount: '', reason: '', pin: '' });
 const discountLimit = computed(() => Math.min(Math.floor(subtotal.value * props.policy.discount_percent / 100), props.policy.discount_cap));
 const needsDiscountPin = computed(() => Number(discount.amount || 0) > discountLimit.value && !operator.value?.can_approve);
@@ -150,7 +159,7 @@ async function ringUp() {
     try {
         const data = await call('post', route('pos.sales.store'), {
             items: cart.value.map(l => ({ id: l.id, quantity: l.quantity, options: l.options, variant_ids: l.variant_ids })),
-            customer: customer.name || customer.phone ? { name: customer.name || null, phone: customer.phone || null } : null,
+            customer: customer.name || customer.phone || customer.email ? { name: customer.name || null, phone: customer.phone || null, email: customer.email || null } : null,
             discount: Number(discount.amount || 0) || null, discount_reason: discount.reason || null, approval_pin: discount.pin || null,
         });
         sale.value = data.sale;
@@ -160,7 +169,7 @@ async function ringUp() {
 }
 function newSale() {
     sale.value = null; cart.value = []; query.value = ''; results.value = [];
-    Object.assign(customer, { name: '', phone: '' }); Object.assign(discount, { amount: '', reason: '', pin: '' });
+    Object.assign(customer, { name: '', phone: '', email: '' }); Object.assign(discount, { amount: '', reason: '', pin: '' });
     errors.value = {}; change.value = null; clearInterval(promptPoll);
 }
 
@@ -209,6 +218,19 @@ function watchPrompt(id, refresh) {
         } catch { clearInterval(promptPoll); }
     }, 3000);
 }
+// The customer changes their mind after "Take payment": void the untouched sale and put the same pieces back in the bag.
+async function changeItems() {
+    const s = sale.value;
+    try {
+        await call('post', route('pos.sales.void', s.id), { reason: 'Changed the pieces before paying' });
+        if (!cart.value.length) {
+            cart.value = (s.items || []).map(i => ({ key: i.id + ':' + (i.variant_ids || []).join('-'), id: i.id, name: i.name, price: i.price, quantity: i.quantity,
+                options: i.options, variant_ids: i.variant_ids, label: Object.values(i.options || {}).filter(Boolean).join(' · '), available: Infinity }));
+        }
+        sale.value = null;
+        change.value = null;
+    } catch (e) { fail(e); }
+}
 const voiding = reactive({ open: false, reason: '', pin: '' });
 async function voidSale() {
     try {
@@ -218,6 +240,20 @@ async function voidSale() {
 }
 const receiptUrl = (id) => route('pos.sales.receipt', id);
 const methodLabel = { cash: 'Cash', mpesa_manual: 'M-Pesa code', mpesa_prompt: 'M-Pesa prompt', credit: 'Exchange credit', mpesa_stk: 'M-Pesa', counter: 'Counter' };
+
+// ---- Today's sales on this drawer: nothing is lost to a reload (audit P1-1) ----
+const todays = ref(null);
+async function loadToday() { try { todays.value = (await call('get', route('pos.sales.index'))).sales; } catch (e) { fail(e); } }
+watch([tab, operator], () => { if (tab.value === 'sales' && till.value && operator.value) loadToday(); });
+async function resume(id) {
+    try {
+        sale.value = (await call('get', route('pos.sales.show', id))).sale;
+        cart.value = [];
+        change.value = null;
+        startTender('sale');
+        tab.value = 'sell';
+    } catch (e) { fail(e); }
+}
 
 // ---- Orders desk: collect, returns ----
 const desk = reactive({ ref: '', phone: '', note: '' });
@@ -309,6 +345,7 @@ async function closeTill() {
         report.value = null;
     } catch (e) { fail(e); }
 }
+function printZ() { window.print(); }
 const late = reactive({ open: false, slip_number: '', occurred_at: '', reason: '', cash: '', mpesa: '', reference: '', pin: '' });
 const lateDone = ref(null);
 async function enterLate() {
@@ -364,16 +401,16 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
         </div>
 
         <template v-else>
-            <header class="sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-white/10">
+            <header class="print:hidden sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-white/10">
                 <div class="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
                     <div class="min-w-0">
                         <p class="text-white font-headline truncate">{{ shop || 'Shop' }} · {{ register }}</p>
                         <p class="text-xs text-slate-400">{{ operator.name }}<template v-if="till"> · drawer open since {{ till.opened_at }}</template><template v-else> · drawer closed</template></p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="sr-only" for="register">Register</label>
-                        <select id="register" v-model="register" class="w-32 !rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-sm text-white">
-                            <option v-for="r in [...new Set(['Till 1', ...tills.map(t => t.register)])]" :key="r" :value="r">{{ r }}</option>
+                        <label v-if="registers.length > 1" class="sr-only" for="register">Register</label>
+                        <select v-if="registers.length > 1" id="register" v-model="register" class="w-32 !rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-sm text-white">
+                            <option v-for="r in registers" :key="r" :value="r">{{ r }}</option>
                         </select>
                         <button type="button" @click="lock" :class="quiet" class="flex items-center gap-1"><span class="material-symbols-outlined text-base">lock</span>Lock</button>
                     </div>
@@ -459,6 +496,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-white/10">
                             <a v-if="sale.paid" :href="receiptUrl(sale.id)" target="_blank" rel="noopener" :class="primary">Print receipt</a>
                             <button v-if="sale.paid || sale.state === 'cancelled'" type="button" @click="newSale" :class="sale.paid ? quiet : primary">New sale</button>
+                            <button v-if="!sale.paid && sale.state === 'open' && !sale.paid_so_far" type="button" @click="changeItems" :disabled="busy" :class="quiet">Change items</button>
                             <button v-if="!sale.paid && sale.state === 'open' && !sale.paid_so_far" type="button" @click="voiding.open = !voiding.open" :class="quiet">Void</button>
                         </div>
                         <form v-if="voiding.open" @submit.prevent="voidSale" class="grid gap-2 sm:grid-cols-[1fr_8rem_auto]" aria-label="Void the sale">
@@ -485,7 +523,8 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 <summary class="cursor-pointer text-slate-400">Customer (optional)</summary>
                                 <div class="mt-2 grid gap-2">
                                     <input v-model="customer.name" maxlength="255" placeholder="Name" aria-label="Customer name" :class="input" />
-                                    <input v-model="customer.phone" type="tel" placeholder="Phone, for the receipt by SMS" aria-label="Customer phone" :class="input" />
+                                    <input v-model="customer.phone" type="tel" placeholder="Phone (to find the sale later)" aria-label="Customer phone" :class="input" />
+                                    <input v-model="customer.email" type="email" placeholder="Email (the receipt is emailed)" aria-label="Customer email" :class="input" />
                                 </div>
                             </details>
                             <details class="text-sm">
@@ -500,7 +539,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                             <div class="flex justify-between text-white text-lg pt-2 border-t border-white/10"><span>Total</span><span class="tabular-nums">{{ ksh(subtotal - Number(discount.amount || 0)) }}</span></div>
                             <p v-if="firstError" role="alert" class="text-sm text-rose-300">{{ firstError }}</p>
                             <button type="button" @click="ringUp" :disabled="busy" :class="primary" class="w-full py-3">Take payment</button>
-                            <button type="button" @click="late.open = !late.open" class="w-full text-xs text-slate-400 underline">Enter a paper slip from an outage instead</button>
+                            <button type="button" @click="late.open = !late.open" class="w-full text-xs text-slate-400 underline">Enter a paper slip from an outage instead (manager’s PIN)</button>
                             <form v-if="late.open" @submit.prevent="enterLate" class="grid gap-2 rounded-xl bg-slate-950/60 p-3" aria-label="Late entry from a paper slip">
                                 <p class="text-xs text-slate-400">These pieces, sold on paper while the till was down. Stock moves now; the sale keeps the slip’s time.</p>
                                 <input v-model="late.slip_number" required maxlength="50" placeholder="Slip number" aria-label="Slip number" :class="input" />
@@ -518,6 +557,31 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <p v-if="lateDone" class="text-sm text-emerald-300" role="status">Slip entered as {{ lateDone.reference }}.</p>
                     </aside>
                 </div>
+
+                <!-- TODAY: this drawer's sales -->
+                <section v-else-if="tab === 'sales'" aria-labelledby="today-title" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="today-title" class="text-white font-headline text-lg">Today on {{ register }}</h2>
+                        <button type="button" @click="loadToday" :disabled="busy" :class="quiet">Refresh</button>
+                    </div>
+                    <p v-if="todays && !todays.length" class="text-sm text-slate-400">No sales yet on this drawer.</p>
+                    <ul v-if="todays" class="divide-y divide-white/5">
+                        <li v-for="t in todays" :key="t.id" class="py-3 flex flex-wrap items-center gap-3 justify-between">
+                            <span class="min-w-0">
+                                <span class="block text-white text-sm">{{ t.time }} · {{ t.reference }} · {{ ksh(t.total) }}</span>
+                                <span class="block text-xs text-slate-400">{{ t.customer }} · {{ t.seller }}<template v-if="t.slip_number"> · paper slip {{ t.slip_number }}</template></span>
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="t.paid ? 'bg-emerald-500/15 text-emerald-300' : t.state === 'cancelled' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'">
+                                    {{ t.paid ? 'Paid' : t.state === 'cancelled' ? 'Voided' : ksh(t.balance_due) + ' to pay' }}
+                                </span>
+                                <button v-if="!t.paid && t.state === 'open'" type="button" @click="resume(t.id)" :class="primary">Take payment</button>
+                                <a v-if="t.paid" :href="receiptUrl(t.id)" target="_blank" rel="noopener" :class="quiet">Receipt</a>
+                            </span>
+                        </li>
+                    </ul>
+                    <p v-if="firstError" role="alert" class="text-sm text-rose-300">{{ firstError }}</p>
+                </section>
 
                 <!-- ORDERS: collect and returns -->
                 <div v-else-if="tab === 'orders'" class="grid gap-4 lg:grid-cols-2">
@@ -570,7 +634,8 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                             {{ returned.reference }}: {{ returned.method === 'credit' ? 'credit ready — take it on the new sale with this reference.' : returned.method === 'later' ? 'refund left for the Studio.' : ksh(returned.refunded) + ' refunded.' }}
                         </p>
                         <form v-if="returnOrder" @submit.prevent="submitReturn" class="space-y-3 border-t border-white/10 pt-3">
-                            <p class="text-white">{{ returnOrder.reference }} · {{ returnOrder.customer }} · paid {{ ksh(returnOrder.paid) }}</p>
+                            <p class="text-white">{{ returnOrder.reference }} · {{ returnOrder.customer }} · paid {{ ksh(returnOrder.paid) }}
+                                <a v-if="returnOrder.channel === 'counter'" :href="receiptUrl(returnOrder.id)" target="_blank" rel="noopener" class="ml-2 text-sm text-[#57d5fc] underline">Receipt</a></p>
                             <div v-for="l in returnOrder.lines" :key="l.id" class="grid grid-cols-[1fr_5rem_8rem] gap-2 items-center text-sm">
                                 <span>{{ l.description }} <span class="text-xs text-slate-400">({{ l.returnable }} of {{ l.quantity }} returnable)</span></span>
                                 <input v-model="returnForm.lines[l.id]" type="number" min="0" :max="l.returnable" :disabled="!l.returnable" :aria-label="`How many ${l.description} back`" :class="input" />
@@ -635,7 +700,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
 
                 <!-- DRAWER -->
                 <div v-else-if="tab === 'till'" class="grid gap-4 lg:grid-cols-2">
-                    <section v-if="closed" aria-labelledby="z-title" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-2 lg:col-span-2">
+                    <section v-if="closed" aria-labelledby="z-title" class="z-report rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-2 lg:col-span-2">
                         <h2 id="z-title" class="text-white font-headline text-lg">{{ closed.register }} closed · Z report</h2>
                         <p class="text-sm">Expected {{ ksh(closed.expected_cash) }} · counted {{ ksh(closed.counted_cash) }} ·
                             <span :class="closed.variance === 0 ? 'text-emerald-300' : 'text-amber-300'">{{ closed.variance === 0 ? 'balanced' : (closed.variance < 0 ? ksh(-closed.variance) + ' short' : ksh(closed.variance) + ' over') }}</span></p>
@@ -644,7 +709,10 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <div v-if="closed.unfinished?.length" class="rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 p-3 text-sm text-amber-200">
                             Still owed, part paid: {{ closed.unfinished.map(u => `${u.reference} (${ksh(u.balance_due)})`).join(', ') }}. Finish or refund them from Orders or the Studio.
                         </div>
-                        <button type="button" @click="closed = null" :class="quiet">Done</button>
+                        <div class="flex gap-2 print:hidden">
+                            <button type="button" @click="printZ" :class="primary">Print Z report</button>
+                            <button type="button" @click="closed = null" :class="quiet">Done</button>
+                        </div>
                     </section>
                     <section v-if="!till && !closed" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3 lg:col-span-2" aria-labelledby="open2-title">
                         <h2 id="open2-title" class="text-white font-headline text-lg">{{ register }} is closed</h2>
@@ -717,3 +785,12 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
         </template>
     </div>
 </template>
+
+<style>
+/* The Z report prints black on white; everything else on the till stays off the paper. */
+@media print {
+    body * { visibility: hidden; }
+    .z-report, .z-report * { visibility: visible; color: #000 !important; background: #fff !important; box-shadow: none !important; }
+    .z-report { position: absolute; inset: 0 auto auto 0; width: 80mm; }
+}
+</style>

@@ -30,7 +30,7 @@ const page = usePage();
 // One source of truth for the navigation. `primary` items show in the mobile
 // bottom bar; the rest live behind "More".
 const abilities = computed(() => page.props.auth?.user?.abilities || []);
-const sections = computed(() => sectionsFor(abilities.value));
+const sections = computed(() => sectionsFor(abilities.value, { drops_enabled: !!page.props.drops_enabled }));
 const canUseTill = computed(() => abilities.value.includes('pos.sell'));
 const guidance = computed(() => studioSection(props.current));
 
