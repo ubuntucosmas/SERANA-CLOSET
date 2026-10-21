@@ -65,6 +65,49 @@ class TillTest extends TestCase
         $this->postJson(route('pos.till.payout'), ['amount' => 100, 'reason' => 'x', 'approval_pin' => '9753'])->assertStatus(423);
     }
 
+    public function test_five_wrong_pins_lock_the_pin_pad_for_a_while(): void
+    {
+        foreach (['0001', '0002', '0003', '0004', '0005'] as $wrong) {
+            $this->unlock($wrong)->assertUnprocessable()->assertJsonPath('errors.pin.0', 'That PIN doesn’t match anyone.');
+        }
+
+        // Even the right PIN waits now, and the owner can see it happened.
+        $this->unlock('2468')->assertStatus(429)->assertJsonPath('errors.pin.0', 'Too many wrong PINs. The till is locked for 5 minutes.');
+        $this->assertSame($this->tablet->id, AuditLog::where('action', 'pos.pin_lockout')->sole()->actor_id);
+
+        $this->travel(5)->minutes();
+        $this->travel(1)->seconds();
+        $this->unlock('2468')->assertOk()->assertJsonPath('operator.name', 'Wanjiku');
+    }
+
+    public function test_a_right_pin_clears_the_count_of_wrong_ones(): void
+    {
+        foreach (['0001', '0002', '0003', '0004'] as $wrong) {
+            $this->unlock($wrong)->assertUnprocessable();
+        }
+        $this->unlock('2468')->assertOk();
+        foreach (['0001', '0002', '0003', '0004'] as $wrong) {
+            $this->unlock($wrong)->assertUnprocessable();
+        }
+        $this->unlock('9753')->assertOk();
+    }
+
+    public function test_a_pin_is_never_a_password_or_a_studio_sign_in(): void
+    {
+        // Not a website or Studio password, for the PIN's own account or anyone's.
+        $this->post(route('login'), ['email' => $this->manager->email, 'password' => '9753'])->assertSessionHasErrors('email');
+        $this->assertGuest();
+        // Not usable without a signed-in staff account.
+        $this->postJson(route('pos.unlock'), ['pin' => '9753'])->assertUnauthorized();
+
+        // Unlocking the tablet with a manager's PIN signs no one in: the tablet stays a cashier, outside the Studio.
+        $this->unlock('9753')->assertOk();
+        $this->assertSame($this->tablet->id, auth()->id());
+        $this->get(route('studio.index'))->assertRedirect('/'); // the Studio turns a cashier away
+        $this->put(route('admin.shop_policy.update'), ['cashier_discount_percent' => 90])->assertRedirect('/');
+        $this->assertSame(10, \App\Support\ShopPolicy::cashierDiscountPercent());
+    }
+
     public function test_the_tablet_must_be_staff(): void
     {
         $customer = User::factory()->create(['role' => Role::CLIENT]);
