@@ -26,6 +26,9 @@ use Carbon\Carbon;
 
 class StudioController extends Controller
 {
+    /** What an order carries to the Studio, from the list or a link (?order=): one list, so the two never differ. */
+    private const ORDER_APPENDS = ['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem', 'seller_name', 'delivery_info'];
+
     public function index(Request $request)
     {
         $weekAgo = Carbon::now()->subDays(7);
@@ -117,7 +120,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order'))?->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem'])
+                ? CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order'))?->append(self::ORDER_APPENDS)
                 : null,
             'products'          => $products,
             'archived_products' => Product::onlyTrashed()->with('category')->latest()->get(),
@@ -132,10 +135,14 @@ class StudioController extends Controller
             // Built only for the Stock screen (it reconciles both models): opened directly, or reloaded by the panel.
             'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
                 ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
+            // Phase D2: the options, for Settings → Delivery and an order's delivery.
+            'delivery_options' => $request->user()->can('money.record') || $request->user()->can('settings.policies') ? DeliveryController::forStudio() : [],
+            'handover_locations' => $request->user()->can('settings.policies') ? \App\Models\Location::orderBy('sort')->get(['id', 'name', 'address', 'active', 'accepts_pickup']) : [],
             'stock_v2'          => \App\Support\StockMode::v2(),
             // Studio → Staff (owner), built only for that screen.
             'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
-            'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory() : null,
+            'activity' => fn () => $request->user()->can('audit.review') && $request->get('tab') === 'activity' ? ActivityController::data($request) : null,
+            'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory($request) : null,
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -151,6 +158,14 @@ class StudioController extends Controller
             'override_reason' => 'nullable|string|max:255',
             'quote_reason' => 'nullable|string|max:255',
         ]);
+
+        // Phase D2: a pickup is made ready and collected at the till; everything else ships.
+        if ($order->fulfilment_method === 'pickup' && $validated['status'] === 'shipped') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order is collected from the shop. Mark it ready for pickup instead.']);
+        }
+        if ($order->fulfilment_method !== 'pickup' && $validated['status'] === 'ready_for_pickup' && $order->fulfilment_status !== 'ready_for_pickup') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order is delivered. It ships; it isn’t collected from the shop.']);
+        }
 
         // A cancelled order stays at the stage it was cancelled at; only its notes can change.
         if ($order->order_state === 'cancelled') {
@@ -173,17 +188,19 @@ class StudioController extends Controller
         $commerce = $order->isCommerce();
         $currentStatus = $order->legacyStatus();
         $newQuote = array_key_exists('price_quoted', $validated) && $validated['price_quoted'] !== null ? (int) round((float) $validated['price_quoted']) : null;
-        $quoteChanges = $newQuote !== null && (float) $newQuote !== (float) $order->total();
+        // The quote is the work; delivery is set on its own (Phase D2) and stays out of it.
+        $delivery = $order->deliveryTotal();
+        $quoteChanges = $newQuote !== null && $newQuote !== $order->quoteAmount();
         // A paid bespoke quote may only come down (the excess is owed back); a checkout total never changes.
-        if ($quoteChanges && ($commerce || ($order->isPaidUp() && $newQuote > (int) $order->chargeable_total))) {
+        if ($quoteChanges && ($commerce || ($order->isPaidUp() && $newQuote > $order->quoteAmount()))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'A checkout or paid order’s total cannot be changed.']);
         }
         $quoteReason = trim((string) ($validated['quote_reason'] ?? ''));
         $paid = (int) $order->amount_paid;
-        $lowersBelowPaid = $quoteChanges && $newQuote < $paid;
+        $lowersBelowPaid = $quoteChanges && $newQuote + $delivery < $paid;
         if ($lowersBelowPaid && $quoteReason === '') {
             throw \Illuminate\Validation\ValidationException::withMessages(['price_quoted' => 'KSh ' . number_format($paid) . ' is already paid, so KSh '
-                . number_format($paid - $newQuote) . ' would be owed back to the customer. Add a reason to lower the quote.']);
+                . number_format($paid - $newQuote - $delivery) . ' would be owed back to the customer. Add a reason to lower the quote.']);
         }
         if ($validated['status'] !== $currentStatus && ! in_array($validated['status'], OrderStatus::PRODUCTION_STAGES, true)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Payment states are managed automatically. Choose a fulfilment stage.']);
@@ -221,9 +238,19 @@ class StudioController extends Controller
             }
         }
         unset($validated['price_quoted']);
+        $becomesReady = $validated['status'] === 'ready_for_pickup' && $order->fulfilment_status !== 'ready_for_pickup';
         $order->refresh()->update($validated + \App\Support\LegacyOrderMap::forStatus($validated['status']));
 
-        return back()->with('success', 'Order updated successfully.');
+        // Phase D2: the customer learns it is ready, where, and what to bring.
+        if ($becomesReady && $order->email) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($order->email)->queue(new \App\Mail\ReadyForPickupMail($order->fresh()));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Ready-for-pickup email could not be queued.', ['order_id' => $order->id, 'exception' => get_class($e)]);
+            }
+        }
+
+        return back()->with('success', $becomesReady ? 'Ready for pickup. The customer has been told.' : 'Order updated successfully.');
     }
 
     /**
@@ -232,17 +259,39 @@ class StudioController extends Controller
      * the customer's tracking and the Studio show it as paid. Shop orders and
      * Drop reservations can only be confirmed by M-Pesa settlement.
      */
-    /** Studio → Till (Phase E): the last 30 drawers, open ones first, each with its Z report. */
-    private function tillHistory(): array
+    /** Studio → Till: paginated drawers, open ones first, each with its closing report. */
+    private function tillHistory(Request $request): array
     {
         $tills = app(\App\Services\TillService::class);
         $alert = \App\Support\ShopPolicy::tillVarianceAlert();
 
+        $filters = $request->validate([
+            'till_from' => ['nullable', 'date_format:Y-m-d'],
+            'till_to' => ['nullable', 'date_format:Y-m-d', \Illuminate\Validation\Rule::when($request->filled('till_from'), 'after_or_equal:till_from')],
+            'till_actor' => ['nullable', 'integer', 'exists:users,id'],
+            'till_status' => ['nullable', 'in:open,closed'],
+            'till_q' => ['nullable', 'string', 'max:80'],
+            'till_page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $zone = config('app.display_timezone', 'Africa/Nairobi');
+        $sessions = \App\Models\TillSession::with(['openedBy:id,name', 'closedBy:id,name', 'acknowledgedBy:id,name'])
+            ->when($filters['till_from'] ?? null, fn ($q, $date) => $q->where('opened_at', '>=', Carbon::parse($date, $zone)->startOfDay()->utc()))
+            ->when($filters['till_to'] ?? null, fn ($q, $date) => $q->where('opened_at', '<=', Carbon::parse($date, $zone)->endOfDay()->utc()))
+            ->when($filters['till_actor'] ?? null, fn ($q, $actor) => $q->where(fn ($w) => $w->where('opened_by', $actor)->orWhere('closed_by', $actor)))
+            ->when($filters['till_status'] ?? null, fn ($q, $status) => $q->where('till_sessions.status', $status))
+            ->when(trim($filters['till_q'] ?? ''), fn ($q, $text) => $q->where('register', 'like', '%' . str_replace(['%', '_'], ['\\%', '\\_'], $text) . '%'))
+            ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")->latest('opened_at')->orderByDesc('id')
+            ->paginate(30, ['*'], 'till_page');
+
         return [
+            'filters' => $filters,
+            'actors' => \App\Models\User::whereIn('id', \App\Models\TillSession::select('opened_by'))->orWhereIn('id', \App\Models\TillSession::whereNotNull('closed_by')->select('closed_by'))->orderBy('name')->get(['id', 'name']),
+            'total' => $sessions->total(),
+            'page' => $sessions->currentPage(),
+            'last_page' => $sessions->lastPage(),
             'variance_alert' => $alert,
-            'sessions' => \App\Models\TillSession::with(['openedBy:id,name', 'closedBy:id,name', 'acknowledgedBy:id,name'])
-                ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")->latest('opened_at')->take(30)->get()
-                ->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'status' => $t->status,
+            'sessions' => $sessions->getCollection()
+                ->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'status' => $t->status, 'print_url' => route('studio.till.report', $t->id),
                     'opened_by' => $t->openedBy?->name, 'closed_by' => $t->closedBy?->name, 'acknowledged_by' => $t->acknowledgedBy?->name,
                     'over_alert' => $t->variance !== null && abs((int) $t->variance) > $alert, 'report' => $tills->report($t)])->values()->all(),
         ];
@@ -281,7 +330,7 @@ class StudioController extends Controller
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
         // Pay link and WhatsApp message for quoted bespoke orders (design B).
-        $orders = collect($page->items())->each->append(['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem', 'seller_name']);
+        $orders = collect($page->items())->each->append(self::ORDER_APPENDS);
 
         return [
             'data' => $orders->all(),
@@ -298,6 +347,10 @@ class StudioController extends Controller
 
     public function recordPayment(Request $request, CustomOrder $order)
     {
+        // Phase D2: the total isn't known until delivery is priced, so no money is confirmed against it.
+        if ($order->needsDeliveryQuote()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Price the delivery first. The total isn’t known yet.']);
+        }
         if ($order->isShop() && $order->payment_method === PaymentSettings::WHATSAPP) {
             return $this->confirmWhatsAppPayment($request, $order);
         }
@@ -615,6 +668,8 @@ class StudioController extends Controller
     private function fulfilmentBlock(CustomOrder $order, string $stage): ?string
     {
         $working = ['designing', 'sewing', 'completed'];
+        // Ready for pickup is a handover, like shipping: nothing may be owed either way.
+        $stage = $stage === 'ready_for_pickup' ? 'shipped' : $stage;
         if (! in_array($stage, [...$working, 'shipped'], true)) {
             return null;
         }

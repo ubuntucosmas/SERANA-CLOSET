@@ -26,11 +26,20 @@ class WhatsAppOrderMessage
         }
 
         $lines[] = '';
-        $lines[] = '*Total: ' . $money($order->total()) . '* (delivery included)';
+        // Phase D2: the delivery is part of the total, or still to be quoted.
+        if ($delivery = $order->deliverySummary()) {
+            $lines[] = "Delivery ({$delivery['name']}): " . $money($delivery['fee']);
+        } elseif ($order->needsDeliveryQuote()) {
+            $lines[] = 'Delivery: please quote it for my address';
+        }
+        $lines[] = '*Total: ' . $money($order->total()) . '*' . ($order->needsDeliveryQuote() ? ' + delivery' : '');
         $lines[] = '';
-        $lines[] = '*Deliver to*';
+        $lines[] = $order->fulfilment_method === 'pickup' ? '*Collect from shop*' : '*Deliver to*';
         $lines[] = "{$order->full_name} · {$order->phone}";
-        $lines[] = trim("{$order->address}, {$order->city}", ', ');
+        $lines[] = $order->fulfilment_method === 'pickup'
+            ? trim(($order->fulfilment_snapshot['name'] ?? 'Shop') . ' · ' . ($order->fulfilment_snapshot['address'] ?? ''))
+            : trim("{$order->address}, {$order->city}", ', ');
+        if ($order->fulfilment_method === 'pickup') $lines[] = $order->handoverDetails()['next'];
         $lines[] = '';
         $lines[] = 'Please confirm and share how to pay. Thank you.';
         $lines[] = 'Track: ' . route('track', ['ref' => $order->cipher]);
@@ -85,11 +94,12 @@ class WhatsAppOrderMessage
         if ($items) array_push($lines, '', '*Items*', ...$items);
 
         if ($order->isShop()) {
-            array_push($lines, '', '*Deliver to*', "{$order->full_name} · " . StoreProfile::display(Phone::normalize($order->phone)),
-                trim("{$order->address}, {$order->city}", ', '));
+            array_push($lines, '', $order->fulfilment_method === 'pickup' ? '*Collect from shop*' : '*Deliver to*', "{$order->full_name} · " . StoreProfile::display(Phone::normalize($order->phone)),
+                $order->fulfilment_method === 'pickup' ? implode(' · ', array_filter([$order->fulfilment_snapshot['name'] ?? 'Shop', $order->fulfilment_snapshot['address'] ?? null])) : trim("{$order->address}, {$order->city}", ', '));
+            if ($order->fulfilment_method === 'pickup') $lines[] = $order->handoverDetails()['next'];
         }
 
-        array_push($lines, '', 'Please confirm you have received this payment and let me know when to expect delivery. Thank you.',
+        array_push($lines, '', 'Please confirm you have received this payment and let me know when my order is ready. Thank you.',
             'Track: ' . route('track', ['ref' => $order->cipher]));
 
         return implode("\n", $lines);

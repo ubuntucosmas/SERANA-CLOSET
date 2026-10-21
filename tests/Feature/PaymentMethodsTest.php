@@ -20,6 +20,7 @@ use Tests\TestCase;
 
 class PaymentMethodsTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use RefreshDatabase;
     use \Tests\Concerns\StockFixtures; // runs the same in either stock model (Phase D1)
 
@@ -40,7 +41,7 @@ class PaymentMethodsTest extends TestCase
 
         return $this->postJson(route('checkout.process'), array_merge([
             'request_id' => (string) Str::uuid(), 'full_name' => 'Wanjiru', 'email' => 'wanjiru@example.com',
-            'phone' => '0712345678', 'address' => 'Moi Ave 1', 'city' => 'Nairobi',
+            'phone' => '0712345678', 'address' => 'Moi Ave 1', 'delivery_option_id' => $this->freeDelivery(), 'city' => 'Nairobi',
             'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => $size]]],
         ], $extra));
     }

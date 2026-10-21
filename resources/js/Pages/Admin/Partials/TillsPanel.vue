@@ -3,7 +3,7 @@
      why, and its Z report. Owners and managers; the till itself is at
      "Open the till". -->
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -11,7 +11,13 @@ const props = defineProps({
 });
 onMounted(() => { if (!props.tills) router.reload({ only: ['tills'], data: { tab: 'tills' } }); });
 
+const filters = reactive({ till_from: props.tills?.filters?.till_from || '', till_to: props.tills?.filters?.till_to || '', till_actor: props.tills?.filters?.till_actor || '', till_status: props.tills?.filters?.till_status || '', till_q: props.tills?.filters?.till_q || '' });
 const open = ref(null);
+const loadingMore = ref(false);
+function loadPage(number) {
+    loadingMore.value = true;
+    router.reload({ only: ['tills'], data: { ...filters, tab: 'tills', till_page: number }, preserveScroll: true, onFinish: () => { loadingMore.value = false; } });
+}
 const ksh = (n) => 'KSh ' + Number(n || 0).toLocaleString('en-KE');
 const methodLabel = { cash: 'Cash', mpesa_manual: 'M-Pesa code', mpesa_stk: 'M-Pesa prompt', credit: 'Exchange credit' };
 const byMethod = (m) => Object.entries(m || {}).map(([k, v]) => `${methodLabel[k] || k} ${ksh(v)}`).join(' · ') || 'none';
@@ -24,10 +30,21 @@ function difference(s) {
 
 <template>
     <div class="space-y-4">
+        <form @submit.prevent="loadPage(1)" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 text-xs text-slate-300">
+            <label>Opened from (Nairobi)<input v-model="filters.till_from" type="date" class="block mt-1 w-full rounded bg-slate-900 text-white" /></label>
+            <label>Opened to (Nairobi)<input v-model="filters.till_to" type="date" :min="filters.till_from" class="block mt-1 w-full rounded bg-slate-900 text-white" /></label>
+            <label>Opened / closed by<select v-model="filters.till_actor" class="block mt-1 w-full rounded bg-slate-900 text-white"><option value="">All staff</option><option v-for="actor in tills?.actors || []" :key="actor.id" :value="actor.id">{{ actor.name }}</option></select></label>
+            <label>Drawer state<select v-model="filters.till_status" class="block mt-1 w-full rounded bg-slate-900 text-white"><option value="">All sessions</option><option value="open">Open</option><option value="closed">Closed</option></select></label>
+            <label>Register<input v-model="filters.till_q" maxlength="80" class="block mt-1 w-full rounded bg-slate-900 text-white" /></label>
+            <div class="flex items-end"><button type="submit" :disabled="loadingMore" class="table-action">Search sessions</button></div>
+        </form>
+        <p v-for="(message, key) in $page.props.errors" :key="key" role="alert" class="text-sm text-rose-300">{{ message }}</p>
+
         <p v-if="!tills" class="text-sm text-slate-400" role="status">Loading the till history…</p>
         <template v-else>
-            <p class="text-sm text-slate-400">A difference over {{ ksh(tills.variance_alert) }} needs a reason and a manager’s PIN at closing. Change the alert in Staff → The till.</p>
-            <p v-if="!tills.sessions.length" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-6 text-sm text-slate-400">No drawers yet. The first one opens at the till.</p>
+            <p class="text-sm text-slate-400">A difference over {{ ksh(tills.variance_alert) }} needs a reason and a manager’s PIN at closing. The owner can change the alert in Staff → The till.</p>
+            <p v-if="!tills.sessions.length" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-6 text-sm text-slate-400">No drawers match these filters. Try another date range or clear the filters.</p>
+            <p class="text-xs text-slate-400" role="status">Page {{ tills.page || 1 }} of {{ tills.last_page || 1 }} · {{ tills.total ?? tills.sessions.length }} sessions · open drawers first.</p>
             <ul class="space-y-3" aria-label="Till sessions">
                 <li v-for="s in tills.sessions" :key="s.id" class="bg-slate-900/60 ring-1 rounded-2xl" :class="s.over_alert ? 'ring-amber-400/40' : 'ring-white/10'">
                     <button type="button" @click="open = open === s.id ? null : s.id" :aria-expanded="open === s.id" class="w-full p-4 flex flex-wrap items-center justify-between gap-3 text-left">
@@ -41,6 +58,7 @@ function difference(s) {
                         </span>
                     </button>
                     <div v-if="open === s.id" class="border-t border-white/10 p-4">
+                        <a :href="s.print_url" target="_blank" rel="noopener" class="table-action mb-3">Open / print closing report</a>
                         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-sm">
                             <div><dt class="text-xs text-slate-400">Float</dt><dd class="tabular-nums text-white">{{ ksh(s.report.opening_float) }}</dd></div>
                             <div><dt class="text-xs text-slate-400">Expected</dt><dd class="tabular-nums text-white">{{ ksh(s.report.expected_cash) }}</dd></div>
@@ -59,6 +77,10 @@ function difference(s) {
                     </div>
                 </li>
             </ul>
+            <div class="flex gap-2" aria-label="Till history pages">
+                <button v-if="tills.page > 1" type="button" @click="loadPage(tills.page - 1)" :disabled="loadingMore" class="table-action">Newer sessions</button>
+                <button v-if="tills.page < tills.last_page" type="button" @click="loadPage(tills.page + 1)" :disabled="loadingMore" class="table-action">Older sessions</button>
+            </div>
         </template>
     </div>
 </template>

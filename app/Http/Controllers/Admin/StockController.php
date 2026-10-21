@@ -20,6 +20,25 @@ use Illuminate\Validation\ValidationException;
  */
 class StockController extends Controller
 {
+    public function options(Request $request, Product $product, StockService $stock)
+    {
+        $request->validate(['order_id' => ['nullable', 'integer', 'exists:custom_orders,id']]);
+        $order = $request->filled('order_id') ? \App\Models\CustomOrder::findOrFail($request->integer('order_id')) : null;
+        $v2 = \App\Support\StockMode::v2();
+        $variants = $product->variants()->where('active', true)->orderBy('sort')->get();
+        $location = $order?->fulfilment_method === 'pickup' ? \App\Models\Location::find($order->pickup_location_id) : null;
+        $sizes = $variants->map(fn ($variant) => [
+            'id' => $variant->id, 'part' => $variant->part, 'size' => $variant->size,
+            'available' => ! $product->in_stock ? 0 : ($v2 ? ($location ? $stock->availableAt($variant, $location) : $stock->availableOnline($variant)) : $product->availableStock()),
+        ])->all();
+        if (! $v2 && ! $sizes) {
+            $list = data_get($product->specifications, 'ui.sizes') ?: data_get($product->specifications, 'sizes') ?: ['S', 'M', 'L', 'XL', 'XXL'];
+            $parts = $product->garment_type === 'set' ? ['top', 'bottom'] : ($product->garment_type === 'jogger' ? ['bottom'] : ['single']);
+            foreach ($parts as $part) foreach ($list as $size) $sizes[] = ['id' => null, 'part' => $part, 'size' => $size, 'available' => $product->in_stock ? $product->availableStock() : 0];
+        }
+        return response()->json(['sizes' => $sizes, 'where' => $location?->name ?: 'Online fulfilment stock']);
+    }
+
     /** Count (set what's on hand), receive, or write off (damage) one size at the shop. */
     public function move(Request $request, StockService $stock)
     {

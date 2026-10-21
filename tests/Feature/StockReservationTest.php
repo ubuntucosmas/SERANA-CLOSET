@@ -12,6 +12,7 @@ use Tests\TestCase;
 
 class StockReservationTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use RefreshDatabase;
     use \Tests\Concerns\StockFixtures; // the same invariants in either stock model (Phase D1)
 
@@ -48,6 +49,7 @@ class StockReservationTest extends TestCase
             'email'     => 'b@example.com',
             'address'   => '1 Street',
             'city'      => 'Nairobi',
+            'delivery_option_id' => $this->freeDelivery(),
             'phone'     => '254700000000',
             'items'     => [['id' => $product->id, 'quantity' => 2]],
         ])->assertOk()->assertJson(['success' => true]);
@@ -68,6 +70,7 @@ class StockReservationTest extends TestCase
             'email'     => 'c@example.com',
             'address'   => '2 Street',
             'city'      => 'Nairobi',
+            'delivery_option_id' => $this->freeDelivery(),
             'phone'     => '254711111111',
             'items'     => [['id' => $product->id, 'quantity' => 1]],
         ])->assertStatus(422);

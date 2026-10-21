@@ -20,6 +20,11 @@ class Location extends Model
         'sort' => 'integer',
     ];
 
+    public function scopePickupAvailable($query)
+    {
+        return $query->where('active', true)->where('accepts_pickup', true)->whereNotNull('address')->whereRaw("LENGTH(TRIM(address)) > 0");
+    }
+
     public function scopeOnline($query)
     {
         return $query->where('active', true)->where('fulfils_online', true)->orderBy('sort')->orderBy('id');

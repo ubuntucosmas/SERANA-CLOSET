@@ -59,7 +59,10 @@
                         </td>
                     </tr>
 
-                    <!-- Items -->
+                    @if($handover = $order->handoverDetails())
+<tr><td style="padding:16px 36px;"><div style="font-size:14px; color:#e6e6e8;">{{ $handover['label'] }}@if($handover['location']) · {{ $handover['location'] }}@endif<br>@if($handover['address']){{ $handover['address'] }}<br>@endif{{ $handover['next'] }}</div></td></tr>
+@endif
+<!-- Items -->
                     @if($isStandard && count($items))
                     <tr>
                         <td style="padding:16px 36px 0;">
@@ -80,6 +83,9 @@
                     <tr>
                         <td style="padding:18px 36px 0;">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px; color:#e8e8e8;">
+                                @if($delivery = $order->deliverySummary())
+                                <tr><td style="padding:4px 0; color:#9a9aa0;">Delivery · {{ $delivery['name'] }}</td><td style="padding:4px 0; text-align:right;">{{ $delivery['fee'] > 0 ? $money($delivery['fee']) : 'Free' }}</td></tr>
+                                @endif
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Order total</td><td style="padding:4px 0; text-align:right;">{{ $money($total) }}</td></tr>
                                 <tr><td style="padding:4px 0; color:#9a9aa0;">Paid to date</td><td style="padding:4px 0; text-align:right;">{{ $money($paidToDate) }}</td></tr>
                                 @if($unavailable)

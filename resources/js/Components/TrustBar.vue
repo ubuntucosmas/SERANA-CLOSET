@@ -1,5 +1,5 @@
 <script setup>
-// Only promises the store actually keeps: delivery is included at checkout,
+// Only promises the store actually keeps: delivery or collection is chosen and priced at checkout,
 // payment is M-Pesa STK, every order has a reference to track, and fit help
 // is offered on WhatsApp. No returns or shipping-threshold claims.
 import { computed } from 'vue';
@@ -7,7 +7,7 @@ import { usePage } from '@inertiajs/vue3';
 const page = usePage();
 // Follows Studio → Settings → Payments.
 const items = computed(() => [
-    { icon: 'local_shipping', title: 'Delivery Included', text: 'No delivery fee added at checkout' },
+    { icon: 'local_shipping', title: 'Delivery or Collection', text: 'Choose at checkout; any fee shows before you pay' },
     page.props.payments?.mpesa
         ? { icon: 'verified_user', title: 'Secure M-Pesa Checkout', text: 'Approve payment on your own phone' }
         : { icon: 'chat', title: 'Order on WhatsApp', text: 'Send your order, pay once we confirm' },

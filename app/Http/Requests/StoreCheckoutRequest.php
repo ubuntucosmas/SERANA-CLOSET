@@ -27,8 +27,15 @@ class StoreCheckoutRequest extends FormRequest
             'payment_method' => ['nullable', 'string', \Illuminate\Validation\Rule::in(\App\Support\PaymentSettings::methods())],
             'full_name' => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', 'max:255'],
-            'address'   => ['required', 'string', 'max:500'],
-            'city'      => ['required', 'string', 'max:120'],
+            // Phase D2: the customer picks an option offered now; the server prices it.
+            'delivery_option_id' => ['required', 'integer', function ($attribute, $value, $fail) {
+                if (! $this->deliveryOption()) {
+                    $fail('Choose how you would like to receive your order.');
+                }
+            }],
+            // A pickup needs no address; everything else is delivered there.
+            'address'   => [Rule::requiredIf(fn () => $this->deliveryOption()?->type !== \App\Models\DeliveryOption::PICKUP), 'nullable', 'string', 'max:500'],
+            'city'      => [Rule::requiredIf(fn () => $this->deliveryOption()?->type !== \App\Models\DeliveryOption::PICKUP), 'nullable', 'string', 'max:120'],
             'phone'     => ['required', 'string', 'max:30', function ($attribute, $value, $fail) {
                 if (! Phone::isValidKenyanMobile($value)) {
                     $fail('Enter a valid Kenyan mobile number, e.g. 07XX XXX XXX.');
@@ -53,6 +60,18 @@ class StoreCheckoutRequest extends FormRequest
         ];
     }
 
+    /** The option chosen, if it is on offer now (a quote only while WhatsApp payment is on). */
+    public function deliveryOption(): ?\App\Models\DeliveryOption
+    {
+        $id = $this->input('delivery_option_id');
+        if (! is_numeric($id)) {
+            return null;
+        }
+        $option = \App\Models\DeliveryOption::available()->with('location')->find((int) $id);
+
+        return $option && ($option->type !== \App\Models\DeliveryOption::QUOTE || \App\Support\PaymentSettings::whatsappAvailable()) ? $option : null;
+    }
+
     public function messages(): array
     {
         return [
@@ -60,6 +79,7 @@ class StoreCheckoutRequest extends FormRequest
             'items.*.id.exists'        => 'An item in your bag is no longer available.',
             'items.*.quantity.integer' => 'Item quantities must be whole numbers.',
             'items.*.quantity.min'     => 'Item quantities must be at least 1.',
+            'delivery_option_id.required' => 'Choose how you would like to receive your order.',
         ];
     }
 }

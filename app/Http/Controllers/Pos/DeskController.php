@@ -42,6 +42,34 @@ class DeskController extends Controller
         return response()->json(['order' => $this->desk->present($order)]);
     }
 
+    /** Staff-only recovery: reference, customer name or phone; never a public lookup. */
+    public function search(Request $request)
+    {
+        $data = $request->validate(['q' => ['required', 'string', 'min:3', 'max:120']]);
+        $q = trim($data['q']);
+        if (mb_strlen($q) < 3) throw ValidationException::withMessages(['q' => 'Enter at least three characters.']);
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+        $phone = Phone::normalize($q);
+        $orders = CustomOrder::where(function ($query) use ($q, $like, $phone) {
+            $query->where('cipher', strtoupper($q))->orWhere('full_name', 'like', $like);
+            if (strlen($phone) >= 9) $query->orWhere('phone', $phone)->orWhere('whatsapp_number', $phone);
+        })->latest('id')->limit(21)->get();
+        return response()->json([
+            'has_more' => $orders->count() > 20,
+            'orders' => $orders->take(20)->map(fn ($order) => [
+                'id' => $order->id, 'reference' => $order->cipher, 'customer' => $order->full_name,
+                'kind' => $order->kind, 'balance_due' => max(0, (int) $order->balance_due),
+                'state' => $order->order_state, 'fulfilment' => $order->fulfilment_status,
+                'placed_at' => $order->created_at->timezone(config('app.display_timezone'))->format('d M Y H:i'),
+            ])->values(),
+        ]);
+    }
+
+    public function show(CustomOrder $order)
+    {
+        return response()->json(['order' => $this->desk->present($order)]);
+    }
+
     public function collect(Request $request, CustomOrder $order)
     {
         $data = $request->validate(['phone' => ['required', 'string', 'max:30'], 'note' => ['nullable', 'string', 'max:255']]);

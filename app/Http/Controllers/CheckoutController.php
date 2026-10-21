@@ -22,7 +22,13 @@ class CheckoutController extends Controller
      */
     public function index()
     {
-        return Inertia::render('Checkout');
+        $whatsapp = PaymentSettings::whatsappAvailable();
+
+        return Inertia::render('Checkout', [
+            // Phase D2: what the customer can choose now, with its price; a quote only while WhatsApp payment is on.
+            'delivery_options' => \App\Models\DeliveryOption::available()->with('location')->get()
+                ->filter(fn ($o) => $o->type !== \App\Models\DeliveryOption::QUOTE || $whatsapp)->map->forCheckout()->values(),
+        ]);
     }
 
     /**
@@ -44,8 +50,10 @@ class CheckoutController extends Controller
         // stale duplicates don't pile up in the Studio.
         $this->supersedeAbandonedOrders($request);
 
-        // M-Pesa (pay now) or WhatsApp (pay after the studio confirms).
-        $method = $validated['payment_method'] ?? PaymentSettings::methods()[0];
+        // M-Pesa (pay now) or WhatsApp (pay after the studio confirms). A delivery
+        // quote is priced by the studio on WhatsApp, so it is always paid there.
+        $option = $request->deliveryOption();
+        $method = $option->type === \App\Models\DeliveryOption::QUOTE ? PaymentSettings::WHATSAPP : ($validated['payment_method'] ?? PaymentSettings::methods()[0]);
         $isWhatsApp = $method === PaymentSettings::WHATSAPP;
 
         $products = Product::whereIn('id', collect($validated['items'])->pluck('id'))
@@ -121,6 +129,8 @@ class CheckoutController extends Controller
             ], 422);
         }
 
+        $pickup = $option->type === \App\Models\DeliveryOption::PICKUP ? $option->location : null;
+        $deliveryFee = $option->feeFor((int) $calculatedTotal);
         $userId = auth()->id();
         $phone = Phone::normalize($validated['phone']);
 
@@ -140,14 +150,14 @@ class CheckoutController extends Controller
         // rolls the whole transaction back, and this closure only touches the
         // database (mail and the session come after it), so re-running is safe.
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp, $v2, $demands) {
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp, $v2, $demands, $pickup, $option, $deliveryFee) {
                 // A prompt is paid in minutes; a WhatsApp order needs time to arrange payment.
                 $expiresAt = $isWhatsApp
                     ? now()->addHours(PaymentSettings::holdHours())
                     : now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
                 // Stock per size: lock the size levels (lock order step 1), choose a location per size.
-                $allocations = $v2 ? app(\App\Services\StockService::class)->allocate($demands) : [];
+                $allocations = $v2 ? app(\App\Services\StockService::class)->allocate($demands, $pickup) : [];
 
                 // Hold (not sell) batch stock for each item under a row lock so
                 // concurrent checkouts serialize on the product and can't oversell.
@@ -176,8 +186,12 @@ class CheckoutController extends Controller
                     'type'         => 'standard',
                     'status'       => OrderStatus::PENDING_PAYMENT,
                     'price_quoted' => $calculatedTotal,
-                    'address'      => $validated['address'],
-                    'city'         => $validated['city'],
+                    'delivery_option_id' => $option->id,
+                    'fulfilment_method' => $pickup ? 'pickup' : 'delivery',
+                    'pickup_location_id' => $pickup?->id,
+                    'fulfilment_snapshot' => $pickup ? $pickup->only(['name', 'address']) : null,
+                    'address'      => $pickup ? null : $validated['address'],
+                    'city'         => $pickup ? null : $validated['city'],
                     'phone'        => $phone,
                     'items_json'   => $snapshotItems,
                     'is_paid'      => false,
@@ -199,7 +213,13 @@ class CheckoutController extends Controller
                     ]);
                 }
 
-                return $order;
+                // The delivery line (Phase D2): priced here, never by the customer. A quote waits for the studio.
+                if ($deliveryFee !== null) {
+                    app(\App\Services\OrderSettlementService::class)->setDelivery($order, $option, $deliveryFee,
+                        $userId ? \App\Support\Actor::user(auth()->user()) : \App\Support\Actor::system(), 'Chosen at checkout');
+                }
+
+                return $order->fresh();
             }, 3);
         } catch (\DomainException $e) {
             // Stock race: someone else claimed the last unit(s) mid-checkout. Per size, say which.
@@ -233,6 +253,7 @@ class CheckoutController extends Controller
             'message'  => 'Order created. Proceed to payment',
             'order_id' => $order->id,
             'reference' => $order->cipher,
+            'handover' => $order->handoverDetails(),
             'amount' => $order->total(),
             'items' => $snapshotItems,
             'payment_method' => $method,
@@ -277,6 +298,7 @@ class CheckoutController extends Controller
             'success' => true,
             'payment_method' => PaymentSettings::WHATSAPP,
             'reference' => $order->cipher,
+            'handover' => $order->handoverDetails(),
             'whatsapp_url' => WhatsAppOrderMessage::link($order),
             'instructions' => PaymentSettings::instructions() ?: null,
             'hold_hours' => PaymentSettings::holdHours(),

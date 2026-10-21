@@ -37,6 +37,9 @@ class PayController extends Controller
             'order' => [
                 'id' => $order->id,
                 'reference' => $order->cipher,
+                'handover' => $order->handoverDetails(),
+                'delivery' => $order->deliverySummary(),
+                'needs_delivery_quote' => $order->needsDeliveryQuote(),
                 'first_name' => strtok(trim((string) $order->full_name), ' ') ?: null,
                 'garment' => $order->garment,
                 'lines' => $order->lines()->orderBy('id')->get()
@@ -50,7 +53,7 @@ class PayController extends Controller
                 'deposit_due' => $depositLeft > 0 && $depositLeft < $balance ? $depositLeft : null,
                 'deposit_policy' => $order->isBespoke() ? OrderPolicy::depositPolicy() : null,
                 'payment_status' => $order->payment_status,
-                'can_pay' => $balance > 0 && $order->order_state === 'open' && PaymentSettings::mpesaAvailable(),
+                'can_pay' => $balance > 0 && $order->order_state === 'open' && PaymentSettings::mpesaAvailable() && ! $order->needsDeliveryQuote(),
                 'track_url' => route('track', ['ref' => $order->cipher]),
             ],
         ]);

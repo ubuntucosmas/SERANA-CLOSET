@@ -3,6 +3,7 @@
   routes the active section to a presentational panel. Chrome lives in AdminShell.
 -->
 <script setup>
+import axios from 'axios';
 import { studioSection } from '@/Support/studioSections';
 import { orderImages } from '@/Support/orderImages';
 import { ref, computed, watch, onMounted } from 'vue';
@@ -26,6 +27,10 @@ import RefundsPanel from './Partials/RefundsPanel.vue';
 import StockPanel from './Partials/StockPanel.vue';
 import StaffPanel from './Partials/StaffPanel.vue';
 import TillsPanel from './Partials/TillsPanel.vue';
+import ActivityPanel from './Partials/ActivityPanel.vue';
+import HandoverSettingsPanel from './Partials/HandoverSettingsPanel.vue';
+import DeliveryOptionsPanel from './Partials/DeliveryOptionsPanel.vue';
+import WorkflowContext from '@/Components/WorkflowContext.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -50,6 +55,9 @@ const props = defineProps({
     stock: { type: Object, default: null },
     staff: { type: Object, default: null },
     tills: { type: Object, default: null },
+    activity: { type: Object, default: null },
+    handover_locations: { type: Array, default: () => [] },
+    delivery_options: { type: Array, default: () => [] },
     stock_v2: { type: Boolean, default: false },
     active_tab: { type: String, default: 'home' },
 });
@@ -59,7 +67,11 @@ const { formatAmount } = useCurrency();
 
 /* ───────── Navigation + lazy per-section loading ───────── */
 const currentTab = ref(props.active_tab);
-function goTab(id) { currentTab.value = id; }
+function goTab(id) {
+    if (id === currentTab.value) return;
+    router.get(route('studio.index'), { tab: id }, { preserveScroll: false, preserveState: true });
+}
+watch(() => props.active_tab, id => { currentTab.value = id; });
 function openQueue(queue) {
     router.get(route('studio.index'), { tab: 'orders', o_queue: queue, o_sort: 'oldest' }, { preserveScroll: false });
 }
@@ -79,7 +91,10 @@ const getObjectURL = (file) => {
 
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
-const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
+const productionStages = ['pending', 'designing', 'sewing', 'completed', 'ready_for_pickup', 'shipped'];
+// A pickup is made ready for pickup and collected at the till; everything else ships (Phase D2).
+const stageLabels = { pending: 'Pending', designing: 'Designing', sewing: 'Sewing', completed: 'Completed', ready_for_pickup: 'Ready for pickup', shipped: 'Shipped' };
+const stagesFor = (order) => productionStages.filter(stage => order?.fulfilment_method === 'pickup' ? stage !== 'shipped' : stage !== 'ready_for_pickup');
 const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '', quote_reason: '' });
 // Owner only: start work before the deposit, or ship with a balance owed, with a reason (audited).
 const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
@@ -119,7 +134,8 @@ function bindOrder(order) {
     orderForm.id = order.id;
     orderForm.status = order.status;
     orderForm.internal_notes = order.internal_notes || '';
-    orderForm.price_quoted = order.price_quoted || 0;
+    // The quote without delivery: delivery is set on its own (Phase D2).
+    orderForm.price_quoted = order.delivery_info?.quote_amount ?? order.price_quoted ?? 0;
     orderForm.is_paid = !!order.is_paid;
     orderForm.clearErrors();
     progressSnapForm.reset();
@@ -143,6 +159,8 @@ const canRecordPayment = computed(() => {
     // Only staff allowed to record money see the form (the server refuses everyone else).
     if (!page.props.auth?.user?.abilities?.includes('money.record')) return false;
     if (!o || o.is_paid || ['Cancelled', 'Expired'].includes(o.status)) return false;
+    // Phase D2: a delivery quote is priced before any money is confirmed against the total.
+    if (o.delivery_info?.needs_quote) return false;
     return !isCommerceOrder.value || isWhatsAppShop.value;
 });
 function cancelWhatsAppOrder() {
@@ -183,11 +201,34 @@ function reviewBooking(row, action) {
 const resolveForm = useForm({ action: '', reason: '', from_product_id: null, to_product_id: '', size: '', top_size: '', bottom_size: '' });
 // A set is swapped to a top size and a bottom size (stock per size).
 const swapTargetIsSet = computed(() => (props.products || []).find(p => p.id === Number(resolveForm.to_product_id))?.garment_type === 'set');
+const swapSizes = ref([]);
+const swapLoading = ref(false);
+const swapError = ref('');
+const swapWhere = ref('');
+let swapRequest = 0;
+const swapParts = computed(() => [...new Set(swapSizes.value.map(size => size.part))]);
+const swapQuantity = computed(() => selectedOrder.value?.stock_problem?.items?.find(item => Number(item.product_id) === Number(resolveForm.from_product_id))?.quantity || 1);
+const swapSizeField = part => part === 'bottom' ? 'bottom_size' : 'top_size';
+const swapReady = computed(() => !!resolveForm.to_product_id && !swapLoading.value && !swapError.value && swapParts.value.length > 0 && swapParts.value.every(part => swapSizes.value.some(size => size.part === part && size.size === resolveForm[swapSizeField(part)] && (size.available == null || size.available >= swapQuantity.value))));
+watch(() => resolveForm.to_product_id, async id => {
+    const request = ++swapRequest;
+    swapSizes.value = []; swapError.value = ''; swapWhere.value = '';
+    resolveForm.top_size = ''; resolveForm.bottom_size = ''; resolveForm.size = '';
+    if (!id) { swapLoading.value = false; return; }
+    swapLoading.value = true;
+    try {
+        const { data } = await axios.get(route('studio.stock.options', id), { params: { order_id: selectedOrder.value?.id } });
+        if (request === swapRequest) { swapSizes.value = data.sizes; swapWhere.value = data.where; }
+    } catch { if (request === swapRequest) swapError.value = 'Could not load offered sizes. Choose the product again to retry.'; }
+    finally { if (request === swapRequest) swapLoading.value = false; }
+});
 const canResolve = computed(() => !!selectedOrder.value?.stock_problem && page.props.auth?.user?.abilities?.includes('money.record'));
 const swapChoices = computed(() => (props.products || []).filter(p => p.in_stock && (p.available_stock === null || p.available_stock > 0)));
 watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { resolveForm.reset(); resolveForm.clearErrors(); resolveForm.from_product_id = o?.stock_problem?.items?.[0]?.product_id ?? null; } });
 function resolveOrder(action) {
     if (!selectedOrder.value) return;
+    if (action === 'swap' && !swapReady.value) return;
+    if (!props.stock_v2) resolveForm.size = resolveForm.top_size && resolveForm.bottom_size ? `Top ${resolveForm.top_size} · Bottom ${resolveForm.bottom_size}` : (resolveForm.top_size || resolveForm.bottom_size);
     resolveForm.action = action;
     resolveForm.post(route('studio.order.resolve', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => resolveForm.reset('reason', 'to_product_id', 'size', 'top_size', 'bottom_size') });
 }
@@ -224,13 +265,23 @@ function recordPayment() {
     if (!selectedOrder.value) return;
     paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
 }
+// An order's delivery (Phase D2): price a WhatsApp quote, or choose it for a bespoke order, with a reason.
+const deliveryForm = useForm({ delivery_option_id: '', fee: '', reason: '' });
+const deliveryChoice = computed(() => props.delivery_options.find(o => o.id === Number(deliveryForm.delivery_option_id)) || null);
+const canSetDelivery = computed(() => page.props.auth?.user?.abilities?.includes('money.record') && selectedOrder.value
+    && !['shipped', 'collected'].includes(selectedOrder.value.fulfilment_status) && selectedOrder.value.order_state !== 'cancelled');
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { deliveryForm.reset(); deliveryForm.clearErrors(); deliveryForm.delivery_option_id = o?.delivery_info?.option_id || ''; } });
+function saveDelivery() {
+    deliveryForm.post(route('studio.order.delivery', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => { deliveryForm.reason = ''; deliveryForm.fee = ''; } });
+}
 function saveOrder() {
     // Phase C: lowering a quote below what's paid owes the difference back; warn and ask why first.
     const o = selectedOrder.value;
     const quote = Math.round(Number(orderForm.price_quoted || 0));
     orderForm.quote_reason = '';
-    if (o && !isCommerceOrder.value && quote !== Number(o.chargeable_total) && quote < Number(o.amount_paid || 0)) {
-        const owed = Number(o.amount_paid) - quote;
+    const delivery = Number(o?.delivery_info?.delivery_total || 0);
+    if (o && !isCommerceOrder.value && quote !== Number(o.delivery_info?.quote_amount ?? o.chargeable_total) && quote + delivery < Number(o.amount_paid || 0)) {
+        const owed = Number(o.amount_paid) - quote - delivery;
         const reason = window.prompt(`KSh ${Number(o.amount_paid).toLocaleString()} is already paid. Lowering the quote to KSh ${quote.toLocaleString()} means KSh ${owed.toLocaleString()} is owed back to the customer (it goes to Refunds, and the piece can't ship until it's refunded).\n\nReason for lowering the quote:`);
         if (!reason) return;
         orderForm.quote_reason = reason;
@@ -464,15 +515,18 @@ function removeAsset(key) {
 
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
         <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
-        <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
+        <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" :stock-v2="stock_v2" @stock="goTab('stock')" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
         <DropsPanel v-else-if="currentTab === 'drops'" :drops="drops" @edit="editDrop" @archive="archiveDrop" />
         <GalleryPanel v-else-if="currentTab === 'showcase'" :gallery="gallery" :archived="archived_gallery" @edit="editGallery" @delete="archiveGallery" @restore="restoreGallery" @forceDelete="forceDeleteGallery" />
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
         <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" />
+        <ActivityPanel v-else-if="currentTab === 'activity'" :activity="activity" />
         <TillsPanel v-else-if="currentTab === 'tills' && $page.props.auth?.user?.abilities?.includes('till.review')" :tills="tills" />
         <StaffPanel v-else-if="currentTab === 'staff' && $page.props.auth?.user?.abilities?.includes('staff.manage')" :staff="staff" />
         <template v-else-if="currentTab === 'settings'">
+            <HandoverSettingsPanel v-for="location in handover_locations" :key="location.id" :location="location" />
+            <DeliveryOptionsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :options="delivery_options" />
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
@@ -524,7 +578,8 @@ function removeAsset(key) {
                     </ul>
                 </div>
                 <div class="bg-slate-950/60 rounded-xl p-4">
-                    <span class="text-slate-500 text-xs block mb-1">Deliver to</span>
+                    <span class="text-slate-500 text-xs block mb-1">{{ selectedOrder.fulfilment_method === 'pickup' ? 'Collect from shop' : 'Deliver to' }}</span>
+                    <p v-if="selectedOrder.fulfilment_method === 'pickup'" class="text-white">{{ selectedOrder.fulfilment_snapshot?.name }} · {{ selectedOrder.fulfilment_snapshot?.address }}<span class="block text-xs text-slate-400">Mark completed when packed and ready. Verify collection at the till.</span></p>
                     <span class="text-white">{{ selectedOrder.address || '—' }}</span>
                     <span v-if="selectedOrder.city" class="block text-slate-300">{{ selectedOrder.city }}</span>
                 </div>
@@ -564,11 +619,28 @@ function removeAsset(key) {
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
                     </div>
                     <label v-else class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Quote (KES — Kenyan shillings)</span>
+                        <span class="block text-sm text-slate-300 mb-2">Quote, without delivery (KES)</span>
                         <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
 
                             </div>
+                <div class="mb-4 rounded-xl bg-slate-950/60 px-4 py-3 text-sm space-y-2" aria-label="Delivery">
+                    <p class="text-slate-300">Delivery:
+                        <strong v-if="selectedOrder.delivery_info?.summary" class="text-white">{{ selectedOrder.delivery_info.summary.name }} · {{ selectedOrder.delivery_info.summary.fee ? formatAmount(selectedOrder.delivery_info.summary.fee, page.props) : 'Free' }}</strong>
+                        <strong v-else-if="selectedOrder.delivery_info?.needs_quote" class="text-amber-300">to be quoted. The customer can’t pay until you price it.</strong>
+                        <span v-else class="text-slate-400">not set</span>
+                    </p>
+                    <form v-if="canSetDelivery && delivery_options.length" @submit.prevent="saveDelivery" class="grid gap-2 sm:grid-cols-[1fr_7rem]" aria-label="Set delivery">
+                        <select v-model="deliveryForm.delivery_option_id" required aria-label="Delivery option" class="bg-slate-950 border border-white/10 rounded-xl pl-3 pr-9 py-2 text-white text-sm">
+                            <option value="" disabled>Choose delivery</option>
+                            <option v-for="o in delivery_options.filter(x => x.active)" :key="o.id" :value="o.id">{{ o.name }}{{ o.type === 'zone' ? ' · ' + (o.fee ? formatAmount(o.fee, page.props) : 'free') : '' }}</option>
+                        </select>
+                        <input v-if="deliveryChoice?.type === 'quote'" v-model="deliveryForm.fee" type="number" min="0" required placeholder="Fee (KSh)" aria-label="Quoted delivery fee" class="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <input v-model="deliveryForm.reason" required maxlength="255" placeholder="Reason, e.g. rider to Thika quoted" aria-label="Reason" class="sm:col-span-2 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <button type="submit" :disabled="deliveryForm.processing" class="sm:col-span-2 justify-self-start table-action">{{ selectedOrder.delivery_info?.needs_quote ? 'Price delivery' : 'Save delivery' }}</button>
+                        <p v-for="(m, f) in deliveryForm.errors" :key="f" role="alert" class="sm:col-span-2 text-rose-300">{{ m }}</p>
+                    </form>
+                </div>
                 <div class="space-y-3 text-sm">
                     <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
                     <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
@@ -581,6 +653,7 @@ function removeAsset(key) {
                     </p>
                     <p v-if="selectedOrder.resolution && selectedOrder.resolution !== 'none' && selectedOrder.resolution_reason" role="status" class="mt-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-xs text-amber-400">{{ selectedOrder.resolution_reason }}</p>
                     <form v-if="canResolve" @submit.prevent class="mt-3 rounded-xl ring-1 ring-white/10 p-3 space-y-2" aria-label="Decide what happens to this order">
+                        <WorkflowContext :actor="page.props.auth?.user?.name" task="Agree and save a replacement, wait or refund" reason="The paid item cannot currently be fulfilled; the customer must agree the next step." when="After discussing the available options with the customer." :where="swapWhere || 'Order desk / Studio'" confirmation="The saved order shows the new items and recalculated balance/refund, or the recorded wait/refund decision." />
                         <p class="text-xs text-slate-300">
                             <template v-if="selectedOrder.stock_problem.waiting">Waiting for the next batch. When it is back, swap the customer onto it, or refund in full.</template>
                             <template v-else>Sold out: {{ selectedOrder.stock_problem.items.map(i => i.name).join(', ') }}. Agree with the customer, then record the decision.</template>
@@ -593,15 +666,18 @@ function removeAsset(key) {
                                 <option value="">Swap to… (in stock)</option>
                                 <option v-for="p in swapChoices" :key="p.id" :value="p.id">{{ p.name }} · {{ formatAmount(p.price, page.props) }}<template v-if="p.available_stock !== null"> · {{ p.available_stock }} left</template></option>
                             </select>
-                            <div v-if="swapTargetIsSet" class="grid grid-cols-2 gap-2">
-                                <input v-model="resolveForm.top_size" maxlength="30" aria-label="Top size for the swap" placeholder="Top size" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
-                                <input v-model="resolveForm.bottom_size" maxlength="30" aria-label="Bottom size for the swap" placeholder="Bottom size" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                            <div class="space-y-2">
+                                <p v-if="swapLoading" role="status" class="text-xs">Loading offered sizes…</p>
+                                <p v-if="swapError" role="alert" class="text-xs text-rose-300">{{ swapError }}</p>
+                                <label v-for="part in swapParts" :key="part" class="block text-xs text-slate-300">{{ part === 'single' ? 'Size' : part === 'bottom' ? 'Bottom size' : 'Top size' }}
+                                    <select :aria-label="part === 'single' ? 'Size' : part === 'bottom' ? 'Bottom size' : 'Top size'" v-model="resolveForm[swapSizeField(part)]" :disabled="swapLoading" class="block w-full mt-1 rounded-xl bg-slate-950 text-white border-white/10"><option value="">Choose an offered size</option><option v-for="size in swapSizes.filter(item => item.part === part)" :key="size.id || size.size" :value="size.size" :disabled="size.available != null && size.available < swapQuantity">{{ size.size }} · {{ size.available == null ? 'Made to order / no count limit' : size.available + ' available' }}</option></select>
+                                </label>
+                                <p v-if="swapWhere" class="text-xs text-slate-400">{{ swapWhere }} · {{ swapQuantity }} needed. Availability is checked again when saved.</p>
                             </div>
-                            <input v-else v-model="resolveForm.size" maxlength="60" aria-label="Size for the swap" placeholder="Size (optional)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
                         </div>
                         <input v-model="resolveForm.reason" maxlength="255" aria-label="Reason for this decision" placeholder="Reason (what the customer agreed)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" @click="resolveOrder('swap')" :disabled="resolveForm.processing || !resolveForm.reason || !resolveForm.to_product_id" class="rounded-xl bg-[#57d5fc] px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40">Swap</button>
+                            <button type="button" @click="resolveOrder('swap')" :disabled="resolveForm.processing || !resolveForm.reason || !swapReady" class="rounded-xl bg-[#57d5fc] px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40">Swap</button>
                             <button v-if="!selectedOrder.stock_problem.waiting" type="button" @click="resolveOrder('wait')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-white/5 px-4 py-2 text-sm text-slate-200 disabled:opacity-40">Wait for next batch</button>
                             <button type="button" @click="resolveOrder('refund')" :disabled="resolveForm.processing || !resolveForm.reason" class="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 disabled:opacity-40">Full refund</button>
                         </div>
@@ -658,7 +734,7 @@ function removeAsset(key) {
                         <span class="block text-sm text-slate-300 mb-2" id="order-production-stage-label">Production stage</span>
                         <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
                         <select v-else aria-labelledby="order-production-stage-label" :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
-                            <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
+                            <option v-for="s in stagesFor(selectedOrder)" :key="s" :value="s">{{ stageLabels[s] }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
                     </label>

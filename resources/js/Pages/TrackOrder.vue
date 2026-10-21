@@ -21,7 +21,7 @@ const isLoading = ref(false);
 const error = ref(null);
 const order = ref(null);
 
-const PRODUCTION = { pending: 0, designing: 1, sewing: 2, completed: 3, shipped: 4 };
+const PRODUCTION = { pending: 0, designing: 1, sewing: 2, completed: 3, ready_for_pickup: 3, shipped: 4, collected: 4 };
 
 // Adaptive journey: ready-to-wear is payment-led, bespoke is production-led.
 const journey = computed(() => {
@@ -33,14 +33,14 @@ const journey = computed(() => {
             { label: "Placed", icon: "receipt_long" },
             { label: "Paid", icon: "paid" },
             { label: "Crafting", icon: "precision_manufacturing" },
-            { label: "Completed", icon: "verified" },
-            { label: "On its way", icon: "local_shipping" },
+            { label: o.handover?.method === 'pickup' ? "Ready for collection" : "Completed", icon: "verified" },
+            { label: o.handover?.method === 'pickup' ? "Collected" : "On its way", icon: "local_shipping" },
         ];
         let index = o.is_paid ? 1 : 0;
         if (o.is_paid) {
             if (o.status === "designing" || o.status === "sewing") index = 2;
-            else if (o.status === "completed") index = 3;
-            else if (o.status === "shipped") index = 4;
+            else if (["completed", "ready_for_pickup"].includes(o.status)) index = 3;
+            else if (["shipped", "collected"].includes(o.status)) index = 4;
         }
         return { steps, index, awaitingPayment: !o.is_paid && !['Cancelled', 'Expired', 'Amount Mismatch'].includes(o.status) };
     }
@@ -49,8 +49,8 @@ const journey = computed(() => {
         { label: "Received", icon: "assignment" },
         { label: "Design", icon: "architecture" },
         { label: "Making", icon: "precision_manufacturing" },
-        { label: "Completed", icon: "verified" },
-        { label: "Transit", icon: "local_shipping" },
+        { label: o.handover?.method === 'pickup' ? "Ready for collection" : "Completed", icon: "verified" },
+        { label: o.status === 'collected' || o.handover?.method === 'pickup' ? "Collected" : "Transit", icon: "local_shipping" },
     ];
     return { steps, index: PRODUCTION[o.status] ?? 0, awaitingPayment: false };
 });
@@ -185,6 +185,9 @@ onMounted(() => {
                             </div>
                             <div class="text-right">
                                 <StatusBadge v-bind="paymentStatus(order)" />
+                                <section v-if="order.handover" class="mt-3 text-sm" aria-label="Order handover"><p class="font-semibold">{{ order.handover.label }}<template v-if="order.handover.location"> · {{ order.handover.location }}</template></p><p v-if="order.handover.address">{{ order.handover.address }}</p><p>{{ order.handover.next }}</p>
+                                    <p v-if="order.delivery" class="mt-1">{{ order.delivery.name }} · {{ order.delivery.fee ? 'KSh ' + order.delivery.fee.toLocaleString() : 'Free' }}<template v-if="order.delivery.eta"> · {{ order.delivery.eta }}</template></p>
+                                    <p v-else-if="order.delivery_quote_pending" class="mt-1">Delivery is being priced. We will send the total on WhatsApp.</p></section>
                                 <div v-if="order.amount" class="text-2xl font-light tracking-tight mt-2">
                                     {{ money(order.amount) }}
                                 </div>

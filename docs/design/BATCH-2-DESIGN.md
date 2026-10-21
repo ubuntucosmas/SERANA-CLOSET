@@ -1086,6 +1086,37 @@ The `ConcurrencyTest` harness adds STOCK_V2 workers for each row above. A new st
   - **Collection before the till:** the Studio action "Mark collected" asks for the reference and the phone number the customer gives. It checks `matchesContact()`, refuses on mismatch, and logs the actor plus a reason/note. Shop orders: stock was already committed at payment, so no stock movement happens here.
   - Queues and labels: a "Ready for pickup" queue, tracking-page labels, and the legacy status mapping (each stage maps to itself, as today).
 
+### 13.7a D2 as built (2026-10-21, branch `phase-d2/handover`)
+
+Built on Codex's pickup work (commit `c3ae8f4`): `fulfilment_method`, `pickup_location_id`, the shop snapshot, pickup stock held and swapped only at its shop, and collection at the till only at that shop. This section brings it to the design above.
+
+- **Options:**
+  - `delivery_options` is seeded with "Collect from the shop" (location 1) and "Outside our zones — quote on WhatsApp".
+  - Studio → Settings → **Delivery and collection** (owner, `settings.policies`): add and edit zones (fee, free from, when to expect it, order). Options are switched off, never deleted. Every change takes a reason and is audited.
+  - Pickup is offered only while its shop accepts collections and has an address (Codex's rule), which the owner sets in the same Settings screen.
+- **Checkout:**
+  - `delivery_option_id` is required. The server prices it (`feeFor`: free when the item subtotal is at or over `free_over`) and writes a **delivery line** through `OrderSettlementService::setDelivery`, in the checkout transaction.
+  - Any fee the client sends is ignored. An inactive or unavailable option is refused.
+  - A pickup needs no address.
+  - A quote is always sent on WhatsApp and gets no delivery line. STK and the pay link refuse it ("The Studio is pricing your delivery") until the Studio prices it.
+- **Lines and totals.** Every delivery charge or change is a `delivery` line:
+  - a later change is a "Delivery change" line for the difference;
+  - `setQuote` and the Studio quote field exclude delivery, so editing a quote never cancels delivery;
+  - the deposit is a share of the whole total, delivery included;
+  - changes are refused once the order is shipped or collected.
+- **Studio order screen:**
+  - the delivery charged, or "to be quoted";
+  - **Price delivery** for a quote, or **Save delivery** to choose or change an option (`money.record`, with a reason).
+- **Stages:**
+  - `ready_for_pickup` is added (it replaces Codex's use of `completed` as "ready").
+  - A pickup order can't be shipped, and a delivery order can't be made ready for pickup.
+  - Ready for pickup, like shipping, needs nothing owed.
+  - Making an order ready sends **ReadyForPickupMail**: where, what to bring, and any balance.
+  - Collection stays at the till (Phase E), which checks the reference, the phone, the shop, and that nothing is owed.
+  - A "Waiting for pickup" queue is added to the Studio.
+- **Shown everywhere:** the delivery line appears on checkout (before paying), the receipt email and PDF, the WhatsApp message and order-placed email, tracking, the pay page and the Studio. "Delivery included" is gone everywhere, and a frontend test keeps it out.
+- **Not built:** choosing delivery on the bespoke pay page by the customer (P7: the Studio chooses, as designed). Also not built: a "Mark collected" in the Studio (P8). Collection is the till's only, so there is one place with one set of checks.
+
 ### 13.8 Phase plan
 
 **D1: variants, locations, stock service, stock take, cutover** (one PR)

@@ -116,6 +116,9 @@
     </table>
 
     <div class="label">Order Summary</div>
+    @if($handover = $order->handoverDetails())
+    <p>{{ $handover['label'] }}@if($handover['location']) · {{ $handover['location'] }}@endif<br>@if($handover['address']){{ $handover['address'] }}<br>@endif{{ $handover['next'] }}</p>
+    @endif
     <table class="items">
         <thead>
             <tr>
@@ -137,10 +140,18 @@
             <tr>
                 <td><strong>{{ $isBespoke ? 'Custom order — ' . ucfirst($order->garment ?? 'bespoke') : 'Order #' . $order->id }}</strong></td>
                 <td class="qty">1</td>
-                <td class="num">{{ $currency }} {{ number_format((float) $total, 2) }}</td>
-                <td class="num">{{ $currency }} {{ number_format((float) $total, 2) }}</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $order->quoteAmount(), 2) }}</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $order->quoteAmount(), 2) }}</td>
             </tr>
             @endforelse
+            @if($delivery = $order->deliverySummary())
+            <tr>
+                <td><strong>Delivery</strong><br><span style="font-size:11px; color:#6b6b72;">{{ $delivery['name'] }}</span></td>
+                <td class="qty">1</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $delivery['fee'], 2) }}</td>
+                <td class="num">{{ $currency }} {{ number_format((float) $delivery['fee'], 2) }}</td>
+            </tr>
+            @endif
         </tbody>
     </table>
 

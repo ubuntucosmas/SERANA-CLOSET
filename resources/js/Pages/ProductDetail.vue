@@ -105,7 +105,7 @@ const stickyAction = () => {
 const techSpecs = computed(() => (props.product.specifications?.tech_specs || []).filter(spec => typeof spec === 'string' && spec.trim() !== ''));
 
 const trustHighlights = computed(() => [
-    { label: 'Delivery included', icon: 'local_shipping' },
+    { label: 'Delivery or shop collection', icon: 'local_shipping' },
     page.props.payments?.mpesa ? { label: 'Pay with M-Pesa', icon: 'verified_user' } : { label: 'Order on WhatsApp', icon: 'chat' },
     { label: 'Fit help on WhatsApp', icon: 'support_agent' },
 ]);
@@ -174,7 +174,7 @@ const goTo = (index) => {
                                 <h1 class="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">{{ product.name }}</h1>
                                 <p class="shrink-0 font-headline text-2xl font-bold text-on-surface md:text-3xl">{{ formatAmount(product.price, page.props) }}</p>
                             </div>
-                            <p class="mt-2 text-sm" :class="isSoldOut ? 'text-on-surface-variant' : 'text-primary'">{{ isSoldOut ? 'Out of stock' : (stockNote || 'In stock') + ' · delivery included' }}</p>
+                            <p class="mt-2 text-sm" :class="isSoldOut ? 'text-on-surface-variant' : 'text-primary'">{{ isSoldOut ? 'Out of stock' : (stockNote || 'In stock') + ' · delivery or collection at checkout' }}</p>
                         </header>
 
                         <!-- Sizes -->

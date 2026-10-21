@@ -26,7 +26,7 @@ const queue = ref(props.orders.queue || 'all');
 const sort = ref(props.orders.sort || 'newest');
 const activeQueue = computed(() => managerQueues.find(item => item.id === queue.value));
 
-const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'shipped', 'collected']; // collected: handed over at the till
+const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'ready_for_pickup', 'shipped', 'collected']; // collected: handed over at the till
 
 function amountOf(o) { return o.price_quoted ?? o.total ?? 0; }
 function isCustom(o) { return o.type !== 'standard'; }
