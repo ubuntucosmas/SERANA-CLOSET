@@ -46,7 +46,7 @@ const helpHref = computed(() => page.props.store?.whatsapp_url || route('contact
         </section>
 
         <section id="new-arrivals" class="page-container page-section scroll-mt-24" aria-labelledby="arrivals-heading">
-            <div data-cinema-reveal class="mb-7 flex flex-wrap items-end justify-between gap-5">
+            <div data-cinema-reveal class="mb-4 sm:mb-7 flex flex-wrap items-end justify-between gap-3 sm:gap-5">
                 <div>
                     <p class="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-primary">A fresh point of view</p>
                     <h2 id="arrivals-heading" class="section-title">New Arrivals</h2>
@@ -84,9 +84,9 @@ const helpHref = computed(() => page.props.store?.whatsapp_url || route('contact
                 <div class="card-media aspect-[16/10] rounded-none md:aspect-auto">
                     <img v-if="featuredDrop.image_url" :src="featuredDrop.image_url" :alt="featuredDrop.title" loading="lazy" class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
-                <div class="flex flex-col justify-center p-7 md:p-12">
+                <div class="flex flex-col justify-center p-4 sm:p-7 md:p-12">
                     <span class="kicker self-start"><span class="kicker-dot"></span> Live Drop</span>
-                    <h2 id="featured-drop-heading" class="mt-5 font-headline text-3xl font-semibold text-on-surface md:text-4xl">{{ featuredDrop.title }}</h2>
+                    <h2 id="featured-drop-heading" class="mt-3 sm:mt-5 font-headline text-2xl sm:text-3xl font-semibold text-on-surface md:text-4xl">{{ featuredDrop.title }}</h2>
                     <p class="mt-2 text-xl font-semibold text-primary">{{ formatAmount(featuredDrop.price, page.props) }}</p>
                     <p class="mt-4 max-w-md text-sm leading-relaxed text-on-surface-variant">Reserve before we make it. Production starts when the campaign reaches its goal.</p>
                     <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10" aria-hidden="true">

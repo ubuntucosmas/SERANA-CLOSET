@@ -208,7 +208,8 @@ function startPolling() {
         <teleport to="body">
             <div v-if="open" class="fixed inset-0 z-[300] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/85 backdrop-blur-md" @click="closeReserve"></div>
-                <div class="relative z-10 w-full max-w-md max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div data-notification-modal class="relative z-10 w-full max-w-md max-h-[92vh] overflow-y-auto no-scrollbar">
+                    <div data-notification-host class="sticky top-0 z-[60] bg-surface rounded-t-2xl"></div>
                     <button aria-label="Close reservation" @click="closeReserve" class="absolute top-4 right-4 z-50 w-9 h-9 grid place-items-center bg-black/40 text-white/60 hover:text-white rounded-full"><span class="material-symbols-outlined text-lg">close</span></button>
 
                     <p v-if="formError" role="alert" class="bg-surface text-on-surface rounded-xl p-4 mb-3">{{ formError }}</p>

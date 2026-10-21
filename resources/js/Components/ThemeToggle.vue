@@ -31,16 +31,13 @@ onMounted(() => {
     <button
         type="button"
         @click="toggleTheme" 
-        class="w-10 h-10 flex items-center justify-center rounded-xl border dark:border-white/10 border-black/10 hover:border-primary/50 transition-all duration-300 group relative overflow-hidden bg-white/5 active:scale-90"
+        class="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 group relative overflow-hidden active:scale-95"
         :title="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
         :aria-label="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
         :aria-pressed="isDark"
     >
-        <div class="relative w-6 h-6 flex flex-col transition-transform duration-500" :style="{ transform: isDark ? 'translateY(0)' : 'translateY(-100%)' }">
-            <span class="material-symbols-outlined text-[20px] shrink-0 h-6 flex items-center justify-center text-primary">dark_mode</span>
-            <span class="material-symbols-outlined text-[20px] shrink-0 h-6 flex items-center justify-center text-on-surface">light_mode</span>
-        </div>
-        
+        <span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+
         <!-- Subtle background glow on hover -->
         <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
     </button>

@@ -86,7 +86,7 @@ const list = computed(() => {
         </div>
     </div>
     <Modal :show="!!preview" maxWidth="2xl" @close="preview = null">
-        <section v-if="preview" class="bg-slate-900 text-slate-200 p-5" aria-labelledby="product-preview-title">
+        <section v-if="preview" class="bg-slate-900 text-slate-200 p-4 sm:p-5" aria-labelledby="product-preview-title">
             <header class="flex items-start justify-between gap-4 mb-4"><div><p class="text-xs text-slate-400">Product preview · saved details</p><h2 id="product-preview-title" class="text-xl font-semibold text-white">{{ preview.name }}</h2></div><button @click="preview = null" class="table-action" aria-label="Close product preview">Close</button></header>
             <div class="grid sm:grid-cols-2 gap-5">
                 <div><div class="aspect-square rounded-lg bg-slate-950 overflow-hidden flex items-center justify-center"><img v-if="previewImage" :src="previewImage" :alt="preview.name" class="w-full h-full object-contain" /><p v-else class="text-sm text-slate-400">No product images uploaded.</p></div>

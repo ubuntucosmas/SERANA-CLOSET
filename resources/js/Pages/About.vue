@@ -190,7 +190,7 @@ onMounted(() => {
                         {{ new Date().getFullYear() - 2 }} archive
                     </div>
                     <h1
-                        class="font-headline text-5xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl mb-8 max-w-4xl reveal-item opacity-0"
+                        class="font-headline text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl mb-8 max-w-4xl reveal-item opacity-0"
                     >
                         Made<br />
                         <span class="text-white/40">with care.</span>
@@ -258,7 +258,7 @@ onMounted(() => {
                         class="flex flex-col items-center py-6 px-4 text-center group stat-item opacity-0"
                     >
                         <span
-                            class="font-headline text-5xl md:text-7xl font-medium text-primary luminous-glow mb-4 group-hover:scale-105 transition-transform"
+                            class="font-headline text-3xl sm:text-5xl md:text-7xl font-medium text-primary luminous-glow mb-4 group-hover:scale-105 transition-transform"
                             >{{ stat.value }}</span
                         >
                         <span
@@ -296,7 +296,7 @@ onMounted(() => {
                         class="absolute -bottom-6 -right-4 lg:-right-8 bg-transparent border-2 dark:border-primary/20 border-primary/10 rounded-sm px-8 py-5 backdrop-blur shadow-2xl"
                     >
                         <h2
-                            class="text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9]"
+                            class="text-3xl sm:text-4xl md:text-8xl font-headline font-light tracking-tighter dark:text-white text-on-surface leading-[0.9]"
                         >
                             Building
                             <span class="text-primary font-medium"
@@ -329,7 +329,7 @@ onMounted(() => {
                         Our custom story
                     </div>
                     <h2
-                        class="font-headline text-4xl md:text-5xl font-medium leading-tight"
+                        class="font-headline text-2xl sm:text-4xl md:text-5xl font-medium leading-tight"
                     >
                         Born out of
                         <span class="font-light text-primary"
@@ -399,7 +399,7 @@ onMounted(() => {
                         v-for="value in values"
                         :key="value.title"
                         data-reveal-direction="up"
-                        class="glass-panel group relative rounded-sm p-8 transition-all duration-500 hover:bg-black/60 overflow-hidden grid-item opacity-0"
+                        class="glass-panel group relative rounded-sm p-5 sm:p-8 transition-all duration-500 hover:bg-black/60 overflow-hidden grid-item opacity-0"
                     >
                         <!-- Background accent -->
                         <div
@@ -431,7 +431,7 @@ onMounted(() => {
             <section
                 class="bg-transparent border-b dark:border-white/10 border-black/10 reveal-on-scroll reveal-grid"
             >
-                <div class="max-w-screen-xl mx-auto px-8 py-24">
+                <div class="max-w-screen-xl mx-auto px-4 sm:px-8 py-10 sm:py-24">
                     <div class="text-center mb-16">
                         <div
                             class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider mb-8"
@@ -502,7 +502,7 @@ onMounted(() => {
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
                     <h2
-                        class="text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter"
+                        class="text-2xl sm:text-4xl md:text-6xl font-headline font-medium dark:text-white text-on-surface leading-[0.95] tracking-tighter"
                     >
                         Our
                         <span class="dark:text-white text-on-surface/20"

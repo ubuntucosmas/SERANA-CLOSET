@@ -86,12 +86,12 @@ onUnmounted(stopCycle);
         </Link>
 
         <!-- Product metadata -->
-        <div class="mt-4 flex flex-1 flex-col border-t border-black/5 pt-3 dark:border-white/5">
-            <p class="truncate text-[13px] text-on-surface-variant">{{ product.category?.name || 'Collection' }}</p>
-            <h3 class="mt-0.5 line-clamp-2 text-base font-semibold text-on-surface transition-colors group-hover:text-primary">
+        <div class="mt-3 sm:mt-4 flex flex-1 flex-col border-t border-black/5 pt-3 dark:border-white/5">
+            <p class="truncate text-xs sm:text-[13px] text-on-surface-variant">{{ product.category?.name || 'Collection' }}</p>
+            <h3 class="mt-0.5 line-clamp-2 text-sm sm:text-base font-semibold text-on-surface transition-colors group-hover:text-primary">
                 <Link :href="route('shop.show', product.slug)">{{ product.name }}</Link>
             </h3>
-            <div class="mt-auto flex items-end justify-between gap-2 pt-4">
+            <div class="mt-auto flex items-end justify-between gap-2 pt-3 sm:pt-4">
                 <div>
                     <span class="block text-xs text-on-surface-variant">{{ isSoldOut ? 'Sold out' : 'Price' }}</span>
                     <span class="whitespace-nowrap font-headline text-base font-bold text-on-surface sm:text-lg">{{ formatAmount(product.price, page.props) }}</span>

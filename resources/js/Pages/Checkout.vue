@@ -369,7 +369,7 @@ onUnmounted(() => {
     <StorefrontLayout focus>
         <Head title="Checkout — Serana" />
 
-        <main class="page-container relative pb-24 min-h-screen">
+        <main class="checkout-page page-container relative pb-12 min-h-screen">
 
             <!-- Lipa na M-PESA Express Checkout -->
             <div class="max-w-6xl mx-auto">
@@ -391,6 +391,11 @@ onUnmounted(() => {
                     </div>
                     </template>
                 </PageHeader>
+
+                <nav v-if="cart.items.length && !whatsappOrder && !isPaid" class="checkout-toolbar" aria-label="Checkout sections">
+                    <div class="checkout-jumps"><a href="#checkout-delivery">Delivery</a><a href="#checkout-payment">Payment</a><a href="#checkout-summary">Order</a></div>
+                    <span class="checkout-running-total"><span class="text-on-surface-variant">Total</span> <strong>{{ formatAmount(payTotal) }}</strong></span>
+                </nav>
 
                 <div v-if="resumedOrder && !isPaid && !paymentBlocked" role="status" class="card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -415,17 +420,17 @@ onUnmounted(() => {
                 <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
                     <!-- LEFT: Order Summary -->
-                    <aside class="order-2 lg:order-1 lg:col-span-5 lg:sticky lg:top-28 h-fit space-y-5">
-                        <div class="bg-surface-container border border-white/10 p-7 md:p-8">
-                            <div class="flex items-center justify-between mb-7">
-                                <h3 class="tracking-wider text-[11px] text-on-surface-variant font-bold">Order Summary</h3>
+                    <aside class="order-2 lg:order-1 checkout-summary lg:col-span-5 h-fit space-y-4">
+                        <div id="checkout-summary" class="checkout-panel">
+                            <div class="checkout-summary-heading flex items-center justify-between gap-3">
+                                <h2 class="text-sm font-semibold text-on-surface">Order summary</h2>
                                 <span class="text-[11px] font-mono text-on-surface-variant">{{ cart.items.length }} item{{ cart.items.length === 1 ? '' : 's' }}</span>
                             </div>
 
                             <div class="space-y-5">
                                 <div v-for="item in cart.items" :key="item.line_key" class="flex gap-4">
                                     <div class="always-dark w-16 h-20 bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
-                                        <img :src="item.image" class="w-full h-full object-cover" />
+                                        <img :src="item.image" :alt="item.name" class="w-full h-full object-cover" />
                                     </div>
                                     <div class="flex-1 min-w-0 pt-0.5">
                                         <div class="text-on-surface font-medium truncate">{{ item.name }}</div>
@@ -436,7 +441,7 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
-                            <div class="mt-7 pt-6 border-t border-white/10 space-y-2.5">
+                            <div class="mt-5 pt-4 border-t border-white/10 space-y-2.5">
                                 <div class="flex justify-between text-sm text-on-surface-variant">
                                     <span>Subtotal</span>
                                     <span class="font-mono">{{ formatAmount(cart.totalPrice) }}</span>
@@ -446,8 +451,8 @@ onUnmounted(() => {
                                     <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">Included</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-white/5">
-                                    <span class="tracking-widest text-[11px] text-on-surface-variant">Total</span>
-                                    <span class="font-headline text-3xl text-primary">{{ formatAmount(cart.totalPrice) }}</span>
+                                    <span class="text-sm font-semibold text-on-surface">Total</span>
+                                    <span class="font-headline text-2xl text-primary tabular-nums">{{ formatAmount(cart.totalPrice) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -458,15 +463,15 @@ onUnmounted(() => {
                                 { icon: 'lock', label: 'Encrypted' },
                                 payments.mpesa ? { icon: 'verified_user', label: 'Safaricom' } : { icon: 'chat', label: 'WhatsApp support' },
                                 { icon: 'receipt_long', label: 'Receipt by email' },
-                            ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-4 bg-surface-container border border-white/5">
+                            ]" :key="t.label" class="flex flex-col items-center gap-1.5 py-3 bg-surface border border-outline-variant/50 rounded-xl">
                                 <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-lg">{{ t.icon }}</span>
-                                <span class="text-[9px] tracking-widest text-on-surface-variant font-bold">{{ t.label }}</span>
+                                <span class="text-xs text-on-surface-variant text-center">{{ t.label }}</span>
                             </div>
                         </div>
                     </aside>
 
                     <!-- RIGHT: Details + Pay -->
-                    <div class="order-1 lg:order-2 lg:col-span-7 space-y-6">
+                    <div class="order-1 lg:order-2 lg:col-span-7 space-y-4">
                         <!-- Phones: one line of what's being bought; the full summary follows the form. -->
                         <button type="button" @click="cart.isOpen = true" class="card flex w-full items-center justify-between gap-3 px-5 py-4 text-left lg:hidden">
                             <span class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }} · <span class="font-semibold text-on-surface">{{ formatAmount(cart.totalPrice) }}</span></span>
@@ -474,11 +479,11 @@ onUnmounted(() => {
                         </button>
 
                         <!-- 1 · Delivery details -->
-                        <div class="bg-surface-container border border-white/10 p-7 md:p-8">
-                            <div class="flex items-center gap-3 mb-7">
+                        <section id="checkout-delivery" class="checkout-panel" aria-labelledby="checkout-delivery-title">
+                            <header class="checkout-section-heading">
                                 <span class="w-7 h-7 flex items-center justify-center bg-primary/15 text-primary text-xs font-black">1</span>
-                                <h2 class="tracking-wider text-xs font-bold text-on-surface">Delivery Details</h2>
-                            </div>
+                                <div><h2 id="checkout-delivery-title" class="text-sm font-semibold text-on-surface">Delivery details</h2><p class="text-xs text-on-surface-variant">Required for delivery and your receipt.</p></div>
+                            </header>
 
                             <div class="space-y-5">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -521,14 +526,14 @@ onUnmounted(() => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
                         <!-- 2 · How you'll pay (M-Pesa now and/or WhatsApp) -->
-                        <div class="bg-surface-container border p-7 md:p-8" :class="isWhatsApp ? 'border-[#25D366]/30' : 'border-[#4fb33f]/25'">
-                            <div class="flex items-center gap-3 mb-6">
+                        <section id="checkout-payment" aria-labelledby="checkout-payment-title" class="checkout-panel" :class="isWhatsApp ? 'border-[#25D366]/30' : 'border-[#4fb33f]/25'">
+                            <header class="checkout-section-heading">
                                 <span class="w-7 h-7 flex items-center justify-center bg-[#4fb33f]/15 text-[#276b1d] dark:text-[#4fb33f] text-xs font-black">2</span>
-                                <h2 class="tracking-wider text-xs font-bold text-on-surface">{{ bothMethods ? 'How would you like to pay?' : isWhatsApp ? 'Order on WhatsApp' : 'Pay with M-PESA' }}</h2>
-                            </div>
+                                <h2 id="checkout-payment-title" class="text-sm font-semibold text-on-surface">{{ bothMethods ? 'How would you like to pay?' : isWhatsApp ? 'Order on WhatsApp' : 'Pay with M-PESA' }}</h2>
+                            </header>
 
                             <!-- Choice, only when both are offered -->
                             <div v-if="bothMethods && !paymentBlocked" role="radiogroup" aria-label="Payment method" class="mb-6 grid gap-3 sm:grid-cols-2">
@@ -591,7 +596,7 @@ onUnmounted(() => {
                                 <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">shield</span>
                                 {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll receive a secure STK push on your phone' }}
                             </p>
-                        </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -611,9 +616,11 @@ onUnmounted(() => {
 
                         <!-- Dialog -->
                         <div
+                            data-notification-modal
                             class="pay-modal-card relative z-10 w-full max-h-[92vh] overflow-y-auto no-scrollbar"
                             :class="isSuccess ? 'max-w-2xl' : 'max-w-md'"
                         >
+                            <div data-notification-host class="sticky top-0 z-[60] bg-surface rounded-t-2xl"></div>
                             <!-- Close -->
                             <button
                                 @click="closePaymentModal"
@@ -627,7 +634,7 @@ onUnmounted(() => {
                                  callback). Reassure — reconcile + email finish the job. -->
                             <div
                                 v-if="paymentPending && !isPaid"
-                                class="bg-white dark:bg-[#1d211d] rounded-[2rem] p-8 md:p-10 text-center ring-1 ring-black/5 dark:ring-white/5"
+                                class="bg-white dark:bg-[#1d211d] rounded-[2rem] p-5 sm:p-8 md:p-10 text-center ring-1 ring-black/5 dark:ring-white/5"
                             >
                                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-400/15 mb-5">
                                     <span class="material-symbols-outlined text-3xl text-amber-500" style="font-variation-settings:'FILL' 1">hourglass_top</span>
@@ -696,6 +703,24 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.checkout-page { --checkout-nav: 72px; --checkout-tools: 48px; --checkout-pad: 16px; }
+.checkout-toolbar { position: sticky; top: var(--checkout-nav); z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--checkout-tools); margin-bottom: 20px; padding: 4px 8px; border: 1px solid var(--card-border); border-radius: 12px; background: var(--surface); box-shadow: 0 3px 12px #00000008; }
+.checkout-jumps { display: flex; gap: 2px; }
+.checkout-jumps a { display: inline-flex; align-items: center; min-height: 40px; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
+.checkout-jumps a:hover, .checkout-jumps a:focus-visible { color: var(--primary); background: var(--tint-bg); }
+.checkout-running-total { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.checkout-panel { padding: var(--checkout-pad); border: 1px solid var(--card-border); border-radius: 16px; background: var(--surface); scroll-margin-top: calc(var(--checkout-nav) + var(--checkout-tools) + 16px); }
+.checkout-section-heading { position: sticky; top: calc(var(--checkout-nav) + var(--checkout-tools) + 1px); z-index: 20; display: flex; align-items: center; gap: 12px; margin: calc(-1 * var(--checkout-pad)) calc(-1 * var(--checkout-pad)) 20px; padding: 12px var(--checkout-pad); border-bottom: 1px solid var(--card-border); border-radius: 16px 16px 0 0; background: var(--surface); }
+.checkout-summary-heading { margin-bottom: 20px; }
+.checkout-panel label { font-size: 12px; letter-spacing: .01em; }
+.checkout-panel input { min-height: 44px; border-radius: 8px; padding: 10px 12px; }
+.checkout-panel input:focus { box-shadow: 0 0 0 2px var(--tint-bg); }
+.checkout-panel .font-mono { font-variant-numeric: tabular-nums; }
+@media (min-width: 640px) { .checkout-page { --checkout-nav: 104px; --checkout-pad: 24px; } }
+@media (min-width: 1024px) {
+    .checkout-summary { position: sticky; top: calc(var(--checkout-nav) + var(--checkout-tools) + 12px); max-height: calc(100dvh - var(--checkout-nav) - var(--checkout-tools) - 24px); overflow-y: auto; scrollbar-width: thin; }
+}
+
 .pay-option {
     display: flex; align-items: flex-start; gap: .75rem; width: 100%;
     border: 1px solid var(--card-border, rgba(127,127,127,.25)); border-radius: 1rem;

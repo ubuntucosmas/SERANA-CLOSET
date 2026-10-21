@@ -17,13 +17,13 @@ const steps = [
                 <img data-cinema-depth="-34" :src="image" alt="Clothes and materials in the Serana studio" loading="lazy" width="800" height="800" class="cinema-image-pan h-full max-h-[540px] w-full object-cover lg:absolute lg:inset-0 lg:max-h-none" />
                 <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-16 text-white sm:p-9">
                     <p class="text-xs font-medium uppercase tracking-[.14em] text-white/75">A more personal process</p>
-                    <p class="mt-2 font-headline text-3xl font-medium">Your idea. Our studio.</p>
+                    <p class="mt-2 font-headline text-xl sm:text-3xl font-medium">Your idea. Our studio.</p>
                 </div>
             </div>
-            <div class="p-6 sm:p-9 lg:p-12">
+            <div class="p-4 sm:p-9 lg:p-12">
                 <p data-cinema-reveal class="text-xs font-semibold uppercase tracking-[.14em] text-primary">Custom orders, made simple</p>
-                <h2 data-cinema-reveal data-cinema-delay="70" id="home-bespoke-heading" class="mt-4 font-headline text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Something in mind?<br />Let’s bring it to life.</h2>
-                <ol class="mt-8 space-y-6">
+                <h2 data-cinema-reveal data-cinema-delay="70" id="home-bespoke-heading" class="mt-4 font-headline text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">Something in mind?<br />Let’s bring it to life.</h2>
+                <ol class="mt-5 sm:mt-8 space-y-4 sm:space-y-6">
                     <li v-for="(step, index) in steps" :key="step.title" data-cinema-reveal :data-cinema-delay="index * 90" class="flex gap-4">
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-outline-variant text-xs font-semibold text-primary" aria-hidden="true">{{ index + 1 }}</span>
                         <div>
@@ -32,7 +32,7 @@ const steps = [
                         </div>
                     </li>
                 </ol>
-                <Link :href="route('custom-order')" class="action-primary mt-8">Start a Custom Order <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span></Link>
+                <Link :href="route('custom-order')" class="action-primary mt-5 sm:mt-8">Start a Custom Order <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span></Link>
                 <p class="mt-3 text-xs text-on-surface-variant">No payment to submit. We confirm the quote with you.</p>
             </div>
         </div>

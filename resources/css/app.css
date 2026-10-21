@@ -324,7 +324,7 @@
        (StorefrontLayout applies it; flushTop hero pages opt out). Pages must
        NOT add their own top padding. */
     :root {
-        --nav-clearance: 2rem;
+        --nav-clearance: 1.25rem;
     }
     @media (min-width: 768px) {
         :root { --nav-clearance: 2.5rem; }
@@ -658,9 +658,9 @@ html:not(.dark) .section-bg-scrim { display: none; }
     /* Grows with the screen: never narrower than 80rem on desktop, about three
        quarters of the window on large monitors, capped at 120rem. */
     .page-container { @apply mx-auto w-full px-4 sm:px-6 lg:px-8; max-width: min(max(80rem, 78vw), 120rem); }
-    .page-section { @apply py-10 md:py-14; }
-    .section-head { @apply mb-8 flex items-end justify-between gap-6; }
-    .section-title { @apply font-headline text-2xl font-bold tracking-tight text-on-surface sm:text-3xl; }
+    .page-section { @apply py-7 sm:py-10 md:py-14; }
+    .section-head { @apply mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-8 sm:gap-6; }
+    .section-title { @apply font-headline text-xl font-bold tracking-tight text-on-surface sm:text-3xl; }
     .section-sub { @apply mt-1.5 text-sm leading-relaxed text-on-surface-variant sm:text-base; }
     .link-more { @apply inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-primary hover:text-on-surface sm:text-sm; }
 
@@ -782,3 +782,47 @@ html.studio-active:not(.dark) .stage-ready { color: #6d28d9; background: #f5f3ff
 html.studio-active:not(.dark) .stage-working { color: #0e7490; background: #ecfeff; }
 html.studio-active:not(.dark) .stage-waiting { color: #92400e; background: #fffbeb; }
 html.studio-active:not(.dark) .stage-error { color: #be123c; background: #fff1f2; }
+
+@layer base {
+    @media (max-width: 639px) {
+        h1 { font-size: 1.75rem; line-height: 1.15; }
+        h2 { font-size: 1.375rem; line-height: 1.2; }
+    }
+}
+
+/* Mobile density follows hierarchy, not a smaller root/rem scale.
+   Inputs stay 16px to avoid focus zoom; primary targets retain 44px height. */
+@media (max-width: 639px) {
+    body { line-height: 1.55; }
+    .section-sub { line-height: 1.55; }
+    .action-primary, .action-secondary { min-height: 44px; padding: .625rem 1.125rem; line-height: 1.4; }
+    .action-icon { width: 44px; height: 44px; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+    select, textarea { font-size: 16px; }
+    .field { padding: .625rem .75rem; min-height: 44px; }
+    .studio-table .table-action { min-height: 44px; }
+}
+
+/* Compact phone scale: reduce both rem-based type and spacing consistently.
+   Keep explicit form text and touch targets independent of visual density. */
+@media (max-width: 639px) {
+    html { font-size: 87.5%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { font-size: 1rem; line-height: 1.5; }
+    p { line-height: 1.5; }
+    .text-xs { font-size: 12px; }
+    .text-sm { font-size: 13px; }
+    .text-base { font-size: 14px; }
+    .action-primary, .action-secondary, .table-action, .wa-action { min-height: 44px; }
+    .action-icon, .icon-btn, .nav-btn { min-width: 44px; min-height: 44px; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+    select, textarea { font-size: 16px; }
+}
+
+@media (max-width: 639px) {
+    html.studio-active .stage-badge { font-size: 11px; padding: 3px 6px; white-space: normal; line-height: 1.3; }
+    html.studio-active .studio-table { font-size: 12px; }
+    html.studio-active .studio-table th,
+    html.studio-active .studio-table td { padding: 7px 8px; }
+    html.studio-active .studio-table .cell-note { font-size: 11px; }
+    html.studio-active .table-action { font-size: 12px; }
+}

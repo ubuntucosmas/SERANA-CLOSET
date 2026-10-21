@@ -31,7 +31,7 @@ function banner(category, i) {
 <template>
     <section v-if="categories.length" class="page-container page-section">
         <SectionHeader :title="title" :subtitle="subtitle" :href="route('shop')" />
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <Link
                 v-for="(category, i) in categories"
                 :key="category.id"

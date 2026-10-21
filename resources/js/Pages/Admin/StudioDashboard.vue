@@ -11,6 +11,7 @@ import { useCurrency } from '@/Composables/useCurrency';
 import { paymentStatus } from '@/Support/orderStatus';
 import AdminShell from '@/Layouts/AdminShell.vue';
 import Modal from '@/Components/Modal.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import OverviewPanel from './Partials/OverviewPanel.vue';
 import OrdersPanel from './Partials/OrdersPanel.vue';
 import ProductsPanel from './Partials/ProductsPanel.vue';
@@ -22,7 +23,6 @@ import PaymentsPanel from './Partials/PaymentsPanel.vue';
 import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 import RefundsPanel from './Partials/RefundsPanel.vue';
-import PaymentAttention from './Partials/PaymentAttention.vue';
 import StockPanel from './Partials/StockPanel.vue';
 
 const props = defineProps({
@@ -81,6 +81,17 @@ const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quot
 const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
 const progressSnapForm = useForm({ image: null, description: '' });
 const orderArchived = computed(() => !!selectedOrder.value?.deleted_at);
+const orderDecision = computed(() => {
+    const order = selectedOrder.value;
+    if (!order) return '';
+    if (order.order_state === 'cancelled') return 'This order is cancelled. Review its history or update private notes; the recorded stage stays unchanged.';
+    if (orderArchived.value) return 'This is an archived record. Review its history, or use Order actions to restore it when appropriate.';
+    if (Number(order.balance_due) < 0 || ['needs_resolution', 'amount_mismatch'].includes(order.resolution)) return 'Review the payment or stock issue in Payment & quote. Agree the next step with the customer before dispatch.';
+    if (!order.is_paid) return 'Check the quote, deposit and payment evidence before committing work. A stage change does not confirm payment.';
+    if (order.status === 'completed') return 'Verify items, sizes and delivery details, then update the stage after handover.';
+    if (order.status === 'shipped') return 'Review the saved dispatch details before contacting the customer.';
+    return 'Payment confirmed. Review the requirements, then update the stage as work advances.';
+});
 
 // The open order lives in the URL (?order=ID): a shareable link, and after any
 // save the server returns that order fresh as focus_order.
@@ -445,7 +456,6 @@ function removeAsset(key) {
             <button v-else-if="currentTab === 'drops'" @click="addDrop" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#57d5fc] text-slate-900 hover:brightness-105">New campaign</button>
         </template>
 
-        <PaymentAttention v-if="currentTab === 'home'" :items="attention.payments || []" :count="attention.payments_count || 0" @openOrder="openOrder" @go="goTab" />
         <OverviewPanel v-if="currentTab === 'home'" :stats="stats" :attention="attention" :workflow="workflow" :generated-at="generated_at" @queue="openQueue" @refresh="refreshOverview" @create="kind => kind === 'product' ? addProduct() : addDrop()" @go="goTab" @openOrder="openOrder" />
         <OrdersPanel v-else-if="currentTab === 'orders'" :orders="orders" :selectedId="selectedOrder?.id" @select="openOrder" />
         <ProductsPanel v-else-if="currentTab === 'products'" :products="products" :archived="archived_products" @edit="editProduct" @delete="archiveProduct" @restore="restoreProduct" @forceDelete="forceDeleteProduct" />
@@ -465,19 +475,23 @@ function removeAsset(key) {
     </AdminShell>
 
     <!-- ───────── Order detail ───────── -->
-    <Modal :show="!!selectedOrder" maxWidth="2xl" @close="closeOrder">
-        <div v-if="selectedOrder" class="bg-slate-900 text-slate-200 p-4 sm:p-6 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
-            <div class="flex items-start justify-between gap-4 mb-5">
-                <div>
-                    <h3 class="text-lg sm:text-xl font-headline text-white">{{ selectedOrder.full_name || 'Customer' }}</h3>
-                    <p class="text-slate-500 text-xs font-mono">{{ selectedOrder.reference || selectedOrder.cipher || ('#' + selectedOrder.id) }}</p>
+    <Modal :show="!!selectedOrder" maxWidth="6xl" labelledBy="order-preview-title" @close="closeOrder">
+        <div v-if="selectedOrder" class="order-preview bg-slate-900 text-slate-200">
+            <header class="order-preview-header">
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-400 mb-1">{{ orderKindLabel }} · {{ selectedOrder.reference || selectedOrder.cipher || ('#' + selectedOrder.id) }}<span v-if="orderArchived" class="text-amber-400"> · Archived</span></p>
+                    <h2 id="order-preview-title" class="text-lg sm:text-xl font-semibold text-white break-words">{{ selectedOrder.full_name || 'Customer' }}</h2>
+                    <div class="flex flex-wrap gap-2 mt-2"><StatusBadge v-bind="paymentStatus(selectedOrder)" /><span class="stage-badge" :class="selectedOrder.status === 'shipped' ? 'stage-complete' : selectedOrder.status === 'completed' ? 'stage-ready' : 'stage-working'">{{ selectedOrder.order_state === 'cancelled' ? 'Cancelled' : ({ pending: isCommerceOrder ? 'Awaiting fulfilment' : 'Brief received', designing: 'Designing', sewing: 'In production', completed: 'Ready for dispatch', shipped: 'Dispatched' })[selectedOrder.status] || (selectedOrder.is_paid ? 'Awaiting fulfilment' : 'Work not started') }}</span></div>
                 </div>
-                <button @click="closeOrder" class="material-symbols-outlined text-slate-400 hover:text-white">close</button>
-            </div>
-
-            <div class="mb-4 rounded-xl border border-white/10 p-3 text-sm"><p class="font-semibold text-white">Decision before action</p><p class="mt-1 text-slate-300">{{ selectedOrder.is_paid ? (selectedOrder.status === 'completed' ? 'Ready for dispatch: verify items, sizes and delivery details, then update the stage after handover.' : selectedOrder.status === 'shipped' ? 'Dispatched: review the saved details before contacting the customer.' : 'Payment confirmed: review the brief or packing details and update the stage as work advances.') : 'Payment not confirmed: review the quote or payment evidence before committing fulfilment. A stage change does not confirm payment.' }}</p><p class="mt-2 text-xs text-slate-400">Saved order updated: {{ selectedOrder.updated_at ? new Date(selectedOrder.updated_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) + ' (Nairobi)' : 'Unknown' }}</p></div>
+                <button type="button" @click="closeOrder" aria-label="Close order preview" class="order-close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </header>
+            <div class="order-preview-body">
+                <div class="order-decision mb-5"><p class="text-sm font-semibold text-white">Next decision</p><p class="mt-1 text-sm text-slate-300">{{ orderDecision }}</p><p class="mt-2 text-xs text-slate-400">Last saved: {{ selectedOrder.updated_at ? new Date(selectedOrder.updated_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) + ' · Nairobi' : 'Unknown' }}</p></div>
+                <div class="order-preview-columns">
+                    <section aria-labelledby="order-requirements-title" class="order-preview-section min-w-0">
+                        <h3 id="order-requirements-title" class="order-section-title">Order requirements</h3>
             <!-- Who it is and how to reach them -->
-            <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-[#57d5fc]">{{ orderKindLabel }}</p>
+            <h3 class="order-panel-title">Customer &amp; contact</h3>
             <div class="grid sm:grid-cols-2 gap-3 mb-4 text-sm">
                 <div class="bg-slate-950/60 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                     <div class="min-w-0"><span class="text-slate-500 text-xs block">Phone / WhatsApp</span><span class="text-white">{{ customerPhone || '—' }}</span></div>
@@ -486,6 +500,7 @@ function removeAsset(key) {
                 <div v-if="selectedOrder.email" class="bg-slate-950/60 rounded-xl px-4 py-3"><span class="text-slate-500 text-xs block">Email</span><a :href="`mailto:${selectedOrder.email}`" class="text-white hover:underline break-all">{{ selectedOrder.email }}</a></div>
             </div>
 
+            <h3 class="order-panel-title mt-5">{{ selectedOrder.type === 'standard' ? 'Items & delivery' : 'Design brief' }}</h3>
             <!-- Shop order: what to pack and where it goes -->
             <div v-if="selectedOrder.type === 'standard'" class="mb-5 space-y-3 text-sm">
                 <div class="bg-slate-950/60 rounded-xl p-4">
@@ -513,6 +528,7 @@ function removeAsset(key) {
             </div>
 
             <!-- Measurements -->
+            <h3 v-if="selectedOrder.bust_cm || selectedOrder.waist_cm || selectedOrder.hips_cm || selectedOrder.height_cm" class="order-panel-title">Measurements · cm</h3>
             <div v-if="selectedOrder.bust_cm || selectedOrder.waist_cm || selectedOrder.hips_cm || selectedOrder.height_cm" class="grid grid-cols-4 gap-2 mb-5 text-center">
                 <div v-for="m in [['Bust', selectedOrder.bust_cm], ['Waist', selectedOrder.waist_cm], ['Hips', selectedOrder.hips_cm], ['Height', selectedOrder.height_cm]]" :key="m[0]" class="bg-slate-950/60 rounded-xl py-3">
                     <span class="block text-slate-500 text-[10px] uppercase">{{ m[0] }}</span>
@@ -521,25 +537,17 @@ function removeAsset(key) {
             </div>
 
             <!-- Images -->
+            <h3 v-if="orderImages(selectedOrder).length" class="order-panel-title">Reference &amp; progress images</h3>
             <div v-if="orderImages(selectedOrder).length" class="flex gap-2 overflow-x-auto mb-5 no-scrollbar">
-                <img v-for="(img, i) in orderImages(selectedOrder)" :key="i" :src="img" class="h-24 w-24 object-cover rounded-lg shrink-0" />
+                <a v-for="(img, i) in orderImages(selectedOrder)" :key="i" :href="img" target="_blank" rel="noopener" class="shrink-0 rounded-lg overflow-hidden" :aria-label="`Open order image ${i + 1}`"><img :src="img" :alt="`Order image ${i + 1}`" loading="lazy" class="h-28 w-28 object-cover" /></a>
             </div>
 
-            <!-- Editable fields -->
-            <div class="space-y-4">
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <label class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Production stage</span>
-                        <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
-                        <select v-else :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
-                            <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
-                            <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
-                        </select>
-                    </label>
-                    <label v-if="canOverrideFulfilment && !isCommerceOrder" class="block sm:col-span-2">
-                        <span class="block text-sm text-slate-300 mb-2">Owner override reason <span class="text-slate-500">(only if starting work before the deposit, or shipping with a balance)</span></span>
-                        <input v-model="orderForm.override_reason" maxlength="255" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
-                    </label>
+
+                    </section>
+                    <div class="min-w-0 space-y-5">
+                        <section aria-labelledby="order-payment-title" class="order-preview-section">
+                            <h3 id="order-payment-title" class="order-section-title">Payment &amp; quote</h3>
+                            <div class="mb-4">
                     <div v-if="isCommerceOrder" class="block">
                         <span class="block text-sm text-slate-300 mb-2">Total</span>
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
@@ -548,8 +556,9 @@ function removeAsset(key) {
                         <span class="block text-sm text-slate-300 mb-2">Quote (KES — Kenyan shillings)</span>
                         <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
-                </div>
-                <div class="rounded-xl bg-slate-950/60 p-4 text-sm">
+
+                            </div>
+                <div class="space-y-3 text-sm">
                     <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
                     <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
                         Deposit {{ formatAmount(selectedOrder.deposit_required, page.props) }} · Paid {{ formatAmount(selectedOrder.amount_paid, page.props) }} · Balance {{ formatAmount(Math.max(0, selectedOrder.balance_due), page.props) }}
@@ -616,7 +625,7 @@ function removeAsset(key) {
                         <template v-else-if="selectedOrder.is_paid">Recorded by the studio<span v-if="selectedOrder.mpesa_receipt_number"> · ref {{ selectedOrder.mpesa_receipt_number }}</span>.</template>
                         <template v-else>Custom order payments are arranged on WhatsApp. Record the payment here once you receive it.</template>
                     </p>
-                    <form v-if="canRecordPayment" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_1.4fr_auto]">
+                    <form v-if="canRecordPayment" @submit.prevent="recordPayment" class="mt-3 grid gap-2 sm:grid-cols-2">
                         <input v-model="paymentForm.amount" type="number" min="1" step="1" aria-label="Amount received in KSh" placeholder="Amount (KSh)" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                         <select v-model="paymentForm.method" aria-label="How it was paid" class="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none">
                             <option value="mpesa_manual">M-Pesa</option>
@@ -629,38 +638,67 @@ function removeAsset(key) {
                     <button v-if="isWhatsAppShop && !selectedOrder.is_paid && selectedOrder.status === 'Pending Payment'" type="button" @click="cancelWhatsAppOrder" class="mt-3 text-xs text-slate-400 underline hover:text-rose-300">Customer didn’t pay? Cancel order and release stock</button>
                     <p v-for="(message, field) in paymentForm.errors" :key="field" role="alert" class="mt-2 text-sm text-rose-300">{{ message }}</p>
                 </div>
+
+                        </section>
+                        <section aria-labelledby="order-work-title" class="order-preview-section space-y-4">
+                            <h3 id="order-work-title" class="order-section-title">Fulfilment &amp; work updates</h3>
+                <div class="space-y-4">
+                    <label class="block">
+                        <span class="block text-sm text-slate-300 mb-2" id="order-production-stage-label">Production stage</span>
+                        <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
+                        <select v-else aria-labelledby="order-production-stage-label" :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
+                            <option v-for="s in productionStages" :key="s" :value="s" class="capitalize">{{ s }}</option>
+                            <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
+                        </select>
+                    </label>
+                    <label v-if="canOverrideFulfilment && !isCommerceOrder" class="block">
+                        <span class="block text-sm text-slate-300 mb-2">Owner override reason <span class="text-slate-500">(only if starting work before the deposit, or shipping with a balance)</span></span>
+                        <input v-model="orderForm.override_reason" maxlength="255" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    </label>
+                </div>
                 <p v-for="(message, field) in orderForm.errors" :key="field" role="alert" class="text-sm text-rose-300">{{ message }}</p>
 
                 <label class="block">
-                    <span class="block text-sm text-slate-300 mb-2">Private decision &amp; handover notes</span>
+                    <span class="block text-sm text-slate-300 mb-2" id="order-notes-label">Private decision &amp; handover notes</span>
                     <p class="text-xs text-slate-400 mb-2">Record the decision, reason, responsible person and agreed next step. These notes are internal; saving replaces the current text.</p>
-                    <textarea v-model="orderForm.internal_notes" rows="3" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
+                    <textarea aria-labelledby="order-notes-label" v-model="orderForm.internal_notes" rows="3" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
                 </label>
 
                 <!-- Progress photo -->
                 <div class="bg-slate-950/60 rounded-xl p-4">
                     <span class="block text-sm text-slate-300 mb-2">Add a progress photo</span>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input type="file" accept="image/*" @input="progressSnapForm.image = $event.target.files[0]" class="text-xs text-slate-400 flex-1" />
+                        <input aria-label="Progress photo" type="file" accept="image/*" @input="progressSnapForm.image = $event.target.files[0]" class="text-xs text-slate-400 flex-1" />
                         <button @click="submitProgressSnap" :disabled="!progressSnapForm.image || progressSnapForm.processing" class="px-4 py-2 rounded-lg text-xs font-semibold bg-white/10 text-white disabled:opacity-40">Upload</button>
                     </div>
                 </div>
-            </div>
 
-            <p v-if="copyFeedback" role="status" class="mt-3 text-sm text-slate-300">{{ copyFeedback }}</p>
-            <!-- Actions -->
-            <div class="mt-6 flex flex-wrap gap-2">
+                        </section>
+                    </div>
+                </div>
+            </div>
+            <footer class="order-preview-footer">
+                <p v-if="copyFeedback" role="status" class="w-full text-xs text-slate-300">{{ copyFeedback }}</p>
+                <div class="flex flex-wrap gap-2 min-w-0">
                 <button @click="saveOrder" :disabled="orderForm.processing" class="px-6 py-3 rounded-xl bg-[#57d5fc] text-slate-900 font-semibold text-sm disabled:opacity-40">{{ orderForm.processing ? 'Saving…' : 'Save order changes' }}</button>
                 <button @click="copyBrief" class="px-4 py-3 rounded-xl bg-white/5 text-slate-200 text-sm hover:bg-white/10">Copy brief</button>
+
+                </div>
+                <details class="order-more-actions relative ml-auto">
+                    <summary class="table-action cursor-pointer">Order actions</summary>
+                    <div class="order-actions-menu">
                 <button v-if="canCancelBespoke" type="button" @click="cancelBespoke" class="px-4 py-3 rounded-xl bg-rose-500/10 text-rose-300 text-sm hover:bg-rose-500/20">Cancel order</button>
                 <template v-if="!orderArchived">
-                    <button @click="archiveOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400 ml-auto">Archive</button>
+                    <button @click="archiveOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400">Archive</button>
                 </template>
                 <template v-else>
-                    <button @click="restoreOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-[#57d5fc]/15 text-[#57d5fc] text-sm ml-auto">Restore</button>
+                    <button @click="restoreOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-[#57d5fc]/15 text-[#57d5fc] text-sm">Restore</button>
                     <button @click="forceDeleteOrder(selectedOrder.id)" class="px-4 py-3 rounded-xl bg-white/5 text-slate-400 text-sm hover:text-rose-400">Delete</button>
                 </template>
-            </div>
+
+                    </div>
+                </details>
+            </footer>
         </div>
     </Modal>
 
@@ -843,6 +881,35 @@ function removeAsset(key) {
 </template>
 
 <style scoped>
+.order-preview { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); min-height: 0; overflow: hidden; }
+.order-preview-header, .order-preview-footer { flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; background: var(--surface); }
+.order-preview-header { border-bottom: 1px solid var(--card-border); }
+.order-preview-footer { align-items: center; flex-wrap: wrap; border-top: 1px solid var(--card-border); }
+.order-preview-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; overscroll-behavior: contain; }
+.order-preview-columns { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.15fr); align-items: start; gap: 20px; }
+.order-preview-section { padding: 16px; background: var(--surface); border: 1px solid var(--card-border); border-radius: 12px; }
+.order-section-title { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--card-border); font-size: 15px; font-weight: 600; color: var(--on-surface); }
+.order-panel-title { margin-bottom: 10px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
+.order-decision { padding: 12px 16px; border-left: 3px solid var(--primary); background: var(--tint-bg); border-radius: 8px; }
+.order-close { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; color: var(--on-surface-variant); }
+.order-close:hover { background: var(--tint-bg); }
+:global(html:not(.dark) .order-preview .text-emerald-300) { color: #047857; }
+:global(html:not(.dark) .order-preview .text-amber-300) { color: #92400e; }
+:global(html:not(.dark) .order-preview .text-rose-300) { color: #be123c; }
+.order-preview input, .order-preview select, .order-preview textarea { min-width: 0; }
+.order-preview label { font-size: 12px; }
+.order-actions-menu { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 30; width: 200px; display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--card-border); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 30px #0003; }
+.order-actions-menu button { text-align: left; }
+@media (max-width: 1023px) { .order-preview-columns { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 639px) {
+    .order-preview-header, .order-preview-footer { padding: 12px; gap: 8px; }
+    .order-preview-body { padding: 12px; }
+    .order-preview-section { padding: 12px; }
+    .order-preview-footer button { padding: 10px 12px; min-height: 44px; }
+    .order-more-actions { margin-left: 0; }
+    .order-actions-menu { right: auto; left: 0; }
+}
+
 .font-headline { font-family: 'Noto Serif', serif; }
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; vertical-align: middle; }
 .no-scrollbar::-webkit-scrollbar { display: none; }

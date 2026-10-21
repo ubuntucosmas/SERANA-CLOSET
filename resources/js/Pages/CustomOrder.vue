@@ -207,7 +207,7 @@ function resetForm() {
                 <form v-if="!submitted" @submit.prevent="submitOrder" class="space-y-7">
                     <!-- Your Details -->
                     <div
-                        class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
+                        class="bg-surface border border-white/10 rounded-3xl p-4 sm:p-6 md:p-8"
                     >
                         <div
                             class="text-xs tracking-wider text-primary mb-6 font-medium"
@@ -270,7 +270,7 @@ function resetForm() {
 
                     <!-- The Garment -->
                     <div
-                        class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
+                        class="bg-surface border border-white/10 rounded-3xl p-4 sm:p-6 md:p-8"
                     >
                         <div
                             class="text-xs tracking-wider text-primary mb-6 font-medium"
@@ -328,7 +328,7 @@ function resetForm() {
 
                     <!-- Measurements with Precision Mapping -->
                     <div
-                        class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
+                        class="bg-surface border border-white/10 rounded-3xl p-4 sm:p-6 md:p-8"
                     >
                         <div class="flex items-center justify-between mb-6">
                             <div>
@@ -396,7 +396,7 @@ function resetForm() {
 
                     <!-- Fabric & Color -->
                     <div
-                        class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
+                        class="bg-surface border border-white/10 rounded-3xl p-4 sm:p-6 md:p-8"
                     >
                         <div
                             class="text-xs tracking-wider text-primary mb-6 font-medium"
@@ -464,7 +464,7 @@ function resetForm() {
 
                     <!-- Inspiration & Notes -->
                     <div
-                        class="bg-surface border border-white/10 rounded-3xl p-7 md:p-8"
+                        class="bg-surface border border-white/10 rounded-3xl p-4 sm:p-6 md:p-8"
                     >
                         <div
                             class="text-xs tracking-wider text-primary mb-6 font-medium"
@@ -592,7 +592,7 @@ function resetForm() {
                     <div class="w-20 h-20 mx-auto flex items-center justify-center bg-[#4fb33f]/12 border border-[#4fb33f]/30 mb-8">
                         <span class="material-symbols-outlined text-[#276b1d] dark:text-[#4fb33f] text-4xl" style="font-variation-settings:'FILL' 1">task_alt</span>
                     </div>
-                    <h2 class="font-headline text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Custom Order Saved</h2>
+                    <h2 class="font-headline text-2xl sm:text-4xl md:text-5xl text-on-surface tracking-tight mb-4">Custom Order Saved</h2>
                     <p class="text-on-surface-variant leading-relaxed mb-10">
                         We’ve opened WhatsApp so you can send your order details to the studio.
                         If it didn’t open automatically, tap the button below — then just hit send.

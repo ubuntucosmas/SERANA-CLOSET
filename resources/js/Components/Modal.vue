@@ -6,6 +6,7 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    labelledBy: { type: String, default: undefined },
     maxWidth: {
         type: String,
         default: '2xl',
@@ -70,6 +71,7 @@ const maxWidthClass = computed(() => {
         lg: 'sm:max-w-lg',
         xl: 'sm:max-w-xl',
         '2xl': 'sm:max-w-2xl',
+        '6xl': 'sm:max-w-6xl',
     }[props.maxWidth];
 });
 </script>
@@ -78,6 +80,9 @@ const maxWidthClass = computed(() => {
     <dialog
         class="z-50 m-0 min-h-full min-w-full overflow-y-auto bg-transparent backdrop:bg-transparent"
         ref="dialog"
+        :aria-labelledby="labelledBy"
+        data-notification-modal
+        :data-notification-active="show"
     >
         <div
             class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0"
@@ -115,6 +120,7 @@ const maxWidthClass = computed(() => {
                     class="mb-6 transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:mx-auto sm:w-full"
                     :class="maxWidthClass"
                 >
+                    <div data-notification-host class="sticky top-0 z-[60] bg-surface"></div>
                     <slot v-if="showSlot" />
                 </div>
             </Transition>
