@@ -13,7 +13,8 @@ import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 import { rememberTrackingPhone } from '@/Support/trackingMemory';
 
-const props = defineProps({ pickup_locations: { type: Array, default: () => [] } });
+// Phase D2: the options on offer now, priced by the server; the customer sends only the id.
+const props = defineProps({ delivery_options: { type: Array, default: () => [] } });
 const page = usePage();
 const pulse = usePulseStore();
 
@@ -58,8 +59,7 @@ const form = ref({
     // Signed-in shoppers shouldn't retype what we already know.
     email: page.props.auth?.user?.email || '',
     full_name: page.props.auth?.user?.name || '',
-    fulfilment_method: 'delivery',
-    pickup_location_id: '',
+    delivery_option_id: '',
     address: '',
     city: '',
     phone: '',
@@ -69,10 +69,14 @@ const form = ref({
     hips_cm: '',
 });
 
-const isPickup = computed(() => form.value.fulfilment_method === 'pickup');
-const pickupLocation = computed(() => props.pickup_locations.find(location => location.id === Number(form.value.pickup_location_id)));
+const deliveryOption = computed(() => props.delivery_options.find(o => o.id === Number(form.value.delivery_option_id)) || null);
+const isPickup = computed(() => deliveryOption.value?.type === 'pickup');
+const isQuote = computed(() => deliveryOption.value?.type === 'quote');
+// What the server will charge: free over a zone's threshold, nothing for pickup, a quote later.
+const feeOf = (o) => !o || o.type === 'quote' ? null : o.type === 'pickup' ? 0 : (o.free_over && cart.totalPrice >= o.free_over ? 0 : o.fee);
+const deliveryFee = computed(() => feeOf(deliveryOption.value));
+const estimatedTotal = computed(() => cart.totalPrice + (deliveryFee.value || 0));
 const handover = ref(null);
-watch(() => form.value.fulfilment_method, () => { if (isPickup.value && props.pickup_locations.length === 1) form.value.pickup_location_id = props.pickup_locations[0].id; });
 
 // Remember the pending order for this exact bag, so a refresh, the back button
 // or a return visit resumes it instead of creating a duplicate order.
@@ -85,11 +89,11 @@ const paymentBlocked = ref(null);
 
 function saveContext() {
     try {
-        const { email, full_name, address, city, phone, fulfilment_method, pickup_location_id } = form.value;
+        const { email, full_name, address, city, phone, delivery_option_id } = form.value;
         localStorage.setItem(STORE_KEY, JSON.stringify({
             sig: bagSignature.value, request_id: form.value.request_id,
             order_id: orderId.value, reference: orderReference.value, amount: orderAmount.value,
-            items: frozenItems.value, details: { email, full_name, address, city, phone, fulfilment_method, pickup_location_id }, handover: handover.value, at: Date.now(),
+            items: frozenItems.value, details: { email, full_name, address, city, phone, delivery_option_id }, handover: handover.value, at: Date.now(),
         }));
     } catch {}
 }
@@ -170,7 +174,8 @@ const REQUIRED = [
     ['phone', 'Enter your contact mobile number.'],
 ];
 function firstMissingField() {
-    const required = isPickup.value ? [...REQUIRED.filter(([field]) => !['address', 'city'].includes(field)), ['pickup_location_id', 'Choose the shop where you will collect.']] : REQUIRED;
+    const required = [['delivery_option_id', 'Choose how you would like to receive your order.'],
+        ...(isPickup.value ? REQUIRED.filter(([field]) => !['address', 'city'].includes(field)) : REQUIRED)];
     const missing = required.filter(([field]) => !String(form.value[field] || '').trim());
     if (!missing.length) return false;
     errors.value = Object.fromEntries(missing.map(([field, message]) => [field, [message]]));
@@ -179,7 +184,7 @@ function firstMissingField() {
     el?.focus({ preventScroll: true });
     return true;
 }
-const payTotal = computed(() => orderAmount.value ?? cart.totalPrice);
+const payTotal = computed(() => orderAmount.value ?? estimatedTotal.value);
 
 // ── How to pay (Studio → Settings → Payments) ───────────────────────────────
 // M-Pesa (pay now) and/or WhatsApp (order recorded, studio confirms payment).
@@ -188,6 +193,8 @@ const bothMethods = computed(() => payments.value.mpesa && payments.value.whatsa
 const requested = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('method') : null;
 const method = ref(requested === 'whatsapp' && payments.value.whatsapp ? 'whatsapp' : payments.value.default);
 watch(payments, (p) => { if (!p[method.value]) method.value = p.default; });
+// A delivery quote is priced on WhatsApp, so that order is sent there (the server insists too).
+watch(isQuote, (quote) => { if (quote) method.value = 'whatsapp'; });
 const isWhatsApp = computed(() => method.value === 'whatsapp');
 const checkoutSubtitle = computed(() => whatsappOrder.value ? 'Your order is saved. Send it on WhatsApp to finish.'
     : bothMethods.value ? 'Pay now with M-Pesa, or order on WhatsApp and pay once we confirm.'
@@ -235,7 +242,7 @@ watch(form, (value) => {
     if (fixed.length) errors.value = Object.fromEntries(Object.entries(errors.value).filter(([field]) => !fixed.some(([f]) => f === field)));
 }, { deep: true });
 // Field errors sit under their field; only the rest (payment, server) go in the top box.
-const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone', 'pickup_location_id'];
+const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone', 'delivery_option_id'];
 const generalErrors = computed(() => Object.entries(errors.value).filter(([field]) => !FIELD_KEYS.includes(field)));
 
 async function handlePayment() {
@@ -461,12 +468,12 @@ onUnmounted(() => {
                                     <span class="font-mono">{{ formatAmount(cart.totalPrice) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm text-on-surface-variant">
-                                    <span>{{ isPickup ? 'Shop collection' : 'Delivery' }}</span>
-                                    <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">{{ isPickup ? 'No collection fee' : 'Included' }}</span>
+                                    <span>{{ deliveryOption ? deliveryOption.name : 'Delivery' }}</span>
+                                    <span class="font-mono">{{ !deliveryOption ? 'Choose below' : isQuote ? 'Quoted on WhatsApp' : deliveryFee ? formatAmount(deliveryFee) : 'Free' }}</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-white/5">
                                     <span class="text-sm font-semibold text-on-surface">Total</span>
-                                    <span class="font-headline text-2xl text-primary tabular-nums">{{ formatAmount(cart.totalPrice) }}</span>
+                                    <span class="font-headline text-2xl text-primary tabular-nums">{{ formatAmount(orderAmount ?? estimatedTotal) }}<span v-if="isQuote && !orderAmount" class="text-sm text-on-surface-variant"> + delivery</span></span>
                                 </div>
                             </div>
                         </div>
@@ -488,7 +495,7 @@ onUnmounted(() => {
                     <div class="order-1 lg:order-2 lg:col-span-7 space-y-4">
                         <!-- Phones: one line of what's being bought; the full summary follows the form. -->
                         <button type="button" @click="cart.isOpen = true" class="card flex w-full items-center justify-between gap-3 px-5 py-4 text-left lg:hidden">
-                            <span class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }} · <span class="font-semibold text-on-surface">{{ formatAmount(cart.totalPrice) }}</span></span>
+                            <span class="text-sm text-on-surface-variant">{{ cart.totalItems }} {{ cart.totalItems === 1 ? 'piece' : 'pieces' }} · <span class="font-semibold text-on-surface">{{ formatAmount(orderAmount ?? estimatedTotal) }}</span></span>
                             <span class="text-sm font-medium text-primary">View bag</span>
                         </button>
 
@@ -500,16 +507,25 @@ onUnmounted(() => {
                             </header>
 
                             <div class="space-y-5">
-                                <WorkflowContext actor="You, the customer" task="Choose delivery or collection" reason="This tells the Studio where to prepare your handover." when="Choose before placing the order. For pickup, wait until tracking says ready." :where="isPickup ? (pickupLocation?.name || 'Your selected shop') : 'Your delivery address'" confirmation="Your saved order, tracking and receipt show the same handover choice." />
-                                <fieldset :disabled="!!orderId || isProcessing" class="space-y-3">
+                                <fieldset :disabled="!!orderId || isProcessing" class="space-y-3" aria-describedby="checkout-delivery-help">
                                     <legend class="text-sm font-semibold">How will you receive your order?</legend>
-                                    <label class="mr-5 inline-flex gap-2 items-center"><input v-model="form.fulfilment_method" type="radio" value="delivery" />Delivery · included</label>
-                                    <label v-if="pickup_locations.length" class="inline-flex gap-2 items-center"><input v-model="form.fulfilment_method" type="radio" value="pickup" />Collect from shop · no collection fee</label>
-                                    <label v-if="isPickup" class="block text-sm" for="checkout-pickup_location_id">Collection shop
-                                        <select id="checkout-pickup_location_id" v-model="form.pickup_location_id" class="block w-full mt-2 bg-background border border-current/20 p-3" :aria-invalid="!!errors.pickup_location_id"><option value="">Choose a shop</option><option v-for="location in pickup_locations" :key="location.id" :value="location.id">{{ location.name }}{{ location.address ? ' · ' + location.address : '' }}</option></select>
-                                    </label>
-                                    <p v-if="errors.pickup_location_id" role="alert" class="text-sm text-red-400">{{ errors.pickup_location_id[0] }}</p>
-                                    <p v-if="isPickup" class="text-xs text-on-surface-variant">Wait for Ready for collection in tracking. Bring your order reference and the phone number used at checkout.</p>
+                                    <p id="checkout-delivery-help" class="text-xs text-on-surface-variant">The price shows before you pay. Tracking and your receipt show the same choice.</p>
+                                    <div id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
+                                        <label v-for="o in delivery_options" :key="o.id" class="flex items-start gap-3 border p-3 cursor-pointer"
+                                            :class="Number(form.delivery_option_id) === o.id ? 'border-primary bg-primary/5' : 'border-current/15'">
+                                            <input v-model="form.delivery_option_id" type="radio" :value="o.id" class="mt-1" />
+                                            <span class="flex-1 min-w-0">
+                                                <span class="flex justify-between gap-3"><span class="font-medium text-on-surface">{{ o.name }}</span>
+                                                    <span class="font-mono text-sm shrink-0">{{ o.type === 'quote' ? 'Quote' : feeOf(o) ? formatAmount(feeOf(o)) : 'Free' }}</span></span>
+                                                <span v-if="o.type === 'pickup' && o.address" class="block text-xs text-on-surface-variant">{{ o.address }}</span>
+                                                <span v-if="o.eta" class="block text-xs text-on-surface-variant">{{ o.eta }}</span>
+                                                <span v-if="o.type === 'zone' && o.free_over && feeOf(o) > 0" class="block text-xs text-on-surface-variant">Free on orders of {{ formatAmount(o.free_over) }} or more</span>
+                                                <span v-if="o.type === 'quote'" class="block text-xs text-on-surface-variant">We price delivery to your address on WhatsApp; you pay once you agree.</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <p v-if="errors.delivery_option_id" role="alert" class="text-sm text-red-400">{{ errors.delivery_option_id[0] }}</p>
+                                    <p v-if="isPickup" class="text-xs text-on-surface-variant">Wait for “Ready for pickup” in tracking. Bring your order reference and the phone number you order with.</p>
                                 </fieldset>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -562,7 +578,8 @@ onUnmounted(() => {
                             </header>
 
                             <!-- Choice, only when both are offered -->
-                            <div v-if="bothMethods && !paymentBlocked" role="radiogroup" aria-label="Payment method" class="mb-6 grid gap-3 sm:grid-cols-2">
+                            <p v-if="isQuote" class="mb-6 text-sm text-on-surface-variant">Delivery outside our zones is priced on WhatsApp, so this order is sent there. You pay once you agree the total.</p>
+                            <div v-if="bothMethods && !paymentBlocked && !isQuote" role="radiogroup" aria-label="Payment method" class="mb-6 grid gap-3 sm:grid-cols-2">
                                 <button type="button" role="radio" :aria-checked="method === 'mpesa'" @click="method = 'mpesa'" class="pay-option" :class="method === 'mpesa' ? 'pay-option-on' : ''">
                                     <span class="material-symbols-outlined text-xl text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">smartphone</span>
                                     <span class="text-left"><span class="block font-semibold text-on-surface">M-Pesa now</span><span class="block text-xs text-on-surface-variant">Approve a prompt on your phone. Instant.</span></span>
@@ -701,7 +718,7 @@ onUnmounted(() => {
                             </section>
                             <MpesaStkPanel
                                 v-else-if="!isPaid"
-                                :amount="orderAmount ?? cart.totalPrice"
+                                :amount="orderAmount ?? estimatedTotal"
                                 :reference="orderReference"
                                 :phone="form.phone"
                                 :status="stkPanelStatus"

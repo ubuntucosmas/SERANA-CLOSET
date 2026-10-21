@@ -185,6 +185,9 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->middleware('can:settings.payments')->name('admin.payment_settings.update');
     Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware(['can:settings.payments', 'throttle:6,1'])->name('admin.payment_settings.test_mpesa');
     Route::put('/handover/{location}', [App\Http\Controllers\Admin\HandoverController::class, 'update'])->middleware('can:settings.policies')->name('studio.handover.update');
+    Route::post('/delivery', [App\Http\Controllers\Admin\DeliveryController::class, 'store'])->middleware('can:settings.policies')->name('studio.delivery.store');
+    Route::put('/delivery/{option}', [App\Http\Controllers\Admin\DeliveryController::class, 'update'])->middleware('can:settings.policies')->name('studio.delivery.update');
+    Route::post('/orders/{order}/delivery', [App\Http\Controllers\Admin\DeliveryController::class, 'setForOrder'])->middleware('can:money.record')->name('studio.order.delivery');
     Route::put('/order-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateOrderPolicy'])->middleware('can:settings.policies')->name('admin.order_policy.update');
     Route::put('/shop-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateShopPolicy'])->middleware('can:settings.policies')->name('admin.shop_policy.update');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');

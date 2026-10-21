@@ -14,6 +14,7 @@ use Tests\TestCase;
  */
 class CheckoutIntegrityTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use RefreshDatabase;
 
     private function product(float $price = 5000, array $overrides = []): Product
@@ -33,6 +34,7 @@ class CheckoutIntegrityTest extends TestCase
             'email'     => 'b@example.com',
             'address'   => '1 Street',
             'city'      => 'Nairobi',
+            'delivery_option_id' => $this->freeDelivery(),
             'phone'     => '0712345678',
             'items'     => $items,
         ];

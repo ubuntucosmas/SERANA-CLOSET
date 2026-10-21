@@ -26,7 +26,13 @@ class WhatsAppOrderMessage
         }
 
         $lines[] = '';
-        $lines[] = '*Total: ' . $money($order->total()) . '*';
+        // Phase D2: the delivery is part of the total, or still to be quoted.
+        if ($delivery = $order->deliverySummary()) {
+            $lines[] = "Delivery ({$delivery['name']}): " . $money($delivery['fee']);
+        } elseif ($order->needsDeliveryQuote()) {
+            $lines[] = 'Delivery: please quote it for my address';
+        }
+        $lines[] = '*Total: ' . $money($order->total()) . '*' . ($order->needsDeliveryQuote() ? ' + delivery' : '');
         $lines[] = '';
         $lines[] = $order->fulfilment_method === 'pickup' ? '*Collect from shop*' : '*Deliver to*';
         $lines[] = "{$order->full_name} · {$order->phone}";

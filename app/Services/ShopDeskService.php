@@ -54,7 +54,7 @@ class ShopDeskService
         return match (true) {
             $order->fulfilment_status === 'collected' => ['order', 'This order was already collected.'],
             $order->fulfilment_method === 'delivery' => ['order', 'This order is for delivery. Arrange handover through the Studio.'],
-            $order->fulfilment_method === 'pickup' && $order->fulfilment_status !== 'completed' => ['order', 'The Studio must mark this order ready before collection.'],
+            $order->fulfilment_method === 'pickup' && $order->fulfilment_status !== 'ready_for_pickup' => ['order', 'The Studio must mark this order ready for pickup first.'],
             $order->fulfilment_status === 'shipped' => ['order', 'This order was sent by delivery.'],
             $order->order_state !== 'open' => ['order', 'This order is ' . $order->order_state . '.'],
             ($order->resolution ?? 'none') !== 'none' => ['order', 'This order has a payment problem. Resolve it in the Studio first.'],

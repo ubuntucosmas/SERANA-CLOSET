@@ -45,6 +45,7 @@ const summaries = {
     fulfilment: 'Check items, sizes and delivery details before starting work.',
     production: 'Check progress, blockers and customer updates.',
     dispatch: 'Check the parcel and address before marking dispatched.',
+    pickup: 'Waiting at the shop; collected at the till after the phone check.',
 };
 const allFollowups = computed(() => {
     const financialIds = new Set(paymentCases.value.map(item => item.id));

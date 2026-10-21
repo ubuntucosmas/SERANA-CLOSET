@@ -92,7 +92,8 @@ onUnmounted(() => clearInterval(timer));
                     </div>
                     <div class="flex justify-between gap-4 border-t border-outline-variant pt-3 font-semibold"><span>Total</span><span class="tabular-nums">{{ money(order.total) }}</span></div>
                     <div class="flex justify-between gap-4 text-sm"><span class="text-on-surface-variant">Paid so far</span><span class="tabular-nums">{{ money(order.amount_paid) }}</span></div>
-                    <div v-if="order.handover" class="text-sm"><p>{{ order.handover.label }} · {{ order.handover.location }}</p><p>{{ order.handover.address }}</p><p>{{ order.handover.next }}</p></div>
+                    <div v-if="order.handover" class="text-sm"><p>{{ order.handover.label }}<template v-if="order.handover.location"> · {{ order.handover.location }}</template></p><p v-if="order.handover.address">{{ order.handover.address }}</p><p>{{ order.handover.next }}</p></div>
+                    <p v-if="order.needs_delivery_quote" role="status" class="text-sm">The Studio is pricing your delivery. You will get the total on WhatsApp before you pay.</p>
                     <div v-if="order.refund_due > 0" class="flex justify-between gap-4 text-lg font-semibold"><span>To be refunded to you</span><span class="tabular-nums">{{ money(order.refund_due) }}</span></div>
                     <div v-else class="flex justify-between gap-4 text-lg font-semibold"><span>Balance due</span><span class="tabular-nums">{{ money(order.balance_due) }}</span></div>
                     <p v-if="order.deposit_policy" class="text-xs text-on-surface-variant pt-2">{{ order.deposit_policy }}</p>

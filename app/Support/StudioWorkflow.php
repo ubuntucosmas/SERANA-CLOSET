@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 /** Shared definitions keep manager totals and the opened work list consistent. */
 final class StudioWorkflow
 {
-    public const QUEUES = ['review', 'quotes', 'payment', 'fulfilment', 'production', 'dispatch'];
+    public const QUEUES = ['review', 'quotes', 'payment', 'fulfilment', 'production', 'dispatch', 'pickup'];
 
     public static function apply(Builder $query, ?string $queue): Builder
     {
@@ -22,6 +22,8 @@ final class StudioWorkflow
             'fulfilment' => $query->paidUp()->withLegacyStatus([OrderStatus::PAID, 'pending']),
             'production' => $query->withLegacyStatus(['designing', 'sewing']),
             'dispatch' => $query->paidUp()->withLegacyStatus(['completed']),
+            // Phase D2: waiting at the shop for the customer.
+            'pickup' => $query->withLegacyStatus(['ready_for_pickup']),
             default => $query,
         };
     }

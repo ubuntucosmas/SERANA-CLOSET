@@ -29,6 +29,7 @@ import StaffPanel from './Partials/StaffPanel.vue';
 import TillsPanel from './Partials/TillsPanel.vue';
 import ActivityPanel from './Partials/ActivityPanel.vue';
 import HandoverSettingsPanel from './Partials/HandoverSettingsPanel.vue';
+import DeliveryOptionsPanel from './Partials/DeliveryOptionsPanel.vue';
 import WorkflowContext from '@/Components/WorkflowContext.vue';
 
 const props = defineProps({
@@ -56,6 +57,7 @@ const props = defineProps({
     tills: { type: Object, default: null },
     activity: { type: Object, default: null },
     handover_locations: { type: Array, default: () => [] },
+    delivery_options: { type: Array, default: () => [] },
     stock_v2: { type: Boolean, default: false },
     active_tab: { type: String, default: 'home' },
 });
@@ -89,7 +91,10 @@ const getObjectURL = (file) => {
 
 /* ───────── Orders ───────── */
 const selectedOrder = ref(null);
-const productionStages = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
+const productionStages = ['pending', 'designing', 'sewing', 'completed', 'ready_for_pickup', 'shipped'];
+// A pickup is made ready for pickup and collected at the till; everything else ships (Phase D2).
+const stageLabels = { pending: 'Pending', designing: 'Designing', sewing: 'Sewing', completed: 'Completed', ready_for_pickup: 'Ready for pickup', shipped: 'Shipped' };
+const stagesFor = (order) => productionStages.filter(stage => order?.fulfilment_method === 'pickup' ? stage !== 'shipped' : stage !== 'ready_for_pickup');
 const orderForm = useForm({ id: null, status: '', internal_notes: '', price_quoted: 0, is_paid: false, override_reason: '', quote_reason: '' });
 // Owner only: start work before the deposit, or ship with a balance owed, with a reason (audited).
 const canOverrideFulfilment = computed(() => page.props.auth?.user?.abilities?.includes('fulfilment.override'));
@@ -129,7 +134,8 @@ function bindOrder(order) {
     orderForm.id = order.id;
     orderForm.status = order.status;
     orderForm.internal_notes = order.internal_notes || '';
-    orderForm.price_quoted = order.price_quoted || 0;
+    // The quote without delivery: delivery is set on its own (Phase D2).
+    orderForm.price_quoted = order.delivery_info?.quote_amount ?? order.price_quoted ?? 0;
     orderForm.is_paid = !!order.is_paid;
     orderForm.clearErrors();
     progressSnapForm.reset();
@@ -153,6 +159,8 @@ const canRecordPayment = computed(() => {
     // Only staff allowed to record money see the form (the server refuses everyone else).
     if (!page.props.auth?.user?.abilities?.includes('money.record')) return false;
     if (!o || o.is_paid || ['Cancelled', 'Expired'].includes(o.status)) return false;
+    // Phase D2: a delivery quote is priced before any money is confirmed against the total.
+    if (o.delivery_info?.needs_quote) return false;
     return !isCommerceOrder.value || isWhatsAppShop.value;
 });
 function cancelWhatsAppOrder() {
@@ -257,13 +265,23 @@ function recordPayment() {
     if (!selectedOrder.value) return;
     paymentForm.post(route('studio.order.record_payment', selectedOrder.value.id), { preserveScroll: true });
 }
+// An order's delivery (Phase D2): price a WhatsApp quote, or choose it for a bespoke order, with a reason.
+const deliveryForm = useForm({ delivery_option_id: '', fee: '', reason: '' });
+const deliveryChoice = computed(() => props.delivery_options.find(o => o.id === Number(deliveryForm.delivery_option_id)) || null);
+const canSetDelivery = computed(() => page.props.auth?.user?.abilities?.includes('money.record') && selectedOrder.value
+    && !['shipped', 'collected'].includes(selectedOrder.value.fulfilment_status) && selectedOrder.value.order_state !== 'cancelled');
+watch(selectedOrder, (o, prev) => { if (o?.id !== prev?.id) { deliveryForm.reset(); deliveryForm.clearErrors(); deliveryForm.delivery_option_id = o?.delivery_info?.option_id || ''; } });
+function saveDelivery() {
+    deliveryForm.post(route('studio.order.delivery', selectedOrder.value.id), { preserveScroll: true, onSuccess: () => { deliveryForm.reason = ''; deliveryForm.fee = ''; } });
+}
 function saveOrder() {
     // Phase C: lowering a quote below what's paid owes the difference back; warn and ask why first.
     const o = selectedOrder.value;
     const quote = Math.round(Number(orderForm.price_quoted || 0));
     orderForm.quote_reason = '';
-    if (o && !isCommerceOrder.value && quote !== Number(o.chargeable_total) && quote < Number(o.amount_paid || 0)) {
-        const owed = Number(o.amount_paid) - quote;
+    const delivery = Number(o?.delivery_info?.delivery_total || 0);
+    if (o && !isCommerceOrder.value && quote !== Number(o.delivery_info?.quote_amount ?? o.chargeable_total) && quote + delivery < Number(o.amount_paid || 0)) {
+        const owed = Number(o.amount_paid) - quote - delivery;
         const reason = window.prompt(`KSh ${Number(o.amount_paid).toLocaleString()} is already paid. Lowering the quote to KSh ${quote.toLocaleString()} means KSh ${owed.toLocaleString()} is owed back to the customer (it goes to Refunds, and the piece can't ship until it's refunded).\n\nReason for lowering the quote:`);
         if (!reason) return;
         orderForm.quote_reason = reason;
@@ -508,6 +526,7 @@ function removeAsset(key) {
         <StaffPanel v-else-if="currentTab === 'staff' && $page.props.auth?.user?.abilities?.includes('staff.manage')" :staff="staff" />
         <template v-else-if="currentTab === 'settings'">
             <HandoverSettingsPanel v-for="location in handover_locations" :key="location.id" :location="location" />
+            <DeliveryOptionsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :options="delivery_options" />
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
             <SettingsPanel :form="siteInfoForm" :categories="categories"
@@ -600,11 +619,28 @@ function removeAsset(key) {
                         <p class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">{{ formatAmount(selectedOrder.price_quoted || 0, page.props) }} <span class="text-xs text-slate-500">· locked {{ selectedOrder.is_paid ? 'after payment' : 'from checkout' }}</span></p>
                     </div>
                     <label v-else class="block">
-                        <span class="block text-sm text-slate-300 mb-2">Quote (KES — Kenyan shillings)</span>
+                        <span class="block text-sm text-slate-300 mb-2">Quote, without delivery (KES)</span>
                         <input v-model="orderForm.price_quoted" type="number" min="0" step="1" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                     </label>
 
                             </div>
+                <div class="mb-4 rounded-xl bg-slate-950/60 px-4 py-3 text-sm space-y-2" aria-label="Delivery">
+                    <p class="text-slate-300">Delivery:
+                        <strong v-if="selectedOrder.delivery_info?.summary" class="text-white">{{ selectedOrder.delivery_info.summary.name }} · {{ selectedOrder.delivery_info.summary.fee ? formatAmount(selectedOrder.delivery_info.summary.fee, page.props) : 'Free' }}</strong>
+                        <strong v-else-if="selectedOrder.delivery_info?.needs_quote" class="text-amber-300">to be quoted. The customer can’t pay until you price it.</strong>
+                        <span v-else class="text-slate-400">not set</span>
+                    </p>
+                    <form v-if="canSetDelivery && delivery_options.length" @submit.prevent="saveDelivery" class="grid gap-2 sm:grid-cols-[1fr_7rem]" aria-label="Set delivery">
+                        <select v-model="deliveryForm.delivery_option_id" required aria-label="Delivery option" class="bg-slate-950 border border-white/10 rounded-xl pl-3 pr-9 py-2 text-white text-sm">
+                            <option value="" disabled>Choose delivery</option>
+                            <option v-for="o in delivery_options.filter(x => x.active)" :key="o.id" :value="o.id">{{ o.name }}{{ o.type === 'zone' ? ' · ' + (o.fee ? formatAmount(o.fee, page.props) : 'free') : '' }}</option>
+                        </select>
+                        <input v-if="deliveryChoice?.type === 'quote'" v-model="deliveryForm.fee" type="number" min="0" required placeholder="Fee (KSh)" aria-label="Quoted delivery fee" class="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <input v-model="deliveryForm.reason" required maxlength="255" placeholder="Reason, e.g. rider to Thika quoted" aria-label="Reason" class="sm:col-span-2 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                        <button type="submit" :disabled="deliveryForm.processing" class="sm:col-span-2 justify-self-start table-action">{{ selectedOrder.delivery_info?.needs_quote ? 'Price delivery' : 'Save delivery' }}</button>
+                        <p v-for="(m, f) in deliveryForm.errors" :key="f" role="alert" class="sm:col-span-2 text-rose-300">{{ m }}</p>
+                    </form>
+                </div>
                 <div class="space-y-3 text-sm">
                     <p class="text-slate-300">Payment: <strong :class="selectedOrder.is_paid ? 'text-emerald-300' : 'text-amber-300'">{{ paymentStatus(selectedOrder).label }}</strong></p>
                     <p v-if="!isCommerceOrder && selectedOrder.chargeable_total > 0" class="mt-1 text-xs text-slate-300">
@@ -698,7 +734,7 @@ function removeAsset(key) {
                         <span class="block text-sm text-slate-300 mb-2" id="order-production-stage-label">Production stage</span>
                         <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
                         <select v-else aria-labelledby="order-production-stage-label" :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
-                            <option v-for="s in productionStages.filter(stage => selectedOrder.fulfilment_method !== 'pickup' || stage !== 'shipped')" :key="s" :value="s" class="capitalize">{{ s === 'completed' && selectedOrder.fulfilment_method === 'pickup' ? 'Ready for collection' : s }}</option>
+                            <option v-for="s in stagesFor(selectedOrder)" :key="s" :value="s">{{ stageLabels[s] }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>
                         </select>
                     </label>

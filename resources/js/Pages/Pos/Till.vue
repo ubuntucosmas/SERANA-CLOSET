@@ -752,7 +752,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                 <!-- ORDERS: collect and returns -->
                 <div v-else-if="tab === 'orders'" class="grid gap-4 lg:grid-cols-2">
                     <section class="lg:col-span-2 rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3" aria-labelledby="find-order-title">
-                        <h2 id="find-order-title" class="text-white font-semibold">Find and continue an order</h2>
+                        <h2 id="find-order-title" class="text-white font-headline text-lg">Find and continue an order</h2>
                         <form @submit.prevent="searchOrders" class="flex gap-2"><label class="flex-1 text-sm">Reference, customer name or full phone number<input v-model="orderQuery" minlength="3" required maxlength="120" :class="input" /></label><button type="submit" :disabled="busy" :class="primary">Find orders</button></form>
                         <p v-if="foundOrders && !foundOrders.length" role="status">No matching orders. Check the reference or customer details.</p>
                         <p v-if="hasMoreOrders" class="text-xs text-amber-300">More than 20 matches. Add more of the name or use the exact reference.</p>

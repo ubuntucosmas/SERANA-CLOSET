@@ -20,7 +20,7 @@ use Tests\TestCase;
 
 class StudioWorkflowCompletionTest extends TestCase
 {
-    use RefreshDatabase, StockFixtures;
+    use RefreshDatabase, StockFixtures, \Tests\Concerns\DeliveryFixtures;
 
     private function operator(): User
     {
@@ -35,7 +35,8 @@ class StudioWorkflowCompletionTest extends TestCase
         Location::firstOrFail()->update(['address' => 'Shop 4, Nairobi']);
         $product = $this->stockedProduct(5);
         return ['full_name' => 'Pickup Buyer', 'email' => 'pickup@example.test', 'phone' => '0712345678',
-            'fulfilment_method' => 'pickup', 'pickup_location_id' => Location::firstOrFail()->id,
+            // Phase D2: pickup is a delivery option at the shop.
+            'delivery_option_id' => \App\Models\DeliveryOption::where('type', 'pickup')->value('id'),
             'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => 'One size']]],
         ];
     }
@@ -59,9 +60,9 @@ class StudioWorkflowCompletionTest extends TestCase
     public function test_pickup_rejects_closed_shop_and_delivery_still_requires_address(): void
     {
         $payload = $this->pickupPayload();
-        Location::whereKey($payload['pickup_location_id'])->update(['accepts_pickup' => false]);
-        $this->postJson(route('checkout.process'), $payload)->assertUnprocessable()->assertJsonValidationErrors('pickup_location_id');
-        $payload['fulfilment_method'] = 'delivery';
+        Location::firstOrFail()->update(['accepts_pickup' => false]);
+        $this->postJson(route('checkout.process'), $payload)->assertUnprocessable()->assertJsonValidationErrors('delivery_option_id');
+        $payload['delivery_option_id'] = $this->freeDelivery();
         $this->postJson(route('checkout.process'), $payload)->assertUnprocessable()->assertJsonValidationErrors(['address', 'city']);
         $this->assertSame(0, CustomOrder::count());
     }
@@ -89,7 +90,7 @@ class StudioWorkflowCompletionTest extends TestCase
             'fulfilment_method' => 'pickup', 'pickup_location_id' => Location::firstOrFail()->id, 'fulfilment_snapshot' => ['name' => 'Shop']]);
         $this->postJson(route('pos.collect.store', $order), ['phone' => '0712345678'])->assertUnprocessable();
         $this->put(route('studio.update', $order), ['status' => 'shipped'])->assertSessionHasErrors('status');
-        $this->put(route('studio.update', $order), ['status' => 'completed'])->assertSessionDoesntHaveErrors();
+        $this->put(route('studio.update', $order), ['status' => 'ready_for_pickup'])->assertSessionDoesntHaveErrors();
         $this->postJson(route('pos.collect.store', $order), ['phone' => '0799999999'])->assertUnprocessable()->assertJsonValidationErrors('phone');
         $this->postJson(route('pos.collect.store', $order), ['phone' => '0712345678', 'note' => 'Buyer verified at shop'])->assertOk()->assertJsonPath('order.fulfilment', 'collected');
         $this->postJson(route('pos.collect.store', $order), ['phone' => '0712345678'])->assertUnprocessable();
@@ -151,7 +152,7 @@ class StudioWorkflowCompletionTest extends TestCase
     {
         $this->operator();
         $other = Location::create(['name' => 'Other collection shop', 'active' => true, 'accepts_pickup' => true, 'fulfils_online' => true, 'sort' => 1]);
-        $order = CustomOrder::create(['full_name' => 'Collector', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'completed', 'is_paid' => true, 'price_quoted' => 1000,
+        $order = CustomOrder::create(['full_name' => 'Collector', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'ready_for_pickup', 'is_paid' => true, 'price_quoted' => 1000,
             'fulfilment_method' => 'pickup', 'pickup_location_id' => $other->id]);
         $this->postJson(route('pos.collect.store', $order), ['phone' => '0712345678'])->assertUnprocessable()->assertJsonValidationErrors('order');
         $this->assertNotSame('collected', $order->fresh()->fulfilment_status);
@@ -175,7 +176,7 @@ class StudioWorkflowCompletionTest extends TestCase
     {
         $location = Location::firstOrFail(); $location->update(['address' => null]);
         $page = $this->get(route('checkout'))->assertOk();
-        $this->assertCount(0, $page->viewData('page')['props']['pickup_locations']);
+        $this->assertCount(0, collect($page->viewData('page')['props']['delivery_options'])->where('type', 'pickup'));
         $manager = User::factory()->create(['role' => 'manager']);
         $data = ['name' => 'Main shop', 'address' => 'Building A, shop 4, Nairobi', 'accepts_pickup' => true, 'reason' => 'Enable customer collection'];
         $this->actingAs($manager)->put(route('studio.handover.update', $location), $data)->assertForbidden();
@@ -183,7 +184,7 @@ class StudioWorkflowCompletionTest extends TestCase
         $this->actingAs($owner)->put(route('studio.handover.update', $location), $data)->assertSessionDoesntHaveErrors();
         $this->assertSame($data['address'], $location->fresh()->address);
         $page = $this->get(route('checkout'))->assertOk();
-        $this->assertCount(1, $page->viewData('page')['props']['pickup_locations']);
+        $this->assertCount(1, collect($page->viewData('page')['props']['delivery_options'])->where('type', 'pickup'));
         $this->assertDatabaseHas('audit_logs', ['action' => 'handover.shop_updated', 'reason' => $data['reason']]);
     }
 

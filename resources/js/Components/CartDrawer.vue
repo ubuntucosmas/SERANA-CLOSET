@@ -132,7 +132,7 @@ onUnmounted(() => { document.removeEventListener('keydown', handleKeys); documen
             <!-- Checkout -->
             <div v-if="cart.items.length > 0" class="border-t border-black/5 bg-surface-container px-5 py-5 dark:border-white/5 dark:bg-[#050505] sm:px-6" style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom))">
                 <div class="mb-4 flex items-baseline justify-between">
-                    <span class="text-on-surface">Total <span class="text-sm text-on-surface-variant">· delivery included</span></span>
+                    <span class="text-on-surface">Total <span class="text-sm text-on-surface-variant">· delivery chosen at checkout</span></span>
                     <span class="font-headline text-2xl font-bold text-on-surface">{{ formatPrice(cart.totalPrice) }}</span>
                 </div>
                 <Link :href="route('checkout')" prefetch @click="closeDrawer" class="action-primary w-full py-4 text-base">

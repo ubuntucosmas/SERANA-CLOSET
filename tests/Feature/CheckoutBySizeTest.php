@@ -23,6 +23,7 @@ use Tests\TestCase;
  */
 class CheckoutBySizeTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use RefreshDatabase;
 
     private Actor $owner;
@@ -49,7 +50,7 @@ class CheckoutBySizeTest extends TestCase
     private function checkout(array $items)
     {
         return $this->postJson(route('checkout.process'), ['full_name' => 'Buyer', 'email' => 'b@example.com', 'address' => '1 Street',
-            'city' => 'Nairobi', 'phone' => '0712345678', 'items' => $items]);
+            'delivery_option_id' => $this->freeDelivery(), 'city' => 'Nairobi', 'phone' => '0712345678', 'items' => $items]);
     }
 
     private function holds(CustomOrder $order): array

@@ -24,10 +24,11 @@ use Tests\TestCase;
  */
 class ConcurrencyTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use DatabaseTruncation;
 
     /** Rows the migrations seed (the one location, Phase D1): later tests rely on them. */
-    protected $exceptTables = ['locations'];
+    protected $exceptTables = ['locations', 'delivery_options'];
 
     protected function setUp(): void
     {
@@ -43,6 +44,8 @@ class ConcurrencyTest extends TestCase
         // Leave committed rows behind for no one: later tests use RefreshDatabase.
         if (DB::connection()->getDriverName() === 'mariadb') {
             $this->truncateDatabaseTables();
+            // Delivery options are kept for the seeded pickup and quote; a zone a race added goes.
+            \App\Models\DeliveryOption::whereNotIn('type', ['pickup', 'quote'])->delete();
         }
 
         parent::tearDown();
@@ -324,7 +327,7 @@ class ConcurrencyTest extends TestCase
 
     private function sizedPayload(Product $product, string $size, string $name): string
     {
-        return json_encode(['full_name' => $name, 'email' => 'buyer@example.com', 'address' => '1 Moi Avenue', 'city' => 'Nairobi',
+        return json_encode(['full_name' => $name, 'email' => 'buyer@example.com', 'address' => '1 Moi Avenue', 'delivery_option_id' => $this->freeDelivery(), 'city' => 'Nairobi',
             'phone' => '0712345678', 'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => $size]]]]);
     }
 
@@ -538,7 +541,7 @@ class ConcurrencyTest extends TestCase
     private function checkoutPayload(Product $product, string $name): string
     {
         return json_encode([
-            'full_name' => $name, 'email' => 'buyer@example.com', 'address' => '1 Moi Avenue', 'city' => 'Nairobi',
+            'full_name' => $name, 'email' => 'buyer@example.com', 'address' => '1 Moi Avenue', 'delivery_option_id' => $this->freeDelivery(), 'city' => 'Nairobi',
             'phone' => '0712345678', 'items' => [['id' => $product->id, 'quantity' => 1]],
         ]);
     }

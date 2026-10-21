@@ -482,6 +482,52 @@ class CustomOrder extends Model
      * address, phone, internal studio notes, other customers' data). The signed
      * receipt link is only minted once payment is confirmed.
      */
+    public function deliveryOption()
+    {
+        return $this->belongsTo(DeliveryOption::class);
+    }
+
+    /** The delivery lines (Phase D2): the charge and any later change, all of type delivery. */
+    public function deliveryTotal(): int
+    {
+        return (int) $this->lines()->where('line_type', OrderLine::DELIVERY)->sum('amount');
+    }
+
+    /** What was quoted or bought, without delivery: the Studio edits this, never the delivery inside it. */
+    public function quoteAmount(): int
+    {
+        return $this->total() - $this->deliveryTotal();
+    }
+
+    /** A quote-on-WhatsApp order the Studio hasn't priced yet: it can't be paid until it is. */
+    public function needsDeliveryQuote(): bool
+    {
+        return $this->deliveryOption?->type === DeliveryOption::QUOTE && ! $this->lines()->where('line_type', OrderLine::DELIVERY)->exists();
+    }
+
+    /**
+     * The delivery as every screen shows it (receipts, tracking, the WhatsApp
+     * message, the Studio): the option's name, the fee charged and when to
+     * expect it. Null for orders from before delivery had a line.
+     *
+     * @return array{name: string, fee: int, eta: ?string}|null
+     */
+    public function deliverySummary(): ?array
+    {
+        if (! $this->delivery_option_id || $this->needsDeliveryQuote()) {
+            return null;
+        }
+
+        return ['name' => $this->deliveryOption?->name ?? 'Delivery', 'fee' => $this->deliveryTotal(), 'eta' => $this->deliveryOption?->eta_text];
+    }
+
+    /** For the Studio's order screens: the delivery charged, the quote without it, and whether a quote is still to be priced. */
+    public function getDeliveryInfoAttribute(): array
+    {
+        return ['summary' => $this->deliverySummary(), 'delivery_total' => $this->deliveryTotal(), 'quote_amount' => $this->quoteAmount(),
+            'needs_quote' => $this->needsDeliveryQuote(), 'option_id' => $this->delivery_option_id];
+    }
+
     public function handoverDetails(): ?array
     {
         if (! $this->fulfilment_method) return null;
@@ -497,7 +543,7 @@ class CustomOrder extends Model
                 $this->fulfilment_status === 'collected' => 'Collection confirmed.',
                 $this->fulfilment_status === 'shipped' => 'Your order has been dispatched for delivery.',
                 ($this->resolution ?? 'none') !== 'none' => 'The Studio is reviewing a payment or stock issue. Wait for confirmation before arranging handover.',
-                $pickup && $this->fulfilment_status === 'completed' => 'Ready for collection. Bring your order reference and the phone number used for this order. Any balance must be settled before handover.',
+                $pickup && $this->fulfilment_status === 'ready_for_pickup' => 'Ready for collection. Bring your order reference and the phone number used for this order. Any balance must be settled before handover.',
                 $pickup => 'Wait until tracking shows ready for collection before travelling.',
                 default => 'The Studio will prepare your order for delivery.',
             },
@@ -516,6 +562,8 @@ class CustomOrder extends Model
             'is_paid'     => $isPaid,
             'payment_method' => $this->payment_method,
             'handover' => $this->handoverDetails(),
+            'delivery' => $this->deliverySummary(),
+            'delivery_quote_pending' => $this->needsDeliveryQuote(),
             // How to pay a WhatsApp order, as set in Studio → Payments.
             'payment_instructions' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP
                 ? (\App\Support\PaymentSettings::instructions() ?: null) : null,

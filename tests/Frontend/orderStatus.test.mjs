@@ -25,9 +25,10 @@ test('an order handed over at the till reads Collected', async () => {
 });
 
 
-test('a prepared pickup order is ready for collection rather than dispatch', async () => {
+test('a pickup order is ready for pickup only when the Studio says so, never "ready for dispatch"', async () => {
     const { fulfilmentStatus } = await import('../../resources/js/Support/orderStatus.js');
-    assert.equal(fulfilmentStatus({ status: 'completed', fulfilment_method: 'pickup' }), 'Ready for Collection');
-    assert.equal(fulfilmentStatus({ status: 'completed', handover: { method: 'pickup' } }), 'Ready for Collection');
+    // Phase D2: ready for pickup is its own stage; a finished pickup order isn't waiting for a courier.
+    assert.equal(fulfilmentStatus({ status: 'ready_for_pickup', fulfilment_method: 'pickup' }), 'Ready for Pickup');
+    assert.equal(fulfilmentStatus({ status: 'completed', handover: { method: 'pickup' } }), 'Finished');
     assert.equal(fulfilmentStatus({ status: 'completed', fulfilment_method: 'delivery' }), 'Ready for Dispatch');
 });

@@ -67,6 +67,10 @@ class MpesaController extends Controller
                     'message' => 'M-Pesa payments are paused right now. You can send this same order on WhatsApp instead.',
                 ], 409);
             }
+            // Phase D2: a delivery quote has no price yet, so nothing can be paid.
+            if ($order->needsDeliveryQuote()) {
+                return response()->json(['success' => false, 'message' => 'The Studio is pricing your delivery. You will get the total on WhatsApp before you pay.'], 422);
+            }
             if ($order->payment_method === \App\Support\PaymentSettings::WHATSAPP) {
                 return response()->json(['success' => false, 'message' => 'This order is being paid via WhatsApp. The studio will confirm your payment.'], 409);
             }

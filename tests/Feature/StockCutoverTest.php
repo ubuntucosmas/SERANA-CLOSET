@@ -30,6 +30,7 @@ use Tests\TestCase;
  */
 class StockCutoverTest extends TestCase
 {
+    use \Tests\Concerns\DeliveryFixtures;
     use RefreshDatabase;
 
     private Actor $owner;
@@ -183,7 +184,7 @@ class StockCutoverTest extends TestCase
         app(StockService::class)->receive($m, $this->shop, 5, $this->owner, 'New batch');
         app(StockService::class)->damage($hoodie->variants()->where('size', 'L')->sole(), $this->shop, 1, $this->owner, 'Torn');
         app(StockService::class)->receive($set->variants()->where('part', 'bottom')->sole(), $this->shop, 4, $this->owner, 'Bottoms arrived');
-        $this->postJson(route('checkout.process'), ['full_name' => 'B', 'email' => 'b@example.com', 'address' => '1 St', 'city' => 'Nairobi', 'phone' => '0712345678',
+        $this->postJson(route('checkout.process'), ['full_name' => 'B', 'email' => 'b@example.com', 'address' => '1 St', 'delivery_option_id' => $this->freeDelivery(), 'city' => 'Nairobi', 'phone' => '0712345678',
             'items' => [['id' => $hoodie->id, 'quantity' => 1, 'options' => ['top_size' => 'M']], ['id' => $set->id, 'quantity' => 1, 'options' => ['top_size' => 'M', 'bottom_size' => 'M']]]])->assertOk();
         app(OrderSettlementService::class)->recordPayment(CustomOrder::latest('id')->first(), null, 'mpesa_stk', Actor::safaricom(), 'QV2SALE');
 

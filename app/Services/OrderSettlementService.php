@@ -799,7 +799,8 @@ class OrderSettlementService
     {
         DB::transaction(function () use ($order, $quote, $actor, $reason) {
             $locked = $this->lockForMoney($order);
-            $current = (int) $locked->lines()->sum('amount');
+            // The quote is the work, never the delivery next to it (Phase D2).
+            $current = (int) $locked->lines()->where('line_type', '!=', OrderLine::DELIVERY)->sum('amount');
             $difference = $quote - $current;
 
             if ($difference !== 0) {
@@ -817,8 +818,45 @@ class OrderSettlementService
                 ]);
             }
 
-            DB::table('custom_orders')->where('id', $locked->id)->update(['price_quoted' => $quote]);
+            DB::table('custom_orders')->where('id', $locked->id)->update(['price_quoted' => $quote + (int) $locked->lines()->where('line_type', OrderLine::DELIVERY)->sum('amount')]);
             $this->recompute($locked, 'Quote lowered below the amount paid');
+        }, 3);
+    }
+
+    /**
+     * How the order reaches the customer, and what that costs (Phase D2,
+     * design §13.7). Lines are append-only: the first charge is a delivery
+     * line, a later change a delivery line for the difference, so the total,
+     * the deposit and every receipt follow. The handover follows the option
+     * (a pickup names its shop and needs no address). Refused once the order
+     * has been handed over. $fee is the server's price; only a quote takes
+     * one from the Studio.
+     */
+    public function setDelivery(CustomOrder $order, \App\Models\DeliveryOption $option, int $fee, Actor $actor, string $reason): void
+    {
+        if ($fee < 0) {
+            throw new \DomainException('A delivery fee can’t be negative.');
+        }
+        DB::transaction(function () use ($order, $option, $fee, $actor, $reason) {
+            $locked = $this->lockForMoney($order);
+            if (in_array($locked->fulfilment_status, ['shipped', 'collected'], true)) {
+                throw new \DomainException('This order was already handed over. Its delivery can’t change now.');
+            }
+            $charged = (int) $locked->lines()->where('line_type', OrderLine::DELIVERY)->sum('amount');
+            $first = ! $locked->lines()->where('line_type', OrderLine::DELIVERY)->exists();
+            if ($first || $fee !== $charged || (int) $locked->delivery_option_id !== $option->id) {
+                $this->line($locked, OrderLine::DELIVERY, ($first ? 'Delivery: ' : 'Delivery change: ') . $option->name, 1, $first ? $fee : $fee - $charged, $actor, $reason, null,
+                    ['delivery_option_id' => $option->id]);
+            }
+            $pickup = $option->type === \App\Models\DeliveryOption::PICKUP ? $option->location : null;
+            DB::table('custom_orders')->where('id', $locked->id)->update([
+                'delivery_option_id' => $option->id,
+                'fulfilment_method' => $pickup ? 'pickup' : 'delivery',
+                'pickup_location_id' => $pickup?->id,
+                'fulfilment_snapshot' => $pickup ? json_encode(['name' => $pickup->name, 'address' => $pickup->address]) : null,
+            ]);
+            $locked->refresh();
+            $this->recompute($locked, 'Delivery lowered below the amount paid');
         }, 3);
     }
 
