@@ -62,9 +62,8 @@ class HandleInertiaRequests extends Middleware
             // Custom order options are passed only to the pages that use them.
             // How customers can pay right now (Studio → Settings → Payments).
             'payments' => fn () => \App\Support\PaymentSettings::forCustomers(),
-            'theme_settings' => fn () => collect(ThemeSetting::values())->except([\App\Support\CustomOrderOptions::KEY, \App\Support\PaymentSettings::KEY])->mapWithKeys(function ($value, $key) {
-                return [$key => ThemeSetting::get($key)];
-            })->all(),
+            // An explicit public list (ThemeSetting::PUBLIC_KEYS): policies, inboxes and switches never reach visitors.
+            'theme_settings' => fn () => ThemeSetting::forPage((bool) $request->user()?->canUseStudio()),
             'categories' => fn () => \App\Models\Category::all()->map(function ($cat) {
                 return [
                     'id' => $cat->id,

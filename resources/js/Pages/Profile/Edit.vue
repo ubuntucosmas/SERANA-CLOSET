@@ -13,6 +13,10 @@ defineProps({
     status: {
         type: String,
     },
+    canDeleteAccount: {
+        type: Boolean,
+        default: true,
+    },
 });
 </script>
 
@@ -50,10 +54,14 @@ defineProps({
                 </div>
 
                 <div
+                    v-if="canDeleteAccount"
                     class="bg-surface-container border border-outline-variant p-5 rounded-2xl sm:p-8"
                 >
                     <DeleteUserForm class="max-w-xl" />
                 </div>
+                <p v-else class="max-w-xl text-sm text-on-surface-variant">
+                    This is a staff account, so it can’t be deleted here. When someone leaves, the owner suspends the account in Studio → Staff, which keeps their name on past sales and records.
+                </p>
             </div>
         </div>
     </StorefrontLayout>

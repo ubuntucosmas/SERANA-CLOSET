@@ -21,6 +21,8 @@ class ProfileController extends Controller
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            // Staff accounts carry the audit trail: the owner suspends them in Studio → Staff instead.
+            'canDeleteAccount' => ! in_array($request->user()->role, \App\Support\Role::STAFF, true),
         ]);
     }
 
@@ -45,6 +47,13 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // A staff account is never deleted by its holder: the ledger, audit log and
+        // till history name it (deleting would erase that, or fail on the till's
+        // records). Staff leave by being suspended in Studio → Staff.
+        if (in_array($request->user()->role, \App\Support\Role::STAFF, true)) {
+            abort(403, 'Staff accounts can’t be deleted here. Ask the owner to suspend the account in Studio → Staff.');
+        }
+
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);

@@ -29,4 +29,15 @@ final class PublicUrl
 
         return Storage::disk($disk)->url($path);
     }
+
+    /**
+     * The same URL, absolute: for links that leave the site (a WhatsApp brief,
+     * an email). A local disk's /storage path gets APP_URL in front.
+     */
+    public static function absolute(?string $path): ?string
+    {
+        $url = self::resolve($path);
+
+        return $url !== null && str_starts_with($url, '/') ? rtrim((string) config('app.url'), '/') . $url : $url;
+    }
 }
