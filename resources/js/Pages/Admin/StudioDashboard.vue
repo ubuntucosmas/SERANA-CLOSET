@@ -24,6 +24,7 @@ import OrderPolicyPanel from './Partials/OrderPolicyPanel.vue';
 import DropsPanel from './Partials/DropsPanel.vue';
 import RefundsPanel from './Partials/RefundsPanel.vue';
 import StockPanel from './Partials/StockPanel.vue';
+import StaffPanel from './Partials/StaffPanel.vue';
 
 const props = defineProps({
     workflow: { type: Object, default: () => ({}) },
@@ -46,6 +47,7 @@ const props = defineProps({
     drops: { type: Array, default: () => [] },
     refunds: { type: Array, default: () => [] },
     stock: { type: Object, default: null },
+    staff: { type: Object, default: null },
     stock_v2: { type: Boolean, default: false },
     active_tab: { type: String, default: 'home' },
 });
@@ -136,6 +138,8 @@ const isCommerceOrder = computed(() => ['standard', 'drop'].includes(selectedOrd
 const isWhatsAppShop = computed(() => selectedOrder.value?.type === 'standard' && selectedOrder.value?.payment_method === 'whatsapp');
 const canRecordPayment = computed(() => {
     const o = selectedOrder.value;
+    // Only staff allowed to record money see the form (the server refuses everyone else).
+    if (!page.props.auth?.user?.abilities?.includes('money.record')) return false;
     if (!o || o.is_paid || ['Cancelled', 'Expired'].includes(o.status)) return false;
     return !isCommerceOrder.value || isWhatsAppShop.value;
 });
@@ -464,6 +468,7 @@ function removeAsset(key) {
         <SubscribersPanel v-else-if="currentTab === 'subscribers'" :leads="leads" />
         <RefundsPanel v-else-if="currentTab === 'refunds'" :refunds="refunds" @openOrder="openOrder" />
         <StockPanel v-else-if="currentTab === 'stock'" :stock="stock" />
+        <StaffPanel v-else-if="currentTab === 'staff' && $page.props.auth?.user?.abilities?.includes('staff.manage')" :staff="staff" />
         <template v-else-if="currentTab === 'settings'">
             <PaymentsPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.payments')" :settings="payment_settings" />
             <OrderPolicyPanel v-if="$page.props.auth?.user?.abilities?.includes('settings.policies')" :policy="order_policy" />
