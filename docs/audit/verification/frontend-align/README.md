@@ -22,3 +22,18 @@ This was run in Chrome on the local ddev site, signed in as the QA owner.
 | No sideways scroll at 390px | — |
 
 `tests/Frontend/studioSections.test.mjs` covers who sees which section.
+
+## Audit fixes (docs/audit/FRONTEND-AUDIT-2026-10-21.md), 12 checks, all pass
+
+| Check | Evidence |
+|---|---|
+| The till shows pieces without typing, newest first | `04-till-pieces-on-load.png` |
+| No register picker when there is one till | `04-till-pieces-on-load.png` |
+| **Change items** voids the untouched sale and puts the pieces back in the bag | — |
+| After a page reload, **Today** lists the unpaid sale. Take payment resumes it, and it is paid with change. | `05-till-today.png` |
+| Today offers the receipt of a paid sale | `05-till-today.png` |
+| The closed drawer's Z report prints black on white, alone on the page | `06-z-report-print.png` |
+| The Overview flags a drawer closed KSh 500 short this week | `07-overview-drawer-difference.png` |
+| Studio → Till shows the session, its Z report, the reason and who approved it | `08-studio-till-history.png` |
+| Pre-orders are hidden while Drops are off | — |
+| Orders show "Till · <seller>" and filter on Till sales; a paid till sale reads Collected | `09-orders-till-filter.png` |

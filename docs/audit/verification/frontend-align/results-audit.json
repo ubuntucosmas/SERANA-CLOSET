@@ -1,0 +1,62 @@
+[
+  {
+    "name": "pieces show without typing",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "no register picker with one till",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "change items puts the pieces back and voids the sale",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "today lists the unpaid sale after a reload",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the resumed sale is paid with change",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "today offers the receipt of a paid sale",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Z report has a print button",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the Overview flags the short drawer",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "till history shows the Z report and reason",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Pre-orders hidden while Drops are off",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "orders show where they were sold",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a paid till sale reads Collected, not awaiting fulfilment",
+    "ok": true,
+    "detail": ""
+  }
+]
