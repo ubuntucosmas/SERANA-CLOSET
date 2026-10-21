@@ -11,10 +11,12 @@
     </AdminShell>
 -->
 <script setup>
-import { sectionsFor, studioSection } from '@/Support/studioSections';
+import { sectionsFor, studioSection, groupedSections, completionFor } from '@/Support/studioSections';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import SiteSeo from '@/Components/SiteSeo.vue';
 import Notification from '@/Components/Notification.vue';
+import Modal from '@/Components/Modal.vue';
+import WorkflowContext from '@/Components/WorkflowContext.vue';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -37,6 +39,8 @@ const guidance = computed(() => studioSection(props.current));
 const primary = computed(() => sections.value.filter(s => s.primary));
 const secondary = computed(() => sections.value.filter(s => !s.primary));
 
+const groups = computed(() => groupedSections(sections.value));
+const moreGroups = computed(() => groupedSections(secondary.value));
 const moreOpen = ref(false);
 
 const storeName = computed(() => page.props.store?.name || 'Serana Studio');
@@ -73,20 +77,22 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <span class="font-headline text-lg text-white truncate group-hover:text-[#57d5fc] transition-colors">{{ storeName }}</span>
             </Link>
 
-            <nav aria-label="Studio sections" class="flex-1 space-y-1">
-                <button v-for="s in sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
+            <nav aria-label="Studio sections" class="flex-1 min-h-0 overflow-y-auto space-y-1">
+                <section v-for="group in groups" :key="group.label" class="mb-3">
+                    <h2 class="px-4 pt-2 pb-1 text-xs font-semibold text-slate-500">{{ group.label }}</h2>
+                <button v-for="s in group.sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                     :class="['w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors',
                              current === s.id ? 'bg-[#57d5fc]/10 text-white font-semibold ring-1 ring-[#57d5fc]/25' : 'text-slate-400 hover:text-white hover:bg-white/5']">
                     <span class="material-symbols-outlined text-[21px]" :class="current === s.id ? 'text-[#57d5fc]' : ''">{{ s.icon }}</span>
                     {{ s.label }}
                 </button>
+                <a v-if="group.label === 'Daily work' && canUseTill" :href="route('pos.index')" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-white/5"><span class="material-symbols-outlined text-[21px]">point_of_sale</span>Sell at till</a>
+                </section>
             </nav>
 
             <div class="mt-auto pt-6 border-t border-white/5 space-y-1">
                 <div class="flex items-center justify-between px-4 pb-2"><span class="text-sm text-slate-400">Appearance</span><ThemeToggle /></div>
-                <a v-if="canUseTill" :href="route('pos.index')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">point_of_sale</span> Open the till
-                </a>
+
                 <Link :href="route('home')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
                     <span class="material-symbols-outlined text-[20px]">storefront</span> Back to shop
                 </Link>
@@ -118,18 +124,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
             </div>
 
             <div class="px-3 sm:px-5 lg:px-7 pb-8 sm:pb-12">
-                <details :key="current" class="mb-4 rounded-xl border border-white/10 bg-slate-900/70 p-3">
-                    <summary class="cursor-pointer text-sm text-slate-300">{{ guidance.question }} <span class="text-cyan-300 ml-2">Screen help</span></summary><div class="pt-3">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-cyan-300">Serana Studio · Staff workspace</p>
-                    <h2 class="mt-2 text-lg font-semibold text-white">{{ guidance.question }}</h2>
-                    <p class="mt-2 text-sm text-slate-300"><span class="font-semibold text-slate-200">Why use this screen?</span> {{ guidance.description }}</p>
-                    <dl class="mt-4 grid gap-4 sm:grid-cols-2 text-sm leading-relaxed">
-                        <div><dt class="font-semibold text-slate-200">Who is this for?</dt><dd class="mt-1 text-slate-300">{{ guidance.who }}</dd></div>
-                        <div><dt class="font-semibold text-slate-200">Where does this appear?</dt><dd class="mt-1 text-slate-300">{{ guidance.where }}</dd></div>
-                        <div><dt class="font-semibold text-slate-200">How do I proceed?</dt><dd class="mt-1 text-slate-300">{{ guidance.next }}</dd></div>
-                        <div><dt class="font-semibold text-slate-200">When should I act?</dt><dd class="mt-1 text-slate-300">{{ guidance.when }}</dd></div>
-                    </dl>
-                </div></details>
+                <WorkflowContext class="mb-4 text-slate-300" :actor="`${page.props.auth?.user?.name || 'Signed-in staff'} · ${page.props.auth?.user?.role || 'staff'}`" :task="guidance.question" :reason="guidance.next" :when="guidance.when" :where="guidance.where" :confirmation="completionFor(current)" />
                 <slot />
             </div>
         </main>
@@ -142,6 +137,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <span class="material-symbols-outlined text-[22px]">{{ s.icon }}</span>
                 <span class="text-xs font-medium">{{ s.label }}</span>
             </button>
+            <a v-if="canUseTill" :href="route('pos.index')" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-slate-400"><span class="material-symbols-outlined text-[22px]">point_of_sale</span><span class="text-xs font-medium">Sell</span></a>
             <button @click="moreOpen = true"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
                 :class="secondary.some(s => s.id === current) ? 'text-[#57d5fc]' : 'text-slate-500'">
@@ -151,16 +147,18 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
         </nav>
 
         <!-- ───────── Mobile "More" sheet ───────── -->
-        <transition name="sheet">
-            <div v-if="moreOpen" class="lg:hidden fixed inset-0 z-50" @click.self="moreOpen = false">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-                <div class="absolute bottom-0 inset-x-0 bg-slate-900 rounded-t-3xl border-t border-white/10 p-4 pb-8 space-y-1">
+        <Modal :show="moreOpen" max-width="md" labelled-by="studio-more-title" @close="moreOpen = false">
+                <div class="max-h-[85dvh] overflow-y-auto bg-slate-900 p-4 pb-8 space-y-1">
+                    <div class="flex items-center justify-between"><h2 id="studio-more-title" class="text-white font-semibold">More Studio sections</h2><button type="button" @click="moreOpen = false" class="table-action">Close</button></div>
                     <div class="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4"></div>
-                    <button v-for="s in secondary" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
+                    <section v-for="group in moreGroups" :key="group.label">
+                    <h3 class="px-4 pt-3 text-xs font-semibold text-slate-500">{{ group.label }}</h3>
+                    <button v-for="s in group.sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                         :class="['w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm',
                                  current === s.id ? 'bg-[#57d5fc]/10 text-white' : 'text-slate-300 hover:bg-white/5']">
                         <span class="material-symbols-outlined text-[22px]">{{ s.icon }}</span> {{ s.label }}
                     </button>
+                    </section>
                     <a v-if="canUseTill" :href="route('pos.index')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm text-slate-300 hover:bg-white/5">
                         <span class="material-symbols-outlined text-[22px]">point_of_sale</span> Open the till
                     </a>
@@ -171,8 +169,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                         <span class="material-symbols-outlined text-[22px]">logout</span> Sign out
                     </Link>
                 </div>
-            </div>
-        </transition>
+        </Modal>
     </div>
 </template>
 

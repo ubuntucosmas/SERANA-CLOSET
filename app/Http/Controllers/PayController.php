@@ -37,6 +37,7 @@ class PayController extends Controller
             'order' => [
                 'id' => $order->id,
                 'reference' => $order->cipher,
+                'handover' => $order->handoverDetails(),
                 'first_name' => strtok(trim((string) $order->full_name), ' ') ?: null,
                 'garment' => $order->garment,
                 'lines' => $order->lines()->orderBy('id')->get()

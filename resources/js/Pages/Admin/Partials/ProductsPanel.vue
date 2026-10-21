@@ -9,8 +9,9 @@ import { availableStock } from '@/Support/stock';
 const props = defineProps({
     products: { type: Array, default: () => [] },
     archived: { type: Array, default: () => [] },
+    stockV2: { type: Boolean, default: false },
 });
-const emit = defineEmits(['edit', 'delete', 'restore', 'forceDelete']);
+const emit = defineEmits(['edit', 'delete', 'restore', 'forceDelete', 'stock']);
 
 const page = usePage();
 const { formatAmount } = useCurrency();
@@ -25,6 +26,9 @@ function editPreview() { const product = preview.value; preview.value = null; em
 
 // Same figure the shop uses: limit − sold − unpaid holds.
 function stockLine(p) {
+    if (props.stockV2) return p.track_stock
+        ? { main: `${availableStock(p) ?? 0} available`, detail: 'Counted per size · see Stock for holds' }
+        : { main: 'Made to order', detail: 'No counted stock limit' };
     if (p.batch_limit == null) return { main: 'Unlimited', detail: '' };
     const held = Number(p.reserved_quantity || 0);
     const detail = [`${p.batch_sold || 0} sold`, held ? `${held} on hold` : ''].filter(Boolean).join(' · ');
@@ -71,13 +75,13 @@ const list = computed(() => {
                 <caption class="sr-only">Products with category, price, availability, stock left and actions</caption>
                 <thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="numeric">Price</th><th scope="col">Availability</th><th scope="col" class="numeric">Stock</th><th scope="col" class="row-action">Actions</th></tr></thead>
                 <tbody><tr v-for="p in list" :key="p.id">
-                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}</button></div></td>
+                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button v-if="stockV2 && !showArchived" @click="emit('stock')" class="table-action">View sizes</button><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}</button></div></td>
                     <td>{{ p.category?.name || 'Uncategorised' }}</td>
                     <td class="numeric text-white">{{ formatAmount(p.price, page.props) }}</td>
                     <td><span class="stage-badge" :class="availability(p).tone">{{ availability(p).label }}</span></td>
                     <td class="numeric"><span class="block text-white">{{ stockLine(p).main }}</span><span v-if="stockLine(p).detail" class="block text-xs text-slate-400">{{ stockLine(p).detail }}</span></td>
                     <td class="row-action"><div class="flex justify-end gap-2">
-                        <button @click="openPreview(p)" :aria-label="`Preview ${p.name}`" class="table-action">Preview</button>
+                        <button v-if="stockV2 && !showArchived" @click="emit('stock')" class="table-action">View sizes</button><button @click="openPreview(p)" :aria-label="`Preview ${p.name}`" class="table-action">Preview</button>
                         <template v-if="!showArchived"><button @click="emit('edit', p)" :aria-label="`Edit ${p.name}`" class="table-action">Edit</button><button @click="emit('delete', p.id)" :aria-label="`Archive ${p.name}`" class="table-action">Archive</button></template>
                         <template v-else><button @click="emit('restore', p.id)" :aria-label="`Restore ${p.name}`" class="table-action">Restore</button><button @click="emit('forceDelete', p.id)" :aria-label="`Permanently delete ${p.name}`" class="table-action text-rose-300">Delete permanently</button></template>
                     </div></td>

@@ -7,6 +7,10 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
+import { usePage } from '@inertiajs/vue3';
+import { canAddPosLine } from '@/Support/posStock';
+import Modal from '@/Components/Modal.vue';
+import WorkflowContext from '@/Components/WorkflowContext.vue';
 
 const props = defineProps({
     operator: { type: Object, default: null },
@@ -16,6 +20,8 @@ const props = defineProps({
     garments: { type: Array, default: () => [] },
 });
 
+const page = usePage();
+const canUseStudio = computed(() => page.props.auth?.user?.abilities?.includes('studio.access'));
 const ksh = (n) => 'KSh ' + Number(n || 0).toLocaleString('en-KE');
 const operator = ref(props.operator);
 const tills = ref(props.tills);
@@ -26,9 +32,9 @@ const registers = computed(() => [...new Set(['Till 1', ...tills.value.map(t => 
 const tab = ref('sell');
 const tabs = [
     { key: 'sell', label: 'Sell', icon: 'point_of_sale' },
-    { key: 'sales', label: 'Today', icon: 'receipt_long' },
+    { key: 'sales', label: 'This drawer', icon: 'receipt_long' },
     { key: 'orders', label: 'Orders', icon: 'inventory_2' },
-    { key: 'bespoke', label: 'Bespoke', icon: 'design_services' },
+    { key: 'bespoke', label: 'Custom orders', icon: 'design_services' },
     { key: 'till', label: 'Drawer', icon: 'payments' },
 ];
 
@@ -87,7 +93,7 @@ onMounted(() => {
     // The pieces show straight away; typing narrows them (audit P2-9).
     if (operator.value && till.value) search(false);
 });
-onBeforeUnmount(() => { clearTimeout(idleTimer); clearInterval(promptPoll); ['pointerdown', 'keydown'].forEach(e => window.removeEventListener(e, touch)); });
+onBeforeUnmount(() => { clearTimeout(idleTimer); clearInterval(promptPoll); clearTimeout(searchTimer); searchSequence++; ['pointerdown', 'keydown'].forEach(e => window.removeEventListener(e, touch)); });
 
 // ---- Open the drawer ----
 const openFloat = ref('');
@@ -104,9 +110,16 @@ async function openTill() {
 const query = ref('');
 const results = ref([]);
 let searchTimer = null;
+let searchSequence = 0;
+const searching = ref(false);
+const searchError = ref('');
 async function search(scan = false) {
+    const sequence = ++searchSequence;
+    searching.value = true;
+    searchError.value = '';
     try {
-        const data = await call('get', route('pos.catalogue'), { q: query.value.trim() });
+        const { data } = await axios.get(route('pos.catalogue'), { params: { register: register.value, q: query.value.trim() } });
+        if (sequence !== searchSequence) return;
         results.value = data.products;
         // A scanned barcode or SKU picks its size straight onto the sale.
         if (scan && data.exact) {
@@ -115,7 +128,12 @@ async function search(scan = false) {
             if (product && size && product.garment_type !== 'set') { addLine(product, { [size.part]: size }); query.value = ''; }
             else if (product) openSizes(product);
         }
-    } catch (e) { fail(e); }
+    } catch (e) {
+        if (sequence === searchSequence) {
+            searchError.value = 'Could not load products. Check the connection and retry.';
+            if (e.response?.status === 423) operator.value = null;
+        }
+    } finally { if (sequence === searchSequence) searching.value = false; }
 }
 watch(query, () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => search(false), 250); });
 
@@ -138,16 +156,20 @@ function confirmSizes() { addLine(sizing.value, { ...chosen }); sizing.value = n
 
 const cart = ref([]);
 function addLine(product, byPart) {
+    if (savedDraft.value) { draftNotice.value = 'Restore or discard your saved bag first.'; return; }
     const sizes = Object.values(byPart);
     const key = product.id + ':' + sizes.map(s => s.id).sort().join('-');
+    const candidate = { variant_ids: sizes.map(s => s.id), variant_limits: Object.fromEntries(sizes.map(s => [s.id, s.available ?? Infinity])) };
+    if (!canAddPosLine(cart.value, candidate)) { errors.value = { _: ['Not enough stock in these sizes. Reduce the quantities already in the bag.'] }; return; }
     const existing = cart.value.find(l => l.key === key);
     if (existing) { existing.quantity++; return; }
     const options = {};
     for (const [part, size] of Object.entries(byPart)) options[part === 'bottom' ? 'bottom_size' : 'top_size'] = size.size;
-    cart.value.push({ key, id: product.id, name: product.name, price: product.price, quantity: 1, options, variant_ids: sizes.map(s => s.id),
+    cart.value.push({ key, id: product.id, name: product.name, price: product.price, quantity: 1, options, ...candidate,
         label: sizes.map(s => (s.part === 'single' ? '' : partLabel[s.part] + ' ') + s.size).join(' · '),
         available: Math.min(...sizes.map(s => s.available ?? Infinity)) });
 }
+function incrementLine(line) { if (canAddPosLine(cart.value, line)) line.quantity++; }
 const subtotal = computed(() => cart.value.reduce((n, l) => n + l.price * l.quantity, 0));
 const customer = reactive({ name: '', phone: '', email: '' });
 const discount = reactive({ amount: '', reason: '', pin: '' });
@@ -155,6 +177,53 @@ const discountLimit = computed(() => Math.min(Math.floor(subtotal.value * props.
 const needsDiscountPin = computed(() => Number(discount.amount || 0) > discountLimit.value && !operator.value?.can_approve);
 
 const sale = ref(null);
+// A draft is confined to this tab and this operator/register. Never store PINs.
+const savedDraft = ref(null);
+const draftNotice = ref('');
+const draftKey = computed(() => operator.value ? `serana-pos-draft:${operator.value.id}:${register.value}` : null);
+function readDraft() {
+    savedDraft.value = null;
+    if (!draftKey.value) return;
+    try {
+        const draft = JSON.parse(sessionStorage.getItem(draftKey.value) || 'null');
+        if (draft?.cart?.length) savedDraft.value = draft;
+    } catch { draftNotice.value = 'Draft recovery is unavailable in this browser. Keep this tab open until the sale is created.'; }
+}
+function discardDraft() {
+    if (draftKey.value) { try { sessionStorage.removeItem(draftKey.value); } catch {} }
+    savedDraft.value = null;
+}
+function restoreDraft() {
+    if (!savedDraft.value) return;
+    cart.value = savedDraft.value.cart.map(line => ({ ...line,
+        available: line.available ?? Infinity,
+        variant_limits: Object.fromEntries(Object.entries(line.variant_limits || {}).map(([id, limit]) => [id, limit ?? Infinity])),
+    }));
+    Object.assign(customer, savedDraft.value.customer);
+    discount.amount = savedDraft.value.discount?.amount || '';
+    discount.reason = savedDraft.value.discount?.reason || '';
+    savedDraft.value = null;
+    draftNotice.value = 'Draft restored. Stock and prices will be confirmed when you take payment.';
+}
+function persistDraft() {
+    if (!draftKey.value || savedDraft.value) return;
+    try {
+        if (sale.value || !cart.value.length) sessionStorage.removeItem(draftKey.value);
+        else sessionStorage.setItem(draftKey.value, JSON.stringify({ cart: cart.value, customer: { ...customer }, discount: { amount: discount.amount, reason: discount.reason }, at: new Date().toISOString() }));
+    } catch { draftNotice.value = 'This browser could not save your draft. Keep this tab open until the sale is created.'; }
+}
+watch([cart, customer, () => discount.amount, () => discount.reason, sale], persistDraft, { deep: true, flush: 'sync' });
+watch(draftKey, (key, previous) => {
+    savedDraft.value = { switching: true };
+    if (key !== previous) {
+        cart.value = []; sale.value = null;
+        Object.assign(customer, { name: '', phone: '', email: '' });
+        Object.assign(discount, { amount: '', reason: '', pin: '' });
+        readDraft();
+    }
+});
+onMounted(readDraft);
+
 async function ringUp() {
     try {
         const data = await call('post', route('pos.sales.store'), {
@@ -168,6 +237,8 @@ async function ringUp() {
     } catch (e) { fail(e); }
 }
 function newSale() {
+    discardDraft(); draftNotice.value = '';
+    paymentMessage.value = ''; paymentCheckedAt.value = '';
     sale.value = null; cart.value = []; query.value = ''; results.value = [];
     Object.assign(customer, { name: '', phone: '', email: '' }); Object.assign(discount, { amount: '', reason: '', pin: '' });
     errors.value = {}; change.value = null; clearInterval(promptPoll);
@@ -177,6 +248,21 @@ function newSale() {
 const tender = reactive({ method: 'cash', amount: '', tendered: '', reference: '', phone: '', credit_ref: '' });
 const change = ref(null);
 let promptPoll = null;
+const paymentCheckedAt = ref('');
+const paymentMessage = ref('');
+const checkingPayment = ref(false);
+async function checkPayment(which = 'sale') {
+    const order = targets[which].value;
+    if (!order || !operator.value || checkingPayment.value) return;
+    checkingPayment.value = true;
+    try {
+        const { data } = await axios.get(route('pos.sales.show', order.id));
+        await refreshers[which](data.sale);
+        paymentCheckedAt.value = new Date().toLocaleTimeString();
+        paymentMessage.value = data.sale.prompt?.status === 'pending' ? 'Payment is still pending. Check again before requesting another payment.' : '';
+    } catch (e) { if (e.response?.status === 423) operator.value = null; paymentMessage.value = 'Could not check payment. Check the connection and retry before taking more money.'; }
+    finally { checkingPayment.value = false; }
+}
 // What money is being taken on: the sale, an order being collected, or a bespoke deposit.
 function startTender(which) {
     const owed = targets[which].value?.balance_due || 0;
@@ -188,6 +274,7 @@ const quick = computed(() => {
 });
 async function takeMoney(which) {
     const order = targets[which].value;
+    if (order?.prompt?.status === 'pending') return checkPayment(which);
     const refresh = refreshers[which];
     change.value = null;
     const body = { method: tender.method, amount: Number(tender.amount || 0) };
@@ -214,8 +301,9 @@ function watchPrompt(id, refresh) {
         try {
             const { data } = await axios.get(route('pos.sales.show', id));
             await refresh(data.sale);
-            if (data.sale.paid || data.sale.balance_due <= 0 || (data.sale.prompt && data.sale.prompt.status !== 'pending') || tries > 40) clearInterval(promptPoll);
-        } catch { clearInterval(promptPoll); }
+            paymentCheckedAt.value = new Date().toLocaleTimeString();
+            if (data.sale.paid || data.sale.balance_due <= 0 || (data.sale.prompt && data.sale.prompt.status !== 'pending') || tries > 40) { clearInterval(promptPoll); if (tries > 40) paymentMessage.value = 'Automatic checks paused. Check payment status before taking more money.'; }
+        } catch { clearInterval(promptPoll); paymentMessage.value = 'Connection interrupted. Check payment status before taking more money.'; }
     }, 3000);
 }
 // The customer changes their mind after "Take payment": void the untouched sale and put the same pieces back in the bag.
@@ -241,17 +329,24 @@ async function voidSale() {
 const receiptUrl = (id) => route('pos.sales.receipt', id);
 const methodLabel = { cash: 'Cash', mpesa_manual: 'M-Pesa code', mpesa_prompt: 'M-Pesa prompt', credit: 'Exchange credit', mpesa_stk: 'M-Pesa', counter: 'Counter' };
 
+watch(operator, (person) => {
+    if (!person) clearInterval(promptPoll);
+    else if (sale.value?.prompt?.status === 'pending') { checkPayment('sale'); watchPrompt(sale.value.id, refreshers.sale); }
+});
+
 // ---- Today's sales on this drawer: nothing is lost to a reload (audit P1-1) ----
 const todays = ref(null);
 async function loadToday() { try { todays.value = (await call('get', route('pos.sales.index'))).sales; } catch (e) { fail(e); } }
 watch([tab, operator], () => { if (tab.value === 'sales' && till.value && operator.value) loadToday(); });
 async function resume(id) {
+    paymentMessage.value = ''; paymentCheckedAt.value = '';
     try {
         sale.value = (await call('get', route('pos.sales.show', id))).sale;
         cart.value = [];
         change.value = null;
         startTender('sale');
         tab.value = 'sell';
+        if (sale.value.prompt?.status === 'pending') watchPrompt(sale.value.id, refreshers.sale);
     } catch (e) { fail(e); }
 }
 
@@ -263,17 +358,65 @@ async function findForCollection() {
         collectOrder.value = (await call('get', route('pos.collect.find'), { ref: desk.ref.trim(), phone: desk.phone })).order;
         change.value = null;
         startTender('collect');
+        rememberDeskOrder(collectOrder.value.id);
+        if (collectOrder.value.prompt?.status === 'pending') watchPrompt(collectOrder.value.id, refreshCollect);
     } catch { collectOrder.value = null; }
 }
 async function refreshCollect() {
-    // The desk's own view (balance, can it be handed over) after money is taken.
-    collectOrder.value = (await call('get', route('pos.collect.find'), { ref: collectOrder.value.reference, phone: desk.phone })).order;
+    if (!collectOrder.value) return;
+    const id = collectOrder.value.id;
+    const data = await call('get', route('pos.orders.show', id));
+    if (collectOrder.value?.id === id) {
+        collectOrder.value = data.order;
+        updateFoundOrder(data.order);
+    }
+}
+const orderQuery = ref('');
+const foundOrders = ref(null);
+const hasMoreOrders = ref(false);
+function updateFoundOrder(order) {
+    if (foundOrders.value) foundOrders.value = foundOrders.value.map(item => item.id === order.id ? { ...item, balance_due: order.balance_due, state: order.state, fulfilment: order.fulfilment } : item);
+}
+async function searchOrders() {
+    try {
+        const data = await call('get', route('pos.orders.search'), { q: orderQuery.value.trim() });
+        foundOrders.value = data.orders; hasMoreOrders.value = data.has_more;
+    } catch (e) { foundOrders.value = null; fail(e); }
+}
+function rememberDeskOrder(id) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('order', id); else url.searchParams.delete('order');
+    window.history.replaceState(window.history.state, '', url);
+}
+async function continueOrder(id) {
+    clearInterval(promptPoll);
+    paymentMessage.value = ''; paymentCheckedAt.value = ''; desk.phone = ''; desk.note = '';
+    try {
+        collectOrder.value = (await call('get', route('pos.orders.show', id))).order;
+        desk.ref = collectOrder.value.reference;
+        tab.value = 'orders';
+        rememberDeskOrder(id);
+        startTender('collect');
+        if (collectOrder.value.prompt?.status === 'pending') watchPrompt(id, refreshCollect);
+    } catch (e) { fail(e); }
+}
+function restoreDeskOrder() {
+    const id = new URL(window.location.href).searchParams.get('order');
+    if (operator.value && /^\d+$/.test(id || '')) continueOrder(Number(id));
+}
+onMounted(restoreDeskOrder);
+watch(operator, person => { if (person) restoreDeskOrder(); });
+function useDeposit() {
+    tender.amount = Math.min(collectOrder.value.deposit_due, collectOrder.value.balance_due);
+    tender.tendered = tender.amount;
 }
 const collected = ref(null);
 async function markCollected() {
     try {
         const data = await call('post', route('pos.collect.store', collectOrder.value.id), { phone: desk.phone, note: desk.note || null });
         collected.value = data.order.reference;
+        updateFoundOrder(data.order);
+        rememberDeskOrder(null);
         collectOrder.value = null;
         Object.assign(desk, { ref: '', phone: '', note: '' });
     } catch (e) { fail(e); }
@@ -317,10 +460,14 @@ async function submitIntake() {
         startTender('intake');
         tender.amount = intakeOrder.value.deposit_required || '';
         tender.tendered = tender.amount;
+        rememberDeskOrder(intakeOrder.value.id);
     } catch (e) { fail(e); }
 }
-async function refreshIntake(s) { intakeOrder.value = { ...intakeOrder.value, paid: s.paid_so_far, balance_due: s.balance_due }; }
-function newIntake() { Object.assign(intake, blank()); intakeImages.value = []; intakeOrder.value = null; errors.value = {}; }
+async function refreshIntake() {
+    if (!intakeOrder.value) return;
+    intakeOrder.value = (await call('get', route('pos.orders.show', intakeOrder.value.id))).order;
+}
+function newIntake() { rememberDeskOrder(null); Object.assign(intake, blank()); intakeImages.value = []; intakeOrder.value = null; errors.value = {}; }
 
 // ---- The drawer: take cash out, report, close ----
 const report = ref(null);
@@ -371,6 +518,14 @@ let wasDark = true;
 onMounted(() => { wasDark = document.documentElement.classList.contains('dark'); document.documentElement.classList.add('dark'); });
 onBeforeUnmount(() => { if (!wasDark) document.documentElement.classList.remove('dark'); });
 
+const posGuidance = computed(() => ({
+    sell: { task: 'Sell the selected pieces and confirm payment', reason: 'Sizes, quantities and payment must match the actual goods handed over.', when: 'When a customer buys at the counter.', confirmation: 'The server shows Paid and offers a receipt; cash change is shown separately.' },
+    sales: { task: 'Continue or reprint a sale from this drawer', reason: 'Recover a server-created sale without charging or entering it again.', when: 'After interruption, or when a customer needs their receipt.', confirmation: 'The reopened sale shows the current server balance, payment state and reference.' },
+    orders: { task: 'Find an order, continue payment or verify collection', reason: 'Use the existing order so stock, deposits and balances stay on one record.', when: 'After an interrupted payment or when the customer arrives to collect.', confirmation: 'Payment updates the live balance. Handover separately shows the reference as collected after phone verification.' },
+    bespoke: { task: 'Record a custom brief, quote and optional deposit', reason: 'Keep the customer requirements and money on one recoverable order.', when: 'When taking a new custom order in person.', confirmation: 'An order reference is created; a payment is complete only when the server updates paid and balance.' },
+    till: { task: 'Count and reconcile the cash drawer', reason: 'Explain every payout and any difference between expected and counted cash.', when: 'Open before trading; close after counting at the end of the session.', confirmation: 'A closing report records the count, difference, reason and approval.' },
+}[tab.value]));
+
 const input = 'w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-600 focus:ring-1 focus:ring-[#57d5fc] outline-none';
 const primary = 'rounded-xl bg-[#57d5fc] px-4 py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-40';
 const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-40';
@@ -412,6 +567,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <select v-if="registers.length > 1" id="register" v-model="register" class="w-32 !rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-sm text-white">
                             <option v-for="r in registers" :key="r" :value="r">{{ r }}</option>
                         </select>
+                        <a v-if="canUseStudio" :href="route('studio.index')" :class="quiet">Studio</a>
                         <button type="button" @click="lock" :class="quiet" class="flex items-center gap-1"><span class="material-symbols-outlined text-base">lock</span>Lock</button>
                     </div>
                 </div>
@@ -424,6 +580,8 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
             </header>
 
             <main class="mx-auto max-w-6xl p-4">
+                <WorkflowContext class="mb-4 text-slate-300" :actor="`${operator.name} · ${operator.role || 'staff'}`" :task="posGuidance.task" :reason="posGuidance.reason" :when="posGuidance.when" :where="`${shop || 'Shop'} · ${register}`" :confirmation="posGuidance.confirmation" />
+
                 <!-- Nothing happens until the drawer is open -->
                 <section v-if="!till && tab !== 'till'" class="max-w-sm mx-auto mt-10 rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-5 space-y-3" aria-labelledby="open-title">
                     <h2 id="open-title" class="text-white font-headline text-lg">Open {{ register }}</h2>
@@ -453,7 +611,8 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 </button>
                             </li>
                         </ul>
-                        <p v-if="query && !results.length && !busy" class="text-sm text-slate-400">Nothing matches “{{ query }}”.</p>
+                        <p v-if="searching" role="status" class="text-sm text-slate-400">Loading products…</p><div v-if="searchError" role="alert" class="text-sm text-amber-300">{{ searchError }} <button type="button" @click="search(false)" :class="quiet">Retry</button></div>
+                        <p v-if="query && !results.length && !searching && !searchError" class="text-sm text-slate-400">Nothing matches “{{ query }}”.</p>
                     </section>
 
                     <!-- Taking the money -->
@@ -487,9 +646,10 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 <div v-if="tender.method === 'cash'" class="sm:col-span-2 flex gap-2">
                                     <button v-for="n in quick" :key="n" type="button" @click="tender.tendered = n" :class="quiet">{{ ksh(n) }}</button>
                                 </div>
-                                <button type="submit" :disabled="busy" :class="primary" class="sm:col-span-2">{{ tender.method === 'mpesa_prompt' ? 'Send the prompt' : 'Take ' + ksh(tender.amount) }}</button>
+                                <button type="submit" :disabled="busy || checkingPayment || sale.prompt?.status === 'pending'" :class="primary" class="sm:col-span-2">{{ tender.method === 'mpesa_prompt' ? 'Send the prompt' : 'Take ' + ksh(tender.amount) }}</button>
                             </form>
-                            <p v-if="sale.prompt && sale.prompt.status === 'pending'" class="text-sm text-amber-300" role="status">Waiting for the customer to enter their M-Pesa PIN…</p>
+                            <div class="space-y-2 text-sm"><button type="button" @click="checkPayment()" :disabled="checkingPayment || busy" :class="quiet">{{ checkingPayment ? 'Checking…' : 'Check payment status' }}</button><p v-if="paymentCheckedAt" class="text-xs text-slate-400">Last checked {{ paymentCheckedAt }}</p><p v-if="paymentMessage" role="status" class="text-amber-300">{{ paymentMessage }}</p></div>
+                        <p v-if="sale.prompt && sale.prompt.status === 'pending'" class="text-sm text-amber-300" role="status">Waiting for the customer to enter their M-Pesa PIN…</p>
                         </template>
                         <p v-if="firstError" role="alert" class="text-sm text-rose-300">{{ firstError }}</p>
 
@@ -515,9 +675,15 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 <span class="min-w-0 flex-1"><span class="block text-white truncate">{{ l.name }}</span><span class="block text-xs text-slate-400">{{ l.label }} · {{ ksh(l.price) }}</span></span>
                                 <button type="button" @click="l.quantity > 1 ? l.quantity-- : cart.splice(i, 1)" class="h-8 w-8 rounded-lg bg-white/5" :aria-label="`One fewer ${l.name}`">−</button>
                                 <span class="w-6 text-center tabular-nums">{{ l.quantity }}</span>
-                                <button type="button" @click="l.quantity++" :disabled="l.quantity >= l.available" class="h-8 w-8 rounded-lg bg-white/5 disabled:opacity-30" :aria-label="`One more ${l.name}`">+</button>
+                                <button type="button" @click="incrementLine(l)" :disabled="!canAddPosLine(cart, l)" class="h-8 w-8 rounded-lg bg-white/5 disabled:opacity-30" :aria-label="`One more ${l.name}`">+</button>
                             </li>
                         </ul>
+                        <div v-if="savedDraft?.cart?.length" class="rounded-xl bg-amber-500/10 p-3 text-sm space-y-2" role="status">
+                            <p>An unfinished bag is saved for you on {{ register }}. Restore it or discard it before starting another sale.</p>
+                            <button type="button" @click="restoreDraft" :class="primary">Restore saved bag</button>
+                            <button type="button" @click="discardDraft" :class="quiet">Discard saved bag</button>
+                        </div>
+                        <p v-if="draftNotice" role="status" class="text-sm text-amber-300">{{ draftNotice }}</p>
                         <template v-if="cart.length">
                             <details class="text-sm">
                                 <summary class="cursor-pointer text-slate-400">Customer (optional)</summary>
@@ -561,7 +727,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                 <!-- TODAY: this drawer's sales -->
                 <section v-else-if="tab === 'sales'" aria-labelledby="today-title" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3">
                     <div class="flex items-center justify-between gap-3">
-                        <h2 id="today-title" class="text-white font-headline text-lg">Today on {{ register }}</h2>
+                        <h2 id="today-title" class="text-white font-headline text-lg">Sales on this drawer · {{ register }}</h2>
                         <button type="button" @click="loadToday" :disabled="busy" :class="quiet">Refresh</button>
                     </div>
                     <p v-if="todays && !todays.length" class="text-sm text-slate-400">No sales yet on this drawer.</p>
@@ -585,8 +751,16 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
 
                 <!-- ORDERS: collect and returns -->
                 <div v-else-if="tab === 'orders'" class="grid gap-4 lg:grid-cols-2">
+                    <section class="lg:col-span-2 rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3" aria-labelledby="find-order-title">
+                        <h2 id="find-order-title" class="text-white font-semibold">Find and continue an order</h2>
+                        <form @submit.prevent="searchOrders" class="flex gap-2"><label class="flex-1 text-sm">Reference, customer name or full phone number<input v-model="orderQuery" minlength="3" required maxlength="120" :class="input" /></label><button type="submit" :disabled="busy" :class="primary">Find orders</button></form>
+                        <p v-if="foundOrders && !foundOrders.length" role="status">No matching orders. Check the reference or customer details.</p>
+                        <p v-if="hasMoreOrders" class="text-xs text-amber-300">More than 20 matches. Add more of the name or use the exact reference.</p>
+                        <ul class="divide-y divide-white/10"><li v-for="found in foundOrders || []" :key="found.id" class="py-2 flex flex-wrap justify-between gap-2 text-sm"><span>{{ found.reference }} · {{ found.customer }}<span class="block text-xs text-slate-400">{{ found.placed_at }} · {{ found.kind }} · {{ found.state }} · {{ found.fulfilment }} · {{ ksh(found.balance_due) }} due</span></span><button type="button" @click="continueOrder(found.id)" :disabled="busy" :class="quiet">Open order</button></li></ul>
+                        <p v-if="firstError" role="alert" class="text-sm text-rose-300">{{ firstError }}</p>
+                    </section>
                     <section aria-labelledby="collect-title" class="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 space-y-3">
-                        <h2 id="collect-title" class="text-white font-headline text-lg">Collect an order</h2>
+                        <h2 id="collect-title" class="text-white font-headline text-lg">Payment & collection</h2>
                         <p class="text-sm text-slate-400">The reference from their message and the phone number on the order.</p>
                         <form @submit.prevent="findForCollection" class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                             <input v-model="desk.ref" required placeholder="SRN-…" aria-label="Order reference" :class="input" class="uppercase" />
@@ -599,9 +773,18 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 <p class="text-white">{{ collectOrder.reference }} · {{ collectOrder.customer }}</p>
                                 <p class="text-sm tabular-nums">{{ ksh(collectOrder.paid) }} of {{ ksh(collectOrder.total) }}</p>
                             </div>
+                            <p v-if="collectOrder.total <= 0" class="text-sm text-amber-300">This order needs a quote before payment.<a v-if="canUseStudio" :href="route('studio.index', { tab: 'orders', order: collectOrder.id })" class="ml-2 underline">Open this order in Studio</a><span v-else> Ask the owner or manager to quote it.</span></p>
+                            <p class="text-xs text-slate-400">Payment: {{ collectOrder.payment_status }} · Work: {{ collectOrder.fulfilment }} · Order: {{ collectOrder.state }}</p>
+                            <p v-if="collectOrder.handover" class="text-sm">{{ collectOrder.handover.label }} · {{ collectOrder.handover.location }} · {{ collectOrder.handover.next }}</p>
+                            <button type="button" @click="checkPayment('collect')" :disabled="checkingPayment || busy" :class="quiet">Check payment status</button>
+                            <p v-if="collectOrder.prompt?.status === 'pending'" role="status" class="text-amber-300 text-sm">M-Pesa is pending. Check the result before taking another payment.</p>
+                            <p v-if="paymentMessage" role="status" class="text-amber-300 text-sm">{{ paymentMessage }}</p>
+                            <p v-if="paymentCheckedAt" class="text-xs text-slate-400">Last checked {{ paymentCheckedAt }}</p>
+                            <a v-if="collectOrder.receipt_url" :href="collectOrder.receipt_url" :class="quiet">Download receipt</a>
                             <ul class="text-sm text-slate-300"><li v-for="(l, i) in collectOrder.lines" :key="i">{{ l.quantity }} × {{ l.description }}</li></ul>
                             <template v-if="collectOrder.balance_due > 0 && collectOrder.state === 'open'">
-                                <p class="text-amber-300 text-sm">{{ collectOrder.collect_blocker }}</p>
+                                <p class="text-amber-300 text-sm">Balance due {{ ksh(collectOrder.balance_due) }}. Record only money actually received.</p>
+                                <button v-if="collectOrder.deposit_due > 0 && collectOrder.deposit_due < collectOrder.balance_due" type="button" @click="useDeposit" :class="quiet">Use remaining deposit · {{ ksh(collectOrder.deposit_due) }}</button>
                                 <div class="flex flex-wrap gap-2">
                                     <button v-for="m in ['cash', 'mpesa_manual', 'mpesa_prompt']" :key="m" type="button" @click="tender.method = m"
                                         class="rounded-xl px-3 py-2 text-sm" :class="tender.method === m ? 'bg-[#57d5fc] text-slate-900 font-semibold' : 'bg-white/5 text-slate-300'">{{ methodLabel[m] }}</button>
@@ -611,13 +794,14 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                     <input v-if="tender.method === 'cash'" v-model="tender.tendered" type="number" min="1" required aria-label="Cash handed over" placeholder="Cash handed over" :class="input" />
                                     <input v-if="tender.method === 'mpesa_manual'" v-model="tender.reference" required aria-label="M-Pesa code" placeholder="M-Pesa code" :class="input" class="uppercase" />
                                     <input v-if="tender.method === 'mpesa_prompt'" v-model="tender.phone" type="tel" required aria-label="M-Pesa number" placeholder="07XX XXX XXX" :class="input" />
-                                    <button type="submit" :disabled="busy" :class="primary" class="sm:col-span-2">Take the balance</button>
+                                    <button type="submit" :disabled="busy || checkingPayment || collectOrder.prompt?.status === 'pending'" :class="primary" class="sm:col-span-2">Record payment</button>
                                 </form>
                                 <p v-if="change" class="text-emerald-300">Change: {{ ksh(change) }}</p>
                             </template>
                             <template v-else-if="collectOrder.can_collect">
+                                <label class="block text-sm">Verify the phone number on the order<input v-model="desk.phone" type="tel" required :class="input" /></label>
                                 <input v-model="desk.note" maxlength="255" placeholder="Note (e.g. collected by her sister)" aria-label="Note" :class="input" />
-                                <button type="button" @click="markCollected" :disabled="busy" :class="primary" class="w-full">Hand it over</button>
+                                <button type="button" @click="markCollected" :disabled="busy || !desk.phone.trim()" :class="primary" class="w-full">Hand it over</button>
                             </template>
                             <p v-else class="text-sm text-amber-300">{{ collectOrder.collect_blocker }}</p>
                         </div>
@@ -683,13 +867,14 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <p v-if="!intakeOrder.total" class="text-sm text-slate-400">No quote yet: the Studio quotes it, and the customer pays the deposit from their link or here.</p>
                         <template v-else>
                             <p class="text-sm">Quote {{ ksh(intakeOrder.total) }} · deposit {{ ksh(intakeOrder.deposit_required) }} · paid {{ ksh(intakeOrder.paid) }}</p>
+                            <button type="button" @click="checkPayment('intake')" :disabled="checkingPayment || busy" :class="quiet">Check payment status</button><p v-if="intakeOrder.prompt?.status === 'pending'" role="status" class="text-amber-300 text-sm">M-Pesa pending. Check before taking another payment.</p><p v-if="paymentMessage" role="status" class="text-amber-300 text-sm">{{ paymentMessage }}</p>
                             <form v-if="intakeOrder.balance_due > 0" @submit.prevent="takeMoney('intake')" class="grid gap-2 sm:grid-cols-[auto_1fr_1fr_auto] items-center">
                                 <select v-model="tender.method" aria-label="How they pay" :class="input"><option value="cash">Cash</option><option value="mpesa_manual">M-Pesa code</option><option value="mpesa_prompt">M-Pesa prompt</option></select>
                                 <input v-model="tender.amount" type="number" min="1" required aria-label="Amount" :class="input" />
                                 <input v-if="tender.method === 'cash'" v-model="tender.tendered" type="number" min="1" required aria-label="Cash handed over" placeholder="Handed over" :class="input" />
                                 <input v-else-if="tender.method === 'mpesa_manual'" v-model="tender.reference" required aria-label="M-Pesa code" placeholder="M-Pesa code" :class="input" class="uppercase" />
                                 <input v-else v-model="tender.phone" type="tel" required aria-label="M-Pesa number" placeholder="07XX XXX XXX" :class="input" />
-                                <button type="submit" :disabled="busy" :class="primary">Take it</button>
+                                <button type="submit" :disabled="busy || checkingPayment || intakeOrder.prompt?.status === 'pending'" :class="primary">Record payment</button>
                             </form>
                             <p v-if="change" class="text-emerald-300">Change: {{ ksh(change) }}</p>
                         </template>
@@ -710,7 +895,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                             Still owed, part paid: {{ closed.unfinished.map(u => `${u.reference} (${ksh(u.balance_due)})`).join(', ') }}. Finish or refund them from Orders or the Studio.
                         </div>
                         <div class="flex gap-2 print:hidden">
-                            <button type="button" @click="printZ" :class="primary">Print Z report</button>
+                            <button type="button" @click="printZ" :class="primary">Print closing report (Z)</button>
                             <button type="button" @click="closed = null" :class="quiet">Done</button>
                         </div>
                     </section>
@@ -754,7 +939,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                                 <input v-model="closing.counted" type="number" min="0" required aria-label="Cash counted" placeholder="Cash counted" :class="input" />
                                 <input v-model="closing.reason" maxlength="255" aria-label="Reason for any difference" placeholder="Reason for any difference" :class="input" />
                                 <input v-model="closing.pin" type="password" inputmode="numeric" aria-label="Manager PIN" placeholder="Manager PIN (if asked)" :class="input" />
-                                <button type="submit" :disabled="busy" :class="primary">Close and print Z</button>
+                                <button type="submit" :disabled="busy" :class="primary">Close drawer</button>
                             </form>
                         </section>
                     </template>
@@ -763,8 +948,8 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
             </main>
 
             <!-- Size sheet -->
-            <div v-if="sizing" class="fixed inset-0 z-30 bg-black/60 flex items-end sm:items-center justify-center p-4" @click.self="sizing = null">
-                <div role="dialog" aria-modal="true" aria-labelledby="size-title" class="w-full max-w-md rounded-2xl bg-slate-900 ring-1 ring-white/10 p-5 space-y-4">
+            <Modal :show="!!sizing" max-width="md" labelled-by="size-title" @close="sizing = null">
+                <div v-if="sizing" class="w-full max-w-md rounded-2xl bg-slate-900 ring-1 ring-white/10 p-5 space-y-4">
                     <h2 id="size-title" class="text-white font-headline text-lg">{{ sizing.name }}</h2>
                     <div v-for="part in partsOf(sizing)" :key="part">
                         <p class="text-sm text-slate-400 mb-2">{{ partLabel[part] }}</p>
@@ -781,7 +966,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                         <button type="button" @click="sizing = null" :class="quiet">Cancel</button>
                     </div>
                 </div>
-            </div>
+            </Modal>
         </template>
     </div>
 </template>

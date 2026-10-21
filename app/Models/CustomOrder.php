@@ -19,6 +19,7 @@ class CustomOrder extends Model
     protected $casts = [
         'inspiration_image_paths' => 'array',
         'items_json' => 'array',
+        'fulfilment_snapshot' => 'array',
         'is_paid' => 'boolean',
         'payment_failed' => 'boolean',
         'chargeable_total' => 'integer',
@@ -481,6 +482,28 @@ class CustomOrder extends Model
      * address, phone, internal studio notes, other customers' data). The signed
      * receipt link is only minted once payment is confirmed.
      */
+    public function handoverDetails(): ?array
+    {
+        if (! $this->fulfilment_method) return null;
+        $pickup = $this->fulfilment_method === 'pickup';
+        return [
+            'method' => $this->fulfilment_method,
+            'label' => $pickup ? 'Collect from shop' : 'Delivery',
+            'location' => $pickup ? ($this->fulfilment_snapshot['name'] ?? 'Shop') : null,
+            'address' => $pickup ? ($this->fulfilment_snapshot['address'] ?? null) : null,
+            'next' => match (true) {
+                $this->order_state === 'cancelled' => 'This order is cancelled. Contact the Studio about any refund; do not travel for collection.',
+                $this->isExpired() => 'This unpaid order expired. Place a new order before arranging handover.',
+                $this->fulfilment_status === 'collected' => 'Collection confirmed.',
+                $this->fulfilment_status === 'shipped' => 'Your order has been dispatched for delivery.',
+                ($this->resolution ?? 'none') !== 'none' => 'The Studio is reviewing a payment or stock issue. Wait for confirmation before arranging handover.',
+                $pickup && $this->fulfilment_status === 'completed' => 'Ready for collection. Bring your order reference and the phone number used for this order. Any balance must be settled before handover.',
+                $pickup => 'Wait until tracking shows ready for collection before travelling.',
+                default => 'The Studio will prepare your order for delivery.',
+            },
+        ];
+    }
+
     public function publicTrackingPayload(): array
     {
         $isPaid = $this->isPaidUp();
@@ -492,6 +515,7 @@ class CustomOrder extends Model
             'status'      => $this->legacyStatus(),
             'is_paid'     => $isPaid,
             'payment_method' => $this->payment_method,
+            'handover' => $this->handoverDetails(),
             // How to pay a WhatsApp order, as set in Studio → Payments.
             'payment_instructions' => ! $isPaid && $this->payment_method === \App\Support\PaymentSettings::WHATSAPP
                 ? (\App\Support\PaymentSettings::instructions() ?: null) : null,

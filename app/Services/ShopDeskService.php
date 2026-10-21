@@ -53,6 +53,8 @@ class ShopDeskService
 
         return match (true) {
             $order->fulfilment_status === 'collected' => ['order', 'This order was already collected.'],
+            $order->fulfilment_method === 'delivery' => ['order', 'This order is for delivery. Arrange handover through the Studio.'],
+            $order->fulfilment_method === 'pickup' && $order->fulfilment_status !== 'completed' => ['order', 'The Studio must mark this order ready before collection.'],
             $order->fulfilment_status === 'shipped' => ['order', 'This order was sent by delivery.'],
             $order->order_state !== 'open' => ['order', 'This order is ' . $order->order_state . '.'],
             ($order->resolution ?? 'none') !== 'none' => ['order', 'This order has a payment problem. Resolve it in the Studio first.'],
@@ -68,6 +70,9 @@ class ShopDeskService
     {
         if (! $this->phoneMatches($order, $phone)) {
             throw ValidationException::withMessages(['phone' => 'That phone number isn’t the one on this order.']);
+        }
+        if ($order->fulfilment_method === 'pickup' && (int) $order->pickup_location_id !== (int) $till->location_id) {
+            throw ValidationException::withMessages(['order' => 'Collect this order at the shop chosen at checkout.']);
         }
         DB::transaction(function () use ($order) {
             $locked = $this->settlement->lockForMoney($order);
@@ -184,6 +189,10 @@ class ShopDeskService
         $blocked = $this->collectBlocker($order);
 
         return [
+            'handover' => $order->handoverDetails(),
+            'prompt' => ($attempt = $order->paymentAttempts()->latest('id')->first()) ? ['status' => $attempt->status, 'amount' => $attempt->amount] : null,
+            'deposit_due' => max(0, $order->depositRequired() - (int) $order->amount_paid),
+            'receipt_url' => $order->isPaidUp() ? \Illuminate\Support\Facades\URL::temporarySignedRoute('orders.receipt', now()->addMinutes(30), ['order' => $order->id]) : null,
             'id' => $order->id, 'reference' => $order->cipher, 'customer' => $order->full_name, 'kind' => $order->kind, 'garment' => $order->garment,
             'lines' => $order->lines()->orderBy('id')->get()->map(fn ($l) => ['description' => $l->description, 'quantity' => $l->quantity, 'amount' => $l->amount])->all(),
             'total' => (int) $order->chargeable_total, 'paid' => (int) $order->amount_paid, 'balance_due' => max(0, (int) $order->balance_due),

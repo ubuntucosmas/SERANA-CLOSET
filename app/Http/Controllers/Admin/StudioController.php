@@ -132,10 +132,12 @@ class StudioController extends Controller
             // Built only for the Stock screen (it reconciles both models): opened directly, or reloaded by the panel.
             'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
                 ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
+            'handover_locations' => $request->user()->can('settings.policies') ? \App\Models\Location::orderBy('sort')->get(['id', 'name', 'address', 'active', 'accepts_pickup']) : [],
             'stock_v2'          => \App\Support\StockMode::v2(),
             // Studio → Staff (owner), built only for that screen.
             'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
-            'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory() : null,
+            'activity' => fn () => $request->user()->can('audit.review') && $request->get('tab') === 'activity' ? ActivityController::data($request) : null,
+            'tills'             => fn () => $request->user()->can('till.review') && $request->get('tab') === 'tills' ? $this->tillHistory($request) : null,
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -151,6 +153,10 @@ class StudioController extends Controller
             'override_reason' => 'nullable|string|max:255',
             'quote_reason' => 'nullable|string|max:255',
         ]);
+
+        if ($order->fulfilment_method === 'pickup' && $validated['status'] === 'shipped') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order is for pickup. Mark it ready, then verify collection at the till.']);
+        }
 
         // A cancelled order stays at the stage it was cancelled at; only its notes can change.
         if ($order->order_state === 'cancelled') {
@@ -232,17 +238,39 @@ class StudioController extends Controller
      * the customer's tracking and the Studio show it as paid. Shop orders and
      * Drop reservations can only be confirmed by M-Pesa settlement.
      */
-    /** Studio → Till (Phase E): the last 30 drawers, open ones first, each with its Z report. */
-    private function tillHistory(): array
+    /** Studio → Till: paginated drawers, open ones first, each with its closing report. */
+    private function tillHistory(Request $request): array
     {
         $tills = app(\App\Services\TillService::class);
         $alert = \App\Support\ShopPolicy::tillVarianceAlert();
 
+        $filters = $request->validate([
+            'till_from' => ['nullable', 'date_format:Y-m-d'],
+            'till_to' => ['nullable', 'date_format:Y-m-d', \Illuminate\Validation\Rule::when($request->filled('till_from'), 'after_or_equal:till_from')],
+            'till_actor' => ['nullable', 'integer', 'exists:users,id'],
+            'till_status' => ['nullable', 'in:open,closed'],
+            'till_q' => ['nullable', 'string', 'max:80'],
+            'till_page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $zone = config('app.display_timezone', 'Africa/Nairobi');
+        $sessions = \App\Models\TillSession::with(['openedBy:id,name', 'closedBy:id,name', 'acknowledgedBy:id,name'])
+            ->when($filters['till_from'] ?? null, fn ($q, $date) => $q->where('opened_at', '>=', Carbon::parse($date, $zone)->startOfDay()->utc()))
+            ->when($filters['till_to'] ?? null, fn ($q, $date) => $q->where('opened_at', '<=', Carbon::parse($date, $zone)->endOfDay()->utc()))
+            ->when($filters['till_actor'] ?? null, fn ($q, $actor) => $q->where(fn ($w) => $w->where('opened_by', $actor)->orWhere('closed_by', $actor)))
+            ->when($filters['till_status'] ?? null, fn ($q, $status) => $q->where('till_sessions.status', $status))
+            ->when(trim($filters['till_q'] ?? ''), fn ($q, $text) => $q->where('register', 'like', '%' . str_replace(['%', '_'], ['\\%', '\\_'], $text) . '%'))
+            ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")->latest('opened_at')->orderByDesc('id')
+            ->paginate(30, ['*'], 'till_page');
+
         return [
+            'filters' => $filters,
+            'actors' => \App\Models\User::whereIn('id', \App\Models\TillSession::select('opened_by'))->orWhereIn('id', \App\Models\TillSession::whereNotNull('closed_by')->select('closed_by'))->orderBy('name')->get(['id', 'name']),
+            'total' => $sessions->total(),
+            'page' => $sessions->currentPage(),
+            'last_page' => $sessions->lastPage(),
             'variance_alert' => $alert,
-            'sessions' => \App\Models\TillSession::with(['openedBy:id,name', 'closedBy:id,name', 'acknowledgedBy:id,name'])
-                ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")->latest('opened_at')->take(30)->get()
-                ->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'status' => $t->status,
+            'sessions' => $sessions->getCollection()
+                ->map(fn ($t) => ['id' => $t->id, 'register' => $t->register, 'status' => $t->status, 'print_url' => route('studio.till.report', $t->id),
                     'opened_by' => $t->openedBy?->name, 'closed_by' => $t->closedBy?->name, 'acknowledged_by' => $t->acknowledgedBy?->name,
                     'over_alert' => $t->variance !== null && abs((int) $t->variance) > $alert, 'report' => $tills->report($t)])->values()->all(),
         ];

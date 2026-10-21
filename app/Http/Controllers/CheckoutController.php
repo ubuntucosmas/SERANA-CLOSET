@@ -22,7 +22,9 @@ class CheckoutController extends Controller
      */
     public function index()
     {
-        return Inertia::render('Checkout');
+        return Inertia::render('Checkout', [
+            'pickup_locations' => \App\Models\Location::pickupAvailable()->orderBy('sort')->get(['id', 'name', 'address']),
+        ]);
     }
 
     /**
@@ -121,6 +123,8 @@ class CheckoutController extends Controller
             ], 422);
         }
 
+        $pickup = ($validated['fulfilment_method'] ?? 'delivery') === 'pickup'
+            ? \App\Models\Location::pickupAvailable()->findOrFail($validated['pickup_location_id']) : null;
         $userId = auth()->id();
         $phone = Phone::normalize($validated['phone']);
 
@@ -140,14 +144,14 @@ class CheckoutController extends Controller
         // rolls the whole transaction back, and this closure only touches the
         // database (mail and the session come after it), so re-running is safe.
         try {
-            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp, $v2, $demands) {
+            $order = DB::transaction(function () use ($validated, $userId, $phone, $calculatedTotal, $snapshotItems, $quantities, $method, $isWhatsApp, $v2, $demands, $pickup) {
                 // A prompt is paid in minutes; a WhatsApp order needs time to arrange payment.
                 $expiresAt = $isWhatsApp
                     ? now()->addHours(PaymentSettings::holdHours())
                     : now()->addMinutes(config('services.mpesa.reservation_minutes', 15));
                 $toReserve = [];
                 // Stock per size: lock the size levels (lock order step 1), choose a location per size.
-                $allocations = $v2 ? app(\App\Services\StockService::class)->allocate($demands) : [];
+                $allocations = $v2 ? app(\App\Services\StockService::class)->allocate($demands, $pickup) : [];
 
                 // Hold (not sell) batch stock for each item under a row lock so
                 // concurrent checkouts serialize on the product and can't oversell.
@@ -176,8 +180,11 @@ class CheckoutController extends Controller
                     'type'         => 'standard',
                     'status'       => OrderStatus::PENDING_PAYMENT,
                     'price_quoted' => $calculatedTotal,
-                    'address'      => $validated['address'],
-                    'city'         => $validated['city'],
+                    'fulfilment_method' => $pickup ? 'pickup' : 'delivery',
+                    'pickup_location_id' => $pickup?->id,
+                    'fulfilment_snapshot' => $pickup ? $pickup->only(['name', 'address']) : null,
+                    'address'      => $pickup ? null : $validated['address'],
+                    'city'         => $pickup ? null : $validated['city'],
                     'phone'        => $phone,
                     'items_json'   => $snapshotItems,
                     'is_paid'      => false,
@@ -233,6 +240,7 @@ class CheckoutController extends Controller
             'message'  => 'Order created. Proceed to payment',
             'order_id' => $order->id,
             'reference' => $order->cipher,
+            'handover' => $order->handoverDetails(),
             'amount' => $order->total(),
             'items' => $snapshotItems,
             'payment_method' => $method,
@@ -277,6 +285,7 @@ class CheckoutController extends Controller
             'success' => true,
             'payment_method' => PaymentSettings::WHATSAPP,
             'reference' => $order->cipher,
+            'handover' => $order->handoverDetails(),
             'whatsapp_url' => WhatsAppOrderMessage::link($order),
             'instructions' => PaymentSettings::instructions() ?: null,
             'hold_hours' => PaymentSettings::holdHours(),

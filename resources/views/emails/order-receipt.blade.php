@@ -59,7 +59,10 @@
                         </td>
                     </tr>
 
-                    <!-- Items -->
+                    @if($handover = $order->handoverDetails())
+<tr><td style="padding:16px 36px;"><div style="font-size:14px; color:#e6e6e8;">{{ $handover['label'] }} · {{ $handover['location'] }}<br>{{ $handover['address'] }}<br>{{ $handover['next'] }}</div></td></tr>
+@endif
+<!-- Items -->
                     @if($isStandard && count($items))
                     <tr>
                         <td style="padding:16px 36px 0;">

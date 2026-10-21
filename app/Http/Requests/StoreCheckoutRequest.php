@@ -27,8 +27,10 @@ class StoreCheckoutRequest extends FormRequest
             'payment_method' => ['nullable', 'string', \Illuminate\Validation\Rule::in(\App\Support\PaymentSettings::methods())],
             'full_name' => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', 'max:255'],
-            'address'   => ['required', 'string', 'max:500'],
-            'city'      => ['required', 'string', 'max:120'],
+            'fulfilment_method' => ['sometimes', 'in:delivery,pickup'],
+            'pickup_location_id' => ['exclude_unless:fulfilment_method,pickup', 'required_if:fulfilment_method,pickup', 'nullable', 'integer', Rule::exists('locations', 'id')->where(fn ($query) => $query->where('active', true)->where('accepts_pickup', true)->whereNotNull('address')->whereRaw("LENGTH(TRIM(address)) > 0"))],
+            'address'   => ['required_unless:fulfilment_method,pickup', 'nullable', 'string', 'max:500'],
+            'city'      => ['required_unless:fulfilment_method,pickup', 'nullable', 'string', 'max:120'],
             'phone'     => ['required', 'string', 'max:30', function ($attribute, $value, $fail) {
                 if (! Phone::isValidKenyanMobile($value)) {
                     $fail('Enter a valid Kenyan mobile number, e.g. 07XX XXX XXX.');

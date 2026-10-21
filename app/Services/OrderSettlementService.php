@@ -567,7 +567,9 @@ class OrderSettlementService
         DB::transaction(function () use ($order, $fromProductId, $toProductId, $options, $actor, $reason, $stock) {
             $to = Product::find($toProductId);
             $toVariants = $to ? \App\Models\ProductVariant::resolve($to, array_filter($options, fn ($v) => $v !== null && $v !== '')) : null;
-            $online = \App\Models\Location::query()->online()->pluck('id');
+            $pickup = $order->fulfilment_method === 'pickup' ? \App\Models\Location::whereKey($order->pickup_location_id)->where('active', true)->where('accepts_pickup', true)->first() : null;
+            if ($order->fulfilment_method === 'pickup' && ! $pickup) throw new \DomainException('to_product_id|The collection shop is unavailable. Resolve the handover with the customer first.');
+            $online = $pickup ? collect([$pickup->id]) : \App\Models\Location::query()->online()->pluck('id');
             $stock->lockForOrder($order, collect($toVariants ?? [])->flatMap(fn ($v) => $online->map(fn ($l) => [$v->id, $l]))->all());
             $locked = $this->lockForMoney($order);
             $this->assertStockProblem($locked);
@@ -586,7 +588,7 @@ class OrderSettlementService
             $firstPart = \App\Models\ProductVariant::partsFor($to->garment_type)[0];
             $demands = $to->track_stock ? collect($toVariants)->map(fn ($v) => ['variant' => $v->setRelation('product', $to), 'quantity' => $quantity, 'second_part' => $v->part !== $firstPart])->all() : [];
             try {
-                $allocations = $stock->allocate($demands);
+                $allocations = $stock->allocate($demands, $pickup);
             } catch (\DomainException $e) {
                 throw new \DomainException('to_product_id|' . $e->getMessage());
             }

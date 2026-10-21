@@ -17,13 +17,16 @@
         </div>
     </td></tr>
     <tr><td style="padding:18px 36px 0;">
-        @foreach($items as $item)
+        @if($handover = $order->handoverDetails())
+<div style="font-size:14px; color:#e6e6e8;">{{ $handover['label'] }} · {{ $handover['location'] }}<br>{{ $handover['address'] }}<br>{{ $handover['next'] }}</div>
+@endif
+@foreach($items as $item)
             <div style="font-size:14px; color:#e6e6e8; padding:6px 0; border-bottom:1px solid #222;">
                 {{ $item['name'] }} × {{ $item['quantity'] ?? 1 }} — {{ $money(($item['price'] ?? 0) * ($item['quantity'] ?? 1)) }}
                 @if($size = \App\Models\CustomOrder::sizeLabel($item['options'] ?? null))<br><span style="font-size:12px; color:#9a9aa0;">{{ $size }}</span>@endif
             </div>
         @endforeach
-        <div style="font-size:15px; font-weight:bold; color:#ffffff; padding-top:10px;">Total {{ $money($order->price_quoted) }} <span style="font-weight:normal; color:#9a9aa0; font-size:12px;">· delivery included</span></div>
+        <div style="font-size:15px; font-weight:bold; color:#ffffff; padding-top:10px;">Total {{ $money($order->price_quoted) }} <span style="font-weight:normal; color:#9a9aa0; font-size:12px;">{{ $order->fulfilment_method === 'pickup' ? '· collection at shop' : '· delivery included' }}</span></div>
     </td></tr>
     <tr><td style="padding:22px 36px 0;">
         <div style="font-size:13px; font-weight:bold; color:#ffffff;">How to pay</div>

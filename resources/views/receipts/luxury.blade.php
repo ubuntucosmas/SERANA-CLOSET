@@ -116,6 +116,9 @@
     </table>
 
     <div class="label">Order Summary</div>
+    @if($handover = $order->handoverDetails())
+    <p>{{ $handover['label'] }} · {{ $handover['location'] }}<br>{{ $handover['address'] }}<br>{{ $handover['next'] }}</p>
+    @endif
     <table class="items">
         <thead>
             <tr>

@@ -15,7 +15,7 @@ export const studioSections = [
         who: 'Owner and managers', where: 'Internal. The customer receives a refund receipt by email when a refund is recorded.',
         next: 'Send the money, then select Mark refunded and enter the method, code and reason.',
         when: 'Record each refund as soon as it is sent. Part refunds stay on the list until the rest is sent.' },
-    { id: 'products', label: 'Products', icon: 'inventory_2', primary: true,
+    { id: 'products', label: 'Products', icon: 'inventory_2', primary: false,
         question: 'What can customers buy?', description: 'Manage product descriptions, prices, images, sizes and availability.',
         who: 'Staff managing the product catalogue', where: 'Available products appear in the online shop. Archived products are hidden.',
         next: 'Add a product or edit an existing one, check its details, then save the changes.',
@@ -40,7 +40,7 @@ export const studioSections = [
         who: 'Staff managing newsletter contacts', where: 'This contact list is internal. Export downloads a CSV file.',
         next: 'Search for an email address or select Export CSV to download the list.',
         when: 'Export when you need the current subscriber list.' },
-    { id: 'tills', label: 'Till', icon: 'point_of_sale', primary: false, ability: 'till.review',
+    { id: 'tills', label: 'Till sessions', icon: 'point_of_sale', primary: false, ability: 'till.review',
         question: 'Did each drawer balance, and who ran it?', description: 'Every till session: who opened and closed it, the cash expected and counted, any difference and why, and its Z report.',
         who: 'Owner and managers', where: 'Internal. The till itself is at Open the till.',
         next: 'Open a session to read its Z report. Ask about any difference over the alert.',
@@ -50,6 +50,11 @@ export const studioSections = [
         who: 'The owner', where: 'Internal. Every change asks why and is kept in the audit log.',
         next: 'Add someone (give them the one-time password in person), then set their till PIN.',
         when: 'When someone joins, changes role or leaves; set the till rules before the shop opens.' },
+    { id: 'activity', label: 'Activity history', icon: 'history', primary: false, ability: 'audit.review',
+        question: 'Who changed what, when and why?', description: 'Investigate staff actions and stock movements, then open the related record.',
+        who: 'Owner and managers', where: 'Internal audit and movement records.',
+        next: 'Choose actions or stock movements, filter by date, person or reference, and inspect a matching record.',
+        when: 'When reconciling stock, reviewing a decision or following up an exception.' },
     { id: 'settings', label: 'Store settings', icon: 'settings', primary: false,
         question: 'How does the store appear and accept orders?', description: 'Manage contact details, store images, custom-order choices and payment options.',
         who: 'Store owners and authorised staff', where: 'Customer-facing details and options are used throughout the shop. Payment configuration affects checkout.',
@@ -61,3 +66,28 @@ export const studioSections = [
 export const sectionsFor = (abilities = [], flags = {}) => studioSections.filter(section =>
     (!section.ability || abilities.includes(section.ability)) && (!section.flag || flags[section.flag]));
 export const studioSection = (id) => studioSections.find(section => section.id === id) || studioSections[0];
+
+export const studioGroups = [
+    { label: 'Daily work', ids: ['home', 'orders'], purpose: 'Decide what to do now' },
+    { label: 'Money', ids: ['refunds', 'tills'], purpose: 'Resolve money owed and review drawers' },
+    { label: 'Inventory', ids: ['products', 'stock'], purpose: 'Manage what can be sold and fulfilled' },
+    { label: 'Business setup', ids: ['staff', 'settings', 'activity'], purpose: 'Manage access, rules and accountability' },
+    { label: 'Store content', ids: ['showcase', 'subscribers', 'drops'], purpose: 'Manage customer content and campaigns' },
+];
+export function groupedSections(sections) {
+    return studioGroups.map(group => ({ ...group, sections: group.ids.map(id => sections.find(section => section.id === id)).filter(Boolean) })).filter(group => group.sections.length);
+}
+export const completionFor = id => ({
+    home: 'The relevant exception is resolved and the refreshed queue reflects it.',
+    orders: 'The server confirms the saved change and the order shows its updated payment or work stage.',
+    refunds: 'The recorded refund appears in the ledger and the remaining amount owed decreases.',
+    tills: 'The selected closing report identifies the drawer, staff, expected cash, count and explained difference.',
+    stock: 'The saved adjustment appears in movement history and the size quantities update.',
+    products: 'Saved product details are visible in Preview; archived products are labelled hidden.',
+    staff: 'The staff list shows the new role, access status or PIN state after confirmation.',
+    settings: 'The section confirms Saved and reopening it shows the stored values.',
+    activity: 'A matching dated record identifies the actor, action, subject and recorded reason.',
+    showcase: 'The saved photo and caption appear in the gallery list.',
+    subscribers: 'The matching contact is found or the CSV download completes.',
+    drops: 'The saved campaign shows its intended visibility and reservation state.',
+}[id] || 'The server confirms the action and the updated record is visible.');

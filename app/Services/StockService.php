@@ -458,7 +458,10 @@ class StockService
     private function shortRows(Collection $rows, bool $live): array
     {
         $short = [];
-        $locations = Location::query()->online()->get();
+        $order = $rows->first()?->order;
+        $locations = $order?->fulfilment_method === 'pickup'
+            ? Location::whereKey($order->pickup_location_id)->where('active', true)->where('accepts_pickup', true)->get()
+            : Location::query()->online()->get();
         // A lapsed hold with no size (from before the switch) can't be checked: the studio decides, it is never sold blind.
         foreach ($rows->whereNull('product_variant_id') as $row) {
             $lapsed = ! ($row->status === 'held' && ($row->expires_at === null || $row->expires_at->isFuture()));

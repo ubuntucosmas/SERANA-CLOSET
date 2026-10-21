@@ -1,4 +1,5 @@
 <script setup>
+import WorkflowContext from '@/Components/WorkflowContext.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import StorefrontLayout from '@/Layouts/StorefrontLayout.vue';
@@ -12,6 +13,7 @@ import { usePage } from '@inertiajs/vue3';
 import { usePulseStore } from '@/Stores/usePulseStore';
 import { rememberTrackingPhone } from '@/Support/trackingMemory';
 
+const props = defineProps({ pickup_locations: { type: Array, default: () => [] } });
 const page = usePage();
 const pulse = usePulseStore();
 
@@ -56,6 +58,8 @@ const form = ref({
     // Signed-in shoppers shouldn't retype what we already know.
     email: page.props.auth?.user?.email || '',
     full_name: page.props.auth?.user?.name || '',
+    fulfilment_method: 'delivery',
+    pickup_location_id: '',
     address: '',
     city: '',
     phone: '',
@@ -64,6 +68,11 @@ const form = ref({
     waist_cm: '',
     hips_cm: '',
 });
+
+const isPickup = computed(() => form.value.fulfilment_method === 'pickup');
+const pickupLocation = computed(() => props.pickup_locations.find(location => location.id === Number(form.value.pickup_location_id)));
+const handover = ref(null);
+watch(() => form.value.fulfilment_method, () => { if (isPickup.value && props.pickup_locations.length === 1) form.value.pickup_location_id = props.pickup_locations[0].id; });
 
 // Remember the pending order for this exact bag, so a refresh, the back button
 // or a return visit resumes it instead of creating a duplicate order.
@@ -76,11 +85,11 @@ const paymentBlocked = ref(null);
 
 function saveContext() {
     try {
-        const { email, full_name, address, city, phone } = form.value;
+        const { email, full_name, address, city, phone, fulfilment_method, pickup_location_id } = form.value;
         localStorage.setItem(STORE_KEY, JSON.stringify({
             sig: bagSignature.value, request_id: form.value.request_id,
             order_id: orderId.value, reference: orderReference.value, amount: orderAmount.value,
-            items: frozenItems.value, details: { email, full_name, address, city, phone }, at: Date.now(),
+            items: frozenItems.value, details: { email, full_name, address, city, phone, fulfilment_method, pickup_location_id }, handover: handover.value, at: Date.now(),
         }));
     } catch {}
 }
@@ -100,6 +109,7 @@ onMounted(async () => {
     if (ctx.sig !== bagSignature.value || Date.now() - ctx.at > CONTEXT_TTL_MS) { clearContext(); return; }
     form.value.request_id = ctx.request_id || form.value.request_id;
     Object.assign(form.value, ctx.details || {});
+    handover.value = ctx.handover || null;
     if (!ctx.order_id) return;
     orderId.value = ctx.order_id; orderReference.value = ctx.reference; orderAmount.value = ctx.amount;
     frozenItems.value = ctx.items || [];
@@ -157,10 +167,11 @@ const REQUIRED = [
     ['email', 'Enter your email so we can send your receipt.'],
     ['address', 'Enter the delivery address.'],
     ['city', 'Enter your town or city.'],
-    ['phone', 'Enter the M-Pesa number to charge.'],
+    ['phone', 'Enter your contact mobile number.'],
 ];
 function firstMissingField() {
-    const missing = REQUIRED.filter(([field]) => !String(form.value[field] || '').trim());
+    const required = isPickup.value ? [...REQUIRED.filter(([field]) => !['address', 'city'].includes(field)), ['pickup_location_id', 'Choose the shop where you will collect.']] : REQUIRED;
+    const missing = required.filter(([field]) => !String(form.value[field] || '').trim());
     if (!missing.length) return false;
     errors.value = Object.fromEntries(missing.map(([field, message]) => [field, [message]]));
     const el = document.getElementById(`checkout-${missing[0][0]}`);
@@ -189,6 +200,7 @@ const switching = ref(false);
 function finishWhatsApp(data) {
     whatsappOrder.value = {
         reference: data.reference,
+        handover: data.handover || handover.value,
         url: data.whatsapp_url,
         instructions: data.instructions || null,
         holdHours: data.hold_hours || 48,
@@ -223,7 +235,7 @@ watch(form, (value) => {
     if (fixed.length) errors.value = Object.fromEntries(Object.entries(errors.value).filter(([field]) => !fixed.some(([f]) => f === field)));
 }, { deep: true });
 // Field errors sit under their field; only the rest (payment, server) go in the top box.
-const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone'];
+const FIELD_KEYS = ['full_name', 'email', 'address', 'city', 'phone', 'pickup_location_id'];
 const generalErrors = computed(() => Object.entries(errors.value).filter(([field]) => !FIELD_KEYS.includes(field)));
 
 async function handlePayment() {
@@ -257,6 +269,7 @@ async function handlePayment() {
             orderId.value = response.data.order_id;
             orderReference.value = response.data.reference;
             orderAmount.value = response.data.amount;
+            handover.value = response.data.handover || null;
             frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
             if (response.data.payment_method === 'whatsapp') {
                 finishWhatsApp(response.data);
@@ -393,7 +406,7 @@ onUnmounted(() => {
                 </PageHeader>
 
                 <nav v-if="cart.items.length && !whatsappOrder && !isPaid" class="checkout-toolbar" aria-label="Checkout sections">
-                    <div class="checkout-jumps"><a href="#checkout-delivery">Delivery</a><a href="#checkout-payment">Payment</a><a href="#checkout-summary">Order</a></div>
+                    <div class="checkout-jumps"><a href="#checkout-delivery">Delivery or pickup</a><a href="#checkout-payment">Payment</a><a href="#checkout-summary">Order</a></div>
                     <span class="checkout-running-total"><span class="text-on-surface-variant">Total</span> <strong>{{ formatAmount(payTotal) }}</strong></span>
                 </nav>
 
@@ -412,6 +425,7 @@ onUnmounted(() => {
                     <p class="font-semibold mb-2">Please check these details</p>
                     <p v-for="[field, messages] in generalErrors" :key="field" class="text-sm">{{ messages[0] }}</p>
                 </div>
+                <section v-if="handover && !whatsappOrder" class="card p-4 mb-4 text-sm" aria-label="Saved handover choice"><p class="font-semibold">{{ handover.label }}<template v-if="handover.location"> · {{ handover.location }}</template></p><p>{{ handover.address }}</p><p>{{ handover.next }}</p></section>
                 <WhatsAppOrderPanel v-if="whatsappOrder" v-bind="whatsappOrder" :email="form.email" />
                 <div v-else-if="!cart.items.length && !isPaid" class="p-8 bg-surface-container rounded-2xl mb-8">
                     <h2 class="text-xl mb-3">Your bag is empty</h2>
@@ -447,8 +461,8 @@ onUnmounted(() => {
                                     <span class="font-mono">{{ formatAmount(cart.totalPrice) }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm text-on-surface-variant">
-                                    <span>Delivery</span>
-                                    <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">Included</span>
+                                    <span>{{ isPickup ? 'Shop collection' : 'Delivery' }}</span>
+                                    <span class="text-[#276b1d] dark:text-[#4fb33f] font-medium">{{ isPickup ? 'No collection fee' : 'Included' }}</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-3 mt-1 border-t border-white/5">
                                     <span class="text-sm font-semibold text-on-surface">Total</span>
@@ -482,10 +496,22 @@ onUnmounted(() => {
                         <section id="checkout-delivery" class="checkout-panel" aria-labelledby="checkout-delivery-title">
                             <header class="checkout-section-heading">
                                 <span class="w-7 h-7 flex items-center justify-center bg-primary/15 text-primary text-xs font-black">1</span>
-                                <div><h2 id="checkout-delivery-title" class="text-sm font-semibold text-on-surface">Delivery details</h2><p class="text-xs text-on-surface-variant">Required for delivery and your receipt.</p></div>
+                                <div><h2 id="checkout-delivery-title" class="text-sm font-semibold text-on-surface">Contact & handover</h2><p class="text-xs text-on-surface-variant">Choose where to receive your order and how we can contact you.</p></div>
                             </header>
 
                             <div class="space-y-5">
+                                <WorkflowContext actor="You, the customer" task="Choose delivery or collection" reason="This tells the Studio where to prepare your handover." when="Choose before placing the order. For pickup, wait until tracking says ready." :where="isPickup ? (pickupLocation?.name || 'Your selected shop') : 'Your delivery address'" confirmation="Your saved order, tracking and receipt show the same handover choice." />
+                                <fieldset :disabled="!!orderId || isProcessing" class="space-y-3">
+                                    <legend class="text-sm font-semibold">How will you receive your order?</legend>
+                                    <label class="mr-5 inline-flex gap-2 items-center"><input v-model="form.fulfilment_method" type="radio" value="delivery" />Delivery · included</label>
+                                    <label v-if="pickup_locations.length" class="inline-flex gap-2 items-center"><input v-model="form.fulfilment_method" type="radio" value="pickup" />Collect from shop · no collection fee</label>
+                                    <label v-if="isPickup" class="block text-sm" for="checkout-pickup_location_id">Collection shop
+                                        <select id="checkout-pickup_location_id" v-model="form.pickup_location_id" class="block w-full mt-2 bg-background border border-current/20 p-3" :aria-invalid="!!errors.pickup_location_id"><option value="">Choose a shop</option><option v-for="location in pickup_locations" :key="location.id" :value="location.id">{{ location.name }}{{ location.address ? ' · ' + location.address : '' }}</option></select>
+                                    </label>
+                                    <p v-if="errors.pickup_location_id" role="alert" class="text-sm text-red-400">{{ errors.pickup_location_id[0] }}</p>
+                                    <p v-if="isPickup" class="text-xs text-on-surface-variant">Wait for Ready for collection in tracking. Bring your order reference and the phone number used at checkout.</p>
+                                </fieldset>
+
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
                                         <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-full_name">Full Name</label>
@@ -499,7 +525,7 @@ onUnmounted(() => {
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div v-if="!isPickup" class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
                                         <label class="text-[10px] tracking-widest text-on-surface-variant mb-2 block" for="checkout-address">Address</label>
                                         <input id="checkout-address" autocomplete="street-address" required :aria-invalid="!!errors.address" v-model="form.address" type="text" placeholder="House & Street" class="w-full bg-background border border-white/10 px-5 py-3.5 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary outline-none transition-colors" />
