@@ -196,6 +196,7 @@ require __DIR__.'/auth.php';
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
+    Route::get('/', [App\Http\Controllers\Pos\PosController::class, 'index'])->name('pos.index');
     Route::post('/unlock', [App\Http\Controllers\Pos\UnlockController::class, 'unlock'])->middleware('throttle:10,1')->name('pos.unlock');
     Route::post('/lock', [App\Http\Controllers\Pos\UnlockController::class, 'lock'])->name('pos.lock');
     Route::middleware('pos.operator')->group(function () {

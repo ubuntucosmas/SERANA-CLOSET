@@ -35,6 +35,8 @@ class StaffController extends Controller
                 ['value' => Role::MANAGER, 'label' => 'Manager', 'help' => 'The Studio and the till, without payments settings or staff.'],
                 ['value' => Role::CASHIER, 'label' => 'Cashier', 'help' => 'The till only.'],
             ],
+            // The till's rules (Phase E), set by the same owner who sets the PINs.
+            'policy' => \App\Support\ShopPolicy::forStudio(),
         ];
     }
 

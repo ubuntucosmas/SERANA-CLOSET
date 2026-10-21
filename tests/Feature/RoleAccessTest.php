@@ -62,7 +62,8 @@ class RoleAccessTest extends TestCase
 
         auth()->logout();
         User::factory()->create(['email' => 'c@serana.test', 'role' => Role::CASHIER]);
-        $this->post('/login', ['email' => 'c@serana.test', 'password' => 'password'])->assertRedirect(route('dashboard', absolute: false));
+        // A cashier works the till only (Phase E).
+        $this->post('/login', ['email' => 'c@serana.test', 'password' => 'password'])->assertRedirect(route('pos.index'));
     }
 
     public function test_the_role_migration_renames_admin_to_owner_and_reverses(): void

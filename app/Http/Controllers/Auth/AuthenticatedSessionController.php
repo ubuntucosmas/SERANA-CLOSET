@@ -36,6 +36,10 @@ class AuthenticatedSessionController extends Controller
         if ($request->user()->canUseStudio()) {
             return redirect()->route('studio.index');
         }
+        // A cashier's work is the till (Phase E).
+        if (\App\Support\Role::allows($request->user()->role, 'pos.sell')) {
+            return redirect()->route('pos.index');
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

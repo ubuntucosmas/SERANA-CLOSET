@@ -44,6 +44,7 @@ class StaffManagementTest extends TestCase
         $this->assertSame(['owner', 'manager', 'cashier'], array_column($staff['roles'], 'value'));
         $this->assertArrayNotHasKey('password', $staff['members'][0]);
         $this->assertArrayNotHasKey('pos_pin', $staff['members'][0]);
+        $this->assertSame(10, $staff['policy']['cashier_discount_percent'], 'the till rules are set here too');
     }
 
     public function test_the_owner_adds_staff_with_a_one_time_password(): void
