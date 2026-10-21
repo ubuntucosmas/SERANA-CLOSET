@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
  */
 class ShopDeskService
 {
-    public function __construct(private OrderSettlementService $settlement, private CounterSaleService $sales)
+    public function __construct(private OrderSettlementService $settlement, private CounterSaleService $sales, private StockService $stock)
     {
     }
 
@@ -140,13 +140,25 @@ class ShopDeskService
             }
         }
 
-        $order = $this->sales->start($till, $by, $items, $customer);
+        // The pieces physically left the shop: the slip is always recorded. Where the books gave them
+        // to someone else since, the slip takes them back first, in the same transaction as its sale.
+        $products = Product::whereIn('id', collect($items)->pluck('id'))->get()->keyBy('id');
         try {
-            try {
+            $order = DB::transaction(function () use ($till, $by, $items, $customer, $products, $slip, $at) {
+                $taken = $this->stock->makeRoomForSlip($items, $products, $till->location, $slip, Actor::user($by));
+                foreach ($taken as $orderId => $pieces) {
+                    $this->settlement->stockTakenForSlip(CustomOrder::withTrashed()->findOrFail($orderId), $pieces, $slip, Actor::user($by));
+                }
+                $order = $this->sales->start($till, $by, $items, $customer);
+                // The unique slip number is the backstop: a second entry of the same slip undoes all of this.
                 CustomOrder::whereKey($order->id)->update(['slip_number' => $slip, 'created_at' => $at]);
-            } catch (UniqueConstraintViolationException) {
-                throw ValidationException::withMessages(['slip_number' => "Slip {$slip} was already entered."]);
-            }
+
+                return $order;
+            }, 3);
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['slip_number' => "Slip {$slip} was already entered."]);
+        }
+        try {
             foreach ($payments as $p) {
                 $p['method'] === 'cash'
                     ? $this->sales->tenderCash($order, $till, $by, (int) $p['amount'], (int) $p['amount'], $at)

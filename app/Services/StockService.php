@@ -256,6 +256,105 @@ class StockService
         }
     }
 
+    /**
+     * A paper slip from an outage (Phase E-g): the pieces physically left the
+     * shop, so the slip is always recorded. Where the books no longer have
+     * them free, the slip takes them back, in this order:
+     *  1. unpaid online holds give way (no money yet; a later payment is
+     *     "stock gone" under the Phase C rules);
+     *  2. paid online orders not yet handed over give up their unit (a
+     *     'return' movement, the hold released, batch_sold back), and are
+     *     returned here for the caller to flag;
+     *  3. anything still missing was never in the records: a count
+     *     correction (or the old model's batch limit) brings it in, audited,
+     *     so stock never goes below zero and nothing is silent.
+     * Inside the caller's transaction, before the slip's own sale allocates.
+     *
+     * @return array<int, list<string>> paid order id => the pieces it lost
+     */
+    public function makeRoomForSlip(array $items, Collection $products, Location $at, string $slip, Actor $actor): array
+    {
+        $taken = [];
+        $note = "Taken back for paper slip {$slip}: sold in the shop during an outage";
+        $openOnline = fn ($o) => $o->where('channel', '!=', 'counter')->where('order_state', 'open');
+
+        if (\App\Support\StockMode::v2()) {
+            $plan = $this->demandsFor($items, $products);
+            if ($plan['errors'] || $plan['demands'] === []) {
+                return []; // the sale itself reports what is wrong
+            }
+            $this->lockLevels(collect($plan['demands'])->map(fn ($d) => [$d['variant']->id, $at->id])->all());
+            foreach ($plan['demands'] as $demand) {
+                $variant = $demand['variant'];
+                $short = $demand['quantity'] - (int) $this->availableAt($variant, $at, current: true);
+                $scope = fn ($q) => $q->where('product_variant_id', $variant->id)->where('location_id', $at->id);
+                foreach (StockReservation::active()->where($scope)->whereHas('order', fn ($o) => $openOnline($o)->where('amount_paid', 0))->orderByDesc('id')->lockForUpdate()->get() as $hold) {
+                    if ($short <= 0) {
+                        break;
+                    }
+                    $hold->update(['status' => 'released']);
+                    $short -= $hold->quantity;
+                }
+                foreach (StockReservation::where('status', 'committed')->where($scope)->whereHas('order', fn ($o) => $openOnline($o)->where('amount_paid', '>', 0)
+                    ->whereNotIn('fulfilment_status', \App\Support\OrderStatus::PRODUCTION_TERMINAL))->orderByDesc('id')->lockForUpdate()->get() as $hold) {
+                    if ($short <= 0) {
+                        break;
+                    }
+                    $this->move($variant, $at, StockMovement::RETURN, $hold->quantity, $actor, $note, ['custom_order_id' => $hold->custom_order_id]);
+                    if (! $hold->second_part) {
+                        Product::withTrashed()->whereKey($hold->product_id)->where('batch_sold', '>=', $hold->quantity)->decrement('batch_sold', $hold->quantity);
+                    }
+                    $hold->update(['status' => 'released']);
+                    $taken[$hold->custom_order_id][] = $this->describe($variant);
+                    $short -= $hold->quantity;
+                }
+                if ($short > 0) {
+                    $reason = "Paper slip {$slip} sold {$short} more of {$this->describe($variant)} than the records showed: count it";
+                    $this->move($variant, $at, StockMovement::COUNT_CORRECTION, $short, $actor, $reason);
+                    \App\Support\Audit::record('stock.slip_shortfall', $variant, [], ['slip' => $slip, 'units' => $short, 'location_id' => $at->id], $reason, $actor);
+                }
+            }
+
+            return $taken;
+        }
+
+        // The old product-level model: batch numbers, no locations.
+        $quantities = collect($items)->groupBy('id')->map(fn ($lines) => (int) $lines->sum('quantity'))->sortKeys();
+        foreach ($quantities as $productId => $quantity) {
+            $product = Product::whereKey($productId)->lockForUpdate()->first();
+            if (! $product || $product->batch_limit === null) {
+                continue;
+            }
+            $short = $quantity - (int) $product->availableStock();
+            $scope = fn ($q) => $q->where('product_id', $productId)->where('second_part', false);
+            foreach (StockReservation::active()->where($scope)->whereHas('order', fn ($o) => $openOnline($o)->where('amount_paid', 0))->orderByDesc('id')->lockForUpdate()->get() as $hold) {
+                if ($short <= 0) {
+                    break;
+                }
+                // A set's second-part row goes with it.
+                StockReservation::where('custom_order_id', $hold->custom_order_id)->where('product_id', $productId)->where('status', 'held')->update(['status' => 'released']);
+                $short -= $hold->quantity;
+            }
+            foreach (StockReservation::where('status', 'committed')->where($scope)->whereHas('order', fn ($o) => $openOnline($o)->where('amount_paid', '>', 0)
+                ->whereNotIn('fulfilment_status', \App\Support\OrderStatus::PRODUCTION_TERMINAL))->orderByDesc('id')->lockForUpdate()->get() as $hold) {
+                if ($short <= 0) {
+                    break;
+                }
+                Product::withTrashed()->whereKey($productId)->where('batch_sold', '>=', $hold->quantity)->decrement('batch_sold', $hold->quantity);
+                StockReservation::where('custom_order_id', $hold->custom_order_id)->where('product_id', $productId)->where('status', 'committed')->update(['status' => 'released']);
+                $taken[$hold->custom_order_id][] = $product->name;
+                $short -= $hold->quantity;
+            }
+            if ($short > 0) {
+                $reason = "Paper slip {$slip} sold {$short} more of {$product->name} than the records showed: count it";
+                $product->increment('batch_limit', $short);
+                \App\Support\Audit::record('stock.slip_shortfall', $product, ['batch_limit' => $product->batch_limit - $short], ['batch_limit' => $product->batch_limit, 'slip' => $slip], $reason, $actor);
+            }
+        }
+
+        return $taken;
+    }
+
     /** Write the holds an allocation decided, for an order, inside the same transaction. */
     public function hold(\App\Models\CustomOrder $order, array $allocations, \DateTimeInterface $until): void
     {

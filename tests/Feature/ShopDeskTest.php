@@ -115,6 +115,80 @@ class ShopDeskTest extends TestCase
         $this->assertSame(['deposit_paid', 6000, 'pending'], [$order->fresh()->payment_status, $order->fresh()->amount_paid, $order->fresh()->fulfilment_status]);
     }
 
+    private function slip(\App\Models\Product $product, string $number): \Illuminate\Testing\TestResponse
+    {
+        return $this->postJson(route('pos.late_entry'), ['slip_number' => $number, 'occurred_at' => now()->subHours(2)->toIso8601String(),
+            'reason' => 'Power cut', 'approval_pin' => '9753', 'items' => [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => 'One size']]],
+            'payments' => [['method' => 'cash', 'amount' => (int) $product->price]]]);
+    }
+
+    private function onHand(\App\Models\Product $product): ?int
+    {
+        return \App\Support\StockMode::v2() ? (int) \App\Models\StockLevel::where('product_variant_id', $this->oneSize($product)->id)->value('on_hand') : null;
+    }
+
+    public function test_a_slip_for_a_piece_since_sold_online_is_recorded_and_the_online_order_needs_a_decision(): void
+    {
+        $tee = $this->stockedProduct(1, ['name' => 'Linen Tee', 'price' => 2000]);
+        $online = CustomOrder::create(['full_name' => 'Jane Wanjiru', 'email' => 'jane@example.com', 'phone' => '254712345678', 'whatsapp_number' => '254712345678',
+            'type' => 'standard', 'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2000,
+            'items_json' => [['id' => $tee->id, 'name' => 'Linen Tee', 'price' => 2000, 'quantity' => 1, 'options' => ['top_size' => 'One size']]]]);
+        $this->holdFor($online, $tee, 1, 'held', now()->addDay());
+        app(OrderSettlementService::class)->recordPayment($online, 2000, 'mpesa_stk', Actor::safaricom(), 'QSOLDONLINE');
+        $this->assertSame([0, 'paid'], [$tee->fresh()->available_stock, $online->fresh()->payment_status]);
+
+        // The last tee physically left the shop on a paper slip, during the outage.
+        $sale = CustomOrder::findOrFail($this->slip($tee, 'B-0150')->assertOk()->json('sale.id'));
+
+        $this->assertSame(['paid', 'collected', 'B-0150'], [$sale->payment_status, $sale->fulfilment_status, $sale->slip_number]);
+        $fresh = $online->fresh();
+        $this->assertSame(['needs_resolution', 'stock_gone', 'needs_resolution', 2000], [$fresh->resolution, $fresh->resolution_code, $fresh->payment_status, $fresh->amount_paid]);
+        $this->assertStringContainsString('slip B-0150', $fresh->resolution_reason);
+        $this->assertSame(0, $tee->fresh()->available_stock, 'one tee, sold once on the books');
+        $this->assertNotSame(-1, $this->onHand($tee));
+        if (\App\Support\StockMode::v2()) {
+            $this->assertSame(0, $this->onHand($tee));
+            $this->assertSame([['sale', -1], ['return', 1], ['sale', -1]], \App\Models\StockMovement::whereIn('type', ['sale', 'return'])->orderBy('id')->get()
+                ->map(fn ($m) => [$m->type, $m->quantity])->all(), 'the online sale is taken back for the slip, and both are in the history');
+        }
+        Mail::assertQueued(\App\Mail\StockGoneMail::class, fn ($m) => $m->order->is($online) && str_contains((string) $m->why, 'sold in our shop'));
+        $this->assertSame([$online->id], AuditLog::where('action', 'stock.taken_for_slip')->pluck('subject_id')->all());
+    }
+
+    public function test_a_slip_takes_an_unpaid_online_hold_and_a_later_payment_needs_a_decision(): void
+    {
+        $tee = $this->stockedProduct(1, ['name' => 'Linen Tee', 'price' => 2000]);
+        $online = CustomOrder::create(['full_name' => 'Jane Wanjiru', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard',
+            'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2000,
+            'items_json' => [['id' => $tee->id, 'name' => 'Linen Tee', 'price' => 2000, 'quantity' => 1, 'options' => ['top_size' => 'One size']]]]);
+        $hold = $this->holdFor($online, $tee, 1, 'held', now()->addMinutes(10));
+
+        $this->slip($tee, 'B-0151')->assertOk();
+
+        $this->assertSame('released', $hold->fresh()->status, 'no money yet: the hold gives way');
+        app(OrderSettlementService::class)->recordPayment($online, 2000, 'mpesa_stk', Actor::safaricom(), 'QLATEPAY');
+        $this->assertSame(['needs_resolution', 'stock_gone'], [$online->fresh()->resolution, $online->fresh()->resolution_code], 'Phase C: paid after the stock went');
+        $this->assertSame(0, $tee->fresh()->available_stock);
+    }
+
+    public function test_a_slip_beyond_the_records_is_recorded_and_flagged_for_a_count_never_below_zero(): void
+    {
+        $tee = $this->stockedProduct(0, ['name' => 'Linen Tee', 'price' => 2000, 'batch_sold' => 3]);
+
+        $this->slip($tee, 'B-0152')->assertOk()->assertJsonPath('sale.paid', true);
+
+        $log = AuditLog::where('action', 'stock.slip_shortfall')->sole();
+        $this->assertStringContainsString('B-0152', $log->reason);
+        $this->assertSame(0, $tee->fresh()->available_stock);
+        if (\App\Support\StockMode::v2()) {
+            $this->assertSame(0, $this->onHand($tee));
+            $this->assertSame([['count_correction', 1], ['sale', -1]], \App\Models\StockMovement::where('type', '!=', 'count_correction')->orWhere('reason', 'like', '%B-0152%')
+                ->orderBy('id')->get()->map(fn ($m) => [$m->type, $m->quantity])->all());
+        } else {
+            $this->assertSame([4, 4], [$tee->fresh()->batch_limit, $tee->fresh()->batch_sold]);
+        }
+    }
+
     public function test_a_paper_sale_is_entered_later_with_its_slip_and_time_and_a_manager(): void
     {
         $tee = $this->stockedProduct(4, ['name' => 'Linen Tee', 'price' => 2000]);

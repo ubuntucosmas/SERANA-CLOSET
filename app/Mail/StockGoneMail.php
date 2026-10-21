@@ -21,8 +21,11 @@ class StockGoneMail extends Mailable
 
     public $tries = 3;
 
-    /** @param list<string> $items */
-    public function __construct(public CustomOrder $order, public array $items)
+    /**
+     * @param  list<string>  $items
+     * @param  ?string  $why  why it went, when not a late payment (a paper slip from the shop, Phase E)
+     */
+    public function __construct(public CustomOrder $order, public array $items, public ?string $why = null)
     {
         $this->afterCommit();
     }
@@ -37,6 +40,7 @@ class StockGoneMail extends Mailable
         return new Content(view: 'emails.stock-gone', with: [
             'order' => $this->order,
             'items' => $this->items,
+            'why' => $this->why,
             'paid' => (int) $this->order->amount_paid,
             'days' => OrderPolicy::resolutionDays(),
             'refundDays' => OrderPolicy::refundWorkingDays(),

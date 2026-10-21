@@ -110,7 +110,8 @@ class OrderSettlementService
             }
 
             return ['booked' => true, 'became_paid' => $becamePaid, 'payment' => $payment, 'stock_gone' => $stockGone];
-        }, 3);
+        }, 5); // MariaDB 11.6+ aborts a locking read that waited behind a writer (1020); a paper slip's
+        // chain (take back, sell, pay) can collide with an M-Pesa callback more than twice. Each retry is fresh.
 
         if ($result['stock_gone'] ?? []) {
             $this->tellStockGone(CustomOrder::withTrashed()->findOrFail($order->id), $result['stock_gone']);
@@ -634,6 +635,45 @@ class OrderSettlementService
     }
 
     /** Open a payment problem for the Studio: what kind, why, and since when. */
+    /**
+     * A paper slip from an outage took this paid order's piece (Phase E-g,
+     * StockService::makeRoomForSlip): the order waits for the owner's decision
+     * exactly like a late payment whose stock went (Phase C: swap, wait for the
+     * next batch, or refund; a refund is owed if nothing is decided in time).
+     * Runs inside the slip's transaction; the customer and owner are told after
+     * it commits.
+     *
+     * @param  list<string>  $items
+     */
+    public function stockTakenForSlip(CustomOrder $order, array $items, string $slip, Actor $actor): void
+    {
+        $reason = "Sold in the shop on paper (slip {$slip}) during an outage: " . implode(', ', $items);
+        DB::transaction(function () use ($order, $reason) {
+            $locked = $this->lockForMoney($order);
+            if (($locked->resolution ?? 'none') === 'none') {
+                $this->openResolution($locked, 'needs_resolution', 'stock_gone', $reason);
+                $this->recompute($locked);
+            }
+        }, 3);
+        \App\Support\Audit::record('stock.taken_for_slip', $order, [], ['slip' => $slip, 'items' => $items], $reason, $actor);
+
+        DB::afterCommit(function () use ($order, $items, $slip) {
+            $fresh = CustomOrder::withTrashed()->findOrFail($order->id);
+            if ($fresh->email) {
+                try {
+                    Mail::to($fresh->email)->queue(new \App\Mail\StockGoneMail($fresh, $items, 'it was sold in our shop on a paper receipt while our system was down, before your order reached it'));
+                } catch (\Throwable $e) {
+                    Log::error("Stock-gone notice could not be queued for Order #{$fresh->id}: " . $e->getMessage());
+                }
+            }
+            $this->alertOwner($fresh, "⚠ Paid, but its piece left on a paper slip — order {$fresh->cipher}",
+                "Paper slip {$slip}, entered at the till, sold " . implode(', ', $items) . " during an outage. Order {$fresh->cipher} had paid for it "
+                . '(KSh ' . number_format((int) $fresh->amount_paid) . "). Nothing was oversold: the slip took the piece back from the order.\n\n"
+                . 'In the Studio, choose a full refund, a swap, or waiting for the next batch. If nothing is decided within '
+                . OrderPolicy::resolutionDays() . ' days, it becomes a refund owed.');
+        });
+    }
+
     private function openResolution(CustomOrder $locked, string $resolution, string $code, string $reason): void
     {
         $values = ['resolution' => $resolution, 'resolution_code' => $code, 'resolution_reason' => mb_substr($reason, 0, 255), 'resolution_since' => now()];
