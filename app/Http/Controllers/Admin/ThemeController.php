@@ -67,6 +67,21 @@ class ThemeController extends Controller
         return back()->with('success', 'Store settings updated.');
     }
 
+    /** Studio → Settings → Shop (Phase E): discount limit, till variance alert, holds, idle lock, receipt footer. */
+    public function updateShopPolicy(Request $request)
+    {
+        $validated = $request->validate(\App\Support\ShopPolicy::rules(), [
+            'cashier_discount_percent.between' => 'A cashier discount is a share of the sale, from 0 to 100%.',
+            'pos_hold_minutes.between' => 'A counter sale holds stock for 5 to 240 minutes.',
+            'pos_idle_minutes.between' => 'The till locks after 1 to 120 idle minutes.',
+        ]);
+        $before = \App\Support\ShopPolicy::forStudio();
+        \App\Support\ShopPolicy::save($validated);
+        \App\Support\Audit::record('settings.shop_policy.updated', null, $before, \App\Support\ShopPolicy::forStudio());
+
+        return back()->with('success', 'Shop settings updated.');
+    }
+
     /** Studio → Settings → Orders: deposit share, pay-link lifetime and the deposit rule. */
     public function updateOrderPolicy(Request $request)
     {

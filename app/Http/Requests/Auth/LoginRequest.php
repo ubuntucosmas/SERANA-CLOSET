@@ -50,7 +50,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // A suspended staff account can't sign in (Phase E-a), whatever its password.
+        if (Auth::user()?->isSuspended()) {
+            Auth::logout();
+            throw ValidationException::withMessages(['email' => 'This account is suspended. Ask the owner.']);
+        }
+
         RateLimiter::clear($this->throttleKey());
+        Auth::user()?->forceFill(['last_login_at' => now()])->saveQuietly();
     }
 
     /**

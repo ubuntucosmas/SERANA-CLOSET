@@ -1167,3 +1167,145 @@ The `ConcurrencyTest` harness adds STOCK_V2 workers for each row above. A new st
 - Both still build their own "Size …" label rather than `sizes.js`'s `sizeLabel()`.
 
 **Verification:** `docs/audit/verification/phase-d/README.md`.
+
+## 15. Phase E: staff and the physical shop (design as built, 2026-10-20, branch `phase-e/shop`)
+
+**Owner direction (2026-10-20):** build staff management and the whole shop phase straight through. The owner commits their own uncommitted Studio edits first; until then, nothing here edits `StudioDashboard.vue` or `AdminShell.vue`.
+
+**Decisions in force:**
+- D4: the cashier discount limit is 10% of the sale, capped at KES 500, whichever is lower; above it needs a manager PIN.
+- D9: an online POS, with paper fallback and late entry.
+- D12: own accounts, plus a PIN quick-switch.
+- D13: refunds by the business's own M-Pesa or cash.
+- D3 (card) is set aside, so there is no card tender.
+- §5 permission matrix: a cashier never sends money out alone; a manager PIN approves on the same screen.
+
+This section supersedes §6 and E1–E5 where they differ. In particular, E1's variants and movements were built in D1, so the till sells through `StockService` and the stock-per-size model.
+
+### 15.1 Staff (E-a)
+- **Studio → Staff** (owner, `staff.manage`): list owners, managers and cashiers with their last sign-in.
+  - **Add:** name, email, role. A one-time password is shown to the owner once, and the person must change it on first sign-in.
+  - **Change role, suspend, reactivate:** each with a reason, and audited.
+  - **Guards:** the last active owner can't be demoted or suspended, nor can the owner acting. Suspending ends the person's sessions. A suspended account can't sign in (it reads "This account is suspended. Ask the owner.").
+- **POS PIN:** 4–6 digits, hashed, unique among active staff, set by the owner (D12).
+- **Columns:** `users.suspended_at`, `users.suspended_reason`, `users.pos_pin` (hashed), `users.must_change_password`.
+
+### 15.2 Tills (E-b)
+- **`till_sessions`:** `location_id`, `register` ("Till 1"), `opened_by`, `opened_at`, `opening_float`, then at close `closed_by`, `closed_at`, `expected_cash`, `counted_cash`, `variance`, `variance_reason`, `acknowledged_by`. Status is `open` or `closed`.
+  - One open session per register: a unique index on (`location_id`, `register`, `open_marker`), where the marker is null once closed.
+- **`cash_movements`:** append-only.
+  - Columns: `till_session_id`, `type` (`float`, `sale`, `refund`, `payout`, `pickup`), signed `amount`, `order_payment_id`, `actor`, `reason`.
+  - Every cash tender and cash refund at the till writes one, in the same transaction as its ledger row.
+  - A payout or pickup (cash taken out for an expense or to the bank) needs a reason and a manager.
+- **Close:**
+  - expected = float + Σ cash in − Σ cash out;
+  - variance = counted − expected;
+  - above `till_variance_alert` (KES 200, a setting) it needs a reason and a manager PIN to acknowledge.
+- **Z report:** per session, the sales by method, refunds, discounts, voids, payouts and the variance. A manager also sees the day report across sessions.
+
+### 15.3 Counter sale (E-c)
+- **The POS page** `/pos` (owner, manager, cashier; ability `pos.sell`) is its own layout, not the Studio shell.
+  - The tablet locks after `pos_idle_minutes` (default 10); a staff PIN unlocks it.
+  - Every action is taken as the PIN's staff member, not the browser's login.
+- **Sell:**
+  - search by name, SKU or barcode (a scanner types into a focused field);
+  - product grid with per-size stock at this shop;
+  - size sheet;
+  - cart with ± and a line discount;
+  - order discount within D4, else a manager PIN.
+- **Charge:** creates the sale as an order with `kind=shop` and `channel=counter`.
+  - Stock is held at the till's location, under the size locks, for `pos_hold_minutes` (default 30).
+  - Its lines are an item line per size and a discount line, each with actor and reason.
+- **Tenders (split allowed):**
+  - Cash: a keypad, with change shown large. Only the tendered amount up to the balance is booked; the change is not.
+  - M-Pesa code: typed, unique as everywhere.
+  - M-Pesa prompt: STK to the customer's phone, booked by the callback as online.
+  - Credit: from a return, exchanges only.
+- **Paid in full:** stock is committed (sale movements at this location) and fulfilment goes straight to **`collected`** (a new stage, shared with D2's pickup). The receipt prints from 80mm print CSS, with an optional email copy.
+- **Void:** an unpaid sale releases its holds. A cashier can void only their own sale; any other needs a manager PIN. A partly paid sale can't be voided: refund it instead.
+
+### 15.4 Returns and exchanges (E-d)
+- **Find the sale:** by receipt or order reference, or reference + phone, from any channel.
+- **Return lines:**
+  - each needs a reason and a disposition: **restock** (a `return` stock movement at this location) or **write off** (no stock comes back; a `damage` record of what came back);
+  - the lines become negative adjustment lines, and Phase C's refund rules then make the order `refund_due`.
+- **Refund at the till:** cash from the open session (a cash movement plus a refund ledger row) or an M-Pesa code. A cashier needs a manager PIN.
+- **Exchange:** the returned value becomes a credit tender on a new counter sale; any difference is paid or refunded.
+- Never more than was paid (N2), as for every refund.
+
+### 15.5 Click & collect, bespoke intake, late entry (E-e, E-f, E-g)
+- **Collect:**
+  - find the order by reference + phone;
+  - take any balance at the till;
+  - **Mark collected**, which needs nothing owed (Phase C) and logs the actor.
+- **Bespoke intake:** customer, garment, fabric and colour (Studio options), measurements, notes, and reference photos. It creates the same bespoke order as the website. A quote and deposit can be taken at the till with the usual deposit rule.
+- **Late entry (D9):** for a sale written on the paper receipt book during an outage. Manager-gated, it records the slip number, the original time (`occurred_at`) and a reason. Stock moves now, and the audit says it was entered late.
+- **As built:**
+  - `ShopDeskService` + `Pos/DeskController`.
+  - Collect: reference and phone together, so either alone finds nothing (404) and nothing leaks.
+  - Tender at the till works on any open order (a sale, a collection's balance, a bespoke deposit).
+  - Hand-over runs under the order lock. It is refused when:
+    - something is still owed;
+    - there is a payment problem;
+    - the order was cancelled, shipped or already collected;
+    - a bespoke piece isn't `completed`.
+  - The Studio can no longer choose **collected**. It says "Mark it collected at the till".
+  - Intake records `sold_by`, not the till session, so a later pay-link payment isn't booked to a closed drawer.
+  - Late entry:
+    - The slip number has a unique column (`custom_orders.slip_number`).
+    - Payments must add up to the sale exactly (cash and M-Pesa codes).
+    - Payments and cash movements carry the slip's time.
+    - Slips older than 7 days go to the owner instead.
+    - A failed entry voids the untouched sale and returns its stock.
+
+- **A slip whose pieces were sold online since (review, 2026-10-20).** The pieces physically left the shop, so the slip is always recorded. Before the slip's own sale, `StockService::makeRoomForSlip` takes the shortfall back, in this order:
+  1. **Unpaid online holds give way.** No money has moved yet. A later payment is "stock gone" under Phase C (`needs_resolution`).
+  2. **Paid online orders not yet handed over give up their unit:**
+     - a `return` movement;
+     - the hold is `released` (the state a Phase C stock-gone order is in);
+     - `batch_sold` goes back.
+
+     `OrderSettlementService::stockTakenForSlip` then puts the order into `needs_resolution` / `stock_gone`, audited as `stock.taken_for_slip`. The customer gets the stock-gone email with the reason, and the owner is alerted. The Phase C refund, swap and wait flows apply, with a refund owed after the resolution days.
+  3. **Anything still missing was never in the records:**
+     - a `count_correction` (or, in the old model, the batch limit) brings it in;
+     - it is audited as `stock.slip_shortfall` with "count it".
+
+  All of this, the sale's holds and the unique slip number share one transaction. Stock never goes below zero, and nothing changes silently. There is a MariaDB race test in both orders (slip first, payment first).
+
+### 15.5a The till screen (E-h)
+- **Route:** `/pos` (`Pos/Till`, `can:pos.sell`).
+  - A cashier signs straight in to it.
+  - It loads locked: a PIN pad. Every call is JSON against the endpoints above.
+  - A 423 response locks the screen again.
+  - The screen also locks itself after `pos_idle_minutes`.
+- **Sell:**
+  - Scan (barcode/SKU on Enter adds that size directly) or search.
+  - A size sheet per part (a set picks top and bottom).
+  - Optional customer, and a discount that asks for a manager PIN only over the cashier limit.
+- **Tender:** cash (quick amounts, with change shown), M-Pesa code, M-Pesa prompt (polled), or credit from a returned sale. Then the receipt, void, and a new sale.
+- **Orders:** collect (with the balance if owed), and returns/exchanges.
+- **Bespoke:** intake, then the deposit.
+- **Drawer:** the live cash figure, payouts and pickups, and close with the Z report.
+- **Late entry** sits under the sale being built: the same pieces, the slip, its time and the payments.
+
+### 15.6 Locks, settings, tests
+- **PIN (review, 2026-10-20):**
+  - A PIN only unlocks the till screen for a signed-in staff tablet. It is never a password, and it never signs anyone in to the Studio or the website.
+  - After **5 wrong PINs in a row** on a tablet account, the PIN pad locks for **5 minutes**. Even a right PIN waits, and the lockout is audited as `pos.pin_lockout`. A right PIN clears the count.
+  - A route throttle of 10 a minute stays as well.
+- **"Exchange credit" (the `credit` tender):**
+  - It is not a tab. It moves what an earlier sale owes back after a return onto a new sale, at most what is owed back and at most what the new sale owes. No cash moves.
+  - A return needs a manager's PIN for a cashier.
+  - Goods never leave with money owed: a counter sale is collected only when paid in full, and collect refuses any balance.
+
+- **Lock order:** stock levels → holds → the order row → ledger rows → **till session** (last). Cash movements are written under the session row lock.
+- **Settings** (Studio → Settings → Shop, owner): `cashier_discount_percent` (10), `cashier_discount_cap` (500), `till_variance_alert` (200), `pos_hold_minutes` (30), `pos_idle_minutes` (10), receipt footer text.
+- **Tests:**
+  - every permission-matrix cell for the new abilities;
+  - till arithmetic (expected and variance);
+  - split tenders sum to the total;
+  - change is never booked;
+  - a return never refunds more than paid;
+  - MariaDB: a counter sale and a web checkout race for the last unit of a size, and one wins;
+  - a void releases holds;
+  - a full shop day (open → split sale → return → collect → intake → close) as one test whose Z report matches the ledger.

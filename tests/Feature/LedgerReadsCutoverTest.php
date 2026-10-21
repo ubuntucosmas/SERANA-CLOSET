@@ -64,6 +64,6 @@ class LedgerReadsCutoverTest extends TestCase
     /** A write of a legacy key (the dual-write), or a Drop, stock hold, payment attempt or ledger row (payments()) column. */
     private function isLegacyWriteOrDropOrAttempt(string $line): bool
     {
-        return (bool) preg_match("/('(status|type|is_paid|price_quoted)'\\s*=>\\s*(?!\\$\\w+->)|Drop::|PaymentAttempt::|OrderPayment::|payments\\(\\)|\\\$drop->|\\\$attempt->status|\\\$actor->|reservation|'held'|'released'|'committed')/i", $line);
+        return (bool) preg_match("/('(status|type|is_paid|price_quoted)'\\s*=>\\s*(?!\\$\\w+->)|Drop::|PaymentAttempt::|OrderPayment::|payments\\(\\)|\\\$drop->|\\\$attempt->status|\\\$actor->|TillSession::|CashMovement::|\\\$payments->|reservation|'held'|'released'|'committed')/i", $line);
     }
 }

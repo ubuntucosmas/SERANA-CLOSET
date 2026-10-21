@@ -15,6 +15,7 @@ use App\Support\OrderStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The single writer of an order's money (design §1.1 principle 1, I4): ledger
@@ -40,9 +41,10 @@ class OrderSettlementService
      * @return array{booked: bool, became_paid: bool, payment: ?OrderPayment, stock_gone: list<string>}
      */
     public function recordPayment(CustomOrder $order, ?int $amount, string $method, Actor $actor, ?string $reference = null,
-        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false): array
+        ?PaymentAttempt $attempt = null, ?string $reason = null, array $rawPayload = [], bool $limitToBalance = false, ?int $tillSessionId = null,
+        ?\DateTimeInterface $occurredAt = null): array
     {
-        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance) {
+        $result = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $attempt, $reason, $limitToBalance, $tillSessionId, $occurredAt) {
             $locked = $this->lockForMoney($order);
 
             if ($existing = $this->alreadyBooked($method, $reference, $attempt)) {
@@ -61,7 +63,10 @@ class OrderSettlementService
             $wasPaid = (bool) $locked->is_paid;
             // Why any excess is owed back: money on an order already settled is a second payment.
             $cause = $balance <= 0 ? 'Paid twice' : 'Paid more than the total';
-            $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason);
+            // A till payment knows its session; so does an M-Pesa prompt sent from the till (Phase E).
+            $payment = $this->book($locked, OrderPayment::PAYMENT, $amount, $method, $actor, $reference, $attempt, $reason,
+                // A late entry (Phase E-g) books the time the money changed hands, from the paper slip.
+                ['till_session_id' => $tillSessionId ?? $locked->till_session_id] + ($occurredAt ? ['occurred_at' => $occurredAt] : []));
 
             // Booking the very code that was in conflict here settles the conflict.
             if ($reference !== null && $locked->resolution === 'needs_resolution' && str_starts_with((string) $locked->resolution_reason, "M-Pesa code {$reference} ")) {
@@ -90,6 +95,10 @@ class OrderSettlementService
                 if ($locked->kind !== 'bespoke') {
                     $settled['order_state'] = 'open';
                 }
+                // Sold at the counter: the customer walks out with it (Phase E).
+                if ($locked->channel === 'counter') {
+                    $settled['fulfilment_status'] = 'collected';
+                }
                 DB::table('custom_orders')->where('id', $locked->id)->update($settled);
                 $locked->forceFill($settled);
                 if ($stockGone) {
@@ -101,7 +110,8 @@ class OrderSettlementService
             }
 
             return ['booked' => true, 'became_paid' => $becamePaid, 'payment' => $payment, 'stock_gone' => $stockGone];
-        }, 3);
+        }, 5); // MariaDB 11.6+ aborts a locking read that waited behind a writer (1020); a paper slip's
+        // chain (take back, sell, pay) can collide with an M-Pesa callback more than twice. Each retry is fresh.
 
         if ($result['stock_gone'] ?? []) {
             $this->tellStockGone(CustomOrder::withTrashed()->findOrFail($order->id), $result['stock_gone']);
@@ -278,9 +288,9 @@ class OrderSettlementService
      * the order refund_due for the rest. The refund receipt is queued after
      * commit.
      */
-    public function recordRefund(CustomOrder $order, int $amount, string $method, Actor $actor, string $reference, string $reason): OrderPayment
+    public function recordRefund(CustomOrder $order, int $amount, string $method, Actor $actor, string $reference, string $reason, ?int $tillSessionId = null): OrderPayment
     {
-        $refund = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $reason) {
+        $refund = DB::transaction(function () use ($order, $amount, $method, $actor, $reference, $reason, $tillSessionId) {
             $locked = $this->lockForMoney($order);
             $owed = -$this->balance($locked);
             if ($owed <= 0) {
@@ -294,7 +304,7 @@ class OrderSettlementService
                     . " is already recorded on order {$holder->order->cipher}.");
             }
 
-            $refund = $this->book($locked, OrderPayment::REFUND, $amount, $method, $actor, $reference, null, $reason);
+            $refund = $this->book($locked, OrderPayment::REFUND, $amount, $method, $actor, $reference, null, $reason, ['till_session_id' => $tillSessionId]);
             $this->recompute($locked);
 
             return $refund;
@@ -625,6 +635,45 @@ class OrderSettlementService
     }
 
     /** Open a payment problem for the Studio: what kind, why, and since when. */
+    /**
+     * A paper slip from an outage took this paid order's piece (Phase E-g,
+     * StockService::makeRoomForSlip): the order waits for the owner's decision
+     * exactly like a late payment whose stock went (Phase C: swap, wait for the
+     * next batch, or refund; a refund is owed if nothing is decided in time).
+     * Runs inside the slip's transaction; the customer and owner are told after
+     * it commits.
+     *
+     * @param  list<string>  $items
+     */
+    public function stockTakenForSlip(CustomOrder $order, array $items, string $slip, Actor $actor): void
+    {
+        $reason = "Sold in the shop on paper (slip {$slip}) during an outage: " . implode(', ', $items);
+        DB::transaction(function () use ($order, $reason) {
+            $locked = $this->lockForMoney($order);
+            if (($locked->resolution ?? 'none') === 'none') {
+                $this->openResolution($locked, 'needs_resolution', 'stock_gone', $reason);
+                $this->recompute($locked);
+            }
+        }, 3);
+        \App\Support\Audit::record('stock.taken_for_slip', $order, [], ['slip' => $slip, 'items' => $items], $reason, $actor);
+
+        DB::afterCommit(function () use ($order, $items, $slip) {
+            $fresh = CustomOrder::withTrashed()->findOrFail($order->id);
+            if ($fresh->email) {
+                try {
+                    Mail::to($fresh->email)->queue(new \App\Mail\StockGoneMail($fresh, $items, 'it was sold in our shop on a paper receipt while our system was down, before your order reached it'));
+                } catch (\Throwable $e) {
+                    Log::error("Stock-gone notice could not be queued for Order #{$fresh->id}: " . $e->getMessage());
+                }
+            }
+            $this->alertOwner($fresh, "⚠ Paid, but its piece left on a paper slip — order {$fresh->cipher}",
+                "Paper slip {$slip}, entered at the till, sold " . implode(', ', $items) . " during an outage. Order {$fresh->cipher} had paid for it "
+                . '(KSh ' . number_format((int) $fresh->amount_paid) . "). Nothing was oversold: the slip took the piece back from the order.\n\n"
+                . 'In the Studio, choose a full refund, a swap, or waiting for the next batch. If nothing is decided within '
+                . OrderPolicy::resolutionDays() . ' days, it becomes a refund owed.');
+        });
+    }
+
     private function openResolution(CustomOrder $locked, string $resolution, string $code, string $reason): void
     {
         $values = ['resolution' => $resolution, 'resolution_code' => $code, 'resolution_reason' => mb_substr($reason, 0, 255), 'resolution_since' => now()];
@@ -686,6 +735,58 @@ class OrderSettlementService
         } catch (\Throwable $e) {
             Log::error("Payment problem alert could not be queued for Order #{$order->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Returned goods (Phase E-d): a negative adjustment line per returned
+     * line, pointing at it, with the disposition, who, why and any approver.
+     * The order then owes the value back (Phase C rules). Refuses more units
+     * than are still returnable, under the order lock.
+     *
+     * @param  list<array{line: OrderLine, quantity: int, disposition: string}>  $returns
+     * @return int the value returned
+     */
+    public function returnItems(CustomOrder $order, array $returns, Actor $actor, string $reason, ?int $approvedBy = null): int
+    {
+        return DB::transaction(function () use ($order, $returns, $actor, $reason, $approvedBy) {
+            $locked = $this->lockForMoney($order);
+            $value = 0;
+            foreach ($returns as $r) {
+                $left = $this->returnable($r['line']);
+                if ($r['quantity'] > $left) {
+                    throw ValidationException::withMessages(['lines' => "Only {$left} of {$r['line']->description} can still be returned."]);
+                }
+                $amount = (int) $r['line']->unit_amount;
+                $this->line($locked, OrderLine::ADJUSTMENT, "Returned: {$r['line']->description}", $r['quantity'], -$amount, $actor, $reason, $r['line']->product_id,
+                    ['return_of' => $r['line']->id, 'disposition' => $r['disposition'], 'approved_by' => $approvedBy]);
+                $value += $amount * $r['quantity'];
+            }
+            $this->recompute($locked, 'Returned at the till');
+
+            return $value;
+        }, 3);
+    }
+
+    /** Units of an item line not yet returned. */
+    public function returnable(OrderLine $line): int
+    {
+        $returned = OrderLine::where('custom_order_id', $line->custom_order_id)->where('line_type', OrderLine::ADJUSTMENT)->get()
+            ->filter(fn ($l) => (int) ($l->meta['return_of'] ?? 0) === $line->id)->sum('quantity');
+
+        return max(0, (int) $line->quantity - (int) $returned);
+    }
+
+    /**
+     * A discount on a sale (Phase E, D4): a negative discount line with who,
+     * why and any approver, then the money columns follow.
+     */
+    public function addDiscount(CustomOrder $order, int $amount, Actor $actor, string $reason, ?int $approvedBy = null): void
+    {
+        DB::transaction(function () use ($order, $amount, $actor, $reason, $approvedBy) {
+            $locked = $this->lockForMoney($order);
+            $this->line($locked, OrderLine::DISCOUNT, 'Discount', 1, -$amount, $actor, $reason, null, $approvedBy ? ['approved_by' => $approvedBy] : null);
+            $this->recompute($locked);
+        }, 3);
     }
 
     /**
@@ -795,7 +896,7 @@ class OrderSettlementService
         return (int) $order->lines()->sum('amount') - $net;
     }
 
-    private function book(CustomOrder $order, string $type, int $amount, string $method, Actor $actor, ?string $reference, ?PaymentAttempt $attempt, ?string $reason): OrderPayment
+    private function book(CustomOrder $order, string $type, int $amount, string $method, Actor $actor, ?string $reference, ?PaymentAttempt $attempt, ?string $reason, array $extra = []): OrderPayment
     {
         // The row of a reversed booking keeps its code (append-only); a rebooking is marked and traceable.
         if ($reference !== null && ($reversed = OrderPayment::where('reference_scope', OrderPayment::scopeFor($method))
@@ -803,7 +904,7 @@ class OrderSettlementService
             $reference = "{$reference}#after-reversal-{$reversed->id}";
         }
 
-        return OrderPayment::create([
+        return OrderPayment::create(array_merge([
             'custom_order_id' => $order->id,
             'type' => $type,
             'amount' => $amount,
@@ -814,6 +915,6 @@ class OrderSettlementService
             'actor_id' => $actor->id,
             'reason' => $reason,
             'occurred_at' => now(),
-        ]);
+        ], $extra));
     }
 }

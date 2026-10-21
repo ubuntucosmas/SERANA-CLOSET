@@ -35,6 +35,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'pos_pin',
     ];
 
     /**
@@ -47,6 +48,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'suspended_at' => 'datetime',
+            'last_login_at' => 'datetime',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -67,6 +71,11 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->hasRole(...Role::STAFF);
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
     }
 
     public function canUseStudio(): bool

@@ -134,6 +134,12 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/order/{order}/progress-snap', [StudioController::class, 'storeProgressSnap'])->name('studio.progress_snap');
     Route::post('/order/{order}/record-payment', [StudioController::class, 'recordPayment'])->middleware('can:money.record')->name('studio.order.record_payment');
     Route::post('/order/{order}/cancel', [StudioController::class, 'cancelOrder'])->name('studio.order.cancel');
+    // Staff (Phase E-a), owner only.
+    Route::post('/staff', [App\Http\Controllers\Admin\StaffController::class, 'store'])->middleware('can:staff.manage')->name('studio.staff.store');
+    Route::put('/staff/{user}/role', [App\Http\Controllers\Admin\StaffController::class, 'role'])->middleware('can:staff.manage')->name('studio.staff.role');
+    Route::post('/staff/{user}/suspend', [App\Http\Controllers\Admin\StaffController::class, 'suspend'])->middleware('can:staff.manage')->name('studio.staff.suspend');
+    Route::post('/staff/{user}/reactivate', [App\Http\Controllers\Admin\StaffController::class, 'reactivate'])->middleware('can:staff.manage')->name('studio.staff.reactivate');
+    Route::put('/staff/{user}/pin', [App\Http\Controllers\Admin\StaffController::class, 'pin'])->middleware('can:staff.manage')->name('studio.staff.pin');
     // Stock per size (Phase D1).
     Route::post('/stock/move', [App\Http\Controllers\Admin\StockController::class, 'move'])->middleware('can:stock.manage')->name('studio.stock.move');
     Route::post('/stock/product/{product}/sizes', [App\Http\Controllers\Admin\StockController::class, 'sizes'])->middleware('can:stock.manage')->name('studio.stock.sizes');
@@ -177,7 +183,38 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::put('/payment-settings', [App\Http\Controllers\Admin\ThemeController::class, 'updatePaymentSettings'])->middleware('can:settings.payments')->name('admin.payment_settings.update');
     Route::post('/payment-settings/test-mpesa', [App\Http\Controllers\Admin\ThemeController::class, 'testMpesa'])->middleware(['can:settings.payments', 'throttle:6,1'])->name('admin.payment_settings.test_mpesa');
     Route::put('/order-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateOrderPolicy'])->middleware('can:settings.policies')->name('admin.order_policy.update');
+    Route::put('/shop-policy', [App\Http\Controllers\Admin\ThemeController::class, 'updateShopPolicy'])->middleware('can:settings.policies')->name('admin.shop_policy.update');
     Route::put('/custom-order-options', [App\Http\Controllers\Admin\ThemeController::class, 'updateCustomOrderOptions'])->name('admin.custom_order_options.update');
 });
 
 require __DIR__.'/auth.php';
+
+/*
+|--------------------------------------------------------------------------
+| The till (Phase E, design §15): the shop tablet, signed in as staff.
+| Each person unlocks it with their PIN; every action is theirs.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'can:pos.sell'])->prefix('pos')->group(function () {
+    Route::get('/', [App\Http\Controllers\Pos\PosController::class, 'index'])->name('pos.index');
+    Route::post('/unlock', [App\Http\Controllers\Pos\UnlockController::class, 'unlock'])->middleware('throttle:10,1')->name('pos.unlock');
+    Route::post('/lock', [App\Http\Controllers\Pos\UnlockController::class, 'lock'])->name('pos.lock');
+    Route::middleware('pos.operator')->group(function () {
+        Route::post('/till/open', [App\Http\Controllers\Pos\TillController::class, 'open'])->name('pos.till.open');
+        Route::post('/till/payout', [App\Http\Controllers\Pos\TillController::class, 'payout'])->name('pos.till.payout');
+        Route::post('/till/close', [App\Http\Controllers\Pos\TillController::class, 'close'])->name('pos.till.close');
+        Route::get('/till/report', [App\Http\Controllers\Pos\TillController::class, 'report'])->name('pos.till.report');
+        Route::get('/catalogue', [App\Http\Controllers\Pos\SaleController::class, 'catalogue'])->name('pos.catalogue');
+        Route::post('/sales', [App\Http\Controllers\Pos\SaleController::class, 'store'])->name('pos.sales.store');
+        Route::get('/sales/{order}', [App\Http\Controllers\Pos\SaleController::class, 'show'])->name('pos.sales.show');
+        Route::post('/sales/{order}/tender', [App\Http\Controllers\Pos\SaleController::class, 'tender'])->name('pos.sales.tender');
+        Route::post('/sales/{order}/void', [App\Http\Controllers\Pos\SaleController::class, 'void'])->name('pos.sales.void');
+        Route::get('/sales/{order}/receipt', [App\Http\Controllers\Pos\SaleController::class, 'receipt'])->name('pos.sales.receipt');
+        Route::get('/orders/find', [App\Http\Controllers\Pos\ReturnController::class, 'find'])->name('pos.orders.find');
+        Route::post('/returns', [App\Http\Controllers\Pos\ReturnController::class, 'store'])->name('pos.returns.store');
+        Route::get('/collect/find', [App\Http\Controllers\Pos\DeskController::class, 'find'])->middleware('throttle:30,1')->name('pos.collect.find');
+        Route::post('/collect/{order}', [App\Http\Controllers\Pos\DeskController::class, 'collect'])->name('pos.collect.store');
+        Route::post('/intake', [App\Http\Controllers\Pos\DeskController::class, 'intake'])->name('pos.intake');
+        Route::post('/late-entry', [App\Http\Controllers\Pos\DeskController::class, 'lateEntry'])->name('pos.late_entry');
+    });
+});

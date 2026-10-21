@@ -126,6 +126,8 @@ class StudioController extends Controller
             'stock'             => fn () => $request->user()->can('stock.manage') && $request->get('tab') === 'stock'
                 ? \App\Support\StudioStock::forStudio($request->user()->can('stock.cutover')) : null,
             'stock_v2'          => \App\Support\StockMode::v2(),
+            // Studio → Staff (owner), built only for that screen.
+            'staff'             => fn () => $request->user()->can('staff.manage') && $request->get('tab') === 'staff' ? StaffController::forStudio() : null,
             'drops'             => Drop::with(['reservations' => fn ($q) => $q->latest()])
                                         ->withCount('paidReservations')->latest()->get(),
         ]);
@@ -153,6 +155,10 @@ class StudioController extends Controller
             return back()->with('success', 'Notes saved. The order stays cancelled.');
         }
 
+        // Handing an order over checks the customer's phone and takes any balance: that is the till's job (Phase E).
+        if ($validated['status'] === 'collected' && $order->fulfilment_status !== 'collected') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Mark it collected at the till, after checking the customer’s phone.']);
+        }
         if (array_key_exists('is_paid', $validated) && (bool) $validated['is_paid'] !== $order->isPaidUp()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['is_paid' => 'Payment is confirmed by the payment service and cannot be changed here.']);
         }

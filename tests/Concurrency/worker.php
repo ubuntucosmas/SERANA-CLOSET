@@ -12,6 +12,8 @@
  *   php tests/Concurrency/worker.php settle-ref <order id>:<M-Pesa code>
  *   php tests/Concurrency/worker.php refund <order id>:<amount>:<code>
  *   php tests/Concurrency/worker.php count <variant id>:<location id>:<counted>   (a stock take, Phase D1)
+ *   php tests/Concurrency/worker.php counter-sale <till id>:<seller id>:<product id>:<size>   (the till, Phase E)
+ *   php tests/Concurrency/worker.php late-entry <till id>:<seller id>:<approver id>:<product id>:<size>:<slip>   (a paper slip, Phase E)
  *
  * Adversaries (test-only: take locks in the wrong order on purpose, to force
  * a deadlock on the app's first attempt). Each first writes throwaway rows so
@@ -101,6 +103,24 @@ try {
         app(\App\Services\StockService::class)->count(\App\Models\ProductVariant::findOrFail($variantId), \App\Models\Location::findOrFail($locationId),
             $counted, \App\Support\Actor::user($owner), 'Race: stock take');
         echo json_encode(['status' => 200, 'counted' => $counted, 'rollbacks' => $rollbacks]);
+    } elseif ($action === 'counter-sale') {
+        [$tillId, $sellerId, $productId, $size] = explode(':', $arg);
+        $app->make(ConsoleKernel::class)->bootstrap();
+        try {
+            $order = app(\App\Services\CounterSaleService::class)->start(\App\Models\TillSession::findOrFail((int) $tillId), \App\Models\User::findOrFail((int) $sellerId),
+                [['id' => (int) $productId, 'quantity' => 1, 'options' => ['top_size' => $size]]]);
+            echo json_encode(['status' => 200, 'order' => $order->id, 'rollbacks' => $rollbacks]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            echo json_encode(['status' => 422, 'body' => ['message' => $e->getMessage()], 'rollbacks' => $rollbacks]);
+        }
+    } elseif ($action === 'late-entry') {
+        [$tillId, $sellerId, $approverId, $productId, $size, $slip] = explode(':', $arg);
+        $app->make(ConsoleKernel::class)->bootstrap();
+        $product = \App\Models\Product::findOrFail((int) $productId);
+        $order = app(\App\Services\ShopDeskService::class)->lateEntry(\App\Models\TillSession::findOrFail((int) $tillId), \App\Models\User::findOrFail((int) $sellerId),
+            \App\Models\User::findOrFail((int) $approverId), $slip, now()->subHour(), 'Race: outage',
+            [['id' => (int) $productId, 'quantity' => 1, 'options' => ['top_size' => $size]]], [['method' => 'cash', 'amount' => (int) $product->price]]);
+        echo json_encode(['status' => 200, 'order' => $order->id, 'rollbacks' => $rollbacks]);
     } elseif ($action === 'block-holds-then-product') {
         // Gap-lock all of stock_reservations (blocks any new hold), then want the product.
         $app->make(ConsoleKernel::class)->bootstrap();

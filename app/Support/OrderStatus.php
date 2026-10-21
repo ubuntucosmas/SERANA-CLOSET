@@ -25,8 +25,8 @@ final class OrderStatus
     public const CANCELLED       = 'Cancelled';
 
     /** Production lifecycle stages a custom order moves through in the studio. */
-    public const PRODUCTION_STAGES = ['pending', 'designing', 'sewing', 'completed', 'shipped'];
+    public const PRODUCTION_STAGES = ['pending', 'designing', 'sewing', 'completed', 'shipped', 'collected'];
 
     /** Production stages that mean the studio is no longer actively working the order. */
-    public const PRODUCTION_TERMINAL = ['completed', 'shipped'];
+    public const PRODUCTION_TERMINAL = ['completed', 'shipped', 'collected'];
 }

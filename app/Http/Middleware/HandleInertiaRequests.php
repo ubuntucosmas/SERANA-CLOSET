@@ -52,6 +52,8 @@ class HandleInertiaRequests extends Middleware
                 'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // A new staff member's one-time password, shown once to the owner who created it (Phase E-a).
+                'staff_password' => fn () => $request->session()->get('staff_password'),
             ],
             'drops_enabled' => (bool) config('services.drops.enabled'),
             // Who the store is and how to reach it (Studio → Settings), one source for every page.

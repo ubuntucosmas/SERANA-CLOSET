@@ -11,8 +11,9 @@
                     <h1 style="margin:14px 0 12px; font-size:24px; font-weight:300; color:#ffffff;">We have your payment. One item needs a decision.</h1>
                     <p style="font-size:14px; color:#c8c8cc; line-height:1.7; margin:0 0 14px;">
                         Hi {{ strtok((string) $order->full_name, ' ') ?: 'there' }}, we received {{ $money($paid) }} for order
-                        <span style="font-family:'Courier New', monospace; color:#ffffff;">{{ $order->cipher }}</span>. It arrived after the hold on your bag ended,
-                        and in the meantime {{ implode(', ', $items) }} sold out.
+                        <span style="font-family:'Courier New', monospace; color:#ffffff;">{{ $order->cipher }}</span>.
+                        @if($why) {{ implode(', ', $items) }}: {{ $why }}. @else It arrived after the hold on your bag ended,
+                        and in the meantime {{ implode(', ', $items) }} sold out. @endif
                     </p>
                     <p style="font-size:14px; color:#c8c8cc; line-height:1.7; margin:0 0 8px;">Your money is safe. We'll contact you to agree one of these:</p>
                     <ul style="font-size:14px; color:#c8c8cc; line-height:1.8; margin:0 0 14px; padding-left:20px;">

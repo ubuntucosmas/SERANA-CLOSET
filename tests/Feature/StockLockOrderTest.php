@@ -19,7 +19,7 @@ class StockLockOrderTest extends TestCase
         'stock_levels' => ['Services/StockService.php'],
         'stock_reservations' => ['Services/StockService.php', 'Models/CustomOrder.php'],
         // The old product-level model (retired with batch_limit, design §13.2).
-        'products' => ['Http/Controllers/CheckoutController.php', 'Models/CustomOrder.php', 'Services/OrderSettlementService.php'],
+        'products' => ['Services/StockService.php', 'Http/Controllers/CheckoutController.php', 'Models/CustomOrder.php', 'Services/OrderSettlementService.php'],
     ];
 
     public function test_stock_is_locked_only_where_the_lock_order_is_kept(): void
