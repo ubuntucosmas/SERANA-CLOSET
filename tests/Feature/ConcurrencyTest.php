@@ -48,6 +48,18 @@ class ConcurrencyTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_mariadb_sessions_keep_snapshot_isolation_on(): void
+    {
+        // MariaDB 11.6+ aborts a locking read whose row changed after the transaction's snapshot
+        // (error 1020, retried). The ledger reads after the order lock rely on it: with it off,
+        // two refunds or two late payments racing each read a stale ledger and both go through.
+        $this->assertSame(1, (int) DB::selectOne('SELECT @@SESSION.innodb_snapshot_isolation AS v')->v);
+        $this->assertTrue(\App\Support\DatabaseSafety::snapshotIsolationOn(), 'serana:preflight checks the same');
+        DB::statement('SET SESSION innodb_snapshot_isolation = OFF');
+        $this->assertFalse(\App\Support\DatabaseSafety::snapshotIsolationOn(), 'and fails the deploy when it is off');
+        DB::statement('SET SESSION innodb_snapshot_isolation = ON');
+    }
+
     public function test_two_checkouts_racing_for_the_last_unit_sell_it_once(): void
     {
         config(['serana.stock_v2' => 'off']); // the old product-level model (stock per size: the size races below)
@@ -229,6 +241,61 @@ class ConcurrencyTest extends TestCase
     }
 
     // ---- Stock per size (Phase D1, design §13.3): the size level is the unit of contention. ----
+
+    public function test_a_counter_sale_and_a_web_checkout_racing_for_the_last_m_sell_it_once(): void
+    {
+        // Phase E: the till and the website draw on the same shop's levels, under the same lock.
+        [$product, $M, , $shop] = $this->stockedSizes(1, 0);
+        $cashier = \App\Models\User::factory()->create(['role' => \App\Support\Role::CASHIER]);
+        $till = app(\App\Services\TillService::class)->open($shop, 'Till 1', 1000, $cashier);
+
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), [
+            ['counter-sale', "{$till->id}:{$cashier->id}:{$product->id}:M"],
+            ['checkout', $this->sizedPayload($product, 'M', 'Web Buyer')],
+        ]);
+
+        $this->assertSame([200, 422], collect($results)->pluck('status')->sort()->values()->all(), json_encode($results));
+        $this->assertSame(1, (int) StockReservation::where('product_variant_id', $M->id)->where('status', 'held')->sum('quantity'));
+        $this->assertSame(1, CustomOrder::count());
+        $this->assertSame(0, app(\App\Services\StockService::class)->availableOnline($M));
+    }
+
+    public function test_a_paper_slip_and_the_online_payment_for_the_last_m_both_stand_and_the_online_order_needs_a_decision(): void
+    {
+        $this->slipAndPaymentRace(slipFirst: false);
+    }
+
+    public function test_a_paper_slip_queued_before_the_online_payment_for_the_last_m_ends_the_same_way(): void
+    {
+        $this->slipAndPaymentRace(slipFirst: true);
+    }
+
+    private function slipAndPaymentRace(bool $slipFirst): void
+    {
+        // Phase E-g: the last M left the shop on a paper slip while its online buyer was paying.
+        // Whichever lands first, the slip is recorded, stock never goes below zero, and the paid
+        // online order waits for the owner's decision (Phase C: refund, swap or wait).
+        [$product, $M, , $shop] = $this->stockedSizes(1, 0);
+        $cashier = \App\Models\User::factory()->create(['role' => \App\Support\Role::CASHIER]);
+        $manager = \App\Models\User::factory()->create(['role' => \App\Support\Role::MANAGER]);
+        $till = app(\App\Services\TillService::class)->open($shop, 'Till 1', 1000, $cashier);
+        $online = CustomOrder::create(['full_name' => 'Online Buyer', 'phone' => '254712345678', 'whatsapp_number' => '254712345678', 'type' => 'standard',
+            'status' => OrderStatus::PENDING_PAYMENT, 'price_quoted' => 2500,
+            'items_json' => [['id' => $product->id, 'name' => $product->name, 'price' => 2500, 'quantity' => 1, 'options' => ['top_size' => 'M']]]]);
+        $online->stockReservations()->create(['product_id' => $product->id, 'product_variant_id' => $M->id, 'location_id' => $shop->id,
+            'quantity' => 1, 'status' => 'held', 'expires_at' => now()->addMinutes(10)]);
+
+        $jobs = [['settle', (string) $online->id], ['late-entry', "{$till->id}:{$cashier->id}:{$manager->id}:{$product->id}:M:B-RACE"]];
+        $results = $this->whileHolding(fn () => \App\Models\StockLevel::whereKey($this->levelOf($M)->id)->lockForUpdate()->first(), $slipFirst ? array_reverse($jobs) : $jobs);
+
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $slip = CustomOrder::where('slip_number', 'B-RACE')->sole();
+        $this->assertSame(['paid', 'collected'], [$slip->payment_status, $slip->fulfilment_status]);
+        $fresh = $online->fresh();
+        $this->assertSame([2500, 'needs_resolution', 'stock_gone'], [(int) $fresh->amount_paid, $fresh->resolution, $fresh->resolution_code], json_encode($results));
+        $this->assertSame(0, (int) $this->levelOf($M)->fresh()->on_hand, 'never below zero');
+        $this->assertSame(0, app(\App\Services\StockService::class)->availableOnline($M));
+    }
 
     private function stockedSizes(int $m, int $l): array
     {

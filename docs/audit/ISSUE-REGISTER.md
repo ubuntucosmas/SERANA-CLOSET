@@ -89,6 +89,7 @@ No P0 was found. Each reference below (SC-001 and so on) is stable for later wor
 | SC-049 | FIXED | Removed `LoginModal`, `AuthenticatedLayout` and the 4 components only it used (`Dropdown`, `DropdownLink`, `NavLink`, `ResponsiveNavLink`), the `/my-vault/invite` route and method, `laravel/sanctum`, and `@tailwindcss/container-queries`. The `invitation_code` column stays (no destructive migration). |
 | SC-050 | FIXED | `.env.example` now includes `APP_DISPLAY_TIMEZONE`, `WHATSAPP_NUMBER`, `DROPS_ENABLED`, the queue/cron note and the upload limits. |
 | SC-051–054 | BUSINESS | These need the owner's content and decisions. They can't be written in code. SC-054 is unblocked by SC-009's Record payment. |
+| SC-055 | OPEN (P1, guarded) | Found 2026-10-21 while testing Phase E races. The ledger is read with plain reads after the order lock. Safety comes from MariaDB 11.6+ `innodb_snapshot_isolation=ON` aborting a stale locking read (1020, retried). With it off, `ConcurrencyTest` shows two refunds, two late payments and the callback/reconciler pair all going through. **Guard:** `serana:preflight` now blocks a deploy when the setting isn't on, and a test pins it on. **Fix:** make the ledger and hold reads under the lock locking reads, so the setting stops mattering. Until then, production must run MariaDB ≥ 11.6. |
 
 **New findings during fixing:**
 - `composer` reports 33 security advisories across 8 packages. Run `composer audit` and update before launch.

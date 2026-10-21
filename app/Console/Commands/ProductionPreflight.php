@@ -48,6 +48,10 @@ class ProductionPreflight extends Command
         $this->section('Database');
         $pending = $this->pendingMigrations();
         $this->check($pending === [], 'All migrations have run', 'Back up, then run php artisan migrate --force. Pending: ' . implode(', ', $pending));
+        if (($snapshot = \App\Support\DatabaseSafety::snapshotIsolationOn()) !== null) {
+            $this->check($snapshot, 'Database aborts stale locking reads (MariaDB 11.6+, innodb_snapshot_isolation=ON)',
+                'Run MariaDB 11.6 or newer with innodb_snapshot_isolation=ON (the default). Without it, two refunds or payments racing can both go through (SC-055).');
+        }
         $defaults = User::whereIn('role', \App\Support\Role::STAFF)->get()->filter(fn ($u) => Hash::check('password', $u->password))->pluck('email');
         $this->check(User::where('role', \App\Support\Role::OWNER)->exists(), 'A Studio owner exists', 'Create one: php artisan serana:admin you@yourdomain --name="Your Name"');
         // The money gate for the batch-2 cutover: ledger reads only on a ledger that matches.
