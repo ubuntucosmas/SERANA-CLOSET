@@ -1,0 +1,107 @@
+[
+  {
+    "name": "online checkout for collection",
+    "ok": true,
+    "detail": "{\"success\":true,\"message\":\"Order created. Proceed to payment\",\"order_id\":4285,\"reference\":\"SRN-CC0FBF3F-2026\",\"amount\":6"
+  },
+  {
+    "name": "online order part paid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a cashier signs in straight to the till",
+    "ok": true,
+    "detail": "https://serana-closet.ddev.site/pos"
+  },
+  {
+    "name": "a wrong PIN is refused",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the drawer is open",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the sale totals 15,500",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "change of 500 shown",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "sale 1 paid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "receipt shows the cash and change",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a scanned barcode adds its size",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "split tender paid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the wrong phone finds nothing",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "online order collected and paid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "return refunded 6,500 in cash",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "bespoke deposit is half the quote",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "drawer = before + 15,500 + 2,500 + 3,500 + 6,000 − 6,500 − 300",
+    "ok": true,
+    "detail": "25700"
+  },
+  {
+    "name": "closed balanced",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "locks on demand",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "no horizontal scroll at 390px",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "ledger check: 0 mismatches",
+    "ok": true,
+    "detail": "Ledger check passed: 188 order(s), 0 mismatch(es)."
+  },
+  {
+    "name": "stock reconciliation passed",
+    "ok": true,
+    "detail": "Stock reconciliation passed."
+  }
+]
