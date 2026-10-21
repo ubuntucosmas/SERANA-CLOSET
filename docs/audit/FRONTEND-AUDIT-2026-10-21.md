@@ -55,7 +55,7 @@ The till and the Studio cover the main paths. They are **not complete**: there a
 ## Status (2026-10-21)
 
 - **Done, tested and walked through in the browser:** items 1–5 and 7–14. See `verification/frontend-align/`.
-- **Still to do:** item 6, collection at checkout. That is D2.
+- **Item 6 (collection at checkout):** done in D2 on `phase-d2/handover`. Codex added pickup, and D2 adds delivery options and prices, `ready_for_pickup` and its email. See `verification/phase-d2/`.
 
 ## Order of work
 

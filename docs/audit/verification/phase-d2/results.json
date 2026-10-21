@@ -1,0 +1,92 @@
+[
+  {
+    "name": "owner adds a delivery zone",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "shop address saved",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout offers the zone with its fee, pickup free, and a quote",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the summary adds the delivery before payment",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "pickup hides the address and shows where",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a quote sends the order on WhatsApp",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a zone order totals 6,800 with its delivery line",
+    "ok": true,
+    "detail": "{\"success\":true,\"message\":\"Order created. Proceed to payment\",\"order_id\":4321,\"reference\":\"SRN-C0B36"
+  },
+  {
+    "name": "the zone order is paid in full",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a pickup order costs nothing extra and is paid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a quote order is a WhatsApp order with no price for delivery yet",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the Studio says the quote must be priced before payment",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "pricing the quote puts it in the total",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "a pickup order offers Ready for pickup, not Shipped",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the pickup order is ready for pickup",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the customer gets the ready-for-pickup email",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "collected at the till",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "ledger check: 0 mismatches",
+    "ok": true,
+    "detail": "Ledger check passed: 223 order(s), 0 mismatch(es)."
+  },
+  {
+    "name": "stock reconciliation passed",
+    "ok": true,
+    "detail": ""
+  }
+]
