@@ -27,6 +27,8 @@ const metrics = computed(() => [
     { label: 'Email subscribers', value: props.stats.subscribers_total ?? 0, period: 'Current subscriber list', tab: 'subscribers' },
 ]);
 const paymentCases = computed(() => props.attention.payments || []);
+// Scheduler, email queue, failed jobs, unresolved prompts: only present when something is wrong.
+const systemWarnings = computed(() => props.attention.system || []);
 const stock = computed(() => props.attention.low_stock || []);
 const focus = computed(() => {
     if (paymentCases.value.length) {
@@ -71,6 +73,21 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
             <p class="text-xs text-slate-400" aria-live="polite">{{ updated }} · Amounts in KES</p>
             <button type="button" @click="emit('refresh')" class="table-action">Refresh overview</button>
         </div>
+
+        <section v-if="systemWarnings.length" aria-labelledby="overview-system-title" role="alert" class="overview-panel ring-1 ring-amber-400/40">
+            <span class="stage-badge stage-waiting mb-2">System</span>
+            <h2 id="overview-system-title" class="text-base font-semibold text-white">Something in the background needs attention</h2>
+            <ul class="mt-3 space-y-3">
+                <li v-for="warning in systemWarnings" :key="warning.key" class="text-sm">
+                    <p class="font-semibold text-white">{{ warning.title }}</p>
+                    <p class="text-slate-300">{{ warning.detail }}</p>
+                    <p class="text-amber-400">{{ warning.action }}</p>
+                    <div v-if="warning.orders?.length" class="mt-2 flex flex-wrap gap-2">
+                        <button v-for="o in warning.orders" :key="o.id" type="button" @click="emit('openOrder', o.id)" class="table-action" :aria-label="`Open order ${o.reference}`">{{ o.reference }}</button>
+                    </div>
+                </li>
+            </ul>
+        </section>
 
         <section aria-labelledby="overview-focus-title" class="overview-panel flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="min-w-0"><span class="stage-badge mb-2" :class="focus.tone">Next decision</span><h2 id="overview-focus-title" class="text-base font-semibold text-white">{{ focus.title }}</h2><p class="mt-1 text-sm text-slate-300 max-w-3xl">{{ focus.detail }}</p></div>

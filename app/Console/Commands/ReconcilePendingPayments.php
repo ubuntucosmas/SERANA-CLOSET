@@ -35,6 +35,8 @@ class ReconcilePendingPayments extends Command
         $spacing = max(0, (int) config('services.mpesa.query_spacing_seconds', 13));
         $batch   = max(1, (int) config('services.mpesa.reconcile_batch', 4));
 
+        $this->closeUnconfirmedPrompts($settlement);
+
         $targets = $this->targets()->take($batch);
 
         $resolved = 0;
@@ -107,6 +109,8 @@ class ReconcilePendingPayments extends Command
         // about too: money on it is a second payment, owed back.
         $attempts = PaymentAttempt::with('order')
             ->pending()
+            // A placeholder has no id Safaricom knows; its callback claims it (closeUnconfirmedPrompts).
+            ->where('checkout_request_id', 'not like', PaymentAttempt::UNCONFIRMED_PREFIX . '%')
             ->where('created_at', '<=', now()->subMinutes(2))
             ->where('created_at', '>=', now()->subDay())
             ->orderByDesc('created_at')
@@ -136,6 +140,26 @@ class ReconcilePendingPayments extends Command
             ]);
 
         return $attempts->concat($legacy)->values();
+    }
+
+    /**
+     * A prompt whose request timed out and whose callback never claimed it in
+     * UNCONFIRMED_MINUTES was, as far as anyone can tell, never paid: close it,
+     * so the order can be paid again or expire. A prompt expires on the phone
+     * in about a minute, so a payment this late would be extraordinary; the
+     * Studio still lists any M-Pesa payment that matches no order.
+     */
+    private function closeUnconfirmedPrompts(OrderSettlementService $settlement): void
+    {
+        PaymentAttempt::with('order')->pending()->where('checkout_request_id', 'like', PaymentAttempt::UNCONFIRMED_PREFIX . '%')
+            ->where('created_at', '<', now()->subMinutes(PaymentAttempt::UNCONFIRMED_MINUTES))->get()
+            ->each(function (PaymentAttempt $attempt) use ($settlement) {
+                $attempt->markFailed(null, 'Safaricom never confirmed this prompt was sent, and no payment for it arrived.');
+                $order = $attempt->order;
+                if ($order && $order->isCommerce() && ! $order->hasLivePaymentAttempts()) {
+                    $settlement->markUnpaid($order, OrderStatus::PAYMENT_FAILED);
+                }
+            });
     }
 
     /**

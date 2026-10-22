@@ -63,8 +63,11 @@ class DepositPaymentTest extends TestCase
     {
         $order = $this->bespoke(10000);
 
+        // Each push comes after the last prompt's answer window: an unanswered prompt blocks a second one.
         $this->push($order, 'deposit')->assertOk();
+        $this->travel(3)->minutes();
         $this->push($order, 'balance')->assertOk();
+        $this->travel(3)->minutes();
         $this->push($order, null)->assertOk(); // no choice: the balance
 
         $this->assertSame([5000, 10000, 10000], $this->pushedAmounts(), 'never the client\'s amount of 1');
@@ -78,6 +81,7 @@ class DepositPaymentTest extends TestCase
 
         $this->push($order, 'deposit')->assertOk();
         $this->record($order, 4000); // deposit now fully paid
+        $this->travel(3)->minutes(); // past the first prompt's answer window
         $this->push($order->fresh(), 'deposit')->assertOk();
 
         $this->assertSame([4000, 5000], $this->pushedAmounts(), 'after the deposit, "deposit" means the balance');

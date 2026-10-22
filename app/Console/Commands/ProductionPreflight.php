@@ -93,6 +93,8 @@ class ProductionPreflight extends Command
             $this->check(false, 'M-Pesa credentials', 'Not configured, so checkout offers WhatsApp only. Add the live Daraja keys when the till is approved.', blocker: false);
         }
         $this->check(filled(StoreProfile::whatsapp()), 'Store WhatsApp number is set', 'Studio → Settings → Store details: WhatsApp number.');
+        $this->check(\App\Models\DeliveryOption::available()->get()->contains(fn ($o) => $o->type !== \App\Models\DeliveryOption::QUOTE || PaymentSettings::whatsappAvailable()),
+            'Customers can choose delivery or collection', 'Studio → Settings → Delivery and collection: switch on at least one option (a pickup shop needs an address).');
         $this->check(! in_array(PaymentSettings::WHATSAPP, $methods, true) || filled(PaymentSettings::rawInstructions()),
             'WhatsApp customers are told how to pay', 'Studio → Settings → Payments: fill in "How customers pay you".', blocker: false);
 

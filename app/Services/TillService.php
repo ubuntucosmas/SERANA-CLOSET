@@ -79,6 +79,13 @@ class TillService
             }
             $expected = $this->expectedCash($locked);
             $variance = $counted - $expected;
+            // Re-checked under the lock: a sale or payout recorded while the drawer was counted can
+            // turn a small difference into one that needs a reason and a manager.
+            if ($this->needsAcknowledgement($variance) && ($approver === null || trim((string) $varianceReason) === '')) {
+                throw ValidationException::withMessages(['counted' => 'The drawer should now hold KSh ' . number_format($expected)
+                    . ' (cash was recorded while you counted), so it is KSh ' . number_format(abs($variance)) . ($variance < 0 ? ' short' : ' over')
+                    . '. Count again, or give a reason and a manager’s PIN. The register is still open.']);
+            }
             $locked->update(['status' => 'closed', 'open_marker' => null, 'closed_by' => $by->id, 'closed_at' => now(),
                 'expected_cash' => $expected, 'counted_cash' => $counted, 'variance' => $variance,
                 'variance_reason' => $varianceReason, 'acknowledged_by' => $approver?->id]);

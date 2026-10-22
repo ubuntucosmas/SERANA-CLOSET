@@ -40,8 +40,20 @@ async function pay(choice) {
         message.value = 'Check your phone and enter your M-Pesa PIN.';
         poll(data.CheckoutRequestID);
     } catch (err) {
-        state.value = 'failed';
-        message.value = err.response?.data?.message || err.response?.data?.errors?.phone?.[0] || 'M-Pesa could not send the prompt. Try again in a minute.';
+        if (err.response?.status === 409 && err.response.data?.code === 'prompt_pending') {
+            // A prompt is already on the phone: wait for it, never send a second.
+            state.value = 'waiting';
+            message.value = err.response.data.message;
+            poll(err.response.data.CheckoutRequestID);
+        } else if (!err.response || err.response.status >= 500) {
+            // The prompt may have been sent even though the answer was lost: watch the order, don't invite a second payment.
+            state.value = 'waiting';
+            message.value = 'We couldn’t confirm whether M-Pesa sent the prompt. If one arrives on your phone, approve it. Please don’t pay again until this page updates.';
+            poll(null);
+        } else {
+            state.value = 'failed';
+            message.value = err.response?.data?.message || err.response?.data?.errors?.phone?.[0] || 'M-Pesa could not send the prompt. Nothing was charged. Try again in a minute.';
+        }
     }
 }
 
@@ -52,7 +64,8 @@ function poll(attempt) {
         tries++;
         try {
             const { data } = await axios.get(route('mpesa.status', props.order.id), { params: { attempt } });
-            if (data.attempt_status === 'paid') {
+            // Without a prompt id (the answer was lost), a smaller balance means the payment arrived.
+            if (data.attempt_status === 'paid' || (!attempt && Number(data.balance_due) < Number(props.order.balance_due))) {
                 clearInterval(timer);
                 state.value = 'paid';
                 message.value = 'Payment received. Your receipt is on its way by email.';
@@ -65,7 +78,8 @@ function poll(attempt) {
         } catch { /* keep waiting */ }
         if (tries >= 30 && state.value === 'waiting') {
             clearInterval(timer);
-            message.value = 'Still waiting for M-Pesa. If you paid, it will show here shortly; your receipt will be emailed.';
+            state.value = 'idle';
+            message.value = 'Still waiting for M-Pesa. If you paid, it will show here shortly and your receipt will be emailed. Only pay again if M-Pesa told you the payment failed.';
         }
     }, 4000);
 }

@@ -41,6 +41,48 @@ class PaymentAttempt extends Model
         return $query->where('status', self::PENDING);
     }
 
+    /**
+     * A prompt Safaricom may have sent although our request timed out: we never
+     * got its CheckoutRequestID, so it waits under a placeholder until its
+     * callback arrives (matched by phone and amount) or it lapses.
+     */
+    public const UNCONFIRMED_PREFIX = 'unconfirmed-';
+
+    /** Minutes a placeholder waits for its callback before it counts as never sent. */
+    public const UNCONFIRMED_MINUTES = 30;
+
+    public static function recordUnconfirmed(CustomOrder $order, string $phone, int $amount): self
+    {
+        return $order->paymentAttempts()->create([
+            'checkout_request_id' => self::UNCONFIRMED_PREFIX . \Illuminate\Support\Str::uuid(),
+            'phone' => $phone, 'amount' => $amount, 'status' => self::PENDING,
+            'result_desc' => 'Safaricom did not answer in time: the prompt may or may not have been sent.',
+        ]);
+    }
+
+    /**
+     * A successful callback whose CheckoutRequestID we never stored: the
+     * placeholder for the same phone and amount takes the real id, so the
+     * payment settles its order like any other.
+     */
+    public static function adoptUnconfirmed(string $checkoutRequestId, ?string $phone, mixed $amount): ?self
+    {
+        if (! $phone || ! is_numeric($amount)) {
+            return null;
+        }
+        $attempt = self::pending()->where('checkout_request_id', 'like', self::UNCONFIRMED_PREFIX . '%')
+            ->where('phone', \App\Support\Phone::normalize((string) $phone))->where('amount', (int) round((float) $amount))
+            ->where('created_at', '>=', now()->subMinutes(self::UNCONFIRMED_MINUTES))->oldest('id')->first();
+        $attempt?->update(['checkout_request_id' => $checkoutRequestId, 'result_desc' => null]);
+
+        return $attempt;
+    }
+
+    public function isUnconfirmed(): bool
+    {
+        return str_starts_with((string) $this->checkout_request_id, self::UNCONFIRMED_PREFIX);
+    }
+
     public function markPaid(?string $receiptNumber = null): void
     {
         $this->update([

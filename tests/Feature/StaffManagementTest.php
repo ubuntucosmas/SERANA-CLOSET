@@ -171,7 +171,7 @@ class StaffManagementTest extends TestCase
         $this->actingAs($this->owner)->put(route('studio.staff.pin', $cashier), ['pin' => '4821', 'reason' => 'Till access'])->assertSessionHasNoErrors();
         $this->assertTrue(Hash::check('4821', $cashier->fresh()->pos_pin));
         $this->actingAs($this->owner)->put(route('studio.staff.pin', $other), ['pin' => '4821', 'reason' => 'x'])
-            ->assertSessionHasErrors(['pin' => 'Another staff member already uses that PIN.']);
+            ->assertSessionHasErrors(['pin' => 'Another staff account (active or suspended) already uses that PIN. Choose a different one.']);
         $log = AuditLog::where('action', 'staff.pin_set')->sole();
         $this->assertStringNotContainsString('4821', json_encode($log));
     }

@@ -80,6 +80,18 @@ class MpesaController extends Controller
                 return response()->json(['success' => false, 'message' => 'This order is already paid.'], 409);
             }
 
+            // One unanswered prompt at a time: a second one could be approved too, and
+            // the customer would pay twice. The page keeps waiting on the first instead.
+            if ($prompt = $order->unansweredPrompt()) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'prompt_pending',
+                    'CheckoutRequestID' => $prompt->checkout_request_id,
+                    'message' => 'A payment prompt was sent to the number ending ' . substr((string) $prompt->phone, -3)
+                        . ' moments ago and has not been answered yet. Approve it on that phone, or wait a minute while we check with M-Pesa, before asking for another.',
+                ], 409);
+            }
+
             // An expired order's stock hold is long gone — never collect money
             // for it. The customer rebuilds their bag and checks out afresh.
             if ($order->isExpired()) {
@@ -165,6 +177,22 @@ class MpesaController extends Controller
                 ]);
             }
 
+            // Timed out after reaching Safaricom: the prompt may be on the phone. Never say "not
+            // charged, try again": keep a placeholder its callback can claim, and wait on it.
+            if ($result['uncertain'] ?? false) {
+                PaymentAttempt::recordUnconfirmed($order, $phone, $amount);
+                if ($order->isCommerce()) {
+                    CustomOrder::whereKey($order->id)->paidUp(false)->update(\App\Support\LegacyOrderMap::forStatus(OrderStatus::PENDING_PAYMENT));
+                }
+                Log::warning("M-Pesa STK for Order #{$order->id}: no answer from Safaricom; the prompt may have been sent.");
+
+                return response()->json([
+                    'success' => false,
+                    'code' => 'prompt_uncertain',
+                    'message' => 'We couldn’t confirm whether M-Pesa sent the prompt. If one arrives on your phone, you can approve it. Please don’t pay again until this page updates.',
+                ], 503);
+            }
+
             // The service's reason ("Failed to authenticate", "STK Push initiation
             // failed") is for the studio, not the customer. Nothing was charged.
             Log::warning("M-Pesa STK not started for Order #{$order->id}: " . ($result['message'] ?? 'unknown'), ['details' => $result['details'] ?? null]);
@@ -208,14 +236,28 @@ class MpesaController extends Controller
         $checkoutRequestID = $stkCallback['CheckoutRequestID'];
         Log::info('M-Pesa callback received.', ['checkout_id' => $checkoutRequestID, 'result_code' => $resultCode]);
 
+        $metadata = collect($stkCallback['CallbackMetadata']['Item'] ?? [])->filter(fn ($i) => is_array($i) && isset($i['Name']))
+            ->mapWithKeys(fn ($i) => [$i['Name'] => $i['Value'] ?? null]);
+
         // Match the specific attempt; fall back to the order's latest checkout id
         // for orders created before per-attempt tracking existed.
-        $attempt = PaymentAttempt::where('checkout_request_id', $checkoutRequestID)->first();
+        $attempt = PaymentAttempt::where('checkout_request_id', $checkoutRequestID)->first()
+            // A prompt whose request timed out on our side: claimed by phone and amount.
+            ?? ($resultCode == 0 ? PaymentAttempt::adoptUnconfirmed($checkoutRequestID, $metadata->get('PhoneNumber') !== null ? (string) $metadata->get('PhoneNumber') : null, $metadata->get('Amount')) : null);
         $order = $attempt?->order
             ?? CustomOrder::withTrashed()->where('mpesa_checkout_id', $checkoutRequestID)->first();
 
         if (!$order) {
             Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");
+            // Money taken that matches no order must never go unseen: the Studio home lists it.
+            if ($resultCode == 0) {
+                \App\Support\Audit::record('payment.unmatched', null, [], [
+                    'checkout_request_id' => mb_substr((string) $checkoutRequestID, 0, 100),
+                    'amount' => is_numeric($metadata->get('Amount')) ? (int) round((float) $metadata->get('Amount')) : null,
+                    'receipt' => mb_substr((string) $metadata->get('MpesaReceiptNumber'), 0, 30) ?: null,
+                    'phone_ending' => substr((string) $metadata->get('PhoneNumber'), -3) ?: null,
+                ], null, \App\Support\Actor::safaricom());
+            }
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Order Not Found']);
         }
 

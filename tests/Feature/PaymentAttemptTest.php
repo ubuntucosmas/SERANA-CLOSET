@@ -89,6 +89,8 @@ class PaymentAttemptTest extends TestCase
             $this->withSession(['serana.order_ids' => [$order->id]])
                 ->postJson(route('mpesa.stk'), ['order_id' => $order->id, 'phone' => '0712345678'])
                 ->assertOk();
+            // The customer retries once the first prompt has gone unanswered past its window.
+            $this->travel(3)->minutes();
         }
 
         $this->assertSame('ws_CO_SECOND', $order->fresh()->mpesa_checkout_id);

@@ -761,6 +761,7 @@ function removeAsset(key) {
                     <label class="block">
                         <span class="block text-sm text-slate-300 mb-2" id="order-production-stage-label">Production stage</span>
                         <p v-if="selectedOrder.order_state === 'cancelled'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Cancelled at: <span class="capitalize">{{ selectedOrder.fulfilment_status }}</span></p>
+                        <p v-else-if="selectedOrder.fulfilment_status === 'collected'" class="rounded-xl bg-slate-950/60 px-4 py-3 text-white">Collected at the Sales Desk. A handover is final; returns go through the Sales Desk.</p>
                         <select v-else aria-labelledby="order-production-stage-label" :disabled="['standard', 'drop'].includes(selectedOrder.type) && !selectedOrder.is_paid" v-model="orderForm.status" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white capitalize focus:ring-1 focus:ring-[#57d5fc] outline-none">
                             <option v-for="s in stagesFor(selectedOrder)" :key="s" :value="s">{{ stageLabels[s] }}</option>
                             <option v-if="!productionStages.includes(orderForm.status)" :value="orderForm.status">{{ orderForm.status }}</option>

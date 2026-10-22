@@ -111,8 +111,27 @@ class MpesaService
 
         } catch (\Exception $e) {
             Log::error("Mpesa STK Push Exception: " . $e->getMessage());
-            return ['success' => false, 'message' => 'An unexpected error occurred.'];
+            // Connected, then no answer in time: Safaricom may have sent the prompt anyway,
+            // so the caller must not tell the customer "not charged, try again".
+            return ['success' => false, 'message' => 'An unexpected error occurred.', 'uncertain' => self::mayHaveBeenSent($e)];
         }
+    }
+
+    /**
+     * Did this failure happen after the request could have reached Safaricom?
+     * Only a failure to connect at all (DNS, refused, connect timeout) proves
+     * no prompt was sent.
+     */
+    public static function mayHaveBeenSent(\Throwable $e): bool
+    {
+        $message = $e->getMessage();
+        foreach (['cURL error 6:', 'cURL error 7:', 'Could not resolve host', 'Failed to connect', 'Connection refused', 'Connection timed out', 'Resolving timed out'] as $neverSent) {
+            if (str_contains($message, $neverSent)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

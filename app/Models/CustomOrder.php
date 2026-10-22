@@ -320,6 +320,18 @@ class CustomOrder extends Model
      * paid)? While one is, a *different* attempt failing must not fail the
      * order — the customer may have paid the other prompt.
      */
+    /**
+     * A prompt for this order sent moments ago and not yet answered. While one
+     * exists, no other payment is started: the customer may still approve it,
+     * and a second prompt or a cash tender would take the money twice.
+     */
+    public function unansweredPrompt(): ?PaymentAttempt
+    {
+        return $this->paymentAttempts()->where('status', PaymentAttempt::PENDING)
+            ->where('created_at', '>=', now()->subSeconds((int) config('services.mpesa.prompt_window_seconds', 150)))
+            ->latest('id')->first();
+    }
+
     public function hasLivePaymentAttempts(): bool
     {
         return $this->paymentAttempts()

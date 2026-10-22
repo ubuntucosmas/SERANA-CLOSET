@@ -106,6 +106,8 @@ class StudioController extends Controller
         // Phase C: every payment problem, oldest first, with the count for the dashboard.
         $attention['payments'] = $this->paymentAttention();
         $attention['payments_count'] = count($attention['payments']);
+        // The background machinery staff depend on (payment checks, emails), only when something is wrong.
+        $attention['system'] = \App\Support\SystemHealth::warnings();
 
         return Inertia::render('Admin/StudioDashboard', [
             'stats'      => $stats,
@@ -179,6 +181,10 @@ class StudioController extends Controller
             return back()->with('success', 'Notes saved. The order stays cancelled.');
         }
 
+        // A handover is final: moving it back would let the same order be collected again.
+        if ($order->fulfilment_status === 'collected' && $validated['status'] !== 'collected') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'This order was handed over at the Sales Desk, so its stage stays Collected. Add a note instead; a return goes through the Sales Desk.']);
+        }
         // Handing an order over checks the customer's phone and takes any balance: that is the till's job (Phase E).
         if ($validated['status'] === 'collected' && $order->fulfilment_status !== 'collected') {
             throw \Illuminate\Validation\ValidationException::withMessages(['status' => 'Mark it collected at the till, after checking the customer’s phone.']);

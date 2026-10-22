@@ -278,6 +278,7 @@ async function handlePayment() {
             orderAmount.value = response.data.amount;
             handover.value = response.data.handover || null;
             frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
+            notePriceChanges(frozenItems.value);
             if (response.data.payment_method === 'whatsapp') {
                 finishWhatsApp(response.data);
                 return;
@@ -324,6 +325,11 @@ async function initiateMpesaStk(data) {
             stkSent.value = true;
             startPolling();
             pulse.emit('We could not confirm whether the request reached M-Pesa. Check this order before trying another payment.', 'error');
+        } else if (err.response?.status === 409 && err.response.data?.code === 'prompt_pending') {
+            // A prompt is already on the customer's phone: wait for that one, never send a second.
+            stkSent.value = true;
+            startPolling();
+            pulse.emit(err.response.data.message, 'info');
         } else if (err.response?.status === 409 && err.response.data?.code === 'mpesa_paused') {
             // Switched off in the Studio while this customer was paying: offer WhatsApp for the same order.
             mpesaPaused.value = true;
@@ -338,6 +344,41 @@ async function initiateMpesaStk(data) {
 function closePaymentModal() {
     isWaitingForStk.value = false;
     isSuccess.value = false;
+    paymentPending.value = false;
+}
+
+// "Still confirming": ask the server now instead of leaving the customer to guess.
+const checkingNow = ref(false);
+async function checkPaymentNow() {
+    if (checkingNow.value || !orderId.value) return;
+    checkingNow.value = true;
+    try {
+        const { data } = await axios.get(route('mpesa.status', orderId.value));
+        const outcome = applyStatus(data);
+        if (outcome === 'pending') {
+            pulse.emit('M-Pesa has not confirmed this payment yet. Please don’t pay again: we’ll email your receipt as soon as it clears.', 'info');
+        } else if (outcome !== 'paid') {
+            paymentPending.value = false;
+            isWaitingForStk.value = false;
+        }
+    } catch {
+        pulse.emit('We couldn’t check right now. Your order is saved; try again in a moment.', 'error');
+    } finally {
+        checkingNow.value = false;
+    }
+}
+
+// Prices are confirmed by the server when the order is placed: say so if any changed since the bag was filled.
+const priceNotice = ref('');
+function notePriceChanges(serverItems) {
+    const changed = (serverItems || []).filter(item => item?.id).map(item => {
+        const line = cart.items.find(l => l.id === item.id && JSON.stringify(l.options ?? null) === JSON.stringify(item.options ?? null));
+        return line && Number(line.price) !== Number(item.price) ? { line, item } : null;
+    }).filter(Boolean);
+    changed.forEach(({ line, item }) => { line.price = Number(item.price); });
+    priceNotice.value = changed.length
+        ? `${changed.map(({ item }) => `${item.name} is now ${formatAmount(item.price)}`).join('; ')}. The price changed since it went in your bag, so your total is ${formatAmount(orderAmount.value)}.`
+        : '';
 }
 
 // Lock background scroll while the payment modal is open.
@@ -510,7 +551,11 @@ onUnmounted(() => {
                                 <fieldset :disabled="!!orderId || isProcessing" class="space-y-3" aria-describedby="checkout-delivery-help">
                                     <legend class="text-sm font-semibold">How will you receive your order?</legend>
                                     <p id="checkout-delivery-help" class="text-xs text-on-surface-variant">The price shows before you pay. Tracking and your receipt show the same choice.</p>
-                                    <div id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
+                                    <p v-if="!delivery_options.length" role="alert" class="border border-outline-variant p-4 text-sm text-on-surface">
+                                        Online orders are paused: there is no delivery or collection option right now. Nothing has been charged.
+                                        <a v-if="page.props.store?.whatsapp_url" :href="page.props.store.whatsapp_url" target="_blank" rel="noopener" class="underline text-primary">Message us on WhatsApp</a> to order these pieces.
+                                    </p>
+                                    <div v-else id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
                                         <label v-for="o in delivery_options" :key="o.id" class="flex items-start gap-3 border p-3 cursor-pointer"
                                             :class="Number(form.delivery_option_id) === o.id ? 'border-primary bg-primary/5' : 'border-current/15'">
                                             <input v-model="form.delivery_option_id" type="radio" :value="o.id" class="mt-1" />
@@ -621,7 +666,7 @@ onUnmounted(() => {
                             <button
                                 v-else
                                 @click="handlePayment"
-                                :disabled="isProcessing || switching"
+                                :disabled="isProcessing || switching || (!orderId && !delivery_options.length)"
                                 class="w-full py-4 text-base"
                                 :class="isWhatsApp ? 'wa-action' : 'action-primary'">
                                 <template v-if="!isProcessing && !switching">
@@ -695,6 +740,10 @@ onUnmounted(() => {
                                     <span class="font-mono font-bold tracking-wider text-[#191c1b] dark:text-white">{{ orderReference }}</span>
                                 </div>
                                 <div class="flex flex-col sm:flex-row gap-3">
+                                    <button type="button" @click="checkPaymentNow" :disabled="checkingNow"
+                                        class="flex-1 border border-outline-variant font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest text-[#191c1b] dark:text-white disabled:opacity-50">
+                                        {{ checkingNow ? 'Checking…' : 'Check payment status' }}
+                                    </button>
                                     <Link
                                         :href="orderReference ? route('track', { ref: orderReference }) : route('track')"
                                         class="flex-1 bg-primary text-background font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest hover:bg-on-surface transition-all"
@@ -716,15 +765,17 @@ onUnmounted(() => {
                                 </button>
                                 <button type="button" @click="closePaymentModal(); mpesaPaused = false" class="block mx-auto mt-5 text-sm underline">Back to checkout</button>
                             </section>
-                            <MpesaStkPanel
-                                v-else-if="!isPaid"
-                                :amount="orderAmount ?? estimatedTotal"
-                                :reference="orderReference"
-                                :phone="form.phone"
-                                :status="stkPanelStatus"
-                                @pay="initiateMpesaStk"
-                                @cancel="closePaymentModal"
-                            />
+                            <div v-else-if="!isPaid">
+                                <p v-if="priceNotice" role="status" class="mb-3 rounded-2xl bg-surface border border-outline-variant p-4 text-sm text-on-surface">{{ priceNotice }}</p>
+                                <MpesaStkPanel
+                                    :amount="orderAmount ?? estimatedTotal"
+                                    :reference="orderReference"
+                                    :phone="form.phone"
+                                    :status="stkPanelStatus"
+                                    @pay="initiateMpesaStk"
+                                    @cancel="closePaymentModal"
+                                />
+                            </div>
                             <MpesaSuccessPanel
                                 v-else
                                 :amount="paidAmount"
