@@ -41,8 +41,9 @@ const { formatAmount } = useCurrency();
                 </ul>
                 <aside class="bg-surface-container rounded-2xl p-6 h-fit lg:sticky lg:top-28">
                     <h2 class="text-xl mb-5">Order Summary</h2>
-                    <p class="flex justify-between mb-3"><span>Delivery</span><span>Included</span></p>
-                    <p class="flex justify-between text-lg font-semibold mb-6"><span>Total</span><span>{{ formatAmount(cart.totalPrice) }}</span></p>
+                    <p class="flex justify-between mb-1"><span>Delivery</span><span>Chosen at checkout</span></p>
+                    <p class="mb-4 text-xs text-on-surface-variant">Collect free from the shop, or pick a delivery option. Any fee shows before you pay.</p>
+                    <p class="flex justify-between text-lg font-semibold mb-6"><span>Pieces total</span><span>{{ formatAmount(cart.totalPrice) }}</span></p>
                     <Link :href="route('checkout')" class="action-primary w-full py-4">Checkout</Link>
                     <Link :href="route('shop')" class="block text-center text-sm mt-5 underline">Continue Shopping</Link>
                 </aside>

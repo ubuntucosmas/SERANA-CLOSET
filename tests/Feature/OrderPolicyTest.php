@@ -100,7 +100,7 @@ class OrderPolicyTest extends TestCase
 
         $this->actingAs($owner)->put(route('studio.order.deposit', $order), ['deposit' => 12000, 'reason' => 'x'])->assertSessionHasErrors('deposit');
         $this->actingAs($owner)->put(route('studio.order.deposit', $order), ['deposit' => 3000])->assertSessionHasErrors('reason');
-        $this->actingAs($this->as(Role::CASHIER))->put(route('studio.order.deposit', $order), ['deposit' => 3000, 'reason' => 'x'])->assertRedirect('/');
+        $this->actingAs($this->as(Role::CASHIER))->put(route('studio.order.deposit', $order), ['deposit' => 3000, 'reason' => 'x'])->assertRedirect(route('pos.index'));
 
         $shop = CustomOrder::create(['full_name' => 'S', 'whatsapp_number' => '254712345678', 'type' => 'standard', 'status' => 'Pending Payment', 'price_quoted' => 5000]);
         $this->actingAs($owner)->put(route('studio.order.deposit', $shop), ['deposit' => 1000, 'reason' => 'x'])->assertSessionHas('error');

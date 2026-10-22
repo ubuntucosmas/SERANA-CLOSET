@@ -8,9 +8,9 @@ import SectionBackground from "@/Components/SectionBackground.vue";
 // --- Page Data ---
 const stats = [
     { value: "500+", label: "Happy Clients" },
-    { value: "100%", label: "Made to Order" },
+    { value: "Custom", label: "Made to Measure" },
     { value: "3yrs", label: "In Business" },
-    { value: "KE/EA", label: "Delivering To" },
+    { value: "Nairobi", label: "Designed & Made" },
 ];
 
 const values = [
@@ -186,8 +186,7 @@ onMounted(() => {
                         class="flex items-center gap-4 text-primary font-headline tracking-wider text-[10.5px] font-medium mb-8 reveal-item opacity-0"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
-                        Est. Nairobi ·
-                        {{ new Date().getFullYear() - 2 }} archive
+                        Designed &amp; made in Nairobi
                     </div>
                     <h1
                         class="font-headline text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl mb-8 max-w-4xl reveal-item opacity-0"
@@ -221,7 +220,7 @@ onMounted(() => {
                         >
                         <span
                             class="text-[10.5px] dark:text-white text-on-surface font-medium tracking-widest"
-                            >· Accepting Commissions</span
+                            >· Accepting custom orders</span
                         >
                     </div>
                 </div>
@@ -498,7 +497,7 @@ onMounted(() => {
                         class="flex items-center justify-center gap-4 text-primary text-[10.5px] font-headline font-medium tracking-wider reveal-item opacity-0"
                     >
                         <span class="w-12 h-px bg-primary/40"></span>
-                        Ready for archive?
+                        Ready to start?
                         <span class="w-12 h-px bg-primary/40"></span>
                     </div>
                     <h2

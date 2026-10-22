@@ -76,7 +76,8 @@ watch([filter, showArchived, queue, sort], () => fetchOrders(1));
 const canLoadMore = computed(() => props.orders.page < props.orders.last_page);
 const filtered = list;
 
-const chips = [{ id: 'all', label: 'All' }, { id: 'custom', label: 'Custom & pre-orders' }, { id: 'bespoke', label: 'Bespoke' }, { id: 'shop', label: 'Shop' }, { id: 'till', label: 'In-store sales' }];
+// Pre-orders only exist while Drops are on; otherwise custom orders are their own chip.
+const chips = computed(() => [{ id: 'all', label: 'All' }, ...(page.props.drops_enabled ? [{ id: 'custom', label: 'Custom orders & pre-orders' }] : []), { id: 'bespoke', label: 'Custom orders' }, { id: 'shop', label: 'Online shop' }, { id: 'till', label: 'In-store sales' }]);
 </script>
 
 <template>

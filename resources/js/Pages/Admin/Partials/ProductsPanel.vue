@@ -1,5 +1,7 @@
 <!-- Products grid. Add/edit/category forms live in the parent (shared useForm). -->
 <script setup>
+// The garment type as staff say it (the stored key 'hoodie' means any single piece).
+const garmentLabel = type => ({ set: 'Two-piece set', hoodie: 'Single piece', jogger: 'Bottoms' }[type] || 'Type not set');
 import { ref, computed } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import { usePage } from '@inertiajs/vue3';
@@ -75,7 +77,7 @@ const list = computed(() => {
                 <caption class="sr-only">Products with category, price, availability, stock left and actions</caption>
                 <thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="numeric">Price</th><th scope="col">Availability</th><th scope="col" class="numeric">Stock</th><th scope="col" class="row-action">Actions</th></tr></thead>
                 <tbody><tr v-for="p in list" :key="p.id">
-                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}<span class="cell-note capitalize">{{ p.garment_type || 'Garment type not set' }}</span><span v-if="p.variants?.length" class="cell-note font-mono">{{ p.variants.map(size => size.sku).filter(Boolean).join(' · ') }}</span></button></div></td>
+                    <td><div class="flex items-center gap-3 min-w-48"><img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" class="h-10 w-10 rounded object-cover shrink-0" /><button @click="openPreview(p)" class="text-left font-medium text-white hover:text-cyan-300">{{ p.name }}<span class="cell-note">{{ garmentLabel(p.garment_type) }}</span><span v-if="p.variants?.length" class="cell-note font-mono">{{ p.variants.map(size => size.sku).filter(Boolean).join(' · ') }}</span></button></div></td>
                     <td>{{ p.category?.name || 'Uncategorised' }}</td>
                     <td class="numeric text-white">{{ formatAmount(p.price, page.props) }}</td>
                     <td><span class="stage-badge" :class="availability(p).tone">{{ availability(p).label }}</span></td>
@@ -97,7 +99,7 @@ const list = computed(() => {
                     <div v-if="previewImages.length > 1" class="flex gap-2 mt-3"><button v-for="(src, index) in previewImages" :key="src" @click="previewImage = src" :aria-label="`View product image ${index + 1}`" :aria-pressed="previewImage === src" class="rounded border-2 overflow-hidden" :class="previewImage === src ? 'border-cyan-400' : 'border-transparent'"><img :src="src" alt="" class="h-14 w-14 object-cover" /></button></div>
                 </div>
                 <div class="space-y-4"><p class="text-xl font-semibold tabular-nums text-white">{{ formatAmount(preview.price, page.props) }}</p><span class="stage-badge" :class="availability(preview).tone">{{ availability(preview).label }}</span>
-                    <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm"><dt class="text-slate-400">Category</dt><dd>{{ preview.category?.name || 'Uncategorised' }}</dd><dt class="text-slate-400">Garment type</dt><dd class="capitalize">{{ preview.garment_type || 'Not specified' }}</dd><dt class="text-slate-400">Stock</dt><dd>{{ stockLine(preview).main }}<span v-if="stockLine(preview).detail" class="block text-xs text-slate-400">{{ stockLine(preview).detail }}</span></dd><dt class="text-slate-400">Custom requests</dt><dd>{{ preview.is_customizable ? 'Accepted' : 'Not offered' }}</dd></dl>
+                    <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm"><dt class="text-slate-400">Category</dt><dd>{{ preview.category?.name || 'Uncategorised' }}</dd><dt class="text-slate-400">Garment type</dt><dd>{{ garmentLabel(preview.garment_type) }}</dd><dt class="text-slate-400">Stock</dt><dd>{{ stockLine(preview).main }}<span v-if="stockLine(preview).detail" class="block text-xs text-slate-400">{{ stockLine(preview).detail }}</span></dd><dt class="text-slate-400">Custom requests</dt><dd>{{ preview.is_customizable ? 'Accepted' : 'Not offered' }}</dd></dl>
                     <div><h3 class="text-sm font-semibold text-white">Description</h3><p class="mt-1 text-sm whitespace-pre-line break-words">{{ preview.description || 'No description added.' }}</p></div>
                     <button @click="editPreview" class="table-action">Edit product</button>
                 </div>

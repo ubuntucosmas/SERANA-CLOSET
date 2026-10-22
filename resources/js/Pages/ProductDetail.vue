@@ -215,6 +215,7 @@ const goTo = (index) => {
                                 {{ ctaLabel }}
                             </button>
                             <Link v-if="isSoldOut" :href="route('shop')" class="action-secondary w-full">Browse pieces in stock</Link>
+                            <p v-if="!isSoldOut" class="text-xs text-on-surface-variant">Collect from the shop for free, or choose delivery at checkout. Any delivery fee is shown before you pay.</p>
                             <Link v-if="product.is_customizable" :href="route('custom-order', { product: product.slug })" class="action-secondary w-full">
                                 <span class="material-symbols-outlined text-base" aria-hidden="true">content_cut</span>
                                 Want it made to your measurements?

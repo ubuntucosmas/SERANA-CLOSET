@@ -132,6 +132,6 @@ class BespokeCancellationTest extends TestCase
         $this->cancel($order->fresh())->assertSessionHasErrors(['reason' => 'This order is already cancelled.']);
 
         $cashier = User::factory()->create(['role' => Role::CASHIER]);
-        $this->cancel($this->gown('pending', 0), 'x', $cashier)->assertRedirect('/');
+        $this->cancel($this->gown('pending', 0), 'x', $cashier)->assertRedirect(route('pos.index'));
     }
 }

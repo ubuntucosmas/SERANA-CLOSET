@@ -130,7 +130,7 @@ class StudioWorkflowCompletionTest extends TestCase
         $manager = User::factory()->create(['role' => 'manager']); $product = $this->stockedProduct(3);
         $this->actingAs($manager)->getJson(route('studio.stock.options', $product))->assertOk()->assertJsonPath('sizes.0.size', 'One size')->assertJsonPath('sizes.0.available', 3);
         $cashier = User::factory()->create(['role' => 'cashier']);
-        $this->actingAs($cashier)->getJson(route('studio.stock.options', $product))->assertRedirect('/');
+        $this->actingAs($cashier)->getJson(route('studio.stock.options', $product))->assertRedirect(route('pos.index'));
     }
     public function test_pickup_payment_does_not_silently_move_goods_to_another_shop(): void
     {
@@ -169,7 +169,7 @@ class StudioWorkflowCompletionTest extends TestCase
         $this->assertSame(0, $response->viewData('page')['props']['tills']['total']);
         $this->get(route('studio.till.report', $till))->assertOk()->assertSee('Closing report')->assertSee($manager->name);
         $cashier = User::factory()->create(['role' => 'cashier']);
-        $this->actingAs($cashier)->get(route('studio.till.report', $till))->assertRedirect('/');
+        $this->actingAs($cashier)->get(route('studio.till.report', $till))->assertRedirect(route('pos.index'));
     }
 
     public function test_owner_configures_collection_address_before_pickup_is_offered(): void

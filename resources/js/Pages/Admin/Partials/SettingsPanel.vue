@@ -201,7 +201,7 @@ const field = 'w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 t
                         <input type="file" accept="image/*" class="hidden" @change="pickAsset(`focal_${i}_bg`, $event)" />
                         <span class="block text-center cursor-pointer text-xs font-semibold py-2.5 rounded-lg bg-white/5 text-slate-200 hover:bg-white/10">{{ ts[`focal_${i}_bg`] ? 'Replace' : 'Upload' }}</span>
                     </label>
-                    <input v-model="form.settings[`focal_${i}_label`]" :placeholder="`Caption ${i}`"
+                    <input v-model="form.settings[`focal_${i}_label`]" :placeholder="`Caption ${i}`" :aria-label="`Caption for home image ${i}`"
                         class="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
                 </div>
             </div>

@@ -24,3 +24,20 @@ export function lowStockNote(product, threshold = 3) {
     const left = availableStock(product);
     return left !== null && left <= threshold ? `Only ${left} left` : '';
 }
+
+// Studio → Stock: what the shop will do with a product, in one sentence.
+// A set sells only when at least one top size and one bottom size are available.
+export function shopStatus(product) {
+    if (!product?.track_stock) return { tone: 'ok', text: 'Made to order: always available in the shop.' };
+    const active = (product.sizes || []).filter(size => size.active);
+    const total = part => active.filter(size => size.part === part).reduce((n, size) => n + Math.max(0, Number(size.available) || 0), 0);
+    if (product.garment_type === 'set') {
+        const tops = total('top'), bottoms = total('bottom');
+        if (!tops && !bottoms) return { tone: 'warn', text: 'Not in the shop yet: count its top and bottom sizes.' };
+        if (!bottoms) return { tone: 'warn', text: 'Not in the shop yet: count at least one bottom size. A set needs a top and a bottom.' };
+        if (!tops) return { tone: 'warn', text: 'Not in the shop yet: count at least one top size. A set needs a top and a bottom.' };
+        return { tone: 'ok', text: `In the shop: up to ${Math.min(tops, bottoms)} set(s) can be sold.` };
+    }
+    const units = active.reduce((n, size) => n + Math.max(0, Number(size.available) || 0), 0);
+    return units ? { tone: 'ok', text: `In the shop: ${units} available.` } : { tone: 'warn', text: 'Sold out in the shop: count or receive stock to sell it.' };
+}

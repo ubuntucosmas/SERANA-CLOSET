@@ -62,9 +62,11 @@ class ActivityController extends Controller
                 'id' => $record->id, 'at' => ($stock ? $record->occurred_at : $record->created_at)?->timezone($zone)->format('d M Y H:i'),
                 'actor' => $record->actor_type === 'user' ? ($actors[$record->actor_id] ?? 'Former staff') : ucfirst($record->actor_type),
                 'action' => $stock ? $record->type : $record->action, 'reason' => $record->reason ?: 'No reason recorded',
-                'subject' => $order?->cipher ?? $product?->name ?? ($stock ? 'Stock item' : class_basename($record->subject_type ?: 'Store') . ($record->subject_id ? ' #' . $record->subject_id : '')),
+                // What happened, in staff words (the raw action stays for search and filters).
+                'label' => \App\Support\ActivityLabels::action($stock ? $record->type : $record->action, $stock),
+                'subject' => $order?->cipher ?? $product?->name ?? ($stock ? 'Stock item' : self::subjectName($record)),
                 'size' => $stock ? $record->variant?->label() : null, 'quantity' => $stock ? $record->quantity : null,
-                'where' => $stock ? $record->location?->name : (str_starts_with($record->action, 'pos.') || str_starts_with($record->action, 'till.') ? 'Shop till' : 'Studio / system'), 'changes' => $changes,
+                'where' => $stock ? $record->location?->name : \App\Support\ActivityLabels::where($record->action), 'changes' => $changes,
                 'url' => $order ? route('studio.index', ['tab' => 'orders', 'order' => $order->id]) : ($product ? route('studio.index', ['tab' => 'stock']) : (! $stock && $record->subject_type === (new User)->getMorphClass() && request()->user()->can('staff.manage') ? route('studio.index', ['tab' => 'staff']) : (! $stock && $record->subject_type === (new \App\Models\TillSession)->getMorphClass() && \App\Models\TillSession::whereKey($record->subject_id)->exists() ? route('studio.till.report', $record->subject_id) : null))),
             ];
         });
@@ -72,5 +74,21 @@ class ActivityController extends Controller
             'actors' => User::whereIn('id', AuditLog::where('actor_type', 'user')->whereNotNull('actor_id')->select('actor_id'))
                 ->orWhereIn('id', StockMovement::where('actor_type', 'user')->whereNotNull('actor_id')->select('actor_id'))->orderBy('name')->get(['id', 'name']),
         ];
+    }
+
+    /** A record's subject as staff know it: the product and size, the person, the register, never a class name and id. */
+    private static function subjectName($record): string
+    {
+        $model = $record->subject_type && class_exists($record->subject_type) ? $record->subject_type::query()->when(method_exists($record->subject_type, 'bootSoftDeletes'), fn ($q) => $q->withTrashed())->find($record->subject_id) : null;
+
+        return match (true) {
+            $model instanceof \App\Models\ProductVariant => ($model->product?->name ?? 'Product') . ' · ' . $model->label(),
+            $model instanceof User => $model->name,
+            $model instanceof \App\Models\TillSession => str_replace('Till', 'Register', (string) $model->register) . ' · ' . ($model->opened_at?->timezone(config('app.display_timezone'))->format('d M') ?? ''),
+            $model instanceof \App\Models\Location => $model->name,
+            $model instanceof \App\Models\DeliveryOption => $model->name,
+            $model !== null && isset($model->name) => (string) $model->name,
+            default => $record->subject_type ? 'Store settings' : 'Store',
+        };
     }
 }

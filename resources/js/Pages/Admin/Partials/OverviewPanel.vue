@@ -47,7 +47,7 @@ const summaries = {
     payment: 'Follow up and verify money received before confirming payment.',
     fulfilment: 'Check items, sizes and delivery details before starting work.',
     production: 'Check progress, blockers and customer updates.',
-    dispatch: 'Check the parcel and address before marking dispatched.',
+    dispatch: 'Check the parcel and address before marking it shipped.',
     pickup: 'Waiting at the shop; collected at Sales Desk after the phone check.',
 };
 const allFollowups = computed(() => {
