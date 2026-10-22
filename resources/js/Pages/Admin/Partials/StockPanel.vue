@@ -4,6 +4,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
+import { shopStatus } from '@/Support/stock';
 
 const props = defineProps({
     stock: { type: Object, default: null },
@@ -156,6 +157,7 @@ const counted = (at) => at ? new Date(at).toLocaleDateString('en-GB', { day: 'nu
                                 <template v-if="product.track_stock">{{ product.sizes.filter(s => s.active).map(s => `${s.label} ${s.available ?? 0}`).join(' · ') }}</template>
                                 <template v-else>Made to order · always available</template>
                             </span>
+                            <span class="mt-1 block text-xs font-medium" :class="shopStatus(product).tone === 'warn' ? 'text-amber-400' : 'text-emerald-400'">{{ shopStatus(product).text }}</span>
                         </span>
                         <span class="material-symbols-outlined text-slate-400 shrink-0">{{ open === product.id ? 'expand_less' : 'expand_more' }}</span>
                     </button>
