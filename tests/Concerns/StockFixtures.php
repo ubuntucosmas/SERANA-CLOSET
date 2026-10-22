@@ -52,6 +52,10 @@ trait StockFixtures
                 'quantity' => $units - $level->on_hand, 'actor_type' => Actor::SYSTEM, 'reason' => 'Test fixture', 'occurred_at' => now()]);
             $level->update(['on_hand' => $units, 'counted_at' => now()]);
         }
+        // As StockService does after every write: the old model offers what is counted.
+        if (StockMode::v2()) {
+            app(StockService::class)->rebaseline($product);
+        }
     }
 
     /** Someone else bought $units of it: batch_sold in the old model, a sale movement in the new one. */

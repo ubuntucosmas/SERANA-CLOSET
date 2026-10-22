@@ -38,10 +38,23 @@ class CatalogController extends Controller
             'in_stock' => 'boolean',
             'specifications' => 'nullable|array',
             'batch_limit' => 'nullable|integer|min:0',
+            // Set once at creation; afterwards both live in Studio → Stock.
+            'sizes' => 'nullable|array|max:20',
+            'sizes.*' => 'nullable|string|max:20|distinct:ignore_case',
+            'track_stock' => 'nullable|boolean',
         ], [
             'price.regex' => 'Use whole shillings, e.g. 1500. M-Pesa cannot charge cents.',
             'price.min' => 'Price must be at least KSh 1.',
+            'sizes.*.distinct' => 'Each size can be listed only once.',
         ]);
+        $sizes = array_values(array_filter(array_map(fn ($size) => trim((string) $size), $validated['sizes'] ?? []), fn ($size) => $size !== ''));
+        unset($validated['sizes']);
+        if ($sizes !== []) {
+            $validated['specifications'] = array_merge($validated['specifications'] ?? [], ['sizes' => $sizes]);
+        }
+        if (array_key_exists('track_stock', $validated) && $validated['track_stock'] === null) {
+            unset($validated['track_stock']);
+        }
 
         if ($request->hasFile('image')) {
             $validated['image_path'] = $this->optimizer->store($request->file('image'), 'products');
@@ -63,9 +76,11 @@ class CatalogController extends Controller
         $validated['slug'] = Str::slug($validated['name']);
         
         $product = Product::create($validated);
-        \App\Support\Audit::record('product.created', $product, [], $product->only(['name', 'price', 'batch_limit', 'in_stock']));
+        \App\Support\Audit::record('product.created', $product, [], $product->only(['name', 'price', 'batch_limit', 'in_stock', 'track_stock']));
 
-        return back()->with('success', 'Product added to the shop.');
+        return back()->with('success', $product->track_stock && \App\Support\StockMode::v2()
+            ? 'Product saved. It shows as sold out until you count its stock in Studio → Stock.'
+            : 'Product added to the shop.');
     }
 
     public function updateProduct(Request $request, Product $product)

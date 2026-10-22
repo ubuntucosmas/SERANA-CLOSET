@@ -74,7 +74,7 @@ const settingsSections = computed(() => [
     { id: 'store', label: 'Store & contact' },
     { id: 'delivery', label: 'Delivery & pickup', ability: 'settings.policies' },
     { id: 'payments', label: 'Payments', ability: 'settings.payments' },
-    { id: 'bespoke', label: 'Bespoke' },
+    { id: 'bespoke', label: 'Custom orders' },
 ].filter(item => !item.ability || page.props.auth?.user?.abilities?.includes(item.ability)));
 function goTab(id) {
     if (id === currentTab.value) return;
@@ -355,10 +355,13 @@ const productPreview = ref(null);
 const secondaryPreview1 = ref(null);
 const secondaryPreview2 = ref(null);
 const productForm = useForm({
-    id: null, name: '', description: '', price: 0, category_id: '',
+    id: null, name: '', description: '', price: '', category_id: '',
     image: null, secondary_image_1: null, secondary_image_2: null,
     in_stock: true, is_customizable: false, batch_limit: null, garment_type: 'set',
+    // New products only: the sizes on offer and whether stock is counted (both then live in Studio → Stock).
+    sizes: 'S, M, L, XL, XXL', track_stock: true,
 });
+const sizeList = text => String(text || '').split(',').map(size => size.trim()).filter(Boolean);
 function addProduct() {
     isEditingProduct.value = false;
     productForm.reset();
@@ -386,9 +389,12 @@ function editProduct(p) {
 function submitProduct() {
     const done = () => { showProductModal.value = false; isEditingProduct.value = false; productForm.reset(); productPreview.value = secondaryPreview1.value = secondaryPreview2.value = null; };
     if (isEditingProduct.value) {
-        productForm.transform(d => ({ ...d, _method: 'PUT' })).post(route('admin.catalog.update_product', productForm.id), { onSuccess: done });
+        productForm.transform(({ sizes, track_stock, ...d }) => ({ ...d, _method: 'PUT' })).post(route('admin.catalog.update_product', productForm.id), { onSuccess: done });
     } else {
-        productForm.post(route('admin.catalog.store_product'), { onSuccess: done });
+        productForm.transform(d => {
+            const { sizes, track_stock, ...rest } = d;
+            return { ...rest, sizes: sizeList(sizes), ...(props.stock_v2 ? { track_stock } : {}) };
+        }).post(route('admin.catalog.store_product'), { onSuccess: done });
     }
 }
 function archiveProduct(id) { if (confirm('Archive this product (hide from shop)?')) router.delete(route('admin.catalog.destroy_product', id), { preserveScroll: true }); }
@@ -816,14 +822,6 @@ function removeAsset(key) {
         <div class="bg-slate-900 text-slate-200 p-4 sm:p-6 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
             <h3 class="text-lg sm:text-xl font-headline text-white mb-5">{{ isEditingProduct ? 'Edit product' : 'Add product' }}</h3>
             <div class="space-y-4">
-                <label class="block mb-4">
-                    <span class="block text-sm text-slate-300 mb-2">Garment Type (required)</span>
-                    <select v-model="productForm.garment_type" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white">
-                        <option value="set">Hoodie & Jogger Set — two sizes</option>
-                        <option value="hoodie">Hoodie — top size</option>
-                        <option value="jogger">Jogger — bottom size</option>
-                    </select>
-                </label>
                 <p v-for="(message, field) in productForm.errors" :key="field" role="alert" class="text-sm text-rose-300 mb-3">{{ message }}</p>
                 <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Name</span>
@@ -843,6 +841,21 @@ function removeAsset(key) {
                     </label>
                 </div>
                 <label class="block">
+                    <span class="block text-sm text-slate-300 mb-2">What kind of piece is it? (required)</span>
+                    <select v-model="productForm.garment_type" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white">
+                        <option value="set">Two-piece set: the customer picks a top size and a bottom size</option>
+                        <option value="hoodie">Single piece (top, dress, jacket, cap…): one size</option>
+                        <option value="jogger">Bottoms (trousers, joggers, skirts): one size</option>
+                    </select>
+                </label>
+                <label v-if="!isEditingProduct" class="block">
+                    <span class="block text-sm text-slate-300 mb-2">Sizes on offer</span>
+                    <input v-model="productForm.sizes" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
+                    <span class="mt-1 block text-xs text-slate-400">Separate sizes with commas, e.g. S, M, L. Use "One size" for a piece that comes in one size.{{ productForm.garment_type === 'set' ? ' A set offers these sizes for both the top and the bottom.' : '' }}</span>
+                    <span v-if="productForm.errors.sizes || productForm.errors['sizes.0']" class="text-rose-400 text-xs">{{ productForm.errors.sizes || productForm.errors['sizes.0'] }}</span>
+                </label>
+                <p v-else class="text-sm text-slate-400">Sizes on offer are changed in <button type="button" @click="showProductModal = false; openProductStock(productForm.id)" class="underline text-[#57d5fc]">Stock</button>.</p>
+                <label class="block">
                     <span class="block text-sm text-slate-300 mb-2">Description</span>
                     <textarea v-model="productForm.description" rows="3" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none"></textarea>
                 </label>
@@ -858,10 +871,15 @@ function removeAsset(key) {
                     </div>
                 </div>
                 <div class="flex gap-6">
-                    <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.in_stock" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> In stock</label>
+                    <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.in_stock" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> For sale (shown in the shop)</label>
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input v-model="productForm.is_customizable" type="checkbox" class="w-4 h-4 accent-[#57d5fc]" /> Offer a custom version <span class="text-slate-500">("Custom option" badge + made-to-measure link)</span></label>
                 </div>
-                <p v-if="stock_v2" class="text-sm text-slate-400">Stock is counted per size in <button type="button" @click="showProductModal = false; openProductStock(productForm.id)" class="underline text-[#57d5fc]">Stock</button>.</p>
+                <fieldset v-if="stock_v2 && !isEditingProduct" class="space-y-2">
+                    <legend class="text-sm text-slate-300 mb-1">Stock</legend>
+                    <label class="flex items-start gap-2 text-sm text-slate-300"><input v-model="productForm.track_stock" :value="true" type="radio" name="product-stock-mode" class="mt-1 accent-[#57d5fc]" /> <span>Count stock per size <span class="block text-xs text-slate-400">For pieces you have in hand. It shows as sold out until you count each size in Stock.</span></span></label>
+                    <label class="flex items-start gap-2 text-sm text-slate-300"><input v-model="productForm.track_stock" :value="false" type="radio" name="product-stock-mode" class="mt-1 accent-[#57d5fc]" /> <span>Made to order <span class="block text-xs text-slate-400">No stock limit: every order is made after it is placed.</span></span></label>
+                </fieldset>
+                <p v-else-if="stock_v2" class="text-sm text-slate-400">Stock is counted per size in <button type="button" @click="showProductModal = false; openProductStock(productForm.id)" class="underline text-[#57d5fc]">Stock</button>.</p>
                 <label v-else class="block">
                     <span class="block text-sm text-slate-300 mb-2">Batch limit (optional)</span>
                     <input v-model="productForm.batch_limit" type="number" placeholder="Leave blank for unlimited" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#57d5fc] outline-none" />
