@@ -88,7 +88,7 @@ class LedgerBackfill
         } elseif ($total > 0) {
             $description = $kind === 'drop'
                 ? 'Drop: ' . ($order->items_json['drop'] ?? 'reservation') . (! empty($order->items_json['size']) ? " ({$order->items_json['size']})" : '')
-                : 'Bespoke quote';
+                : 'Custom order quote';
             $this->line($order, OrderLine::ITEM, $description, 1, $total);
             $sum = $total;
         }

@@ -23,7 +23,7 @@ class RoleAccessTest extends TestCase
     {
         $this->actingAs($this->as(Role::OWNER))->get('/studio')->assertOk();
         $this->actingAs($this->as(Role::MANAGER))->get('/studio')->assertOk();
-        $this->actingAs($this->as(Role::CASHIER))->get('/studio')->assertRedirect('/');
+        $this->actingAs($this->as(Role::CASHIER))->get('/studio')->assertRedirect(route('pos.index'));
         $this->actingAs($this->as(Role::CLIENT))->get('/studio')->assertRedirect('/');
     }
 
@@ -41,7 +41,7 @@ class RoleAccessTest extends TestCase
     {
         $order = CustomOrder::create(['full_name' => 'A', 'whatsapp_number' => '254712345678', 'type' => 'custom', 'price_quoted' => 3000]);
 
-        $this->actingAs($this->as(Role::CASHIER))->post(route('studio.order.record_payment', $order), ['amount' => 3000, 'reference' => 'X'])->assertRedirect('/');
+        $this->actingAs($this->as(Role::CASHIER))->post(route('studio.order.record_payment', $order), ['amount' => 3000, 'reference' => 'X'])->assertRedirect(route('pos.index'));
         $this->actingAs($this->as(Role::MANAGER))->post(route('studio.order.record_payment', $order), ['amount' => 3000, 'method' => 'mpesa_manual', 'reference' => 'QX1'])->assertSessionHasNoErrors();
     }
 

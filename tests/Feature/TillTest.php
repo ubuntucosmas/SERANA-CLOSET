@@ -103,8 +103,8 @@ class TillTest extends TestCase
         // Unlocking the tablet with a manager's PIN signs no one in: the tablet stays a cashier, outside the Studio.
         $this->unlock('9753')->assertOk();
         $this->assertSame($this->tablet->id, auth()->id());
-        $this->get(route('studio.index'))->assertRedirect('/'); // the Studio turns a cashier away
-        $this->put(route('admin.shop_policy.update'), ['cashier_discount_percent' => 90])->assertRedirect('/');
+        $this->get(route('studio.index'))->assertRedirect(route('pos.index')); // the Studio turns a cashier away
+        $this->put(route('admin.shop_policy.update'), ['cashier_discount_percent' => 90])->assertRedirect(route('pos.index'));
         $this->assertSame(10, \App\Support\ShopPolicy::cashierDiscountPercent());
     }
 

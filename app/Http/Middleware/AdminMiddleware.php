@@ -24,6 +24,11 @@ class AdminMiddleware
             return redirect()->route('login')->with('error', 'Please authenticate to access the Studio.');
         }
 
-        return redirect('/')->with('error', "Studio access restricted to authorized artisans only.");
+        // A cashier's workspace is the Sales Desk: send them there, not to the shop.
+        if (auth()->user()->can('pos.sell')) {
+            return redirect()->route('pos.index')->with('error', 'The Studio is for owners and managers. Your work is here at the Sales Desk.');
+        }
+
+        return redirect('/')->with('error', 'The Studio is for store staff only.');
     }
 }

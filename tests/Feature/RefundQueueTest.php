@@ -69,7 +69,7 @@ class RefundQueueTest extends TestCase
     {
         $order = $this->paidTwice();
         $this->actingAs($this->as(Role::CASHIER))->post(route('studio.order.refund', $order), ['amount' => 3000, 'method' => 'mpesa_manual', 'reference' => 'QREF1', 'reason' => 'x'])
-            ->assertRedirect('/');
+            ->assertRedirect(route('pos.index'));
         $this->assertSame(0, $order->payments()->where('type', 'refund')->count());
     }
 

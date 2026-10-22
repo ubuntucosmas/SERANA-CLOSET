@@ -585,6 +585,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                 <div>
                     <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{{ shop || 'Serana Closet' }}</p>
                     <h1 class="mt-1 text-2xl font-headline text-white">Enter your PIN</h1>
+                    <p v-if="page.props.flash?.error" role="status" class="mt-2 text-sm text-amber-300">{{ page.props.flash.error }}</p>
                 </div>
                 <div class="flex justify-center gap-3" aria-hidden="true">
                     <span v-for="i in 6" :key="i" class="h-3 w-3 rounded-full" :class="i <= pin.length ? 'bg-[#57d5fc]' : 'bg-white/10'"></span>
@@ -896,7 +897,7 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
 
                 <!-- BESPOKE -->
                 <section v-else-if="tab === 'bespoke'" aria-labelledby="intake-title" class="desk-panel desk-intake space-y-4">
-                    <h2 id="intake-title" class="text-white font-headline text-lg">Bespoke order</h2>
+                    <h2 id="intake-title" class="text-white font-headline text-lg">Custom order</h2>
                     <form v-if="!intakeOrder" @submit.prevent="submitIntake" class="desk-intake-form grid gap-3 sm:grid-cols-2">
                         <label class="text-sm">Name<input v-model="intake.full_name" required maxlength="255" :class="input" class="mt-1" /></label>
                         <label class="text-sm">Phone<input v-model="intake.phone" type="tel" required :class="input" class="mt-1" placeholder="07XX XXX XXX" /></label>

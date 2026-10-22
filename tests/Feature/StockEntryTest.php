@@ -145,7 +145,7 @@ class StockEntryTest extends TestCase
 
     public function test_cashiers_cannot_enter_stock_and_single_size_routes_cannot_bypass_safeguards(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'cashier']))->post(route('studio.stock.batch', $this->product), $this->payload())->assertRedirect('/');
+        $this->actingAs(User::factory()->create(['role' => 'cashier']))->post(route('studio.stock.batch', $this->product), $this->payload())->assertRedirect(route('pos.index'));
         $this->actingAs($this->manager)->post(route('studio.stock.move'), ['variant_id' => $this->product->variants()->first()->id, 'action' => 'count', 'quantity' => 5, 'reason' => 'Count'])->assertSessionHasErrors(['operation_id', 'exclude_paid_pickups', 'quantity']);
     }
 

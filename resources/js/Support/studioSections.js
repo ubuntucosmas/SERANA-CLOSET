@@ -10,7 +10,7 @@ export const studioSections = [
         who: 'Staff handling customer orders', where: 'Order progress is available to customers through order tracking. Internal notes stay within the Studio.',
         next: 'Open an order, check its payment and details, then save the appropriate production stage.',
         when: 'Update progress when work advances. Only confirm payment after verifying money received.' },
-    { id: 'bespoke', label: 'Bespoke', icon: 'design_services', primary: false, question: 'Which custom jobs need the next step?', description: 'Review briefs, quotes, deposits and production for made-to-order work.', who: 'Owner and managers', where: 'Internal bespoke jobs; customers see their saved progress through tracking.', when: 'Review new briefs and upcoming deadlines before starting production.', next: 'Open a brief to quote it, review its deposit or advance production.' },
+    { id: 'bespoke', label: 'Custom orders', icon: 'design_services', primary: false, question: 'Which custom jobs need the next step?', description: 'Review briefs, quotes, deposits and production for made-to-order work.', who: 'Owner and managers', where: 'Internal bespoke jobs; customers see their saved progress through tracking.', when: 'Review new briefs and upcoming deadlines before starting production.', next: 'Open a brief to quote it, review its deposit or advance production.' },
     { id: 'refunds', label: 'Refunds', icon: 'paid', primary: false,
         question: 'Who is owed money back?', description: 'Customers who paid more than they owe, with the amount, the reason and how long they have waited.',
         who: 'Owner and managers', where: 'Internal. The customer receives a refund receipt by email when a refund is recorded.',

@@ -31,7 +31,7 @@
                             </div>
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Email</h3>
-                                <p class="text-on-surface-variant text-sm mb-4">For press, collaborations, and formal archival inquiries.</p>
+                                <p class="text-on-surface-variant text-sm mb-4">For press, collaborations and other enquiries.</p>
                                 <a :href="`mailto:${contactEmail}`" class="text-on-surface font-headline text-lg font-bold tracking-widest hover:text-primary transition-colors">
                                     {{ contactEmail }}
                                 </a>
@@ -44,7 +44,7 @@
                             </div>
                             <div>
                                 <h3 class="font-headline text-xl font-bold dark:text-white text-on-surface mb-2">Nairobi Studio</h3>
-                                <p class="text-on-surface-variant text-sm mb-4">By Appointment Only. Experience the Serana Standard in person.</p>
+                                <p class="text-on-surface-variant text-sm mb-4">Visit the studio or collect an online order. Message us on WhatsApp to check opening hours.</p>
                                 <p class="text-on-surface font-headline text-sm font-bold tracking-wider opacity-60">
                                     {{ contactAddress }}
                                 </p>
@@ -88,7 +88,7 @@
                             <label class="text-[11px] font-headline tracking-wider text-primary font-black" for="contact-type">Nature of inquiry</label>
                             <select id="contact-type" v-model="form.type" class="w-full bg-background border dark:border-white/5 border-black/5 focus:border-primary px-6 py-4 text-sm dark:text-white text-on-surface rounded-xl transition-all appearance-none outline-none">
                                 <option value="bespoke">Custom Order</option>
-                                <option value="batch">Limited Batch Drop Inquiry</option>
+                                <option v-if="$page.props.drops_enabled" value="batch">Limited Batch Drop Inquiry</option>
                                 <option value="support">Order Support / Fitting</option>
                                 <option value="other">General Inquiry</option>
                             </select>

@@ -81,7 +81,7 @@ class StudioStockTest extends TestCase
 
     public function test_only_owner_and_manager_touch_stock(): void
     {
-        $this->move($this->as(Role::CASHIER), 'receive', 'M', 5)->assertRedirect('/');
+        $this->move($this->as(Role::CASHIER), 'receive', 'M', 5)->assertRedirect(route('pos.index'));
         $this->assertSame(0, StockMovement::count());
     }
 

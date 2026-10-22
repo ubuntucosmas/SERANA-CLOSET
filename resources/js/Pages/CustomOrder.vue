@@ -302,7 +302,7 @@ function resetForm() {
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                             <div>
-                                <label
+                                <label for="customorder-occasion"
                                     class="block text-sm text-on-surface-variant mb-2"
                                     >Occasion</label>
                                 <input
@@ -542,7 +542,7 @@ function resetForm() {
                         </div>
 
                         <div>
-                            <label
+                            <label for="customorder-notes"
                                 class="block text-sm text-on-surface-variant mb-2"
                                 >Anything else we should know?</label>
                             <textarea

@@ -13,6 +13,6 @@ function files(dir) {
 
 test('no screen or email says delivery is included', () => {
     const offenders = [...files('resources/js'), ...files('resources/views'), ...files('app')]
-        .filter(path => /delivery (is )?included|no delivery fee added/i.test(readFileSync(path, 'utf8')));
+        .filter(path => /delivery (is )?included|no delivery fee added|>\s*Delivery\s*<\/[a-z]+>\s*<[a-z]+[^>]*>\s*Included/i.test(readFileSync(path, 'utf8')));
     assert.deepEqual(offenders, []);
 });
