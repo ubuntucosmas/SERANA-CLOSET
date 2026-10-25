@@ -112,9 +112,9 @@ const onImageError = event => {
                                 <img :src="currentLook.image_url" :alt="currentLook.name" fetchpriority="high" width="640" height="800" class="h-full w-full object-cover" @error="onImageError" />
                                 <div class="showcase-overlay absolute inset-x-0 bottom-0 px-5 pb-6 pt-24 text-white sm:px-7">
                                     <p class="mb-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/80">{{ currentLook.category || 'The Serana Collection' }}</p>
-                                    <h2 class="line-clamp-2 font-headline text-2xl font-medium leading-tight sm:text-3xl">{{ currentLook.name }}</h2>
+                                    <h2 class="line-clamp-2 font-headline text-2xl font-medium leading-tight text-white sm:text-3xl">{{ currentLook.name }}</h2>
                                     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                        <p v-if="currentLook.price != null" class="text-lg font-semibold tracking-tight">{{ formatAmount(currentLook.price, page.props) }}</p>
+                                        <p v-if="currentLook.price != null" class="text-lg font-semibold tracking-tight text-white">{{ formatAmount(currentLook.price, page.props) }}</p>
                                         <Link :href="currentLook.slug ? route('shop.show', currentLook.slug) : route('shop')" class="showcase-link inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 text-xs font-semibold text-black">
                                             {{ currentLook.slug ? 'View Piece' : 'Shop Collection' }}
                                             <span class="material-symbols-outlined text-base" aria-hidden="true">north_east</span>

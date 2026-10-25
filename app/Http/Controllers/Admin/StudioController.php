@@ -384,7 +384,7 @@ class StudioController extends Controller
             $blocked = $order->isBespoke() ? $this->fulfilmentBlock($order, $target)
                 : (! $order->isPaidUp() ? 'Confirm payment before updating fulfilment.' : null);
             $next = ['kind' => 'stage', 'label' => ['designing' => 'Start designing', 'sewing' => 'Move to sewing', 'completed' => $order->isBespoke() ? 'Mark complete' : 'Mark packed', 'ready_for_pickup' => 'Ready for pickup', 'shipped' => 'Mark shipped'][$target], 'stage' => $target, 'blocker' => $blocked];
-            if ($blocked) $next['label'] = 'Review payment before continuing';
+            if ($blocked) $next['label'] = 'Check payment first';
         }
         $order->setAttribute('next_action', $next);
         // Loaded only so the appends above don't query per order; the page reads the appends.

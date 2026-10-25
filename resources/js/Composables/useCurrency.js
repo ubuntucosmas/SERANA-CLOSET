@@ -15,7 +15,7 @@ export function useCurrency() {
         // Dynamically fetch the currency symbol from theme settings, fallback to 'KSh'
         const currencySymbol = pageProps?.theme_settings?.currency || 'KSh';
 
-        return `${currencySymbol} ${numericAmount.toLocaleString()}`;
+        return `${currencySymbol} ${numericAmount.toLocaleString('en-KE')}`;
     };
 
     return {

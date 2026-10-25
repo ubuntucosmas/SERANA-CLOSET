@@ -7,5 +7,5 @@ export const managerQueues = [
     { id: 'production', label: 'In production', tone: 'stage-working', action: 'Review progress', why: 'Orders in design or sewing; check progress and update the customer when work advances.' },
     { id: 'complete', label: 'Completed', tone: 'stage-complete', action: 'Review history', why: 'Orders already shipped or collected. Review their saved history.' },
     { id: 'pickup', label: 'Ready for pickup', tone: 'stage-ready', action: 'Review pickups', why: 'Ready at the shop. The customer collects at Sales Desk with the reference and the phone they ordered with.' },
-    { id: 'dispatch', label: 'Ready to ship', tone: 'stage-ready', action: 'Review shipments', why: 'Paid orders marked complete; verify the parcel and delivery details before marking shitched.' },
+    { id: 'dispatch', label: 'Ready to ship', tone: 'stage-ready', action: 'Review shipments', why: 'Paid orders marked complete; check the parcel and the delivery details, then mark it shipped.' },
 ];

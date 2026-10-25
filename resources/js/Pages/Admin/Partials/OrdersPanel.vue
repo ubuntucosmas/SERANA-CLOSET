@@ -26,6 +26,9 @@ const query = ref(props.orders.query || '');
 const queue = ref(props.orders.queue || 'all');
 const sort = ref(props.orders.sort || 'newest');
 const activeQueue = computed(() => managerQueues.find(item => item.id === queue.value));
+// One control for the work queues, in the order work flows (it was a chip row and a dropdown for the same filter).
+const QUEUE_ORDER = ['attention', 'review', 'quotes', 'payment', 'fulfilment', 'production', 'pickup', 'dispatch', 'complete'];
+const queueViews = [...QUEUE_ORDER.map(id => managerQueues.find(item => item.id === id)).filter(Boolean), { id: 'all', label: 'All' }];
 
 const PRODUCTION = ['pending', 'designing', 'sewing', 'completed', 'ready_for_pickup', 'shipped', 'collected']; // collected: handed over at the till
 
@@ -82,9 +85,8 @@ const chips = computed(() => [{ id: 'all', label: 'All' }, ...(page.props.drops_
 
 <template>
     <div class="space-y-5">
-        <nav class="flex flex-wrap gap-2" aria-label="Order work views"><button v-for="view in [{ id: 'attention', label: 'Needs attention' }, { id: 'fulfilment', label: 'New / to start' }, { id: 'production', label: 'In production' }, { id: 'pickup', label: 'Ready for pickup' }, { id: 'dispatch', label: 'Ready to ship' }, { id: 'complete', label: 'Completed' }, { id: 'all', label: 'All' }]" :key="view.id" type="button" @click="queue = view.id" :aria-pressed="queue === view.id" class="table-action" :class="queue === view.id ? 'ring-2 ring-cyan-400' : ''">{{ view.label }}</button></nav>
+        <nav class="flex flex-wrap gap-2" aria-label="Work queues"><button v-for="view in queueViews" :key="view.id" type="button" @click="queue = view.id" :aria-pressed="queue === view.id" class="table-action" :class="queue === view.id ? 'ring-2 ring-cyan-400' : ''">{{ view.label }}</button></nav>
         <div class="flex flex-wrap items-end gap-3">
-            <label class="text-xs text-slate-400">Work queue<select v-model="queue" class="block mt-1 bg-slate-900 text-white border border-white/10 rounded-lg text-sm py-2"><option value="all">All orders</option><option v-for="item in managerQueues" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
             <label class="text-xs text-slate-400">Order by<select v-model="sort" class="block mt-1 bg-slate-900 text-white border border-white/10 rounded-lg text-sm py-2"><option value="oldest">Oldest first</option><option value="newest">Newest first</option></select></label>
             <button @click="fetchOrders(1)" :disabled="loading" class="table-action">Refresh list</button>
         </div>

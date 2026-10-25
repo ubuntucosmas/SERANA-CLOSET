@@ -682,7 +682,7 @@ onUnmounted(() => {
 
                             <p class="text-center text-[10px] text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
                                 <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">shield</span>
-                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll receive a secure STK push on your phone' }}
+                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll get an M-Pesa prompt on your phone. Enter your PIN to pay' }}
                             </p>
                         </section>
                     </div>

@@ -35,8 +35,9 @@ const rowSizes = (row) => sizesForRow(allSizes.value, row.key);
 // is hidden behind a toggle.
 const sizeRows = computed(() => {
     const type = props.product.garment_type;
-    const top = { key: 'top', label: type === 'set' ? `${ui.value.piece_1_name || 'Hoodie'} size` : 'Size' };
-    const bottom = { key: 'bottom', label: type === 'set' ? `${ui.value.piece_2_name || 'Jogger'} size` : 'Size' };
+    // A set is any two-piece (hoodie set, linen set, suit): Top/Bottom, as on the receipt, unless the product names its pieces.
+    const top = { key: 'top', label: type === 'set' ? `${ui.value.piece_1_name || 'Top'} size` : 'Size' };
+    const bottom = { key: 'bottom', label: type === 'set' ? `${ui.value.piece_2_name || 'Bottom'} size` : 'Size' };
     if (type === 'set') return [top, bottom];
     if (type === 'jogger') return [bottom];
     return [top];
@@ -52,7 +53,7 @@ const ctaLabel = computed(() => {
     return `Add to Bag · ${formatAmount(props.product.price, page.props)}`;
 });
 
-const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: selected.top, bottomSize: selected.bottom }, page.props));
+const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: selected.top, bottomSize: selected.bottom, labels: sizeRows.value.map(row => row.label) }, page.props));
 
 const addToBag = () => {
     if (isSoldOut.value || missing.value.length) return;

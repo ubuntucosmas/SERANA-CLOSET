@@ -130,7 +130,7 @@ const counted = (at) => at ? new Date(at).toLocaleDateString('en-GB', { day: 'nu
                     <template v-if="stock.mode.v2">The shop sells unsold stock recorded at {{ stock.location?.name }}, size by size. Receive new batches and write off damaged pieces here.</template>
                     <template v-else>The shop still sells from the old batch numbers. Count every size of every stocked product below, then switch on.</template>
                 </p>
-                <p v-if="stock.mode.forced" class="text-xs text-slate-400 mt-1">Fixed by the server setting STOCK_V2; the switch below has no effect until it's removed.</p>
+                <p v-if="stock.mode.forced" class="text-xs text-slate-400 mt-1">Fixed by a server setting, so the switch below has no effect. Ask whoever runs the server to remove it.</p>
                 <template v-if="canSwitch && stock.mode.preview">
                     <ul v-if="!stock.mode.v2" class="mt-3 text-sm text-slate-300 space-y-1">
                         <li><strong class="text-white">{{ stock.mode.preview.uncounted.length }}</strong> size(s) not counted yet<template v-if="stock.mode.preview.uncounted.length">: {{ stock.mode.preview.uncounted.slice(0, 6).join(', ') }}<template v-if="stock.mode.preview.uncounted.length > 6">…</template></template></li>
