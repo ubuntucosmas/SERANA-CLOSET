@@ -28,6 +28,7 @@ class StudioController extends Controller
 {
     /** What an order carries to the Studio, from the list or a link (?order=): one list, so the two never differ. */
     private const ORDER_APPENDS = ['pay_link', 'pay_whatsapp_url', 'ledger_rows', 'stock_problem', 'seller_name', 'delivery_info'];
+    private const ORDER_RELATIONS = ['user', 'progressSnaps', 'seller:id,name', 'lines', 'payments.attempt', 'deliveryOption'];
 
     public function index(Request $request)
     {
@@ -108,9 +109,9 @@ class StudioController extends Controller
         $attention['payments_count'] = count($attention['payments']);
         // The background machinery staff depend on (payment checks, emails), only when something is wrong.
         $attention['system'] = \App\Support\SystemHealth::warnings();
-
         // M-Pesa money only the statement explains (OD-1): everyone sees it, the owner settles it.
         $attention['payment_review'] = app(\App\Services\PaymentReviewService::class)->forStudio();
+
         return Inertia::render('Admin/StudioDashboard', [
             'stats'      => $stats,
             'workflow' => $workflow,
@@ -125,7 +126,7 @@ class StudioController extends Controller
             'orders'            => fn () => $this->orderPage($request),
             // An order opened from a Home shortcut or a link, wherever it sits in the list.
             'focus_order'       => fn () => $request->filled('order')
-                ? $this->presentOrder(CustomOrder::withTrashed()->with(['user', 'progressSnaps', 'seller:id,name'])->find((int) $request->input('order')))
+                ? $this->presentOrder(CustomOrder::withTrashed()->with(self::ORDER_RELATIONS)->find((int) $request->input('order')))
                 : null,
             'products'          => $products,
             'archived_products' => fn () => $request->get('tab') === 'products' ? Product::onlyTrashed()->with('category')->latest()->get() : [],
@@ -335,7 +336,8 @@ class StudioController extends Controller
                     if (ctype_digit($q)) $w->orWhere('id', (int) $q);
                 });
             })
-            ->with(['user', 'progressSnaps'])
+            // What presentOrder() reads per order, loaded once for the page (it was ~9 queries per order).
+            ->with(self::ORDER_RELATIONS)
             ->when($request->input('o_sort') === 'oldest', fn ($query) => $query->oldest(), fn ($query) => $query->latest())
             ->paginate(30, ['*'], 'o_page', max(1, (int) $request->input('o_page', 1)));
 
@@ -385,7 +387,8 @@ class StudioController extends Controller
             if ($blocked) $next['label'] = 'Review payment before continuing';
         }
         $order->setAttribute('next_action', $next);
-        return $order;
+        // Loaded only so the appends above don't query per order; the page reads the appends.
+        return $order->makeHidden(['lines', 'payments', 'deliveryOption']);
     }
 
     public function recordPayment(Request $request, CustomOrder $order)

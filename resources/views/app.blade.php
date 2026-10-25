@@ -52,7 +52,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=account_balance_wallet,account_circle,add,add_photo_alternate,add_shopping_cart,architecture,archive,arrow_back,arrow_forward,arrow_right_alt,assignment,auto_awesome,backspace,badge,barcode_scanner,bolt,chat,check,check_circle,checkroom,chevron_left,chevron_right,close,content_cut,dark_mode,dashboard,delete,delete_forever,design_services,download,draw,dynamic_feed,edit,expand_less,expand_more,gesture,group,handshake,history,home,hourglass_top,image,inbox,inventory,inventory_2,keyboard_arrow_down,light_mode,local_florist,local_shipping,lock,logout,mail,menu,more_horiz,north_east,package_2,paid,pause,payments,photo_camera,photo_library,pin_drop,play_arrow,point_of_sale,precision_manufacturing,progress_activity,receipt_long,search,search_off,settings,shield,shopping_bag,shopping_cart,smartphone,storefront,straighten,support_agent,sync,task_alt,tune,verified,verified_user,visibility,warning,whatsapp&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
-        @routes
+        @routes(\App\Http\Middleware\HandleInertiaRequests::staffRoutes(request()) ? null : 'storefront')
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
         <meta name="csrf-token" content="{{ csrf_token() }}">

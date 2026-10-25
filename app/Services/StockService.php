@@ -544,6 +544,25 @@ class StockService
         return max(0, $onHand - $held);
     }
 
+    /**
+     * availableAt() for many sizes at one location in two queries, for lists
+     * (Stock screen, Sales Desk search). Plain reads, the same rule; never use
+     * it to decide a sale: writers lock with availableAt(..., current: true).
+     *
+     * @param  \Illuminate\Support\Collection<int, ProductVariant>  $variants  with product loaded
+     * @return array<int, ?int> variant id => available (null = made to order)
+     */
+    public function availableAtMany(Collection $variants, ?Location $at): array
+    {
+        $ids = $variants->pluck('id');
+        $onHand = $at ? StockLevel::whereIn('product_variant_id', $ids)->where('location_id', $at->id)->pluck('on_hand', 'product_variant_id') : collect();
+        $held = $at ? StockReservation::active()->whereIn('product_variant_id', $ids)->where('location_id', $at->id)
+            ->selectRaw('product_variant_id, SUM(quantity) as held')->groupBy('product_variant_id')->pluck('held', 'product_variant_id') : collect();
+
+        return $variants->mapWithKeys(fn (ProductVariant $v) => [$v->id => $at && $this->tracked($v)
+            ? max(0, (int) ($onHand[$v->id] ?? 0) - (int) ($held[$v->id] ?? 0)) : null])->all();
+    }
+
     /** Units of one size that can be bought online: Σ over online locations. Null = made to order. */
     public function availableOnline(ProductVariant $variant): ?int
     {
@@ -589,8 +608,10 @@ class StockService
             ->mapWithKeys(fn ($h) => [$key($h->product_variant_id, $h->location_id) => (int) $h->held]);
 
         $byVariant = $variants->mapWithKeys(fn ($v) => [$v->id => $online->sum(fn ($l) => max(0, ($onHand[$key($v->id, $l)] ?? 0) - ($held[$key($v->id, $l)] ?? 0)))]);
+        // Grouped once: filtering every variant per product made 500 products take ~2 s.
+        $variantsOf = $variants->groupBy('product_id');
         foreach ($tracked as $product) {
-            $parts = $variants->where('product_id', $product->id)->groupBy('part')->map(fn ($vs) => (int) $vs->sum(fn ($v) => $byVariant[$v->id]));
+            $parts = $variantsOf->get($product->id, collect())->groupBy('part')->map(fn ($vs) => (int) $vs->sum(fn ($v) => $byVariant[$v->id]));
             $product->preloadedAvailable = $parts->isEmpty() ? 0 : (int) $parts->min();
         }
     }

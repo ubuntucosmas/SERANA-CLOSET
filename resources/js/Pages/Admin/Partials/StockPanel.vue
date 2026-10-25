@@ -3,6 +3,7 @@
      switches stock per size on (after counting every size) or back off. -->
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
+import axios from 'axios';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import { shopStatus } from '@/Support/stock';
 
@@ -32,6 +33,20 @@ const products = computed(() => {
 });
 const open = ref(null);
 const historyOpen = ref(null);
+// Each product's history loads when it is opened, and again after any stock change.
+const histories = ref({});
+const historyError = ref('');
+function loadHistory(id) {
+    historyError.value = '';
+    axios.get(route('studio.stock.history', id))
+        .then(({ data }) => { histories.value = { ...histories.value, [id]: data.history }; })
+        .catch(() => { historyError.value = 'The history could not be loaded. Check the connection and open it again.'; });
+}
+function toggleHistory(id) {
+    historyOpen.value = historyOpen.value === id ? null : id;
+    if (historyOpen.value && !histories.value[id]) loadHistory(id);
+}
+watch(() => props.stock, () => { histories.value = {}; if (historyOpen.value) loadHistory(historyOpen.value); });
 
 watch(() => props.focusProduct, id => { if (id) open.value = id; }, { immediate: true });
 const entryProduct = ref(null);
@@ -219,12 +234,14 @@ const counted = (at) => at ? new Date(at).toLocaleDateString('en-GB', { day: 'nu
                         </form>
 
                         <div>
-                            <button type="button" @click="historyOpen = historyOpen === product.id ? null : product.id" class="text-sm text-[#57d5fc] hover:underline" :aria-expanded="historyOpen === product.id">
-                                {{ historyOpen === product.id ? 'Hide history' : `Stock history (${product.history.length})` }}
+                            <button type="button" @click="toggleHistory(product.id)" class="text-sm text-[#57d5fc] hover:underline" :aria-expanded="historyOpen === product.id">
+                                {{ historyOpen === product.id ? 'Hide history' : `Stock history (${product.history_count})` }}
                             </button>
                             <ul v-if="historyOpen === product.id" class="mt-2 divide-y divide-white/5 text-xs" aria-label="Stock history">
-                                <li v-if="!product.history.length" class="py-2 text-slate-400">No stock movements yet.</li>
-                                <li v-for="m in product.history" :key="m.id" class="py-2 flex flex-wrap gap-x-3 gap-y-1">
+                                <li v-if="historyError" role="alert" class="py-2 text-rose-300">{{ historyError }}</li>
+                                <li v-else-if="!histories[product.id]" class="py-2 text-slate-400">Loading…</li>
+                                <li v-else-if="!histories[product.id].length" class="py-2 text-slate-400">No stock movements yet.</li>
+                                <li v-for="m in histories[product.id] || []" :key="m.id" class="py-2 flex flex-wrap gap-x-3 gap-y-1">
                                     <span class="text-slate-400 w-28 shrink-0">{{ m.at }}</span>
                                     <span class="text-white">{{ typeLabel[m.type] || m.type }} {{ m.size }}</span>
                                     <span class="tabular-nums" :class="m.quantity < 0 ? 'text-rose-300' : 'text-emerald-400'">{{ m.quantity > 0 ? '+' : '' }}{{ m.quantity }}</span>

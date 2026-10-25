@@ -4,7 +4,11 @@ import { useCsrfToken } from './bootstrap';
 import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
-import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { ZiggyVue, route } from '../../vendor/tightenco/ziggy';
+
+// The page carries only the route list (config/ziggy.php skips Ziggy's inline copy of
+// this function); scripts call route() globally, so expose the bundled one.
+globalThis.route = route;
 
 // Global scroll-reveal directive using IntersectionObserver and Anime.js
 import { revealDirective } from './Directives/reveal';

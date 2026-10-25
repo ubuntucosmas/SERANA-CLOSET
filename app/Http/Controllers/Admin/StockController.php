@@ -21,6 +21,12 @@ use Illuminate\Validation\ValidationException;
  */
 class StockController extends Controller
 {
+    /** A product's stock history, loaded when staff open it on the Stock screen. */
+    public function history(Product $product)
+    {
+        return response()->json(['history' => \App\Support\StudioStock::history($product)]);
+    }
+
     public function options(Request $request, Product $product, StockService $stock)
     {
         $request->validate(['order_id' => ['nullable', 'integer', 'exists:custom_orders,id']]);

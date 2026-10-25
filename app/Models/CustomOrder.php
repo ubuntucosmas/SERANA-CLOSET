@@ -170,12 +170,14 @@ class CustomOrder extends Model
     /** The order's ledger for the Studio: every booking, and whether it was reversed, confirmed or is flagged. */
     public function getLedgerRowsAttribute(): array
     {
-        $reviews = \Illuminate\Support\Facades\DB::table('payment_reviews')->whereIn('order_payment_id', $this->payments()->pluck('id'))->pluck('decision', 'order_payment_id');
-        $reversed = $this->payments()->whereNotNull('reverses_payment_id')->pluck('reverses_payment_id')->flip();
+        // Lists eager-load payments.attempt (StudioController::orderPage); a single order reads them here.
+        $payments = $this->relationLoaded('payments') ? $this->payments->sortBy('id')->values() : $this->payments()->with('attempt')->orderBy('id')->get();
+        $reviews = $payments->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table('payment_reviews')->whereIn('order_payment_id', $payments->pluck('id'))->pluck('decision', 'order_payment_id');
+        $reversed = $payments->whereNotNull('reverses_payment_id')->pluck('reverses_payment_id')->flip();
 
         $bespoke = $this->kind === 'bespoke';
 
-        return $this->payments()->with('attempt')->orderBy('id')->get()->map(fn (OrderPayment $p) => [
+        return $payments->map(fn (OrderPayment $p) => [
             'id' => $p->id, 'type' => $p->type, 'amount' => $p->amount, 'method' => $p->method,
             'reference' => $p->external_reference, 'actor' => $p->actor_type, 'reason' => $p->reason,
             'at' => $p->occurred_at?->copy()->timezone(config('app.display_timezone'))->format('d M Y, H:i'),
@@ -522,7 +524,9 @@ class CustomOrder extends Model
     /** The delivery lines (Phase D2): the charge and any later change, all of type delivery. */
     public function deliveryTotal(): int
     {
-        return (int) $this->lines()->where('line_type', OrderLine::DELIVERY)->sum('amount');
+        // Eager-loaded lines only on read-only lists; writers always query.
+        return (int) ($this->relationLoaded('lines') ? $this->lines->where('line_type', OrderLine::DELIVERY)->sum('amount')
+            : $this->lines()->where('line_type', OrderLine::DELIVERY)->sum('amount'));
     }
 
     /** What was quoted or bought, without delivery: the Studio edits this, never the delivery inside it. */
@@ -534,7 +538,8 @@ class CustomOrder extends Model
     /** A quote-on-WhatsApp order the Studio hasn't priced yet: it can't be paid until it is. */
     public function needsDeliveryQuote(): bool
     {
-        return $this->deliveryOption?->type === DeliveryOption::QUOTE && ! $this->lines()->where('line_type', OrderLine::DELIVERY)->exists();
+        return $this->deliveryOption?->type === DeliveryOption::QUOTE && ! ($this->relationLoaded('lines')
+            ? $this->lines->contains('line_type', OrderLine::DELIVERY) : $this->lines()->where('line_type', OrderLine::DELIVERY)->exists());
     }
 
     /**

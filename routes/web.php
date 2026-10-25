@@ -146,6 +146,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/staff/{user}/reactivate', [App\Http\Controllers\Admin\StaffController::class, 'reactivate'])->middleware('can:staff.manage')->name('studio.staff.reactivate');
     Route::put('/staff/{user}/pin', [App\Http\Controllers\Admin\StaffController::class, 'pin'])->middleware('can:staff.manage')->name('studio.staff.pin');
     // Stock per size (Phase D1).
+    Route::get('/stock/product/{product}/history', [App\Http\Controllers\Admin\StockController::class, 'history'])->middleware('can:stock.manage')->name('studio.stock.history');
     Route::get('/stock/product/{product}/options', [App\Http\Controllers\Admin\StockController::class, 'options'])->middleware('can:stock.manage')->name('studio.stock.options');
     Route::post('/stock/product/{product}/batch', [App\Http\Controllers\Admin\StockController::class, 'batch'])->middleware('can:stock.manage')->name('studio.stock.batch');
     Route::post('/stock/move', [App\Http\Controllers\Admin\StockController::class, 'move'])->middleware('can:stock.manage')->name('studio.stock.move');
@@ -159,7 +160,6 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/payment/{payment}/reverse', [StudioController::class, 'reversePayment'])->middleware('can:ledger.reverse')->name('studio.payment.reverse');
     Route::post('/payment/{payment}/confirm', [StudioController::class, 'confirmPayment'])->middleware('can:ledger.reverse')->name('studio.payment.confirm');
     Route::put('/order/{order}/deposit', [StudioController::class, 'setDeposit'])->middleware('can:deposit.override')->name('studio.order.deposit');
-
     // M-Pesa payment review (OD-1): money only the statement explains. Owner only.
     Route::middleware('can:payments.review')->prefix('payment-review')->group(function () {
         Route::post('/', [App\Http\Controllers\Admin\PaymentReviewController::class, 'store'])->name('studio.payment_review.store');
@@ -170,6 +170,7 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
         Route::post('/prompt/{attempt}/confirm', [App\Http\Controllers\Admin\PaymentReviewController::class, 'confirmPrompt'])->name('studio.payment_review.prompt_confirm');
         Route::post('/prompt/{attempt}/close', [App\Http\Controllers\Admin\PaymentReviewController::class, 'closePrompt'])->name('studio.payment_review.prompt_close');
     });
+
     // Catalog Management
     Route::get('/catalog', [App\Http\Controllers\Admin\CatalogController::class, 'index'])->name('admin.catalog.index');
     Route::post('/catalog/product', [App\Http\Controllers\Admin\CatalogController::class, 'storeProduct'])->name('admin.catalog.store_product');
