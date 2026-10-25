@@ -38,6 +38,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
+            // Sent back as X-CSRF-TOKEN (resources/js/bootstrap.js), so a stray
+            // XSRF-TOKEN cookie from a parent domain can't break every form.
+            'csrf_token' => fn () => csrf_token(),
             'seo' => fn () => \App\Support\PageSeo::forRequest($request),
             'auth' => [
                 'user' => fn () => $request->user()

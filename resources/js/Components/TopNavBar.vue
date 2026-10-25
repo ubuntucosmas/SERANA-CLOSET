@@ -4,7 +4,7 @@
     class="sticky top-0 z-50 w-full border-b border-black/5 bg-background/85 backdrop-blur-xl transition-shadow duration-300 dark:border-white/5"
     :class="scrolled ? 'shadow-lg shadow-black/5 dark:shadow-black/30' : ''"
 >
-    <div class="page-container relative flex h-[72px] sm:h-[104px] items-center justify-between gap-2 sm:gap-4 xl:gap-6">
+    <div class="page-container relative flex h-[72px] sm:h-[88px] items-center justify-between gap-2 sm:gap-4 xl:gap-6">
 
             <!-- 1. Left Vector: Brand & Pulse -->
             <div class="relative z-20 flex items-center">
@@ -16,12 +16,12 @@
             <!-- 2. Central Vector: Navigation Links (Absolute Centered) -->
             <div class="hidden items-center gap-4 lg:flex xl:gap-7">
                 <Link :href="route('home')" prefetch
-                    class="nav-link" :class="{ 'active': isActive('home') }">
+                    class="nav-link" :class="{ 'active': isActive('home') }" :aria-current="isActive('home') ? 'page' : undefined">
                     Home
                 </Link>
 
                 <Link v-if="$page.props.drops_enabled" :href="route('drops')"
-                    class="nav-link flex items-center gap-1.5" :class="{ 'active': isActive('drops*') }">
+                    class="nav-link flex items-center gap-1.5" :class="{ 'active': isActive('drops*') }" :aria-current="isActive('drops*') ? 'page' : undefined">
                     Drops
                     <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
                 </Link>
@@ -29,7 +29,7 @@
                 <!-- Shop Dropdown -->
                 <div class="group relative">
                     <Link :href="route('shop')" prefetch
-                        class="nav-link flex items-center gap-1" :class="{ 'active': isActive('shop*') }">
+                        class="nav-link flex items-center gap-1" :class="{ 'active': isActive('shop*') }" :aria-current="isActive('shop*') ? 'page' : undefined">
                         Shop
                         <svg class="h-4 w-4 shrink-0 text-on-surface-variant transition-transform duration-200 group-hover:rotate-180 group-focus-within:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                     </Link>
@@ -59,22 +59,22 @@
                     </div>
                 </div>
 
-                <Link :href="route('custom-order')" prefetch class="nav-link" :class="{ 'active': isActive('custom-order*') }">
+                <Link :href="route('custom-order')" prefetch class="nav-link" :class="{ 'active': isActive('custom-order*') }" :aria-current="isActive('custom-order*') ? 'page' : undefined">
                     Custom Order
                 </Link>
 
                 <Link :href="route('about')"
-                    class="nav-link" :class="{ 'active': isActive('about') }">
+                    class="nav-link" :class="{ 'active': isActive('about') }" :aria-current="isActive('about') ? 'page' : undefined">
                     About
                 </Link>
 
                 <Link :href="route('circle')"
-                    class="nav-link" :class="{ 'active': isActive('circle') }">
+                    class="nav-link" :class="{ 'active': isActive('circle') }" :aria-current="isActive('circle') ? 'page' : undefined">
                     Community
                 </Link>
 
                 <Link :href="route('track')" prefetch
-                    class="nav-link" :class="{ 'active': isActive('track') }">
+                    class="nav-link" :class="{ 'active': isActive('track') }" :aria-current="isActive('track') ? 'page' : undefined">
                     Track Order
                 </Link>
             </div>
@@ -135,11 +135,11 @@
              fixed layer size itself to the header, leaving the page uncovered. -->
         <teleport to="body">
         <transition name="mobile-nav-slide">
-            <div v-if="mobileMenuOpen" id="mobile-menu" class="fixed inset-x-0 bottom-0 top-[72px] sm:top-[104px] z-[110] overflow-y-auto px-4 pt-3 pb-24 lg:hidden">
+            <div v-if="mobileMenuOpen" id="mobile-menu" class="fixed inset-x-0 bottom-0 top-[72px] sm:top-[88px] z-[110] overflow-y-auto px-4 pt-3 pb-24 lg:hidden">
                 <div class="absolute inset-0 bg-background/90 backdrop-blur-2xl" @click="mobileMenuOpen = false"></div>
                 <div class="card relative z-10 p-4 shadow-2xl">
                     <div class="space-y-2">
-                        <Link v-for="item in mobileNavItems" :key="item.route" :href="route(item.route)" class="flex items-center justify-between rounded-2xl border border-transparent px-4 py-2.5 text-sm sm:text-lg font-normal transition-all hover:border-primary/30 hover:bg-primary/5" :class="isActive(item.active || item.route) ? 'text-primary border-primary/30 bg-primary/5' : 'text-on-surface dark:text-white'" @click="closeMobileMenu()">
+                        <Link v-for="item in mobileNavItems" :key="item.route" :href="route(item.route)" :aria-current="isActive(item.active || item.route) ? 'page' : undefined" class="flex min-h-11 items-center justify-between rounded-2xl border border-transparent px-4 py-2.5 text-sm sm:text-lg font-normal transition-all hover:border-primary/30 hover:bg-primary/5" :class="isActive(item.active || item.route) ? 'text-primary border-primary/30 bg-primary/5' : 'text-on-surface dark:text-white'" @click="closeMobileMenu()">
                             <span>{{ item.label }}</span>
                             <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
                         </Link>
@@ -234,7 +234,7 @@ onUnmounted(() => {
 <style scoped lang="postcss">
 /* Larger, lighter navigation with a fine active underline. */
 .nav-link {
-    @apply relative inline-flex min-h-11 items-center whitespace-nowrap py-2 text-[17px] font-normal leading-none tracking-[.005em] text-on-surface-variant transition-colors duration-200 hover:text-primary;
+    @apply relative inline-flex min-h-11 items-center whitespace-nowrap py-2 text-[14px] font-normal leading-none tracking-[.005em] text-on-surface-variant transition-colors duration-200 hover:text-primary;
 }
 
 /* Keep the current page clear without adding font weight. */

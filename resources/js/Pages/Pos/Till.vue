@@ -14,13 +14,15 @@ import { canAddPosLine } from '@/Support/posStock';
 import Modal from '@/Components/Modal.vue';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 import WorkflowContext from '@/Components/WorkflowContext.vue';
+import CustomOrderBrief from '@/Components/CustomOrderBrief.vue';
 
 const props = defineProps({
     operator: { type: Object, default: null },
     shop: { type: String, default: null },
     tills: { type: Array, default: () => [] },
     policy: { type: Object, required: true },
-    garments: { type: Array, default: () => [] },
+    // Garments, fabrics and colours from Studio → Settings, as the shop's form shows them.
+    customOrderOptions: { type: Object, default: () => ({ garments: [], fabrics: [], colours: [] }) },
 });
 
 const page = usePage();
@@ -465,17 +467,27 @@ async function submitReturn() {
 }
 
 // ---- Bespoke intake ----
-const blank = () => ({ full_name: '', phone: '', email: '', garment: '', notes: '', occasion: '', deadline: '', fabric_preference: '', selected_color: '',
-    bust_cm: '', waist_cm: '', hips_cm: '', length_cm: '', height_cm: '', quote: '' });
+// The same form as the shop's Custom Order page (CustomOrderBrief); the desk
+// endpoint names two fields differently and adds email and an optional quote.
+const blank = () => ({ full_name: '', whatsapp_number: '', email: '', location: '', outfit_type: '', occasion: '', deadline: '',
+    fabric_preference: '', selected_color: '', notes: '', bust_cm: '', waist_cm: '', hips_cm: '', length_cm: '', height_cm: '', images: [], quote: '' });
+const deskField = { whatsapp_number: 'phone', outfit_type: 'garment' };
+const briefField = { phone: 'whatsapp_number', garment: 'outfit_type' };
 const intake = reactive(blank());
-const intakeImages = ref([]);
+const intakeBrief = ref(null);
 const intakeOrder = ref(null);
+// Server messages under their own field, in the brief's names.
+const intakeErrors = computed(() => Object.fromEntries(Object.entries(errors.value || {})
+    .map(([k, v]) => [briefField[k.split('.')[0]] || k.split('.')[0], Array.isArray(v) ? v[0] : v])));
 async function submitIntake() {
     const form = new FormData();
-    Object.entries(intake).forEach(([k, v]) => { if (v !== '' && v !== null) form.append(k, v); });
-    intakeImages.value.forEach(f => form.append('images[]', f));
+    Object.entries(intake).forEach(([k, v]) => {
+        if (k === 'images') v.forEach(f => form.append('images[]', f));
+        else if (v !== '' && v !== null) form.append(deskField[k] || k, v);
+    });
     try {
         intakeOrder.value = (await call('post', route('pos.intake'), form)).order;
+        intakeBrief.value?.releasePreviews();
         change.value = null;
         startTender('intake');
         tender.amount = intakeOrder.value.deposit_required || '';
@@ -487,7 +499,7 @@ async function refreshIntake() {
     if (!intakeOrder.value) return;
     intakeOrder.value = (await call('get', route('pos.orders.show', intakeOrder.value.id))).order;
 }
-function newIntake() { rememberDeskOrder(null); Object.assign(intake, blank()); intakeImages.value = []; intakeOrder.value = null; errors.value = {}; }
+function newIntake() { rememberDeskOrder(null); intakeBrief.value?.releasePreviews(); Object.assign(intake, blank()); intakeOrder.value = null; errors.value = {}; }
 
 // ---- The drawer: take cash out, report, close ----
 const report = ref(null);
@@ -898,24 +910,18 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
                 <!-- BESPOKE -->
                 <section v-else-if="tab === 'bespoke'" aria-labelledby="intake-title" class="desk-panel desk-intake space-y-4">
                     <h2 id="intake-title" class="text-white font-headline text-lg">Custom order</h2>
-                    <form v-if="!intakeOrder" @submit.prevent="submitIntake" class="desk-intake-form grid gap-3 sm:grid-cols-2">
-                        <label class="text-sm">Name<input v-model="intake.full_name" required maxlength="255" :class="input" class="mt-1" /></label>
-                        <label class="text-sm">Phone<input v-model="intake.phone" type="tel" required :class="input" class="mt-1" placeholder="07XX XXX XXX" /></label>
-                        <label class="text-sm">Email (optional)<input v-model="intake.email" type="email" :class="input" class="mt-1" /></label>
-                        <label class="text-sm">Garment<input v-model="intake.garment" list="garments" maxlength="100" :class="input" class="mt-1" /><datalist id="garments"><option v-for="g in garments" :key="g" :value="g" /></datalist></label>
-                        <label class="text-sm">Occasion<input v-model="intake.occasion" maxlength="100" :class="input" class="mt-1" /></label>
-                        <label class="text-sm">Needed by<input v-model="intake.deadline" type="date" :class="input" class="mt-1" /></label>
-                        <label class="text-sm">Fabric<input v-model="intake.fabric_preference" maxlength="255" :class="input" class="mt-1" /></label>
-                        <label class="text-sm">Colour<input v-model="intake.selected_color" maxlength="100" :class="input" class="mt-1" /></label>
-                        <fieldset class="desk-intake-full grid grid-cols-3 sm:grid-cols-5 gap-2">
-                            <legend class="text-sm mb-1">Measurements (cm)</legend>
-                            <label v-for="m in ['bust', 'waist', 'hips', 'length', 'height']" :key="m" class="text-xs text-slate-400 capitalize">{{ m }}<input v-model="intake[m + '_cm']" type="number" step="0.5" min="10" max="250" :class="input" class="mt-1" /></label>
-                        </fieldset>
-                        <label class="text-sm desk-intake-full">Notes<textarea v-model="intake.notes" rows="3" maxlength="5000" :class="input" class="mt-1"></textarea></label>
-                        <label class="text-sm">Reference photos (up to 6)<input type="file" multiple accept="image/*,application/pdf" @change="intakeImages = [...$event.target.files].slice(0, 6)" class="mt-1 block text-sm text-slate-400" /></label>
-                        <label class="text-sm">Quote now (KSh, optional)<input v-model="intake.quote" type="number" min="1" inputmode="numeric" :class="input" class="mt-1" /></label>
-                        <p v-if="firstError" role="alert" class="desk-intake-full text-sm text-rose-300">{{ firstError }}</p>
-                        <button type="submit" :disabled="busy" :class="primary" class="desk-intake-full">Create the order</button>
+                    <form v-if="!intakeOrder" @submit.prevent="submitIntake" class="desk-intake-form">
+                        <CustomOrderBrief ref="intakeBrief" :form="intake" :options="customOrderOptions" :errors="intakeErrors" staff>
+                            <div class="bg-surface border border-black/10 dark:border-white/10 rounded-3xl p-4 sm:p-6 md:p-8 space-y-4">
+                                <div class="text-xs tracking-wider text-primary font-medium">06 — Quote</div>
+                                <label class="block text-sm text-on-surface-variant max-w-sm">Quote now (KSh, optional)
+                                    <input v-model="intake.quote" type="number" min="1" inputmode="numeric" class="mt-2 w-full bg-background border border-black/15 dark:border-white/20 focus:border-primary px-4 py-3.5 rounded-2xl text-base text-on-surface" />
+                                </label>
+                                <p class="text-sm text-on-surface-variant">Leave it empty and the Studio quotes it later. With a quote, you can take the deposit next.</p>
+                                <p v-if="firstError" role="alert" class="text-sm text-rose-300">{{ firstError }}</p>
+                                <button type="submit" :disabled="busy" :class="primary" class="w-full py-3.5">Create the order</button>
+                            </div>
+                        </CustomOrderBrief>
                     </form>
                     <div v-else class="space-y-3">
                         <p class="text-white">{{ intakeOrder.reference }} · {{ intakeOrder.customer }}<template v-if="intakeOrder.garment"> · {{ intakeOrder.garment }}</template></p>
@@ -1147,8 +1153,6 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
 .desk-close-form { display: grid; gap: 14px; }
 .desk-cash-comparison { padding: 12px; background: var(--desk-inset); border: 1px solid var(--desk-border-strong); border-radius: 8px; color: var(--desk-text); line-height: 1.8; }
 .desk-intake { padding: 24px; }
-.desk-intake-full { grid-column: 1 / -1; }
-@media (min-width: 1200px) { .desk-intake-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 1100px) { .desk-operations-grid { grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); } }
 @media (min-width: 1280px) { .desk-register-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr); } }
 @media (min-width: 768px) and (max-width: 1279px) {

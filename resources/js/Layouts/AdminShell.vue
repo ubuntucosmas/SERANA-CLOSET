@@ -17,7 +17,7 @@ import SiteSeo from '@/Components/SiteSeo.vue';
 import Notification from '@/Components/Notification.vue';
 import Modal from '@/Components/Modal.vue';
 import WorkflowContext from '@/Components/WorkflowContext.vue';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -39,9 +39,17 @@ const guidance = computed(() => studioSection(props.current));
 const primary = computed(() => sections.value.filter(s => s.primary));
 const secondary = computed(() => sections.value.filter(s => !s.primary));
 
-const groups = computed(() => groupedSections(sections.value));
-const moreGroups = computed(() => groupedSections(secondary.value));
 const moreOpen = ref(false);
+const sectionQuery = ref('');
+const matchingSections = computed(() => {
+    const query = sectionQuery.value.trim().toLowerCase();
+    return sections.value.filter(section => `${section.label} ${section.description}`.toLowerCase().includes(query));
+});
+watch(moreOpen, () => { sectionQuery.value = ''; });
+const groups = computed(() => groupedSections(matchingSections.value));
+const moreGroups = computed(() => groupedSections(matchingSections.value.filter(section => !section.primary)));
+
+
 
 const storeName = computed(() => page.props.store?.name || 'Serana Studio');
 const logoUrl = computed(() => page.props.theme_settings?.site_logo || null);
@@ -68,6 +76,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
 <template>
     <SiteSeo />
     <div class="min-h-screen bg-[#020617] text-slate-200 font-body selection:bg-cyan-900 selection:text-white">
+        <a href="#studio-main" class="skip-link">Skip to workspace</a>
         <Notification />
         <!-- ───────── Desktop sidebar ───────── -->
         <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-64 flex-col bg-slate-950 border-r border-white/5 px-5 py-7 z-40">
@@ -77,6 +86,10 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <span class="font-headline text-lg text-white truncate group-hover:text-[#57d5fc] transition-colors">{{ storeName }}</span>
             </Link>
 
+            <label class="mb-3 block text-xs text-slate-400">Find a section
+                <input v-model="sectionQuery" type="search" placeholder="Orders, stock, settings…" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </label>
+            <p v-if="!groups.length" role="status" class="py-3 text-sm text-slate-400">No matching sections. Try another name.</p>
             <nav aria-label="Studio sections" class="flex-1 min-h-0 overflow-y-auto space-y-1">
                 <section v-for="group in groups" :key="group.label" class="mb-3">
                     <h2 class="px-4 pt-2 pb-1 text-xs font-semibold text-slate-500">{{ group.label }}</h2>
@@ -113,7 +126,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
         </header>
 
         <!-- ───────── Main content ───────── -->
-        <main class="lg:ml-64 min-h-screen pb-24 lg:pb-0">
+        <main id="studio-main" tabindex="-1" class="lg:ml-64 min-h-screen pb-24 lg:pb-0">
             <!-- Section header -->
             <div class="px-3 sm:px-5 lg:px-7 pt-3 sm:pt-5 lg:pt-6 pb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                 <div>
@@ -130,7 +143,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
         </main>
 
         <!-- ───────── Mobile bottom tab bar ───────── -->
-        <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-white/10 flex items-stretch">
+        <nav aria-label="Studio quick links" style="padding-bottom: env(safe-area-inset-bottom, 0px)" class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-white/10 flex items-stretch">
             <button v-for="s in primary" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
                 :class="current === s.id ? 'text-[#57d5fc]' : 'text-slate-500'">
@@ -138,7 +151,7 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
                 <span class="text-xs font-medium">{{ s.label }}</span>
             </button>
             <a v-if="canUseTill" :href="route('pos.index')" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-slate-400"><span aria-hidden="true" class="material-symbols-outlined text-[22px]">point_of_sale</span><span class="text-xs font-medium">Sell</span></a>
-            <button @click="moreOpen = true"
+            <button @click="moreOpen = true" :aria-expanded="moreOpen" aria-haspopup="dialog"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
                 :class="secondary.some(s => s.id === current) ? 'text-[#57d5fc]' : 'text-slate-500'">
                 <span aria-hidden="true" class="material-symbols-outlined text-[22px]">more_horiz</span>
@@ -150,7 +163,10 @@ onUnmounted(() => document.documentElement.classList.remove('studio-active'));
         <Modal :show="moreOpen" max-width="md" labelled-by="studio-more-title" @close="moreOpen = false">
                 <div class="max-h-[85dvh] overflow-y-auto bg-slate-900 p-4 pb-8 space-y-1">
                     <div class="flex items-center justify-between"><h2 id="studio-more-title" class="text-white font-semibold">More Studio sections</h2><button type="button" @click="moreOpen = false" class="table-action">Close</button></div>
-                    <div class="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4"></div>
+                    <label class="block py-3 text-xs text-slate-400">Find a section
+                        <input v-model="sectionQuery" type="search" placeholder="Stock, refunds, settings…" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+                    </label>
+                    <p v-if="!moreGroups.length" role="status" class="px-4 py-3 text-sm text-slate-400">No matching sections. Try another name.</p>
                     <section v-for="group in moreGroups" :key="group.label">
                     <h3 class="px-4 pt-3 text-xs font-semibold text-slate-500">{{ group.label }}</h3>
                     <button v-for="s in group.sections" :key="s.id" @click="go(s.id)" :aria-current="current === s.id ? 'page' : undefined"

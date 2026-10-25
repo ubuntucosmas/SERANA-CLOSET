@@ -1,7 +1,7 @@
 import '../css/app.css';
-import './bootstrap';
+import { useCsrfToken } from './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
@@ -24,6 +24,9 @@ createInertiaApp({
             pages,
         ),
     setup({ el, App, props, plugin }) {
+        // Sign-in and sign-out start a new session token; every page carries the current one.
+        useCsrfToken(props.initialPage.props.csrf_token);
+        router.on('success', (event) => useCsrfToken(event.detail.page.props.csrf_token));
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)

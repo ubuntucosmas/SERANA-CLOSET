@@ -803,14 +803,13 @@ html.studio-active:not(.dark) .stage-error { color: #be123c; background: #fff1f2
     .studio-table .table-action { min-height: 44px; }
 }
 
-/* Compact phone scale: reduce both rem-based type and spacing consistently.
-   Keep explicit form text and touch targets independent of visual density. */
+/* Keep the standard reading scale on phones, with explicit control sizes. */
 @media (max-width: 639px) {
-    html { font-size: 87.5%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body { font-size: 1rem; line-height: 1.5; }
     p { line-height: 1.5; }
     .text-xs { font-size: 12px; }
-    .text-sm { font-size: 13px; }
+    .text-sm { font-size: 14px; }
     .text-base { font-size: 14px; }
     .action-primary, .action-secondary, .table-action, .wa-action { min-height: 44px; }
     .action-icon, .icon-btn, .nav-btn { min-width: 44px; min-height: 44px; }
@@ -832,3 +831,12 @@ html.studio-active.dark .text-slate-500,
 html.studio-active.dark .text-slate-600,
 .sales-desk .text-slate-500,
 .sales-desk .text-slate-600 { color: #94a3b8; }
+
+/* Keep keyboard navigation visible and clear of sticky navigation. */
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 1000; padding: 12px 20px; border-radius: 8px; background: var(--surface); color: var(--on-surface); box-shadow: 0 4px 20px #0003; transform: translateY(-180%); }
+.skip-link:focus { transform: translateY(0); }
+#storefront-main, #studio-main { scroll-margin-top: 100px; }
+@media (max-width: 639px) {
+    .studio-table-wrap { max-height: 65dvh; }
+    html.studio-active .stage-badge, html.studio-active .studio-table .cell-note { font-size: 12px; }
+}

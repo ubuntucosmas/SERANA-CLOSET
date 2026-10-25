@@ -556,9 +556,9 @@ onUnmounted(() => {
                                         <a v-if="page.props.store?.whatsapp_url" :href="page.props.store.whatsapp_url" target="_blank" rel="noopener" class="underline text-primary">Message us on WhatsApp</a> to order these pieces.
                                     </p>
                                     <div v-else id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
-                                        <label v-for="o in delivery_options" :key="o.id" class="flex items-start gap-3 border p-3 cursor-pointer"
-                                            :class="Number(form.delivery_option_id) === o.id ? 'border-primary bg-primary/5' : 'border-current/15'">
-                                            <input v-model="form.delivery_option_id" type="radio" :value="o.id" class="mt-1" />
+                                        <label v-for="o in delivery_options" :key="o.id" class="delivery-choice"
+                                            :class="{ 'is-selected': Number(form.delivery_option_id) === o.id }">
+                                            <input v-model="form.delivery_option_id" type="radio" name="delivery_option" :value="o.id" class="delivery-radio" />
                                             <span class="flex-1 min-w-0">
                                                 <span class="flex justify-between gap-3"><span class="font-medium text-on-surface">{{ o.name }}</span>
                                                     <span class="font-mono text-sm shrink-0">{{ o.type === 'quote' ? 'Quote' : feeOf(o) ? formatAmount(feeOf(o)) : 'Free' }}</span></span>
@@ -807,8 +807,21 @@ onUnmounted(() => {
 .checkout-section-heading { position: sticky; top: calc(var(--checkout-nav) + var(--checkout-tools) + 1px); z-index: 20; display: flex; align-items: center; gap: 12px; margin: calc(-1 * var(--checkout-pad)) calc(-1 * var(--checkout-pad)) 20px; padding: 12px var(--checkout-pad); border-bottom: 1px solid var(--card-border); border-radius: 16px 16px 0 0; background: var(--surface); }
 .checkout-summary-heading { margin-bottom: 20px; }
 .checkout-panel label { font-size: 12px; letter-spacing: .01em; }
-.checkout-panel input { min-height: 44px; border-radius: 8px; padding: 10px 12px; }
-.checkout-panel input:focus { box-shadow: 0 0 0 2px var(--tint-bg); }
+.checkout-panel input:not([type="radio"]):not([type="checkbox"]) { min-height: 44px; border-radius: 8px; padding: 10px 12px; }
+.checkout-panel input:not([type="radio"]):not([type="checkbox"]):focus { box-shadow: 0 0 0 2px var(--tint-bg); }
+/* Delivery or collection: a whole card is the target; the radio shows which one is picked. */
+.delivery-choice { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border: 1px solid var(--card-border); border-radius: 12px; cursor: pointer; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+.delivery-choice:hover { border-color: rgb(var(--primary-rgb) / .5); }
+.delivery-choice.is-selected { border-color: rgb(var(--primary-rgb)); background: rgb(var(--primary-rgb) / .06); box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb)); }
+.delivery-choice:has(.delivery-radio:focus-visible) { outline: 2px solid rgb(var(--primary-rgb)); outline-offset: 2px; }
+.delivery-radio { appearance: none; flex-shrink: 0; display: grid; place-content: center; width: 22px; height: 22px; margin-top: 1px; border: 2px solid rgb(var(--on-surface-variant-rgb) / .6); border-radius: 9999px; background: transparent; cursor: pointer; transition: border-color .15s; }
+.delivery-radio::before { content: ""; width: 10px; height: 10px; border-radius: 9999px; background: rgb(var(--primary-rgb)); transform: scale(0); transition: transform .15s; }
+/* The forms plugin paints a filled background and a blue ring on radios; the card shows focus instead. */
+.delivery-radio:checked, .delivery-radio:checked:hover, .delivery-radio:checked:focus { border-color: rgb(var(--primary-rgb)); background-color: transparent; background-image: none; }
+.delivery-radio:checked::before { transform: scale(1); }
+.delivery-radio:focus, .delivery-radio:focus-visible { outline: none; box-shadow: none; }
+.delivery-choice:has(:disabled) { cursor: default; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .delivery-choice, .delivery-radio, .delivery-radio::before { transition: none; } }
 .checkout-panel .font-mono { font-variant-numeric: tabular-nums; }
 @media (min-width: 640px) { .checkout-page { --checkout-nav: 104px; --checkout-pad: 24px; } }
 @media (min-width: 1024px) {

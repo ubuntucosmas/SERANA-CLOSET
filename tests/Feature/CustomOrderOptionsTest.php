@@ -59,6 +59,17 @@ class CustomOrderOptionsTest extends TestCase
         $this->assertCount(3, CustomOrderOptions::all()['garments']);
     }
 
+    public function test_the_sales_desk_offers_the_same_choices_as_the_shop_form(): void
+    {
+        $owner = $this->admin();
+        $this->actingAs($owner)->put(route('admin.custom_order_options.update'), $this->payload())->assertSessionHasNoErrors();
+
+        $shop = $this->get(route('custom-order'))->viewData('page')['props']['options'];
+        $this->actingAs($owner)->get(route('pos.index'))->assertInertia(fn (Assert $page) => $page
+            ->component('Pos/Till')
+            ->where('customOrderOptions', $shop));
+    }
+
     public function test_only_offered_choices_are_accepted_on_a_custom_order(): void
     {
         $this->actingAs($this->admin())->put(route('admin.custom_order_options.update'), $this->payload());
