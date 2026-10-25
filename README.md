@@ -1,70 +1,96 @@
-# Serana Closet | The Digital Atelier
+# Serana Closet
 
-Serana Closet is a high-end, Tech-Noir fashion ecosystem merging traditional Kenyan tailoring excellence with futuristic digital precision. This platform is engineered to facilitate elite bespoke commissions and limited-batch ready-to-wear drops.
+The shop and back office of Serana Closet, a Nairobi fashion studio. One Laravel app does four jobs:
 
-## 🎭 The Serana Experience (Key Features)
+- **Storefront**: shop ready-to-wear pieces by size, pay by M-Pesa (STK prompt) or order on WhatsApp, deliver or collect from the shop, and track an order with its reference and phone number (`/track`).
+- **Custom orders (bespoke)**: the customer sends a brief; the Studio quotes it and sends a pay link for the deposit and balance.
+- **Studio** (`/studio`): orders, payments needing a decision, refunds owed, products, stock per size, staff, settings and the activity history.
+- **Sales Desk** (`/pos`): the shop tablet. Staff unlock it with a PIN for counter sales (cash, an M-Pesa prompt or a typed M-Pesa code, store credit), pickups, returns and the cash drawer.
 
-### 1. The Digital Atelier (Custom Orders)
-A high-friction-to-high-conversion flow. Clients can upload inspiration, select premium fabrics, and provide precise measurements. The system generates an **Algorithmic WhatsApp Payload** to bridge the gap between digital intent and artisan execution.
+Background work matters: a scheduler confirms M-Pesa payments whose callback never came and releases abandoned stock holds, and a queue worker sends receipts and alerts.
 
-### 2. The Serana X-Ray
-Every product showcase features a technical "X-Ray" overlay, revealing the hidden structural excellence (stitch density, fabric weight, internal architecture) that justifies a premium price point.
+## Stack
 
-### 3. Studio Pulse & Registry
-- **Live Studio Pulse**: Real-time business intelligence reflected in the navigation (Atelier capacity, current batch status).
-- **The Registry**: An exclusive "Inner Circle" lead generation system for limited-batch drop notifications.
+Laravel 12 (PHP 8.2), Inertia 2, Vue 3, Pinia (the bag), Tailwind 3, Vite 7. MariaDB 11.8 locally and in production; tests run on SQLite by default and on MariaDB in CI. The codebase map is in [`docs/PROJECT_UNDERSTANDING.md`](docs/PROJECT_UNDERSTANDING.md).
 
-### 4. Artisan Journey (Orders Vault)
-Clients can track their garment's evolution from "Digital Mapping" to "Final Stitch" via the private **Designs Vault**, which archives their personal fit coordinates for future ease-of-order.
+## Run it locally (ddev)
 
-## 🛠 Technical Architecture
-
-- **Backend**: Laravel 12 (PHP 8.2) with Inertia.js 2
-- **Frontend**: Vue 3 (Composition API), Pinia (cart), Vite 7, Tailwind CSS 3
-- **Database**: MariaDB 11.8 (local via ddev, and production). Tests use SQLite in memory by default, and MariaDB in CI.
-- **Payments**: M-Pesa STK push (Safaricom Daraja), plus WhatsApp orders confirmed in the Studio
-- **Background work**: a scheduler every minute (stock-hold expiry, M-Pesa reconciliation) and a queue worker (receipt and alert emails)
-
-The full map of the codebase is in [`docs/PROJECT_UNDERSTANDING.md`](docs/PROJECT_UNDERSTANDING.md).
-
-## 🚀 Getting Started (local, with ddev)
-
-There is no host PHP: everything runs inside [ddev](https://ddev.com), which also runs the scheduler and the queue worker (`.ddev/config.yaml`).
+There is no PHP on the host: run PHP through ddev. ddev also runs the scheduler and the queue worker (`.ddev/config.yaml`); mail goes to Mailpit.
 
 ```bash
 ddev start
 cp .env.example .env                       # only if .env is missing
 ddev composer install
 ddev exec php artisan key:generate
-ddev exec php artisan migrate --seed       # demo data; seeders refuse to run outside local/testing
+ddev exec php artisan migrate --seed       # demo data; the seeders refuse to run outside local/testing
 npm ci && npm run dev                      # or: npm run build
+ddev exec php artisan serana:admin you@example.com   # create or reset a Studio owner
 ```
 
-The site is at `https://serana-closet.ddev.site`. Create or reset a Studio admin with `ddev exec php artisan serana:admin you@example.com`.
+The site is at `https://serana-closet.ddev.site`. ddev has no outbound DNS, so real M-Pesa prompts can't be sent locally; the tests fake Daraja.
 
-ddev has no outbound DNS, so real M-Pesa prompts can't be sent locally. The tests fake Daraja.
-
-### Tests
+## Test it
 
 ```bash
-ddev exec php artisan test        # SQLite (MariaDB-only concurrency tests skip)
+ddev exec php artisan test                      # SQLite; the MariaDB-only race tests skip
 node --test 'tests/Frontend/*.test.mjs'
 
-# Same PHP suite on MariaDB. Tests wipe the database, so use one whose name contains "test":
+# The same PHP suite on MariaDB (runs the concurrency tests). Tests wipe the
+# database, so use one whose name contains "test" (TestCase refuses others):
 ddev exec 'mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS testing; GRANT ALL ON testing.* TO \"db\"@\"%\""'
 ddev exec 'DB_CONNECTION=mariadb DB_DATABASE=testing php artisan test --fail-on-skipped'
 ```
 
-### Production
+After every test, `LedgerVerifier` checks that each order still agrees with its ledger, so a test that leaves money inconsistent fails.
 
-See `deploy/` (`deploy.sh`, `crontab`, the supervisor worker, `env.production.example`) and run `php artisan serana:preflight` on the server after every deploy.
+## Deploy it
 
-## 🔐 Administrative Access
-Admin users can access the **Studio Dashboard** (`/studio`) to manage:
-- Active Commissions & Leads.
-- Catalog Inventory & Scarcity Batching.
-- Artisan Capture Uploads (Order Progress).
+Everything is in [`deploy/`](deploy/):
 
----
-**Standard: Built by Hand. Perfected by Code.**
-**Proprietary to Serana Closet © 2026**
+- [`CLEAN-SLATE-V1-RUNBOOK.md`](deploy/CLEAN-SLATE-V1-RUNBOOK.md): the first install, from an empty database.
+- `deploy.sh <tag>`: every later release (backs up, migrates, builds, runs preflight).
+- `crontab`: `schedule:run` every minute and the nightly backup. `supervisor-serana-worker.conf`: the queue worker.
+- [`RESTORE.md`](deploy/RESTORE.md): backups, the restore drill, and a real restore.
+- `env.production.example`: every production setting.
+- [`docs/audit/V1-CONTROLLED-LAUNCH-CHECKLIST.md`](docs/audit/V1-CONTROLLED-LAUNCH-CHECKLIST.md): what to prove on the live server before taking real money.
+
+After every deploy, `php artisan serana:preflight` must say "Ready to take orders". An external monitor should watch `/health` (it returns 503 naming what is failing: database, scheduler, queue).
+
+### Services that must run in production
+
+| Service | Why | If it stops |
+|---|---|---|
+| Web (PHP-FPM + HTTPS) | The shop, Studio and Sales Desk | Site down |
+| `schedule:run` every minute | Confirms missed M-Pesa callbacks, expires unpaid checkouts, releases stock holds, emails operator alerts | Paid orders stay "pending"; stock stays held. Studio home and `/health` warn |
+| Queue worker | Receipts, staff alerts, password emails | No emails. Studio home and `/health` warn |
+| MariaDB ≥ 11.6, `innodb_snapshot_isolation=ON` | Money and stock race safety depends on it | Preflight refuses to pass |
+| Nightly backup, copied off the server | Recovery | Studio home warns after 26 hours |
+
+### Settings that change behaviour (`.env`)
+
+| Setting | Production value | What it does |
+|---|---|---|
+| `STOCK_V2` | `setting` | Stock per size. `setting` lets the owner switch it in the Studio; `on`/`off` force it. |
+| `LEDGER_READS` | `false` | Reads order money from the legacy columns; `true` reads the ledger. Both are always written. Switch only after `serana:ledger:verify` reports 0 differences. |
+| `DROPS_ENABLED` | `false` | Paid pre-order "Drops". Paused until the refund policy for a failed drop is decided. |
+| `MPESA_ENV`, `MPESA_*` | live keys | M-Pesa. `MPESA_CALLBACK_TOKEN` is a secret in the callback URL. |
+| `MPESA_PROMPT_WINDOW_SECONDS` | `150` (default) | How long one unanswered prompt blocks another for the same order. |
+
+Everything else a shop owner changes (contact details, delivery zones and fees, payment methods, deposit %, holds, discount limits) is in **Studio → Settings**, not in code.
+
+### Never do this in production
+
+- Never run `migrate:fresh`, `db:wipe`, `db:seed` or truncate tables once the first real M-Pesa payment exists. Only `deploy/deploy.sh` migrations.
+- Never run artisan with `--env=testing` on a server or in ddev: there is no `.env.testing`, so it falls back to `.env` and the real database.
+- Never turn off `innodb_snapshot_isolation`.
+- Never edit money or stock rows by hand. Use the Studio (record payment, reverse, refund, stock count) so the ledger, the audit trail and the stock history stay explainable. `serana:ledger-check` and `serana:stock:reconcile` must stay clean.
+- Never set `APP_DEBUG=true` or commit `.env`.
+
+## Where the decisions are
+
+- [`docs/audit/V1-RELEASE-REPORT.md`](docs/audit/V1-RELEASE-REPORT.md): what V1 includes and why.
+- [`docs/audit/ISSUE-REGISTER.md`](docs/audit/ISSUE-REGISTER.md): known issues (SC-…).
+- [`docs/design/BATCH-2-DESIGN.md`](docs/design/BATCH-2-DESIGN.md): the money, stock and Sales Desk design.
+- [`docs/audit/FINAL-CLEANUP-2026-10-25.md`](docs/audit/FINAL-CLEANUP-2026-10-25.md): the last pre-launch cleanup and what to build next (or not).
+
+Proprietary to Serana Closet © 2026.
