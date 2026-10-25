@@ -1075,9 +1075,12 @@ function removeAsset(key) {
 @media (max-width: 1023px) { .order-preview-columns { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 639px) {
     .order-preview-header, .order-preview-footer { padding: 12px; gap: 8px; }
-    .order-preview-body { padding: 12px; }
+    .order-preview-body { padding: 10px; }
     .order-decision { flex-direction: column; align-items: stretch; }
-    .order-preview-section { padding: 12px; }
+    .order-preview-section { padding: 10px; }
+    .order-preview-columns { gap: 12px; }
+    .order-section-title { margin-bottom: 12px; padding-bottom: 8px; font-size: 14px; }
+    .order-panel-title { margin-bottom: 8px; }
     .order-preview-footer button { padding: 10px 12px; min-height: 44px; }
     .order-more-actions { margin-left: 0; }
     .order-actions-menu { right: auto; left: 0; }

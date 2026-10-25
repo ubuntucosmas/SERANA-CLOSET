@@ -1194,6 +1194,20 @@ const quiet = 'rounded-xl bg-white/5 px-4 py-2.5 text-sm text-slate-200 hover:bg
     .desk-panel { padding: 16px; }
     .desk-catalogue, .desk-cart { padding: 0; }
 }
+@media (max-width: 639px) {
+    .sales-desk { --desk-gutter: 12px; }
+    .desk-topbar { gap: 8px; padding-block: 8px; }
+    .desk-brand h1 { font-size: 15px; }
+    .desk-session { gap: 6px 10px; }
+    .desk-context h2 { font-size: 18px; }
+    .desk-context { margin-bottom: 12px; }
+    .desk-main { padding-block: 12px; }
+    .desk-sale-workspace, .desk-payment-workspace { gap: 12px; }
+    .desk-finder-header, .desk-cart-body, .desk-cart-footer,
+    .desk-cart > .desk-panel-heading, .desk-panel { padding: 12px; }
+    .desk-finder-header { gap: 12px; }
+    .desk-catalogue, .desk-cart { padding: 0; }
+}
 @media (min-width: 768px) and (max-height: 700px) {
     .desk-sale-workspace { height: auto; min-height: 0; }
     .desk-catalogue .desk-results { max-height: 70dvh; }

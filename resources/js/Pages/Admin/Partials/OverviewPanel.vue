@@ -198,5 +198,5 @@ const followups = computed(() => expanded.value ? allFollowups.value : allFollow
 .queue-row { display: grid; grid-template-columns: minmax(0, 1fr); align-content: space-between; gap: 12px; padding: 12px 16px; }
 .queue-row .table-action { justify-self: start; white-space: normal; text-align: left; }
 .queue-empty { color: var(--on-surface-variant); border-color: var(--card-border); background: var(--bg-card); }
-@media (max-width: 639px) { .overview-queue-grid { grid-template-columns: minmax(0, 1fr); } .queue-row:nth-child(odd) { border-right: 0; } .queue-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } .overview-panel { padding: 12px; } .queue-row { gap: 8px; padding: 12px; } .queue-row .table-action { max-width: 116px; white-space: normal; text-align: center; } }
+@media (max-width: 639px) { .overview-queue-grid { grid-template-columns: minmax(0, 1fr); } .queue-row:nth-child(odd) { border-right: 0; } .queue-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } .overview-panel { padding: 10px; } .queue-row { gap: 8px; padding: 10px; } .queue-row .table-action { max-width: 116px; white-space: normal; text-align: center; } }
 </style>
