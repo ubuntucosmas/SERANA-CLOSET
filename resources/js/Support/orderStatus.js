@@ -21,8 +21,8 @@ export function paymentStatus(order) {
 }
 export function fulfilmentStatus(order) {
     const pickup = order.fulfilment_method === 'pickup' || order.handover?.method === 'pickup';
-    const stages = { pending: 'Brief Received', designing: 'Designing', sewing: 'In Production', completed: pickup ? 'Finished' : 'Ready for Dispatch',
-        ready_for_pickup: 'Ready for Pickup', shipped: 'Dispatched', collected: 'Collected' };
+    const stages = { pending: 'Brief Received', designing: 'Designing', sewing: 'In Production', completed: pickup ? 'Finished' : 'Ready to Ship',
+        ready_for_pickup: 'Ready for Pickup', shipped: 'Shipped', collected: 'Collected' };
     return stages[order.status] || (order.is_paid ? 'Awaiting Fulfilment' : 'Payment Pending');
 }
 

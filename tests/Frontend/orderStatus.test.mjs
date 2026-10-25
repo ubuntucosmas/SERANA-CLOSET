@@ -30,7 +30,7 @@ test('a pickup order is ready for pickup only when the Studio says so, never "re
     // Phase D2: ready for pickup is its own stage; a finished pickup order isn't waiting for a courier.
     assert.equal(fulfilmentStatus({ status: 'ready_for_pickup', fulfilment_method: 'pickup' }), 'Ready for Pickup');
     assert.equal(fulfilmentStatus({ status: 'completed', handover: { method: 'pickup' } }), 'Finished');
-    assert.equal(fulfilmentStatus({ status: 'completed', fulfilment_method: 'delivery' }), 'Ready for Dispatch');
+    assert.equal(fulfilmentStatus({ status: 'completed', fulfilment_method: 'delivery' }), 'Ready to Ship');
 });
 
 

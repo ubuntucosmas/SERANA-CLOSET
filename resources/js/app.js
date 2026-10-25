@@ -1,13 +1,14 @@
 import '../css/app.css';
-import './bootstrap';
+import { useCsrfToken } from './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
-import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { ZiggyVue, route } from '../../vendor/tightenco/ziggy';
 
-// Global scroll-reveal directive using IntersectionObserver and Anime.js
-import { revealDirective } from './Directives/reveal';
+// The page carries only the route list (config/ziggy.php skips Ziggy's inline copy of
+// this function); scripts call route() globally, so expose the bundled one.
+globalThis.route = route;
 
 import { createPinia } from 'pinia';
 import { trackNavigation } from './Composables/useBackToShop';
@@ -24,11 +25,13 @@ createInertiaApp({
             pages,
         ),
     setup({ el, App, props, plugin }) {
+        // Sign-in and sign-out start a new session token; every page carries the current one.
+        useCsrfToken(props.initialPage.props.csrf_token);
+        router.on('success', (event) => useCsrfToken(event.detail.page.props.csrf_token));
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
             .use(pinia)
-            .directive('reveal', revealDirective)
             .mount(el);
     },
     progress: {

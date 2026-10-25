@@ -25,7 +25,17 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        // Staff pages carry staff routes (app.blade.php). Signing in or out as staff
+        // changes the version, so Inertia reloads the page with the right route list.
+        return parent::version($request) . (self::staffRoutes($request) ? ':staff' : '');
+    }
+
+    /** Whether this visitor's pages include the Studio and Sales Desk routes (config/ziggy.php). */
+    public static function staffRoutes(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null && ($user->canUseStudio() || \App\Support\Role::allows($user->role, 'pos.sell'));
     }
 
     /**
@@ -38,6 +48,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
+            // Sent back as X-CSRF-TOKEN (resources/js/bootstrap.js), so a stray
+            // XSRF-TOKEN cookie from a parent domain can't break every form.
+            'csrf_token' => fn () => csrf_token(),
             'seo' => fn () => \App\Support\PageSeo::forRequest($request),
             'auth' => [
                 'user' => fn () => $request->user()

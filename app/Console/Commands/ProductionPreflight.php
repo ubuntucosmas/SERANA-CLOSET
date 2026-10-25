@@ -93,6 +93,8 @@ class ProductionPreflight extends Command
             $this->check(false, 'M-Pesa credentials', 'Not configured, so checkout offers WhatsApp only. Add the live Daraja keys when the till is approved.', blocker: false);
         }
         $this->check(filled(StoreProfile::whatsapp()), 'Store WhatsApp number is set', 'Studio → Settings → Store details: WhatsApp number.');
+        $this->check(\App\Models\DeliveryOption::available()->get()->contains(fn ($o) => $o->type !== \App\Models\DeliveryOption::QUOTE || PaymentSettings::whatsappAvailable()),
+            'Customers can choose delivery or collection', 'Studio → Settings → Delivery and collection: switch on at least one option (a pickup shop needs an address).');
         $this->check(! in_array(PaymentSettings::WHATSAPP, $methods, true) || filled(PaymentSettings::rawInstructions()),
             'WhatsApp customers are told how to pay', 'Studio → Settings → Payments: fill in "How customers pay you".', blocker: false);
 
@@ -101,6 +103,15 @@ class ProductionPreflight extends Command
         $this->check($beat && now()->timestamp - (int) $beat < 180, 'Scheduler is running',
             'Add the cron line in deploy/crontab: without it checkouts never expire, stock is never released and missed M-Pesa callbacks are never confirmed.'
             . ($beat ? ' Last tick: ' . now()->diffForHumans(now()->setTimestamp((int) $beat), true) . ' ago.' : ' It has never run.'));
+        // Each job's own last run (JobRuns), so a listed-but-never-run job can't pass as working.
+        foreach (\App\Support\JobRuns::JOBS as $name => [$label, $every]) {
+            $run = \App\Support\JobRuns::get($name);
+            $ago = isset($run['ok_at']) ? (int) floor((now()->timestamp - $run['ok_at']) / 60) : null;
+            $fresh = $ago !== null && $ago <= max(5, $every * 2 + 1) && ! \App\Support\JobRuns::lastRunFailed($name);
+            $this->check($fresh, "{$name} ran" . ($ago !== null ? " {$ago} min ago" : ''),
+                ($ago === null ? 'It has never finished on this server.' : 'Its last good run is too old, or its last run failed.') . " Run php artisan {$name} by hand to see why.",
+                blocker: in_array($name, ['mpesa:reconcile', 'stock:release-expired', 'scheduler-heartbeat'], true));
+        }
         if (config('queue.default') === 'database') {
             $oldest = DB::table('jobs')->min('available_at');
             $this->check(! $oldest || now()->timestamp - (int) $oldest < 300, 'Queue worker is running',
@@ -109,6 +120,16 @@ class ProductionPreflight extends Command
         $this->check(config('queue.default') !== 'sync', 'Emails are queued, not sent inside payments', 'Set QUEUE_CONNECTION=database (or redis).');
         $failed = DB::table('failed_jobs')->count();
         $this->check($failed === 0, 'No failed jobs', "{$failed} failed job(s): php artisan queue:failed, fix the cause, then queue:retry all.", blocker: false);
+
+        $this->section('Backups');
+        $backup = \App\Support\SystemHealth::lastBackup();
+        $this->check((bool) $backup, 'A backup has run on this server', 'Run ./deploy/backup.sh once and add its cron line (deploy/crontab).');
+        if ($backup) {
+            $age = now()->diffInHours(\Illuminate\Support\Carbon::parse($backup['at']), true);
+            $this->line('  Last backup: ' . $backup['at'] . ' (' . (int) $age . ' h ago), ' . ($backup['database'] ?? '?') . ', off-server: ' . (($backup['offsite'] ?? false) ? $backup['remote'] : 'NO'));
+            $this->check($age <= \App\Support\SystemHealth::BACKUP_STALE_HOURS, 'The last backup is under a day old', 'Check the backup cron line and storage/logs/backup.log.');
+            $this->check((bool) ($backup['offsite'] ?? false), 'Backups are copied off this server', 'Set BACKUP_REMOTE to an rclone destination (deploy/RESTORE.md).');
+        }
 
         $this->section('Files');
         if (config('filesystems.public_disk') === 'public') {

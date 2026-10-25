@@ -160,7 +160,7 @@
         @apply outline-2 outline-offset-2 outline-primary;
     }
 
-    /* WOODNORK Typography System — Dark Luxury */
+    /* Typography */
     body {
         font-family: var(--font-body);
         font-weight: 400;
@@ -179,8 +179,7 @@
         }
     }
 
-    /* Slide / Display titles — Cormorant serif */
-    .slide-title,
+    /* Display headings */
     h1, h2 {
         font-family: var(--font-display);
         font-weight: 600;
@@ -200,7 +199,7 @@
     }
 
     /* Body copy */
-    p, .slide-desc {
+    p {
         font-family: var(--font-body);
         font-weight: 400;
         font-size: clamp(.9375rem, 1vw, 1.0625rem);
@@ -209,7 +208,7 @@
     }
 
     /* Slim sans UI voice for labels, tags, nav, counters — mixed case */
-    .mono, label, .tag, .eyebrow, .nav-text {
+    label, .tag {
         font-family: var(--font-body);
         font-weight: 500;
         letter-spacing: 0.02em;
@@ -241,67 +240,6 @@
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         @apply backdrop-blur-xl;
-    }
-
-    /* Global Mobile High-Density Card */
-    @media (max-width: 767px) {
-        .mobile-floating-card {
-            @apply glass-panel p-4 shadow-none relative z-10 w-full;
-            border-radius: 0 !important;
-            border-left: none !important;
-            border-right: none !important;
-        }
-
-        .dark .mobile-floating-card {
-            box-shadow: none;
-        }
-
-        .dense-text {
-            letter-spacing: -0.01em;
-            line-height: 1.4;
-            @apply text-[13px];
-        }
-
-        .tiny-label {
-            @apply text-[8px] uppercase tracking-[0.2em] font-bold opacity-60;
-        }
-
-        .compact-button {
-            @apply py-3 px-6 text-[9px] uppercase tracking-[0.2em] font-bold;
-        }
-    }
-
-    .serif-text, .display-text {
-        font-family: var(--font-display);
-        font-weight: 700;
-    }
-
-    .text-muted {
-        color: var(--text-muted);
-    }
-
-    .border-subtle {
-        border-color: var(--outline-variant);
-        border-width: 1px;
-        opacity: 0.2;
-    }
-
-    .silk-reveal {
-        animation: silk-glide 1.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
-        opacity: 0;
-        transform: translateY(20px) scale(0.98);
-    }
-
-    @keyframes silk-glide {
-        0% {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-        }
-
-        100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
     }
 
     .reveal-stagger {
@@ -337,34 +275,10 @@
         font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
     }
 
-    .glow-indigo, .luminous-glow {
+    .luminous-glow {
         box-shadow: 0 0 40px var(--accent-glow);
         text-shadow: 0 0 20px var(--accent-glow);
     }
-
-    /* ===================== WOODNORK UI COMPONENTS ===================== */
-
-    /* Glass Nav Button */
-    .nav-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: var(--radius-round);
-        border: 1px solid var(--border-mid);
-        background: var(--bg-glass);
-        backdrop-filter: blur(10px);
-        color: var(--accent);
-        transition: all var(--ease-quick);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .nav-btn:hover {
-        background: var(--accent);
-        color: var(--bg-primary);
-        border-color: var(--accent);
-        transform: translateY(-2px);
-    }
-
 
     /* Primary Button (cyan fill) */
     .btn-primary {
@@ -383,24 +297,6 @@
     }
     .btn-primary:hover { background: var(--accent-hover); }
 
-    /* Outline Button */
-    .btn-outline {
-        border: 1px solid var(--border-hover);
-        color: var(--accent);
-        padding: var(--btn-pad);
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: .2em;
-        text-transform: uppercase;
-        border-radius: var(--radius-sm);
-        transition: border-color .25s, background .25s;
-        display: inline-block;
-    }
-    .btn-outline:hover {
-        border-color: var(--accent);
-        background: rgba(0, 210, 255, 0.06);
-    }
-
     /* Mono Tag / Badge */
     .tag {
         font-family: var(--font-mono);
@@ -412,132 +308,6 @@
         padding: 4px 9px;
         border-radius: var(--radius-sm);
         display: inline-block;
-    }
-
-    /* Eyebrow label with accent line */
-    .slide-eyebrow {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: .26em;
-        text-transform: uppercase;
-        color: var(--accent);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .slide-eyebrow::before {
-        content: '';
-        width: 24px;
-        height: 1px;
-        background: var(--accent);
-    }
-
-    /* Active Thumbnail */
-    .gthumb {
-        border: 2px solid transparent;
-        opacity: 0.35;
-        transform: scale(0.92);
-        filter: grayscale(60%) brightness(0.8);
-        transition: all 0.5s var(--ease-spring);
-    }
-    .gthumb.active {
-        border-color: var(--accent);
-        opacity: 1;
-        transform: scale(1.05) translateY(-5px);
-        filter: none;
-        box-shadow: 0 10px 20px var(--accent-glow);
-    }
-    .gthumb:hover:not(.active) {
-        opacity: 0.8;
-        transform: scale(0.98) translateY(-2px);
-        filter: grayscale(20%) brightness(0.95);
-    }
-
-    /* Progress Bar */
-    .img-progress {
-        height: 2px;
-        background: rgba(255,255,255,.07);
-        border-radius: 1px;
-        overflow: hidden;
-    }
-    .img-progress-bar {
-        height: 100%;
-        background: var(--accent);
-        width: 0%;
-        border-radius: 1px;
-        transition: width 0.3s linear;
-    }
-
-    /* Text reveal animation for slow motion staggered entrance */
-    .text-reveal {
-        display: inline-block;
-        opacity: 0;
-        transform: translateY(30px);
-        transition: none;
-    }
-    .text-reveal.animate {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    /* Split text container for word animation */
-    .split-text {
-        display: inline-block;
-    }
-    .dot {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: rgba(229,226,227,.15);
-        transition: all .3s;
-    }
-    .dot.active {
-        background: var(--accent);
-        transform: scale(1.7);
-    }
-
-    /* Company name lockup style */
-    .company-name {
-        font-family: var(--font-body);
-        font-size: clamp(1.4rem, 2.8vw, 2.6rem);
-        font-weight: 200;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: var(--accent);
-        text-shadow: 0 0 40px var(--accent-glow), 0 0 80px var(--accent-glow-soft);
-    }
-
-    /* Cover hero title ultra light */
-    .cover .slide-title {
-        font-family: var(--font-body);
-        font-weight: 200;
-        font-size: clamp(2.8rem, 7vw, 6.5rem);
-    }
-
-    /* Full bleed slide bg overlay */
-    .slide-bg::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(
-            135deg,
-            rgba(10, 10, 11, .97) 0%,
-            rgba(10, 10, 11, .80) 45%,
-            rgba(10, 10, 11, .55) 100%
-        ),
-        linear-gradient(0deg, rgba(10, 10, 11, .70) 0%, transparent 50%);
-        pointer-events: none;
-        z-index: 1;
-    }
-
-    /* Left panel fade for split layouts */
-    .split-left {
-        background: linear-gradient(90deg, #07090e 80%, rgba(10, 10, 11, 0) 100%);
-    }
-
-    /* Gallery nav hover zone */
-    .gallery-nav {
-        background: linear-gradient(90deg, rgba(10,10,11,.45) 0%, transparent 100%);
     }
 }
 
@@ -676,7 +446,6 @@ html:not(.dark) .section-bg-scrim { display: none; }
     .card-hover:hover { transform: translateY(-4px); border-color: var(--card-border-hover); box-shadow: var(--card-shadow-hover); }
     .card-media { @apply relative overflow-hidden rounded-xl; background: var(--tile-bg); }
     .icon-tile { @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
-    .icon-tile-sm { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
 
     /* Labels */
     .kicker { @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary; background: var(--tint-bg); border-color: var(--tint-border); }
@@ -707,8 +476,6 @@ html:not(.dark) .section-bg-scrim { display: none; }
         border-color: var(--card-border);
     }
     .action-icon { @apply inline-flex h-10 w-10 items-center justify-center rounded-xl text-on-surface hover:bg-blue-600 hover:text-white; background: var(--tint-bg); }
-    .feedback-error { @apply rounded-xl border border-red-400/40 p-4 text-sm; }
-    .feedback-success { @apply rounded-xl border border-emerald-400/40 p-4 text-sm; }
 }
 /* Existing screens use compact utility labels. Keep them readable consistently. */
 [class*="text-[7px]"], [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"] {
@@ -790,40 +557,55 @@ html.studio-active:not(.dark) .stage-error { color: #be123c; background: #fff1f2
     }
 }
 
-/* Mobile density follows hierarchy, not a smaller root/rem scale.
-   Inputs stay 16px to avoid focus zoom; primary targets retain 44px height. */
+/* Compact phone scale. Keep the rem baseline and form-control readability. */
 @media (max-width: 639px) {
-    body { line-height: 1.55; }
-    .section-sub { line-height: 1.55; }
-    .action-primary, .action-secondary { min-height: 44px; padding: .625rem 1.125rem; line-height: 1.4; }
-    .action-icon { width: 44px; height: 44px; }
-    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
-    select, textarea { font-size: 16px; }
-    .field { padding: .625rem .75rem; min-height: 44px; }
-    .studio-table .table-action { min-height: 44px; }
-}
+    html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { font-size: 14px; line-height: 1.45; }
+    p, .section-sub { line-height: 1.45; }
+    .text-xs { font-size: 12px; line-height: 1.35; }
+    .text-sm { font-size: 13px; line-height: 1.4; }
+    .text-base { font-size: 14px; line-height: 1.45; }
+    .text-lg { font-size: 16px; line-height: 1.35; }
+    .text-xl { font-size: 18px; line-height: 1.3; }
+    .text-2xl { font-size: 21px; line-height: 1.25; }
+    .text-3xl { font-size: 25px; line-height: 1.2; }
+    .text-4xl { font-size: 30px; line-height: 1.15; }
 
-/* Compact phone scale: reduce both rem-based type and spacing consistently.
-   Keep explicit form text and touch targets independent of visual density. */
-@media (max-width: 639px) {
-    html { font-size: 87.5%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-    body { font-size: 1rem; line-height: 1.5; }
-    p { line-height: 1.5; }
-    .text-xs { font-size: 12px; }
-    .text-sm { font-size: 13px; }
-    .text-base { font-size: 14px; }
+    .p-4 { padding: 12px; }
+    .p-5 { padding: 14px; }
+    .p-6 { padding: 16px; }
+    .p-8 { padding: 20px; }
+    .px-5 { padding-inline: 14px; }
+    .px-6 { padding-inline: 16px; }
+    .py-4 { padding-block: 12px; }
+    .py-6 { padding-block: 16px; }
+    .py-8 { padding-block: 20px; }
+    .py-12 { padding-block: 32px; }
+    .py-16 { padding-block: 40px; }
+    .gap-4 { gap: 12px; }
+    .gap-5 { gap: 14px; }
+    .gap-6 { gap: 16px; }
+    .gap-8 { gap: 20px; }
+    .mb-4 { margin-bottom: 12px; }
+    .mb-6 { margin-bottom: 16px; }
+    .mt-4 { margin-top: 12px; }
+    .mt-6 { margin-top: 16px; }
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 12px; margin-bottom: 0; }
+    .space-y-5 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 14px; margin-bottom: 0; }
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 16px; margin-bottom: 0; }
+    .space-y-8 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 20px; margin-bottom: 0; }
+
     .action-primary, .action-secondary, .table-action, .wa-action { min-height: 44px; }
-    .action-icon, .icon-btn, .nav-btn { min-width: 44px; min-height: 44px; }
+    .action-primary, .action-secondary { padding: .5rem 1rem; line-height: 1.35; }
+    .action-icon, .icon-btn { min-width: 44px; min-height: 44px; }
     input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
     select, textarea { font-size: 16px; }
-}
-
-@media (max-width: 639px) {
-    html.studio-active .stage-badge { font-size: 11px; padding: 3px 6px; white-space: normal; line-height: 1.3; }
+    .field { padding: .5rem .625rem; min-height: 44px; }
+    html.studio-active .stage-badge { font-size: 12px; padding: 3px 6px; white-space: normal; line-height: 1.3; }
     html.studio-active .studio-table { font-size: 12px; }
     html.studio-active .studio-table th,
-    html.studio-active .studio-table td { padding: 7px 8px; }
-    html.studio-active .studio-table .cell-note { font-size: 11px; }
+    html.studio-active .studio-table td { padding: 6px 8px; }
+    html.studio-active .studio-table .cell-note,
     html.studio-active .table-action { font-size: 12px; }
 }
 
@@ -832,3 +614,12 @@ html.studio-active.dark .text-slate-500,
 html.studio-active.dark .text-slate-600,
 .sales-desk .text-slate-500,
 .sales-desk .text-slate-600 { color: #94a3b8; }
+
+/* Keep keyboard navigation visible and clear of sticky navigation. */
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 1000; padding: 12px 20px; border-radius: 8px; background: var(--surface); color: var(--on-surface); box-shadow: 0 4px 20px #0003; transform: translateY(-180%); }
+.skip-link:focus { transform: translateY(0); }
+#storefront-main, #studio-main { scroll-margin-top: 100px; }
+@media (max-width: 639px) {
+    .studio-table-wrap { max-height: 65dvh; }
+    html.studio-active .stage-badge, html.studio-active .studio-table .cell-note { font-size: 12px; }
+}

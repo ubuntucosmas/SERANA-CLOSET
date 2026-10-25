@@ -82,6 +82,11 @@ return [
         // comfortably inside its one-minute scheduling slot; any backlog rolls
         // into the next run instead of stretching this one.
         'reconcile_batch' => (int) env('MPESA_RECONCILE_BATCH', 4),
+
+        // While a prompt for an order is still unanswered and younger than this, no second
+        // prompt is sent for it: the customer could approve both. Covers the handset's own
+        // timeout (~1 min) and reconciliation's first look (2 min).
+        'prompt_window_seconds' => (int) env('MPESA_PROMPT_WINDOW_SECONDS', 150),
     ],
 
 ];

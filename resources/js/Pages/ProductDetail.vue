@@ -35,8 +35,9 @@ const rowSizes = (row) => sizesForRow(allSizes.value, row.key);
 // is hidden behind a toggle.
 const sizeRows = computed(() => {
     const type = props.product.garment_type;
-    const top = { key: 'top', label: type === 'set' ? `${ui.value.piece_1_name || 'Hoodie'} size` : 'Size' };
-    const bottom = { key: 'bottom', label: type === 'set' ? `${ui.value.piece_2_name || 'Jogger'} size` : 'Size' };
+    // A set is any two-piece (hoodie set, linen set, suit): Top/Bottom, as on the receipt, unless the product names its pieces.
+    const top = { key: 'top', label: type === 'set' ? `${ui.value.piece_1_name || 'Top'} size` : 'Size' };
+    const bottom = { key: 'bottom', label: type === 'set' ? `${ui.value.piece_2_name || 'Bottom'} size` : 'Size' };
     if (type === 'set') return [top, bottom];
     if (type === 'jogger') return [bottom];
     return [top];
@@ -52,7 +53,7 @@ const ctaLabel = computed(() => {
     return `Add to Bag · ${formatAmount(props.product.price, page.props)}`;
 });
 
-const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: selected.top, bottomSize: selected.bottom }, page.props));
+const whatsappUrl = computed(() => getWhatsAppUrl(props.product, { topSize: selected.top, bottomSize: selected.bottom, labels: sizeRows.value.map(row => row.label) }, page.props));
 
 const addToBag = () => {
     if (isSoldOut.value || missing.value.length) return;
@@ -215,6 +216,7 @@ const goTo = (index) => {
                                 {{ ctaLabel }}
                             </button>
                             <Link v-if="isSoldOut" :href="route('shop')" class="action-secondary w-full">Browse pieces in stock</Link>
+                            <p v-if="!isSoldOut" class="text-xs text-on-surface-variant">Collect from the shop for free, or choose delivery at checkout. Any delivery fee is shown before you pay.</p>
                             <Link v-if="product.is_customizable" :href="route('custom-order', { product: product.slug })" class="action-secondary w-full">
                                 <span class="material-symbols-outlined text-base" aria-hidden="true">content_cut</span>
                                 Want it made to your measurements?

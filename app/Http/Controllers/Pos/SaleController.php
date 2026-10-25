@@ -79,6 +79,8 @@ class SaleController extends Controller
             // Nothing typed: the newest pieces first (what the shop floor is selling now); a search reads alphabetically.
             ->when($q === '', fn ($p) => $p->latest('id'), fn ($p) => $p->orderBy('name'))->limit(60)->get();
         $v2 = StockMode::v2();
+        // One batched read for every size in the list (it was two queries per size).
+        $available = $v2 ? $stock->availableAtMany($products->flatMap(fn (Product $p) => $p->variants->each(fn ($v) => $v->setRelation('product', $p))), $shop) : [];
 
         return response()->json([
             'categories' => \App\Models\Category::orderBy('name')->get(['id', 'name']),
@@ -87,7 +89,7 @@ class SaleController extends Controller
                 'id' => $p->id, 'name' => $p->name, 'price' => (int) round((float) $p->price), 'image_url' => $p->image_url, 'garment_type' => $p->garment_type,
                 'sizes' => $p->variants->map(fn (ProductVariant $v) => ['id' => $v->id, 'part' => $v->part, 'size' => $v->size, 'sku' => $v->sku, 'barcode' => $v->barcode,
                     // Old model: one pool per product, shown on each size.
-                    'available' => $v2 ? $stock->availableAt($v->setRelation('product', $p), $shop) : $p->availableStock()])->values()->all(),
+                    'available' => $v2 ? $available[$v->id] : $p->availableStock()])->values()->all(),
             ])->all(),
         ]);
     }

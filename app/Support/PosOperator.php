@@ -18,11 +18,20 @@ final class PosOperator
     private const SEEN = 'pos.operator_seen';
     private const VERSION = 'pos.operator_version';
 
-    /** The active staff member with this PIN, or null. */
-    public static function byPin(string $pin): ?User
+    /**
+     * The active staff member with this PIN, or null. A PIN that opens two
+     * accounts (set before PINs were unique across suspended staff) names no
+     * one: every till action must be recorded as the right person.
+     */
+    public static function byPin(string $pin, string $field = 'pin'): ?User
     {
-        return User::whereIn('role', Role::STAFF)->whereNull('suspended_at')->where('must_change_password', false)->whereNotNull('pos_pin')->get()
-            ->first(fn (User $u) => Hash::check($pin, $u->pos_pin) && Role::allows($u->role, 'pos.sell'));
+        $matches = User::whereIn('role', Role::STAFF)->whereNull('suspended_at')->where('must_change_password', false)->whereNotNull('pos_pin')->get()
+            ->filter(fn (User $u) => Hash::check($pin, $u->pos_pin) && Role::allows($u->role, 'pos.sell'));
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages([$field => 'This PIN belongs to more than one person. Ask the owner to set each of you a new PIN in Studio → Staff.']);
+        }
+
+        return $matches->first();
     }
 
     public static function unlock(Request $request, string $pin): User
@@ -65,7 +74,7 @@ final class PosOperator
      */
     public static function approver(?string $pin, string $field = 'approval_pin'): User
     {
-        $user = $pin !== null && $pin !== '' ? self::byPin($pin) : null;
+        $user = $pin !== null && $pin !== '' ? self::byPin($pin, $field) : null;
         if (! $user || ! Role::allows($user->role, 'pos.approve')) {
             throw ValidationException::withMessages([$field => $pin ? 'A manager or the owner must approve with their PIN.' : 'This needs a manager’s PIN.']);
         }

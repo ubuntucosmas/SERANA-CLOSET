@@ -78,7 +78,19 @@ class ReleaseToolingTest extends TestCase
         $this->app->detectEnvironment(fn () => 'production');
         User::factory()->create(['role' => 'owner', 'password' => Hash::make('kitenge-sunrise-42')]);
         Cache::forever(ProductionPreflight::HEARTBEAT, now()->timestamp);
+        // Since 2026-10-22: every scheduled job has really run, and there is a recent off-server backup.
+        foreach (array_keys(\App\Support\JobRuns::JOBS) as $job) {
+            \App\Support\JobRuns::ok($job);
+        }
+        // (deploy/backup.sh)
+        $status = sys_get_temp_dir() . '/serana-backup-status-preflight-test.json';
+        config(['serana.backup_status_file' => $status]);
+        file_put_contents($status, json_encode(['ok' => true, 'at' => now()->subHour()->toIso8601String(), 'database' => 'serana-db.sql.gz', 'offsite' => true, 'remote' => 'r2:serana-backups']));
 
-        $this->artisan('serana:preflight')->expectsOutputToContain('Ready to take orders')->assertSuccessful();
+        try {
+            $this->artisan('serana:preflight')->expectsOutputToContain('Ready to take orders')->assertSuccessful();
+        } finally {
+            @unlink($status);
+        }
     }
 }

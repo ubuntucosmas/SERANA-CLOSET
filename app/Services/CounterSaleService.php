@@ -123,14 +123,24 @@ class CounterSaleService
             throw ValidationException::withMessages(['tendered' => 'The cash handed over is less than the amount to pay.']);
         }
         $booked = min($amount, $balance);
+        $this->refuseWhilePromptWaits($order);
         $this->secure($order);
 
-        DB::transaction(function () use ($order, $till, $by, $booked, $tendered, $at) {
-            $result = $this->settlement->recordPayment($order, $booked, 'cash', Actor::user($by), null, null, 'Cash at ' . $till->register, [], false, $till->id, $at);
-            $session = $this->tills->lock($till); // the last lock
-            $this->tills->cash($session, CashMovement::SALE, $booked, Actor::user($by), null,
-                ['order_payment_id' => $result['payment']?->id, 'custom_order_id' => $order->id, 'tendered' => $tendered] + ($at ? ['occurred_at' => $at] : []));
-        }, 3);
+        try {
+            DB::transaction(function () use ($order, $till, $by, $booked, $tendered, $at) {
+                // Checked against the balance under the order lock: a retried request or a second
+                // tablet can't book the same cash twice (the drawer would expect money never handed over).
+                $result = $this->settlement->recordPayment($order, $booked, 'cash', Actor::user($by), null, null, 'Cash at ' . $till->register, [], true, $till->id, $at);
+                $session = $this->tills->lock($till); // the last lock
+                $this->tills->cash($session, CashMovement::SALE, $booked, Actor::user($by), null,
+                    ['order_payment_id' => $result['payment']?->id, 'custom_order_id' => $order->id, 'tendered' => $tendered] + ($at ? ['occurred_at' => $at] : []));
+            }, 3);
+        } catch (\DomainException) {
+            $left = max(0, (int) $order->fresh()->balance_due);
+            throw ValidationException::withMessages(['amount' => $left > 0
+                ? 'Only KSh ' . number_format($left) . ' is still owed: a payment was just recorded on this sale. No cash was recorded now.'
+                : 'This sale was just paid in full on another screen. No cash was recorded now: refresh the sale before giving change.']);
+        }
 
         return ['booked' => $booked, 'change' => $tendered - $booked];
     }
@@ -141,6 +151,7 @@ class CounterSaleService
         if ($holder = $this->settlement->referenceHolder('mpesa_manual', $code)) {
             throw ValidationException::withMessages(['reference' => "This M-Pesa code is already recorded on order {$holder->order->cipher}."]);
         }
+        $this->refuseWhilePromptWaits($order);
         $this->secure($order);
         try {
             $this->settlement->recordPayment($order, $amount, 'mpesa_manual', Actor::user($by), $code, null, 'M-Pesa at ' . $till->register, [], true, $till->id, $at);
@@ -166,6 +177,7 @@ class CounterSaleService
             throw ValidationException::withMessages(['amount' => 'Nothing more is owed on this sale.']);
         }
         $credit = min($amount, $owedBack, $balance);
+        $this->refuseWhilePromptWaits($order);
         $this->secure($order);
         DB::transaction(function () use ($order, $till, $by, $credit, $from) {
             $n = $from->payments()->where('type', \App\Models\OrderPayment::REFUND)->where('method', 'credit')->count() + 1;
@@ -187,10 +199,17 @@ class CounterSaleService
         if ($amount < 1 || $amount > $balance) {
             throw ValidationException::withMessages(['amount' => $balance > 0 ? 'Up to KSh ' . number_format($balance) . ' is owed.' : 'Nothing more is owed on this sale.']);
         }
+        $this->refuseWhilePromptWaits($order);
         $this->secure($order);
         $result = app(MpesaService::class)->initiateStkPush($phone, $amount, "ORDER-{$order->id}", "Serana sale {$order->cipher}");
         if (! ($result['success'] ?? false)) {
-            throw ValidationException::withMessages(['phone' => 'M-Pesa couldn’t send the prompt. Check the number, or take another tender.']);
+            if ($result['uncertain'] ?? false) {
+                // It may be on the customer's phone: hold other tenders until it is answered or lapses.
+                PaymentAttempt::recordUnconfirmed($order, $phone, $amount);
+                Audit::record('pos.mpesa_prompt', $order, [], ['amount' => $amount, 'unconfirmed' => true], null, Actor::user($by));
+                throw ValidationException::withMessages(['phone' => 'M-Pesa didn’t answer in time, so the prompt may or may not have reached the customer. If it arrives, they can approve it. Check the payment status before taking another payment.']);
+            }
+            throw ValidationException::withMessages(['phone' => 'M-Pesa couldn’t send the prompt. Nothing was charged. Check the number, or take another tender.']);
         }
         $attempt = $order->paymentAttempts()->create(['checkout_request_id' => $result['data']['CheckoutRequestID'], 'phone' => $phone, 'amount' => $amount, 'status' => PaymentAttempt::PENDING]);
         $order->update(['mpesa_checkout_id' => $attempt->checkout_request_id]);
@@ -238,6 +257,15 @@ class CounterSaleService
         }
 
         return $voided;
+    }
+
+    /** No other tender while a prompt the customer may still approve is out: both would be paid. */
+    private function refuseWhilePromptWaits(CustomOrder $order): void
+    {
+        if ($prompt = $order->unansweredPrompt()) {
+            throw ValidationException::withMessages(['amount' => 'An M-Pesa prompt for KSh ' . number_format((int) $prompt->amount)
+                . ' is still waiting on the customer’s phone. Check its status before taking another payment.']);
+        }
     }
 
     /** Re-take the sale's holds before money is taken (a slow customer may outlast them). */

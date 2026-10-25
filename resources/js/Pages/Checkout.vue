@@ -278,6 +278,7 @@ async function handlePayment() {
             orderAmount.value = response.data.amount;
             handover.value = response.data.handover || null;
             frozenItems.value = response.data.items ? Object.values(response.data.items).filter(item => item?.id) : [...cart.items];
+            notePriceChanges(frozenItems.value);
             if (response.data.payment_method === 'whatsapp') {
                 finishWhatsApp(response.data);
                 return;
@@ -324,6 +325,11 @@ async function initiateMpesaStk(data) {
             stkSent.value = true;
             startPolling();
             pulse.emit('We could not confirm whether the request reached M-Pesa. Check this order before trying another payment.', 'error');
+        } else if (err.response?.status === 409 && err.response.data?.code === 'prompt_pending') {
+            // A prompt is already on the customer's phone: wait for that one, never send a second.
+            stkSent.value = true;
+            startPolling();
+            pulse.emit(err.response.data.message, 'info');
         } else if (err.response?.status === 409 && err.response.data?.code === 'mpesa_paused') {
             // Switched off in the Studio while this customer was paying: offer WhatsApp for the same order.
             mpesaPaused.value = true;
@@ -338,6 +344,41 @@ async function initiateMpesaStk(data) {
 function closePaymentModal() {
     isWaitingForStk.value = false;
     isSuccess.value = false;
+    paymentPending.value = false;
+}
+
+// "Still confirming": ask the server now instead of leaving the customer to guess.
+const checkingNow = ref(false);
+async function checkPaymentNow() {
+    if (checkingNow.value || !orderId.value) return;
+    checkingNow.value = true;
+    try {
+        const { data } = await axios.get(route('mpesa.status', orderId.value));
+        const outcome = applyStatus(data);
+        if (outcome === 'pending') {
+            pulse.emit('M-Pesa has not confirmed this payment yet. Please don’t pay again: we’ll email your receipt as soon as it clears.', 'info');
+        } else if (outcome !== 'paid') {
+            paymentPending.value = false;
+            isWaitingForStk.value = false;
+        }
+    } catch {
+        pulse.emit('We couldn’t check right now. Your order is saved; try again in a moment.', 'error');
+    } finally {
+        checkingNow.value = false;
+    }
+}
+
+// Prices are confirmed by the server when the order is placed: say so if any changed since the bag was filled.
+const priceNotice = ref('');
+function notePriceChanges(serverItems) {
+    const changed = (serverItems || []).filter(item => item?.id).map(item => {
+        const line = cart.items.find(l => l.id === item.id && JSON.stringify(l.options ?? null) === JSON.stringify(item.options ?? null));
+        return line && Number(line.price) !== Number(item.price) ? { line, item } : null;
+    }).filter(Boolean);
+    changed.forEach(({ line, item }) => { line.price = Number(item.price); });
+    priceNotice.value = changed.length
+        ? `${changed.map(({ item }) => `${item.name} is now ${formatAmount(item.price)}`).join('; ')}. The price changed since it went in your bag, so your total is ${formatAmount(orderAmount.value)}.`
+        : '';
 }
 
 // Lock background scroll while the payment modal is open.
@@ -510,10 +551,14 @@ onUnmounted(() => {
                                 <fieldset :disabled="!!orderId || isProcessing" class="space-y-3" aria-describedby="checkout-delivery-help">
                                     <legend class="text-sm font-semibold">How will you receive your order?</legend>
                                     <p id="checkout-delivery-help" class="text-xs text-on-surface-variant">The price shows before you pay. Tracking and your receipt show the same choice.</p>
-                                    <div id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
-                                        <label v-for="o in delivery_options" :key="o.id" class="flex items-start gap-3 border p-3 cursor-pointer"
-                                            :class="Number(form.delivery_option_id) === o.id ? 'border-primary bg-primary/5' : 'border-current/15'">
-                                            <input v-model="form.delivery_option_id" type="radio" :value="o.id" class="mt-1" />
+                                    <p v-if="!delivery_options.length" role="alert" class="border border-outline-variant p-4 text-sm text-on-surface">
+                                        Online orders are paused: there is no delivery or collection option right now. Nothing has been charged.
+                                        <a v-if="page.props.store?.whatsapp_url" :href="page.props.store.whatsapp_url" target="_blank" rel="noopener" class="underline text-primary">Message us on WhatsApp</a> to order these pieces.
+                                    </p>
+                                    <div v-else id="checkout-delivery_option_id" tabindex="-1" role="radiogroup" aria-label="Delivery or collection" class="grid gap-2">
+                                        <label v-for="o in delivery_options" :key="o.id" class="delivery-choice"
+                                            :class="{ 'is-selected': Number(form.delivery_option_id) === o.id }">
+                                            <input v-model="form.delivery_option_id" type="radio" name="delivery_option" :value="o.id" class="delivery-radio" />
                                             <span class="flex-1 min-w-0">
                                                 <span class="flex justify-between gap-3"><span class="font-medium text-on-surface">{{ o.name }}</span>
                                                     <span class="font-mono text-sm shrink-0">{{ o.type === 'quote' ? 'Quote' : feeOf(o) ? formatAmount(feeOf(o)) : 'Free' }}</span></span>
@@ -621,7 +666,7 @@ onUnmounted(() => {
                             <button
                                 v-else
                                 @click="handlePayment"
-                                :disabled="isProcessing || switching"
+                                :disabled="isProcessing || switching || (!orderId && !delivery_options.length)"
                                 class="w-full py-4 text-base"
                                 :class="isWhatsApp ? 'wa-action' : 'action-primary'">
                                 <template v-if="!isProcessing && !switching">
@@ -637,7 +682,7 @@ onUnmounted(() => {
 
                             <p class="text-center text-[10px] text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
                                 <span class="material-symbols-outlined text-xs text-[#276b1d] dark:text-[#4fb33f]" aria-hidden="true">shield</span>
-                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll receive a secure STK push on your phone' }}
+                                {{ isWhatsApp ? 'Your order code and tracking link come with your order' : 'You\'ll get an M-Pesa prompt on your phone. Enter your PIN to pay' }}
                             </p>
                         </section>
                     </div>
@@ -695,6 +740,10 @@ onUnmounted(() => {
                                     <span class="font-mono font-bold tracking-wider text-[#191c1b] dark:text-white">{{ orderReference }}</span>
                                 </div>
                                 <div class="flex flex-col sm:flex-row gap-3">
+                                    <button type="button" @click="checkPaymentNow" :disabled="checkingNow"
+                                        class="flex-1 border border-outline-variant font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest text-[#191c1b] dark:text-white disabled:opacity-50">
+                                        {{ checkingNow ? 'Checking…' : 'Check payment status' }}
+                                    </button>
                                     <Link
                                         :href="orderReference ? route('track', { ref: orderReference }) : route('track')"
                                         class="flex-1 bg-primary text-background font-headline font-black py-4 px-6 rounded-xl text-[11px] uppercase tracking-widest hover:bg-on-surface transition-all"
@@ -716,15 +765,17 @@ onUnmounted(() => {
                                 </button>
                                 <button type="button" @click="closePaymentModal(); mpesaPaused = false" class="block mx-auto mt-5 text-sm underline">Back to checkout</button>
                             </section>
-                            <MpesaStkPanel
-                                v-else-if="!isPaid"
-                                :amount="orderAmount ?? estimatedTotal"
-                                :reference="orderReference"
-                                :phone="form.phone"
-                                :status="stkPanelStatus"
-                                @pay="initiateMpesaStk"
-                                @cancel="closePaymentModal"
-                            />
+                            <div v-else-if="!isPaid">
+                                <p v-if="priceNotice" role="status" class="mb-3 rounded-2xl bg-surface border border-outline-variant p-4 text-sm text-on-surface">{{ priceNotice }}</p>
+                                <MpesaStkPanel
+                                    :amount="orderAmount ?? estimatedTotal"
+                                    :reference="orderReference"
+                                    :phone="form.phone"
+                                    :status="stkPanelStatus"
+                                    @pay="initiateMpesaStk"
+                                    @cancel="closePaymentModal"
+                                />
+                            </div>
                             <MpesaSuccessPanel
                                 v-else
                                 :amount="paidAmount"
@@ -756,8 +807,21 @@ onUnmounted(() => {
 .checkout-section-heading { position: sticky; top: calc(var(--checkout-nav) + var(--checkout-tools) + 1px); z-index: 20; display: flex; align-items: center; gap: 12px; margin: calc(-1 * var(--checkout-pad)) calc(-1 * var(--checkout-pad)) 20px; padding: 12px var(--checkout-pad); border-bottom: 1px solid var(--card-border); border-radius: 16px 16px 0 0; background: var(--surface); }
 .checkout-summary-heading { margin-bottom: 20px; }
 .checkout-panel label { font-size: 12px; letter-spacing: .01em; }
-.checkout-panel input { min-height: 44px; border-radius: 8px; padding: 10px 12px; }
-.checkout-panel input:focus { box-shadow: 0 0 0 2px var(--tint-bg); }
+.checkout-panel input:not([type="radio"]):not([type="checkbox"]) { min-height: 44px; border-radius: 8px; padding: 10px 12px; }
+.checkout-panel input:not([type="radio"]):not([type="checkbox"]):focus { box-shadow: 0 0 0 2px var(--tint-bg); }
+/* Delivery or collection: a whole card is the target; the radio shows which one is picked. */
+.delivery-choice { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border: 1px solid var(--card-border); border-radius: 12px; cursor: pointer; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+.delivery-choice:hover { border-color: rgb(var(--primary-rgb) / .5); }
+.delivery-choice.is-selected { border-color: rgb(var(--primary-rgb)); background: rgb(var(--primary-rgb) / .06); box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb)); }
+.delivery-choice:has(.delivery-radio:focus-visible) { outline: 2px solid rgb(var(--primary-rgb)); outline-offset: 2px; }
+.delivery-radio { appearance: none; flex-shrink: 0; display: grid; place-content: center; width: 22px; height: 22px; margin-top: 1px; border: 2px solid rgb(var(--on-surface-variant-rgb) / .6); border-radius: 9999px; background: transparent; cursor: pointer; transition: border-color .15s; }
+.delivery-radio::before { content: ""; width: 10px; height: 10px; border-radius: 9999px; background: rgb(var(--primary-rgb)); transform: scale(0); transition: transform .15s; }
+/* The forms plugin paints a filled background and a blue ring on radios; the card shows focus instead. */
+.delivery-radio:checked, .delivery-radio:checked:hover, .delivery-radio:checked:focus { border-color: rgb(var(--primary-rgb)); background-color: transparent; background-image: none; }
+.delivery-radio:checked::before { transform: scale(1); }
+.delivery-radio:focus, .delivery-radio:focus-visible { outline: none; box-shadow: none; }
+.delivery-choice:has(:disabled) { cursor: default; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .delivery-choice, .delivery-radio, .delivery-radio::before { transition: none; } }
 .checkout-panel .font-mono { font-variant-numeric: tabular-nums; }
 @media (min-width: 640px) { .checkout-page { --checkout-nav: 104px; --checkout-pad: 24px; } }
 @media (min-width: 1024px) {

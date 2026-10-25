@@ -808,7 +808,7 @@ class OrderSettlementService
                 OrderLine::create([
                     'custom_order_id' => $locked->id,
                     'line_type' => $first ? OrderLine::ITEM : OrderLine::ADJUSTMENT,
-                    'description' => $first ? 'Bespoke quote' : 'Quote change',
+                    'description' => $first ? 'Custom order quote' : 'Quote change',
                     'quantity' => 1,
                     'unit_amount' => $difference,
                     'amount' => $difference,

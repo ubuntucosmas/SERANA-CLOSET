@@ -32,22 +32,27 @@ class StockReconciler
 
     public function report(): array
     {
-        $tracked = Product::where('track_stock', true)->with('variants')->orderBy('id')->get();
+        // Whole-list reads (the same rules as availableStock() and productAvailableOnline(),
+        // ListReadPathsTest): per-product queries made this ~11,000 queries at 500 products.
+        $tracked = Product::where('track_stock', true)->with('variants')->withAvailability()->orderBy('id')->get();
+        $this->stock->preloadAvailability($tracked);
         $shop = Location::query()->online()->first();
 
         $differences = [];
         foreach ($tracked as $product) {
             $old = $product->availableStock();
-            $new = $this->stock->productAvailableOnline($product);
+            $new = $product->preloadedAvailable;
             if ($old !== $new) {
                 $differences[] = "{$product->name}: old model {$old}, stock per size {$new}";
             }
         }
 
+        $counted = StockLevel::whereIn('product_variant_id', $tracked->flatMap->variants->pluck('id'))->whereNotNull('counted_at')
+            ->distinct()->pluck('product_variant_id')->flip();
         $uncounted = [];
         foreach ($tracked as $product) {
             foreach ($product->variants->where('active', true) as $variant) {
-                if (! StockLevel::where('product_variant_id', $variant->id)->whereNotNull('counted_at')->exists()) {
+                if (! $counted->has($variant->id)) {
                     $uncounted[] = $this->stock->describe($variant->setRelation('product', $product));
                 }
             }

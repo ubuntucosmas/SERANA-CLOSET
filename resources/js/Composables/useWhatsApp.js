@@ -5,7 +5,10 @@
  * only lines that carry real information. WhatsApp *bold* is used for the
  * few things the studio scans for (item name, price).
  */
+import { useCurrency } from '@/Composables/useCurrency';
+
 export function useWhatsApp() {
+    const { formatAmount } = useCurrency();
 
     /**
      * Helper to encode URL characters correctly for WhatsApp
@@ -18,19 +21,18 @@ export function useWhatsApp() {
      * Generates a clear, professional enquiry message for a product.
      */
     const generateProductMessage = (product, options = {}, pageProps = {}) => {
-        const { topSize, bottomSize } = options;
+        const { topSize, bottomSize, labels = ['Top size', 'Bottom size'] } = options;
 
-        // Only mention sizes the customer actually chose.
+        // Only mention sizes the customer actually chose, named as on the product page.
         const sizeLines = [];
         if (product.garment_type === 'set') {
-            if (topSize) sizeLines.push(`Hoodie size: ${topSize}`);
-            if (bottomSize) sizeLines.push(`Jogger size: ${bottomSize}`);
+            if (topSize) sizeLines.push(`${labels[0]}: ${topSize}`);
+            if (bottomSize) sizeLines.push(`${labels[1]}: ${bottomSize}`);
         } else if (topSize || bottomSize) {
             sizeLines.push(`Size: ${topSize || bottomSize}`);
         }
 
-        const currencySymbol = pageProps.currency_symbol || 'Ksh';
-        const formattedPrice = `${currencySymbol} ${Number(product.price).toLocaleString()}`;
+        const formattedPrice = formatAmount(product.price, pageProps);
 
         const lines = [
             `Hello ${pageProps.store?.name || 'Serana'},`,

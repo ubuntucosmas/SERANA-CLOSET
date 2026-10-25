@@ -12,6 +12,8 @@ const page = usePage();
 const { formatAmount } = useCurrency();
 
 const currentIndex = ref(0);
+// The other photos are only seen on a desktop hover, so they download then, not on every phone.
+const hovered = ref(false);
 
 const images = computed(() => {
     const list = [props.product.optimized_image_url || props.product.image_url];
@@ -45,6 +47,7 @@ const badge = computed(() => {
 // Desktop hover previews the other photos; touch devices never trigger it.
 let cycle = null;
 const startCycle = () => {
+    hovered.value = true;
     if (images.value.length < 2 || cycle) return;
     cycle = setInterval(() => { currentIndex.value = (currentIndex.value + 1) % images.value.length; }, 1500);
 };
@@ -70,7 +73,7 @@ onUnmounted(stopCycle);
         <!-- Product visual -->
         <Link :href="route('shop.show', product.slug)" prefetch class="card-media always-dark block aspect-[4/5]" :aria-label="product.name">
             <img
-                v-for="(imgSrc, i) in images.length ? images : [FALLBACK_IMAGE]"
+                v-for="(imgSrc, i) in images.length ? (hovered ? images : images.slice(0, 1)) : [FALLBACK_IMAGE]"
                 :key="i"
                 class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
                 :class="[i === currentIndex ? 'opacity-100' : 'opacity-0', isSoldOut ? 'grayscale-[60%]' : '']"

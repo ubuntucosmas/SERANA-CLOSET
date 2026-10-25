@@ -28,6 +28,10 @@ final class Role
         'money.record' => [self::OWNER, self::MANAGER],
         // Staff accounts and roles.
         'staff.manage' => [self::OWNER],
+        // Where customers, orders and alerts go: the store WhatsApp, call phone, contact and alert emails (V1: owner only).
+        'settings.contact' => [self::OWNER],
+        // M-Pesa money that matches no order, or a prompt only the statement can settle: match it or mark it for refund.
+        'payments.review' => [self::OWNER],
         'audit.review' => [self::OWNER, self::MANAGER],
         // Order policies: deposit share, pay-link lifetime, deposit rule (design §5: owner only).
         'settings.policies' => [self::OWNER],

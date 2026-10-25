@@ -88,6 +88,17 @@ class Product extends Model
             if ($product->wasRecentlyCreated || $product->wasChanged(['garment_type', 'specifications'])) {
                 ProductVariant::ensureFor($product);
             }
+            // With stock per size live, the old model is the rollback path: it must offer exactly
+            // what is counted. A product that becomes counted sells sold + counted (0 before the
+            // first count, never "unlimited"); one that becomes made to order is unlimited in both.
+            if (\App\Support\StockMode::v2() && ($product->wasRecentlyCreated || $product->wasChanged('track_stock'))) {
+                if ($product->track_stock) {
+                    app(\App\Services\StockService::class)->rebaseline($product);
+                } elseif (! $product->wasRecentlyCreated) {
+                    \Illuminate\Support\Facades\DB::table('products')->where('id', $product->id)->update(['batch_limit' => null]);
+                    $product->batch_limit = null;
+                }
+            }
         });
     }
 

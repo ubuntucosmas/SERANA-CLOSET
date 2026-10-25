@@ -14,6 +14,7 @@
  *   php tests/Concurrency/worker.php count <variant id>:<location id>:<counted>   (a stock take, Phase D1)
  *   php tests/Concurrency/worker.php counter-sale <till id>:<seller id>:<product id>:<size>   (the till, Phase E)
  *   php tests/Concurrency/worker.php late-entry <till id>:<seller id>:<approver id>:<product id>:<size>:<slip>   (a paper slip, Phase E)
+ *   php tests/Concurrency/worker.php cash-tender <order id>:<till id>:<user id>:<amount>   (two tablets, or a retried request)
  *
  * Adversaries (test-only: take locks in the wrong order on purpose, to force
  * a deadlock on the app's first attempt). Each first writes throwaway rows so
@@ -130,6 +131,16 @@ try {
             \App\Models\User::findOrFail((int) $approverId), $slip, now()->subHour(), 'Race: outage',
             [['id' => (int) $productId, 'quantity' => 1, 'options' => ['top_size' => $size]]], [['method' => 'cash', 'amount' => (int) $product->price]]);
         echo json_encode(['status' => 200, 'order' => $order->id, 'rollbacks' => $rollbacks]);
+    } elseif ($action === 'cash-tender') {
+        [$orderId, $tillId, $userId, $amount] = array_map('intval', explode(':', $arg));
+        $app->make(ConsoleKernel::class)->bootstrap();
+        try {
+            $out = app(\App\Services\CounterSaleService::class)->tenderCash(CustomOrder::findOrFail($orderId), \App\Models\TillSession::findOrFail($tillId),
+                \App\Models\User::findOrFail($userId), $amount, $amount);
+            echo json_encode(['status' => 200, 'booked' => $out['booked'], 'rollbacks' => $rollbacks]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            echo json_encode(['status' => 422, 'errors' => $e->errors(), 'rollbacks' => $rollbacks]);
+        }
     } elseif ($action === 'block-holds-then-product') {
         // Gap-lock all of stock_reservations (blocks any new hold), then want the product.
         $app->make(ConsoleKernel::class)->bootstrap();

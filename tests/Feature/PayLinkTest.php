@@ -65,7 +65,7 @@ class PayLinkTest extends TestCase
             ->where('order.balance_due', 10000)
             ->where('order.deposit_due', 5000)
             ->where('order.deposit_policy', OrderPolicy::depositPolicy())
-            ->where('order.lines', [['description' => 'Bespoke quote', 'amount' => 10000]])
+            ->where('order.lines', [['description' => 'Custom order quote', 'amount' => 10000]])
             ->missing('order.email')->missing('order.address')->missing('order.whatsapp_number'));
     }
 

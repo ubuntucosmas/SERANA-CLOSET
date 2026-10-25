@@ -35,7 +35,8 @@ class PosController extends Controller
                 'discount_percent' => ShopPolicy::cashierDiscountPercent(), 'discount_cap' => ShopPolicy::cashierDiscountCap(),
                 'variance_alert' => ShopPolicy::tillVarianceAlert(),
             ],
-            'garments' => array_column(CustomOrderOptions::forCustomers()['garments'], 'label'),
+            // The same choices the shop's Custom Order page offers (Studio → Settings).
+            'customOrderOptions' => CustomOrderOptions::forCustomers(),
         ]);
     }
 }

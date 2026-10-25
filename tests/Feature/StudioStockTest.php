@@ -81,7 +81,7 @@ class StudioStockTest extends TestCase
 
     public function test_only_owner_and_manager_touch_stock(): void
     {
-        $this->move($this->as(Role::CASHIER), 'receive', 'M', 5)->assertRedirect('/');
+        $this->move($this->as(Role::CASHIER), 'receive', 'M', 5)->assertRedirect(route('pos.index'));
         $this->assertSame(0, StockMovement::count());
     }
 
@@ -100,8 +100,12 @@ class StudioStockTest extends TestCase
         $this->assertSame([['M', 3, 1, 2, true], ['L', 1, 0, 1, true]],
             collect($product['sizes'])->map(fn ($s) => [$s['size'], $s['on_hand'], $s['held'], $s['available'], $s['counted_at'] !== null])->all());
         $this->assertSame($this->variantOf('M')->sku, $product['sizes'][0]['sku']);
+        // The history is counted on the screen and loads when it is opened.
+        $this->assertSame(2, $product['history_count']);
+        $history = $this->actingAs($owner)->getJson(route('studio.stock.history', $this->hoodie))->assertOk()->json('history');
         $this->assertSame([['count_correction', 'Size L', 1, 'Owner', 'Stock take'], ['count_correction', 'Size M', 3, 'Owner', 'Stock take']],
-            collect($product['history'])->map(fn ($m) => [$m['type'], $m['size'], $m['quantity'], $m['by'], $m['reason']])->all(), 'newest first');
+            collect($history)->map(fn ($m) => [$m['type'], $m['size'], $m['quantity'], $m['by'], $m['reason']])->all(), 'newest first');
+        $this->actingAs($this->as(Role::CASHIER))->getJson(route('studio.stock.history', $this->hoodie))->assertRedirect(route('pos.index'));
         $this->assertSame(['v2' => false, 'uncounted' => 0], ['v2' => $stock['mode']['v2'], 'uncounted' => count($stock['mode']['preview']['uncounted'])]);
     }
 

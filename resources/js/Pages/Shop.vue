@@ -39,18 +39,10 @@ const sortOptions = [
     { label: "Price: High to Low", value: "price_desc" },
 ];
 const currentSort = ref(props.filters?.sort || "newest");
-const showSortMenu = ref(false);
-const currentSortLabel = computed(
-    () =>
-        sortOptions.find((o) => o.value === currentSort.value)?.label ??
-        "Newest Arrivals",
-);
-
 // Sort is applied client-side for instant feedback (the catalogue is already
 // loaded; no round-trip needed).
 const filterBySort = (value) => {
     currentSort.value = value;
-    showSortMenu.value = false;
     // Keep the choice in the URL (no reload) so refresh, Back and shared links keep it.
     const url = new URL(window.location.href);
     if (value === 'newest') url.searchParams.delete('sort'); else url.searchParams.set('sort', value);
@@ -126,29 +118,12 @@ const toSentenceCase = (str) =>
                 <!-- Page header -->
                 <PageHeader kicker="The Collection" :title="activeCategory ? toSentenceCase(activeCategory.name) : 'Shop All Pieces'" subtitle="Ready-to-wear pieces, cut in limited numbers.">
                     <template #actions>
-                    <!-- Desktop sort -->
-                    <div class="relative hidden md:block">
-                        <button @click="showSortMenu = !showSortMenu" :aria-expanded="showSortMenu" aria-haspopup="listbox" class="action-secondary">
-                            <span class="text-on-surface-variant">Sort</span>
-                            <span class="font-semibold text-primary">{{ currentSortLabel }}</span>
-                            <span class="material-symbols-outlined text-base text-primary transition-transform" :class="showSortMenu ? 'rotate-180' : ''" aria-hidden="true">expand_more</span>
-                        </button>
-                        <transition name="fade">
-                            <div v-if="showSortMenu" role="listbox" class="card absolute right-0 top-full z-[100] mt-2 w-60 overflow-hidden p-1.5 shadow-2xl">
-                                <button
-                                    v-for="opt in sortOptions"
-                                    :key="opt.value"
-                                    role="option"
-                                    :aria-selected="currentSort === opt.value"
-                                    @click="filterBySort(opt.value)"
-                                    class="w-full rounded-xl px-4 py-2.5 text-left text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
-                                    :class="currentSort === opt.value ? 'font-semibold text-primary' : 'text-on-surface-variant'"
-                                >
-                                    {{ opt.label }}
-                                </button>
-                            </div>
-                        </transition>
-                    </div>
+                    <label class="hidden items-center gap-3 text-sm text-on-surface-variant md:flex">
+                        Sort by
+                        <select :value="currentSort" @change="filterBySort($event.target.value)" class="field !w-auto">
+                            <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                    </label>
                     </template>
                 </PageHeader>
 

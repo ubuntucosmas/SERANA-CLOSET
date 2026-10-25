@@ -48,7 +48,13 @@ class CustomOrderController extends Controller
         $validated = $request->validate([
             'request_id' => 'nullable|uuid',
             'full_name' => 'required|string|max:255',
-            'whatsapp_number' => 'required|string|max:20',
+            // The only way the studio reaches the customer, and half of their tracking key.
+            'whatsapp_number' => ['required', 'string', 'max:20', function ($attribute, $value, $fail) {
+                $digits = \App\Support\Phone::normalize($value);
+                if (strlen($digits) < 10 || strlen($digits) > 15) {
+                    $fail('Enter the WhatsApp number we can reach you on, e.g. 07XX XXX XXX, or with the country code if you are outside Kenya.');
+                }
+            }],
             'location' => 'nullable|string|max:255',
             'outfit_type' => ['nullable', 'string', Rule::in($allowed['outfit_type'])],
             'fabric_preference' => ['nullable', 'string', Rule::in($allowed['fabric_preference'])],
@@ -92,7 +98,7 @@ class CustomOrderController extends Controller
 
             $orderData = [
                 'full_name' => $validated['full_name'],
-                'whatsapp_number' => $validated['whatsapp_number'],
+                'whatsapp_number' => \App\Support\Phone::normalize($validated['whatsapp_number']),
                 'fabric_preference' => $validated['fabric_preference'] ?? null,
                 'bust_cm' => $validated['bust_cm'] ?? null,
                 'waist_cm' => $validated['waist_cm'] ?? null,
@@ -142,7 +148,7 @@ class CustomOrderController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'The digital atelier is momentarily busy. Please try again.'
+                'message' => 'We could not save your request, so nothing was sent to the studio. Please try again in a moment, or message us on WhatsApp.'
             ], 500);
         }
     }
@@ -183,7 +189,7 @@ class CustomOrderController extends Controller
         // — Client —
         $lines[] = "\n*Client*";
         $lines[] = "Name: {$order->full_name}";
-        $lines[] = "Phone: {$order->whatsapp_number}";
+        $lines[] = 'Phone: ' . (\App\Support\StoreProfile::display((string) $order->whatsapp_number) ?: $order->whatsapp_number);
         if (!empty($validated['location'])) {
             $lines[] = "Location: {$validated['location']}";
         }

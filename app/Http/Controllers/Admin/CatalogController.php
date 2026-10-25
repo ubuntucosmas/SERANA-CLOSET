@@ -38,10 +38,25 @@ class CatalogController extends Controller
             'in_stock' => 'boolean',
             'specifications' => 'nullable|array',
             'batch_limit' => 'nullable|integer|min:0',
+            // Set once at creation; afterwards both live in Studio → Stock.
+            'sizes' => 'nullable|array|max:20',
+            'sizes.*' => 'nullable|string|max:20|distinct:ignore_case',
+            'track_stock' => 'nullable|boolean',
         ], [
             'price.regex' => 'Use whole shillings, e.g. 1500. M-Pesa cannot charge cents.',
             'price.min' => 'Price must be at least KSh 1.',
+            'sizes.*.distinct' => 'Each size can be listed only once.',
         ]);
+        $sizes = array_values(array_filter(array_map(fn ($size) => trim((string) $size), $validated['sizes'] ?? []), fn ($size) => $size !== ''));
+        unset($validated['sizes']);
+        if ($sizes !== []) {
+            $validated['specifications'] = array_merge($validated['specifications'] ?? [], ['sizes' => $sizes]);
+        }
+        if (array_key_exists('track_stock', $validated) && $validated['track_stock'] === null) {
+            unset($validated['track_stock']);
+        }
+        // Checked before any image is stored, so a refused name leaves no stray files.
+        $this->uniqueSlug($validated['name']);
 
         if ($request->hasFile('image')) {
             $validated['image_path'] = $this->optimizer->store($request->file('image'), 'products');
@@ -60,12 +75,14 @@ class CatalogController extends Controller
             $validated['secondary_images'] = $secondaryPaths;
         }
 
-        $validated['slug'] = Str::slug($validated['name']);
-        
-        $product = Product::create($validated);
-        \App\Support\Audit::record('product.created', $product, [], $product->only(['name', 'price', 'batch_limit', 'in_stock']));
+        $validated['slug'] = $this->uniqueSlug($validated['name']);
 
-        return back()->with('success', 'Product added to the shop.');
+        $product = Product::create($validated);
+        \App\Support\Audit::record('product.created', $product, [], $product->only(['name', 'price', 'batch_limit', 'in_stock', 'track_stock']));
+
+        return back()->with('success', $product->track_stock && \App\Support\StockMode::v2()
+            ? 'Product saved. It shows as sold out until you count its stock in Studio → Stock.'
+            : 'Product added to the shop.');
     }
 
     public function updateProduct(Request $request, Product $product)
@@ -96,44 +113,58 @@ class CatalogController extends Controller
             unset($validated['batch_limit']);
         }
 
-        $targetDisk = config('filesystems.public_disk');
+        $slug = $this->uniqueSlug($validated['name'], $product->id);
+
+        // New images are stored first; the ones they replace are deleted only once the product
+        // points at the new ones, so a failed upload never leaves the product without a picture.
+        $replaced = [];
         if ($request->hasFile('image')) {
-            // Delete old primary image if it exists
-            if ($product->image_path) {
-                Storage::disk($targetDisk)->delete($product->image_path);
-            }
             $validated['image_path'] = $this->optimizer->store($request->file('image'), 'products');
+            $replaced[] = $product->image_path;
         }
 
-        // Handle Secondary Image Replacements
         $secondaryImages = $product->secondary_images ?? [];
-
-        if ($request->hasFile('secondary_image_1')) {
-            // Delete old slot 1 if it exists
-            if (isset($secondaryImages[0])) {
-                Storage::disk($targetDisk)->delete($secondaryImages[0]);
+        foreach ([0 => 'secondary_image_1', 1 => 'secondary_image_2'] as $slot => $field) {
+            if ($request->hasFile($field)) {
+                $replaced[] = $secondaryImages[$slot] ?? null;
+                $secondaryImages[$slot] = $this->optimizer->store($request->file($field), 'products');
             }
-            $secondaryImages[0] = $this->optimizer->store($request->file('secondary_image_1'), 'products');
         }
-
-        if ($request->hasFile('secondary_image_2')) {
-            // Delete old slot 2 if it exists
-            if (isset($secondaryImages[1])) {
-                Storage::disk($targetDisk)->delete($secondaryImages[1]);
-            }
-            $secondaryImages[1] = $this->optimizer->store($request->file('secondary_image_2'), 'products');
-        }
-
         if (!empty($secondaryImages)) {
+            ksort($secondaryImages);
             $validated['secondary_images'] = array_values($secondaryImages); // Ensure clean array keys
         }
 
-        $validated['slug'] = Str::slug($validated['name']);
+        $validated['slug'] = $slug;
         // Price and stock are money/stock-sensitive: audit what changed.
         \App\Support\Audit::changes('product.updated', $product, array_intersect_key($validated, array_flip(['price', 'batch_limit', 'in_stock'])));
         $product->update($validated);
 
+        $targetDisk = config('filesystems.public_disk');
+        foreach (array_filter($replaced) as $path) {
+            Storage::disk($targetDisk)->delete($path);
+        }
+
         return back()->with('success', 'Collection piece updated successfully.');
+    }
+
+    /**
+     * The product's web address from its name. Two names can make the same address
+     * ("Silk Set", "Silk-Set"); archived products keep theirs, so they count too.
+     */
+    private function uniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $slug = Str::slug($name);
+        if ($slug === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Use letters or numbers in the name: it becomes the product’s web address.']);
+        }
+        $taken = Product::withTrashed()->where('slug', $slug)->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))->first();
+        if ($taken) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['name' => '“' . $taken->name . '”' . ($taken->trashed() ? ' (archived)' : '')
+                . ' already uses this web address (/shop/' . $slug . '). Choose a slightly different name.']);
+        }
+
+        return $slug;
     }
 
     public function destroyProduct(Product $product)
@@ -152,20 +183,31 @@ class CatalogController extends Controller
 
     public function forceDeleteProduct(Product $product)
     {
+        // Sales and stock history name the product: it stays archived as their record.
+        $variantIds = $product->variants()->pluck('id');
+        $hasHistory = (int) $product->batch_sold > 0
+            || $product->reservations()->exists()
+            || \Illuminate\Support\Facades\DB::table('order_lines')->where('product_id', $product->id)->exists()
+            || \Illuminate\Support\Facades\DB::table('stock_operations')->where('product_id', $product->id)->exists()
+            || ($variantIds->isNotEmpty() && \Illuminate\Support\Facades\DB::table('stock_movements')->whereIn('product_variant_id', $variantIds)->exists());
+        if ($hasHistory) {
+            return back()->with('error', 'This product has been ordered or its stock was counted, so it stays in the archive as the record of those sales. It is already hidden from the shop.');
+        }
+
+        $record = $product->only(['name', 'slug', 'price', 'batch_limit', 'batch_sold']);
+        // Its sizes go with it (never stocked or sold, checked above); the database refuses the product otherwise.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $variantIds) {
+            \Illuminate\Support\Facades\DB::table('stock_levels')->whereIn('product_variant_id', $variantIds)->delete();
+            \Illuminate\Support\Facades\DB::table('product_variants')->whereIn('id', $variantIds)->delete();
+            $product->forceDelete();
+        });
+        \App\Support\Audit::record('product.purged', $product, $record);
+
+        // Files go only once the record is gone, so a failed purge never leaves a product without its images.
         $targetDisk = config('filesystems.public_disk');
-        // Permanent asset removal on force delete
-        if ($product->image_path) {
-            Storage::disk($targetDisk)->delete($product->image_path);
+        foreach (array_filter([$product->image_path, ...(is_array($product->secondary_images) ? $product->secondary_images : [])]) as $path) {
+            Storage::disk($targetDisk)->delete($path);
         }
-
-        if ($product->secondary_images && is_array($product->secondary_images)) {
-            foreach ($product->secondary_images as $path) {
-                Storage::disk($targetDisk)->delete($path);
-            }
-        }
-
-        \App\Support\Audit::record('product.purged', $product, $product->only(['name', 'slug', 'price', 'batch_limit', 'batch_sold']));
-        $product->forceDelete();
         return back()->with('success', 'Product and all associated assets permanently purged.');
     }
 

@@ -47,9 +47,10 @@ class ThemeController extends Controller
             $old = ThemeSetting::where('key', $key)->value('value');
             ThemeSetting::set($key, $path);
             if (is_string($old) && str_starts_with($old, 'themes/')) Storage::disk($disk)->delete($old);
+            \App\Support\Audit::record('settings.store.updated', null, [$key => $old], [$key => $path]);
         } else {
             $value = $request->validate(['value' => self::TEXT_RULES[$key]])['value'] ?? null;
-            ThemeSetting::set($key, in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value);
+            $this->saveText([$key => $value]);
         }
         return back()->with('success', 'Store setting updated.');
     }
@@ -59,12 +60,51 @@ class ThemeController extends Controller
         $rules = ['settings' => ['required', 'array:'.implode(',', array_keys(self::TEXT_RULES))]];
         foreach (self::TEXT_RULES as $key => $rule) $rules['settings.'.$key] = $rule;
         $settings = $request->validate($rules)['settings'];
-        DB::transaction(function () use ($settings) {
-            foreach ($settings as $key => $value) {
-                ThemeSetting::set($key, in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value);
-            }
-        });
+        $this->saveText($settings);
         return back()->with('success', 'Store settings updated.');
+    }
+
+    /** Settings that send customers, orders or financial alerts somewhere: owner only (Role 'settings.contact'). */
+    public const OWNER_KEYS = ['whatsapp_number', 'care_phone', 'contact_email', 'notification_email'];
+
+    /** A manager may save the rest of the form; changing an owner key is refused on that field. */
+    private function guardOwnerKeys(array $settings): void
+    {
+        if (request()->user()?->can('settings.contact')) {
+            return;
+        }
+        $errors = [];
+        foreach (array_intersect_key($settings, array_flip(self::OWNER_KEYS)) as $key => $value) {
+            $value = in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value;
+            if ((string) ThemeSetting::where('key', $key)->value('value') !== (string) $value) {
+                $errors[(request()->routeIs('admin.theme.bulk_update') ? 'settings.' : '') . $key] = 'Only the owner can change where customers, orders and alerts are sent.';
+            }
+        }
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
+     * Save store text settings and record what changed: these say where customers
+     * send orders and money (WhatsApp) and where owner alerts go.
+     */
+    private function saveText(array $settings): void
+    {
+        $this->guardOwnerKeys($settings);
+        $before = [];
+        $after = [];
+        DB::transaction(function () use ($settings, &$before, &$after) {
+            foreach ($settings as $key => $value) {
+                $value = in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value;
+                $old = ThemeSetting::where('key', $key)->value('value');
+                if ((string) $old === (string) $value) continue;
+                ThemeSetting::set($key, $value);
+                $before[$key] = $old;
+                $after[$key] = $value;
+            }
+            if ($after) \App\Support\Audit::record('settings.store.updated', null, $before, $after);
+        });
     }
 
     /** Studio → Settings → Shop (Phase E): discount limit, till variance alert, holds, idle lock, receipt footer. */
@@ -149,7 +189,9 @@ class ThemeController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages(['garments' => 'Keep at least one garment switched on.']);
         }
 
+        $before = CustomOrderOptions::all();
         CustomOrderOptions::save($validated);
+        \App\Support\Audit::record('settings.custom_order_options.updated', null, $before, CustomOrderOptions::all());
 
         return back()->with('success', 'Custom order options updated.');
     }

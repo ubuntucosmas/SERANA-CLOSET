@@ -263,6 +263,27 @@ class ConcurrencyTest extends TestCase
         $this->assertSame(0, app(\App\Services\StockService::class)->availableOnline($M));
     }
 
+    public function test_two_cash_tenders_racing_for_one_sale_book_the_cash_once(): void
+    {
+        // Two tablets on one sale, or a retry after a lost response: both read "KSh 2,500 owed"
+        // before either books. The drawer must expect the cash once, and nothing is owed back.
+        [$product, , , $shop] = $this->stockedSizes(1, 0);
+        $cashier = \App\Models\User::factory()->create(['role' => \App\Support\Role::CASHIER]);
+        $till = app(\App\Services\TillService::class)->open($shop, 'Till 1', 1000, $cashier);
+        $sale = app(\App\Services\CounterSaleService::class)->start($till, $cashier, [['id' => $product->id, 'quantity' => 1, 'options' => ['top_size' => 'M']]]);
+
+        $results = $this->whileHolding(fn () => CustomOrder::whereKey($sale->id)->lockForUpdate()->first(), [
+            ['cash-tender', "{$sale->id}:{$till->id}:{$cashier->id}:2500"],
+            ['cash-tender', "{$sale->id}:{$till->id}:{$cashier->id}:2500"],
+        ]);
+
+        $this->assertSame([200, 422], collect($results)->pluck('status')->sort()->values()->all(), json_encode($results));
+        $fresh = $sale->fresh();
+        $this->assertSame(1, $fresh->payments()->where('type', 'payment')->count(), 'booked once');
+        $this->assertSame([2500, 0], [(int) $fresh->amount_paid, (int) $fresh->balance_due], 'paid, nothing owed back');
+        $this->assertSame(3500, app(\App\Services\TillService::class)->expectedCash($till), 'float + one sale');
+    }
+
     public function test_a_paper_slip_and_the_online_payment_for_the_last_m_both_stand_and_the_online_order_needs_a_decision(): void
     {
         $this->slipAndPaymentRace(slipFirst: false);

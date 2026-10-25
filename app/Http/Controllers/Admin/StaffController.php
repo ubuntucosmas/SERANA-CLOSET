@@ -211,10 +211,12 @@ class StaffController extends Controller
         $data = $request->validate(['pin' => ['required', 'regex:/^\d{4,6}$/'], 'reason' => ['required', 'string', 'max:255']],
             ['pin.regex' => 'Use 4 to 6 digits.']);
         $this->staffOnly($user);
-        $taken = User::whereIn('role', Role::STAFF)->whereNull('suspended_at')->whereNotNull('pos_pin')->where('id', '!=', $user->id)->get(['id', 'pos_pin'])
+        // Suspended accounts count too: reactivated, they would share the PIN and the Sales Desk
+        // could no longer tell the two people apart.
+        $taken = User::whereIn('role', Role::STAFF)->whereNotNull('pos_pin')->where('id', '!=', $user->id)->get(['id', 'pos_pin'])
             ->contains(fn (User $other) => Hash::check($data['pin'], $other->pos_pin));
         if ($taken) {
-            throw ValidationException::withMessages(['pin' => 'Another staff member already uses that PIN.']);
+            throw ValidationException::withMessages(['pin' => 'Another staff account (active or suspended) already uses that PIN. Choose a different one.']);
         }
         $user->forceFill(['pos_pin' => Hash::make($data['pin'])])->save();
         Audit::record('staff.pin_set', $user, [], ['pin_set' => true], $data['reason']);

@@ -134,6 +134,21 @@ class DeliveryOptionsTest extends TestCase
         $this->assertSame('Rider to Thika quoted', $fresh->lines()->where('line_type', OrderLine::DELIVERY)->sole()->reason);
     }
 
+    public function test_the_studio_list_reads_delivery_and_payments_the_same_from_loaded_rows(): void
+    {
+        $quote = DeliveryOption::where('type', 'quote')->sole();
+        $order = CustomOrder::findOrFail($this->checkout(['delivery_option_id' => $quote->id])->assertOk()->json('order_id'));
+        $read = fn (CustomOrder $o) => [$o->deliveryTotal(), $o->needsDeliveryQuote(), $o->quoteAmount(), $o->delivery_info, $o->ledger_rows];
+        $loaded = fn () => CustomOrder::with(['lines', 'payments.attempt', 'deliveryOption'])->findOrFail($order->id);
+        $this->assertSame($read($order->fresh()), $read($loaded()), 'quote not priced yet');
+
+        $this->actingAs($this->owner)->post(route('studio.order.delivery', $order), ['delivery_option_id' => $quote->id, 'fee' => 800, 'reason' => 'Rider quoted'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->post(route('studio.order.record_payment', $order), ['amount' => 5800, 'method' => 'mpesa_manual', 'reference' => 'QLOADED001'])->assertSessionHasNoErrors();
+        $this->assertSame(1, $order->payments()->count());
+        $this->assertSame($read($order->fresh()), $read($loaded()), 'priced and paid');
+        $this->assertSame([800, false], [$loaded()->deliveryTotal(), $loaded()->needsDeliveryQuote()]);
+    }
+
     public function test_the_studio_adds_delivery_to_a_bespoke_quote_and_can_change_it_until_it_ships(): void
     {
         $zone = $this->deliveryZone(fee: 500);
