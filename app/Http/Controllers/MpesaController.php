@@ -249,14 +249,9 @@ class MpesaController extends Controller
 
         if (!$order) {
             Log::error("M-Pesa Callback: Order not found for CheckoutID: $checkoutRequestID");
-            // Money taken that matches no order must never go unseen: the Studio home lists it.
+            // Money taken that matches no order is never dropped: it waits in the Studio's payment review.
             if ($resultCode == 0) {
-                \App\Support\Audit::record('payment.unmatched', null, [], [
-                    'checkout_request_id' => mb_substr((string) $checkoutRequestID, 0, 100),
-                    'amount' => is_numeric($metadata->get('Amount')) ? (int) round((float) $metadata->get('Amount')) : null,
-                    'receipt' => mb_substr((string) $metadata->get('MpesaReceiptNumber'), 0, 30) ?: null,
-                    'phone_ending' => substr((string) $metadata->get('PhoneNumber'), -3) ?: null,
-                ], null, \App\Support\Actor::safaricom());
+                app(\App\Services\PaymentReviewService::class)->recordUnmatchedCallback((string) $checkoutRequestID, $metadata->all(), $payload);
             }
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Order Not Found']);
         }

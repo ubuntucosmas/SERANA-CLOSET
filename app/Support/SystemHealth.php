@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Console\Commands\ProductionPreflight;
-use App\Models\PaymentAttempt;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -22,10 +21,37 @@ final class SystemHealth
     /** Minutes an email may wait in the queue before staff are warned. */
     public const QUEUE_STALE_MINUTES = 15;
 
-    /** @return list<array{key: string, title: string, detail: string, action: string, orders?: list<array{id: int, reference: string}>}> */
+    /** Hours since the last good backup before staff are warned (the backup runs nightly). */
+    public const BACKUP_STALE_HOURS = 26;
+
+    /** What deploy/backup.sh last recorded, or null if it never ran here. */
+    public static function lastBackup(): ?array
+    {
+        // deploy/backup.sh writes it; tests point this elsewhere so they never touch the real record.
+        $file = config('serana.backup_status_file') ?: storage_path('app/backup-status.json');
+        $status = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+
+        return is_array($status) && ($status['ok'] ?? false) ? $status : null;
+    }
+
+    /** @return list<array{key: string, title: string, detail: string, action: string}> */
     public static function warnings(): array
     {
         $warnings = [];
+
+        // Backups are a server matter: warned about where they must exist (production).
+        if (app()->environment('production')) {
+            $backup = self::lastBackup();
+            $age = $backup ? now()->diffInHours(\Illuminate\Support\Carbon::parse($backup['at']), true) : null;
+            if (! $backup || $age > self::BACKUP_STALE_HOURS || ! ($backup['offsite'] ?? false)) {
+                $warnings[] = [
+                    'key' => 'backup',
+                    'title' => ! $backup ? 'No backup has been recorded' : ($age > self::BACKUP_STALE_HOURS ? 'The last backup is ' . (int) $age . ' hours old' : 'The last backup is only on this server'),
+                    'detail' => 'If the server or its disk failed now, orders, payments and stock since the last off-server backup could be lost.',
+                    'action' => 'Ask whoever runs the server to check the nightly backup (deploy/backup.sh, storage/logs/backup.log).',
+                ];
+            }
+        }
 
         $beat = Cache::get(ProductionPreflight::HEARTBEAT);
         if (! $beat || now()->timestamp - (int) $beat > self::SCHEDULER_STALE_MINUTES * 60) {
@@ -35,6 +61,39 @@ final class SystemHealth
                 'detail' => ($beat ? 'Last ran ' . now()->setTimestamp((int) $beat)->diffForHumans() . '. ' : 'They have not run on this server. ')
                     . 'M-Pesa payments whose confirmation was missed are not being checked, and unpaid orders are not releasing their stock.',
                 'action' => 'Ask whoever runs the server to restart the scheduler (deploy/crontab). Don’t ask customers to pay again meanwhile.',
+            ];
+        }
+
+        foreach (JobRuns::JOBS as $name => [$label]) {
+            if (JobRuns::lastRunFailed($name)) {
+                $warnings[] = [
+                    'key' => 'job:' . $name,
+                    'title' => "{$label}: the last run failed",
+                    'detail' => 'At ' . now()->setTimestamp(JobRuns::get($name)['failed_at'])->timezone(config('app.display_timezone'))->format('d M, H:i')
+                        . '. It is retried automatically; this clears when a run succeeds.',
+                    'action' => str_contains($name, ':')
+                        ? "If it stays, ask whoever runs the server to run php artisan {$name} by hand and read the error."
+                        : 'If it stays, ask whoever runs the server to read storage/logs/laravel.log for the error.',
+                ];
+            }
+        }
+
+        if (($errors = OperatorAlerts::recentErrors()) > 0) {
+            $warnings[] = [
+                'key' => 'errors',
+                'title' => "{$errors} server " . ($errors === 1 ? 'error' : 'errors') . ' in the last two hours',
+                'detail' => 'Someone may have seen an error page. Payments and stock are saved in transactions, so nothing was half-recorded.',
+                'action' => 'If it keeps happening, ask whoever runs the server to check storage/logs/laravel.log.',
+            ];
+        }
+
+        $failingSince = Cache::get(\App\Console\Commands\ReconcilePendingPayments::FAILING_SINCE);
+        if ($failingSince && now()->timestamp - (int) $failingSince > 10 * 60) {
+            $warnings[] = [
+                'key' => 'mpesa_checks',
+                'title' => 'Payment checks with Safaricom are failing',
+                'detail' => 'Since ' . now()->setTimestamp((int) $failingSince)->diffForHumans() . ', Safaricom has not answered our checks on unconfirmed M-Pesa payments (wrong credentials, or Safaricom unreachable). Payments whose confirmation was missed stay pending.',
+                'action' => 'Studio → Settings → Payments: Test connection. If it fails, whoever runs the server checks the M-Pesa keys. Don’t ask customers to pay again meanwhile.',
             ];
         }
 
@@ -74,33 +133,8 @@ final class SystemHealth
             ];
         }
 
-        // Reconciliation asks Safaricom about a prompt for a day; after that nobody does.
-        $stale = PaymentAttempt::pending()->where('created_at', '<', now()->subDay())->where('created_at', '>=', now()->subDays(30))
-            ->with('order:id,cipher')->latest('id')->get();
-        if ($stale->isNotEmpty()) {
-            $orders = $stale->pluck('order')->filter()->unique('id')->values();
-            $warnings[] = [
-                'key' => 'stale_prompts',
-                'title' => $stale->count() . ' M-Pesa ' . ($stale->count() === 1 ? 'prompt was' : 'prompts were') . ' never confirmed or cancelled',
-                'detail' => 'Safaricom never told us the result and the automatic check has stopped asking. Orders: ' . $orders->take(5)->pluck('cipher')->implode(', ')
-                    . ($orders->count() > 5 ? ' and ' . ($orders->count() - 5) . ' more' : '') . '.',
-                'action' => 'Look for each order on the M-Pesa statement. If the money arrived, contact the customer and the owner before taking any other payment.',
-                // Opened straight from the warning, so nobody has to search for them.
-                'orders' => $orders->take(10)->map(fn ($o) => ['id' => $o->id, 'reference' => $o->cipher])->all(),
-            ];
-        }
-
-        // Money Safaricom confirmed that matches no order (its prompt was never recorded here).
-        $unmatched = \App\Models\AuditLog::where('action', 'payment.unmatched')->where('created_at', '>=', now()->subDays(14))->latest('id')->get();
-        if ($unmatched->isNotEmpty()) {
-            $warnings[] = [
-                'key' => 'unmatched_payments',
-                'title' => $unmatched->count() . ' M-Pesa ' . ($unmatched->count() === 1 ? 'payment matches' : 'payments match') . ' no order',
-                'detail' => $unmatched->take(5)->map(fn ($log) => 'KSh ' . number_format((int) ($log->after['amount'] ?? 0)) . ' (code ' . ($log->after['receipt'] ?? 'unknown')
-                    . ', phone ending ' . ($log->after['phone_ending'] ?? '?') . ') on ' . $log->created_at->timezone(config('app.display_timezone'))->format('d M, H:i'))->implode('; ') . '.',
-                'action' => 'Find the customer by the phone and time on the M-Pesa statement, then the owner decides: record it on their order or refund it.',
-            ];
-        }
+        // Money cases (unmatched payments, prompts only the statement can settle) are in the
+        // Studio's M-Pesa payment review, not here: one place per problem.
 
         return $warnings;
     }

@@ -109,6 +109,8 @@ class StudioController extends Controller
         // The background machinery staff depend on (payment checks, emails), only when something is wrong.
         $attention['system'] = \App\Support\SystemHealth::warnings();
 
+        // M-Pesa money only the statement explains (OD-1): everyone sees it, the owner settles it.
+        $attention['payment_review'] = app(\App\Services\PaymentReviewService::class)->forStudio();
         return Inertia::render('Admin/StudioDashboard', [
             'stats'      => $stats,
             'workflow' => $workflow,

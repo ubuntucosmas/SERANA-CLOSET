@@ -135,8 +135,8 @@ class OperationalConstraintsTest extends TestCase
             ['Name' => 'Amount', 'Value' => 3000], ['Name' => 'MpesaReceiptNumber', 'Value' => 'RORPHAN1'], ['Name' => 'PhoneNumber', 'Value' => 254700000123],
         ]]]]])->assertOk();
 
-        $warning = $this->systemWarnings()['unmatched_payments'];
-        $this->assertStringContainsString('KSh 3,000 (code RORPHAN1, phone ending 123)', $warning['detail']);
+        $review = $this->actingAs($this->owner())->get(route('studio.index'))->viewData('page')['props']['attention']['payment_review'];
+        $this->assertSame([['unmatched', 3000, 'RORPHAN1', '123']], array_map(fn ($r) => [$r['kind'], $r['amount'], $r['receipt'], $r['phone_ending']], $review));
     }
 
     public function test_a_placeholder_nobody_claimed_is_closed_so_the_order_can_be_paid_or_expire(): void
@@ -363,9 +363,9 @@ class OperationalConstraintsTest extends TestCase
 
         $warnings = $this->systemWarnings();
 
-        $this->assertSame(['failed_jobs', 'queue', 'stale_prompts'], collect(array_keys($warnings))->sort()->values()->all());
-        $this->assertStringContainsString($order->cipher, $warnings['stale_prompts']['detail']);
-        $this->assertStringContainsString('before taking any other payment', $warnings['stale_prompts']['action']);
+        $this->assertSame(['failed_jobs', 'queue'], collect(array_keys($warnings))->sort()->values()->all(), 'money cases live in the payment review, not here');
+        $review = $this->actingAs($this->owner())->get(route('studio.index'))->viewData('page')['props']['attention']['payment_review'];
+        $this->assertSame([['prompt', $order->cipher]], array_map(fn ($r) => [$r['kind'], $r['order']['reference']], $review));
     }
 
     public function test_a_checkout_with_no_way_to_receive_the_order_is_flagged_to_staff(): void

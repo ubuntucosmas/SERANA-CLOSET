@@ -24,6 +24,9 @@ class ReconcilePendingPayments extends Command
     protected $signature = 'mpesa:reconcile';
     protected $description = 'Resolve pending M-Pesa payments via STK Query when the callback never arrived';
 
+    /** Set while every STK query gets no answer from Safaricom (read by App\Support\SystemHealth). */
+    public const FAILING_SINCE = 'serana:mpesa:query_failing_since';
+
     /** Daraja result codes that mean the push is definitively not getting paid. */
     private const FAILURE_CODES = [1032, 1037, 1025, 1, 2001];
 
@@ -55,6 +58,12 @@ class ReconcilePendingPayments extends Command
 
             $result = $this->queryRespectingThrottle($mpesa, $target['checkout_id'], $spacing);
             $code = $result['data']['ResultCode'] ?? null;
+            // No answer at all (credentials, network): remembered so the Studio can say checks are failing.
+            if (($result['data'] ?? null) === null) {
+                \Illuminate\Support\Facades\Cache::add(self::FAILING_SINCE, now()->timestamp, now()->addDay());
+            } else {
+                \Illuminate\Support\Facades\Cache::forget(self::FAILING_SINCE);
+            }
 
             if ($code === null) {
                 continue; // network/auth/throttle hiccup or still processing — retry next run

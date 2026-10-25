@@ -64,12 +64,34 @@ class ThemeController extends Controller
         return back()->with('success', 'Store settings updated.');
     }
 
+    /** Settings that send customers, orders or financial alerts somewhere: owner only (Role 'settings.contact'). */
+    public const OWNER_KEYS = ['whatsapp_number', 'care_phone', 'contact_email', 'notification_email'];
+
+    /** A manager may save the rest of the form; changing an owner key is refused on that field. */
+    private function guardOwnerKeys(array $settings): void
+    {
+        if (request()->user()?->can('settings.contact')) {
+            return;
+        }
+        $errors = [];
+        foreach (array_intersect_key($settings, array_flip(self::OWNER_KEYS)) as $key => $value) {
+            $value = in_array($key, ['whatsapp_number', 'care_phone'], true) ? WhatsApp::normalizeNumber($value) : $value;
+            if ((string) ThemeSetting::where('key', $key)->value('value') !== (string) $value) {
+                $errors[(request()->routeIs('admin.theme.bulk_update') ? 'settings.' : '') . $key] = 'Only the owner can change where customers, orders and alerts are sent.';
+            }
+        }
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+    }
+
     /**
      * Save store text settings and record what changed: these say where customers
      * send orders and money (WhatsApp) and where owner alerts go.
      */
     private function saveText(array $settings): void
     {
+        $this->guardOwnerKeys($settings);
         $before = [];
         $after = [];
         DB::transaction(function () use ($settings, &$before, &$after) {

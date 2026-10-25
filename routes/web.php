@@ -160,6 +160,16 @@ Route::middleware(['auth', 'admin'])->prefix('studio')->group(function () {
     Route::post('/payment/{payment}/confirm', [StudioController::class, 'confirmPayment'])->middleware('can:ledger.reverse')->name('studio.payment.confirm');
     Route::put('/order/{order}/deposit', [StudioController::class, 'setDeposit'])->middleware('can:deposit.override')->name('studio.order.deposit');
 
+    // M-Pesa payment review (OD-1): money only the statement explains. Owner only.
+    Route::middleware('can:payments.review')->prefix('payment-review')->group(function () {
+        Route::post('/', [App\Http\Controllers\Admin\PaymentReviewController::class, 'store'])->name('studio.payment_review.store');
+        Route::post('/{unmatched}/match', [App\Http\Controllers\Admin\PaymentReviewController::class, 'match'])->name('studio.payment_review.match');
+        Route::post('/{unmatched}/refund-required', [App\Http\Controllers\Admin\PaymentReviewController::class, 'requireRefund'])->name('studio.payment_review.refund_required');
+        Route::post('/{unmatched}/refunded', [App\Http\Controllers\Admin\PaymentReviewController::class, 'refunded'])->name('studio.payment_review.refunded');
+        Route::post('/{unmatched}/note', [App\Http\Controllers\Admin\PaymentReviewController::class, 'note'])->name('studio.payment_review.note');
+        Route::post('/prompt/{attempt}/confirm', [App\Http\Controllers\Admin\PaymentReviewController::class, 'confirmPrompt'])->name('studio.payment_review.prompt_confirm');
+        Route::post('/prompt/{attempt}/close', [App\Http\Controllers\Admin\PaymentReviewController::class, 'closePrompt'])->name('studio.payment_review.prompt_close');
+    });
     // Catalog Management
     Route::get('/catalog', [App\Http\Controllers\Admin\CatalogController::class, 'index'])->name('admin.catalog.index');
     Route::post('/catalog/product', [App\Http\Controllers\Admin\CatalogController::class, 'storeProduct'])->name('admin.catalog.store_product');

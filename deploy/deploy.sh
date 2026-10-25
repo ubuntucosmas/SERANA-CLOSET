@@ -22,9 +22,12 @@ echo "Current release: $(git describe --tags --always) → deploying ${TAG}"
 mkdir -p "$BACKUP_DIR"
 STAMP="$(date +%F-%H%M)"
 env_val() { grep -E "^$1=" .env | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
-MYSQL_PWD="$(env_val DB_PASSWORD)" mysqldump --single-transaction --routines --triggers \
-    -h "$(env_val DB_HOST)" -P "$(env_val DB_PORT)" -u "$(env_val DB_USERNAME)" "$(env_val DB_DATABASE)" \
+# A private credentials file: ~/.my.cnf would otherwise override MYSQL_PWD.
+CNF="$(mktemp)"; chmod 600 "$CNF"
+printf '[client]\nhost=%s\nport=%s\nuser=%s\npassword="%s"\n' "$(env_val DB_HOST)" "$(env_val DB_PORT)" "$(env_val DB_USERNAME)" "$(env_val DB_PASSWORD)" > "$CNF"
+mysqldump --defaults-file="$CNF" --single-transaction --routines --triggers "$(env_val DB_DATABASE)" \
     | gzip > "$BACKUP_DIR/serana-db-${STAMP}.sql.gz"
+rm -f "$CNF"
 [ -s "$BACKUP_DIR/serana-db-${STAMP}.sql.gz" ] || { echo "Database backup is empty: stopping before any change."; exit 1; }
 tar -czf "$BACKUP_DIR/serana-uploads-${STAMP}.tar.gz" -C storage/app public 2>/dev/null || true
 echo "Backups: $BACKUP_DIR/serana-*-${STAMP}.*  (copy them off this server)"

@@ -6,3 +6,7 @@
 
 # Cron-only hosts (no supervisor): also drain the email queue every minute.
 # * * * * * cd /var/www/serana && php artisan queue:work --stop-when-empty --tries=3 --max-time=55 >> /dev/null 2>&1
+
+# Nightly backup at 02:30 (database + uploads, checked, copied off-server, pruned).
+# Set BACKUP_REMOTE to an rclone destination first; see deploy/RESTORE.md.
+30 2 * * * cd /var/www/serana && BACKUP_REMOTE=r2:serana-backups ./deploy/backup.sh >> storage/logs/backup.log 2>&1
