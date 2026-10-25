@@ -10,9 +10,6 @@ import { ZiggyVue, route } from '../../vendor/tightenco/ziggy';
 // this function); scripts call route() globally, so expose the bundled one.
 globalThis.route = route;
 
-// Global scroll-reveal directive using IntersectionObserver and Anime.js
-import { revealDirective } from './Directives/reveal';
-
 import { createPinia } from 'pinia';
 import { trackNavigation } from './Composables/useBackToShop';
 
@@ -35,7 +32,6 @@ createInertiaApp({
             .use(plugin)
             .use(ZiggyVue)
             .use(pinia)
-            .directive('reveal', revealDirective)
             .mount(el);
     },
     progress: {

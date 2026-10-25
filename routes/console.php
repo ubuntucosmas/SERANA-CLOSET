@@ -1,12 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
 
 // Every job records when it last succeeded or failed (App\Support\JobRuns): preflight prints it, the Studio warns on failure.
 $track = fn (\Illuminate\Console\Scheduling\Event $event, string $name) => $event
@@ -30,7 +24,7 @@ $track(Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever(\App\C
 // A closure returning false counts as a failed run, so the result (sent or not) is not returned.
 $track(Schedule::call(function () { \App\Support\OperatorAlerts::health(); })->everyFiveMinutes()->name('operator-alerts')->withoutOverlapping(), 'operator-alerts');
 
-// Greenlight or close drops once their reservation deadline passes.
-// Phase C: a late payment whose item sold out, still undecided after the policy's days, becomes a refund owed.
+// A late payment whose item sold out, still undecided after the policy's days, becomes a refund owed.
 $track(Schedule::command('serana:resolve-overdue')->hourly()->withoutOverlapping(), 'serana:resolve-overdue');
+// Greenlight or close drops once their reservation deadline passes.
 $track(Schedule::command('drops:close-expired')->everyFiveMinutes()->withoutOverlapping(), 'drops:close-expired');
